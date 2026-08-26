@@ -1,15 +1,32 @@
-# Stack — a versão Postgres
+# Stack v1.1
 
-> Arquivo separado do [PLANO.md](./PLANO.md), a pedido do dono.
-> **Status:** rascunho para revisão · 25/08/2026
+> **A versão Postgres.** Arquivo separado do [PLANO.md](./PLANO.md).
+> **Estado:** revisada · 25/08/2026
 >
-> **De onde veio.** Pivotada de `herz/planejamento/Stack.md` (788 linhas, v4.3), que é
-> a melhor peça de arquitetura do acervo — mas foi escrita para **SQL Server em Windows
-> Server**. Trocar o banco reabre concorrência, migrations, tipos e assíncrono.
+> **Versionamento.** MAJOR sobe quando uma decisão fechada é revertida ou trocada;
+> MINOR quando decisão nova entra ou um furo é fechado. Toda mudança entra no
+> histórico abaixo — documento sem histórico não tem como provar que não derivou.
 >
-> **O que mudou desde então.** O dono escreveu 13 ADRs no `prumo` em 24/08 que já
-> resolvem metade disto, e melhor. Onde há ADR, **o ADR vence** — está aplicado em
-> produção e o herz nunca chegou a construir o backend.
+---
+
+## Histórico
+
+| Versão | O que mudou |
+|---|---|
+| **1.1** | Revisão por seis agentes: 89 achados, 19 críticos. **Outbox** reenviava a cada tick (o `SELECT` não lia o lease) e TX 2 não validava posse. **Duplicate-in-flight** tinha três respostas simultâneas e o teste aprovava a arquitetura rejeitada. **`RESET ROLE`**: a citação elidia a oração que decide o caso, e faltavam dois vetores. **Dinheiro**: `numeric[]` e `binary:true`. **CSRF** do oRPC descrito errado |
+| 1.0 | Primeira versão que sobreviveu à revisão adversarial. Oito rodadas, resumidas abaixo |
+| 0.8 | **Pool:** espera limitada no HTTP não alcançava o bloqueio no índice único → `pg_try_advisory_xact_lock` fail-fast. **Replay:** envelope versionado era `unknown` disfarçado → desfecho estável separado do resultado tipado. **Extensões:** regra precisada para *trusted* + não-superuser |
+| 0.7 | **Idempotência:** versão no escopo causava cobrança dupla no deploy → chave estável entre versões. `pgcrypto` removido. `SECURITY DEFINER` com `search_path`. `409` decidido |
+| 0.6 | Contradição interna: `ALTER ROLE … SET role` invalidava o próprio teste hostil → removido. `PUBLIC` auditado. Privilégio efetivo via `pg_has_role` |
+| 0.5 | **Três identidades** — `RESET ROLE` devolvia superusuário. `INHERIT FALSE` faz a fuga reduzir privilégio |
+| 0.4 | `pipeline` não remove ordenação; o problema é ausência de barreira de aquisição. Princípio da camada dona |
+| 0.3 | `onConnect` no lugar de `pool.on('connect')`. Invariante unificada idempotência + outbox |
+| 0.2 | TanStack Start é RC, não GA. Linter duplo. Três classes de regra. `@expect-rule` |
+| 0.1 | Pivot do `herz/planejamento/Stack.md` v4.3, SQL Server → Postgres |
+
+**Origem.** Pivotada de `herz/planejamento/Stack.md` (788 linhas, v4.3), a melhor peça de arquitetura do acervo — escrita para **SQL Server em Windows Server**. Trocar o banco reabriu concorrência, migrations, tipos e assíncrono.
+
+**Precedência.** Os 13 ADRs do `prumo` (24/08) resolvem parte disto, e melhor. Onde há ADR, **o ADR vence** — está aplicado, e o herz nunca chegou a construir o backend. Onde o ADR ficou atrás do `package.json`, **vence o código**.
 
 ---
 
@@ -160,7 +177,7 @@ Um campo trafegando não impede o backend de processar duas vezes. A invariante 
 |---|---|
 | Mesmo `commandId`, mesmo hash | **Replay** do resultado guardado |
 | Mesmo `commandId`, hash diferente | **Erro** — é outro comando com id reaproveitado |
-| Dois concorrentes | Um executa; o outro replica |
+| Dois concorrentes | Um executa; o segundo recebe `409` e **não espera** |
 
 > **A invariante unificada.** Toda mutação idempotente que produza efeito externo persiste **estado de negócio, registro de idempotência e linha de outbox na mesma transação.**
 
@@ -189,7 +206,7 @@ replay   BEGIN
 1 linha de outbox
 nenhuma execução duplicada
 pico de conexões do banco ≤ limite declarado   ← sem esta, o teste aprova um DoS
-duplicatas excedentes: replay ou 409
+duplicatas excedentes: 409, NUNCA replay        ← replay aqui aprova o DoS
 ```
 
 > ⚠️ **Uma linha de outbox não é um efeito externo.** O outbox é **at-least-once por construção**: o worker envia, o destinatário recebe, o processo morre antes de marcar entregue, e no restart envia de novo.
@@ -206,7 +223,11 @@ Só com cooperação do destinatário o efeito externo se aproxima de exactly-on
 
 `A` está executando; `B` chega com o mesmo `commandId`. Duas semânticas válidas: **esperar e replicar**, ou responder `409`/`202 em andamento` e deixar o cliente tentar de novo.
 
-**Escolhido: esperar e replicar — com espera limitada.** É API mais simples para o agente e para o frontend, e evita backoff no cliente para um caso que o servidor sabe resolver.
+~~**Candidata rejeitada: esperar e replicar.**~~ Parecia API mais simples para o agente e para o frontend.
+**Foi descartada** pelo motivo do quadro abaixo: a espera consome conexão do pool antes de qualquer timeout
+de HTTP valer.
+
+**Escolhido: fail-fast.** O segundo request **não espera** — devolve a conexão e recebe `409`.
 
 > ⚠️ **A espera precisa de teto.** 500 requests com o mesmo `commandId`, o primeiro travando 25 s, todos segurando conexão HTTP e do pool: a idempotência vira vetor de esgotamento de recurso. Numa stack para agentes isso é pior, porque um laço errado gera duplicata em volume.
 
@@ -358,9 +379,18 @@ No herz havia uma armadilha real: **o `tedious` devolve `decimal` como `number` 
 
 **O `pg` faz o contrário: devolve `numeric` como string por padrão.** É o comportamento seguro, e é ganho líquido.
 
-Duas armadilhas que sobram, e precisam de teste:
-1. `pg` também devolve **`bigint` (`int8`) como string**. Esperar `number` quebra.
-2. `pg` devolve `float8` como `number` — nunca usar float no caminho do dinheiro.
+**Mas o ganho vale só para o escalar, e só no protocolo texto.** Quatro armadilhas, todas com teste:
+
+1. `pg` devolve **`bigint` (`int8`) como string**. Esperar `number` quebra.
+2. `pg` devolve `float8` como `number` — nunca float no caminho do dinheiro.
+3. **`numeric[]` volta como `number[]`.** O OID 1231 tem parser registrado, e é `parseFloatArray` — cada
+   elemento passa por `parseFloat`. Um `array_agg(valor)` perde precisão **em silêncio**. Agregue como
+   `text[]` ou `jsonb` de string.
+4. **`binary: true` no Pool reverte o escalar.** O OID 1700 tem parser binário que termina em
+   `Math.round(result * scale) / scale`. A flag é proibida no caminho do dinheiro, e isso vai em teste.
+
+> Teste de fronteira que só cobre `SELECT valor` aprova o driver e libera o `array_agg`. O teste afirma
+> `typeof` sobre uma **linha real**, com agregado.
 
 **Regra:** nada de float em nenhum ponto do caminho do dinheiro — nem no domínio, nem em payload `jsonb`, nem em gráfico.
 
@@ -414,7 +444,21 @@ Migration B — CONTRACT
 
 `SET ROLE` reduz o `current_user`. **Não apaga a identidade que abriu a sessão.** E a documentação do PostgreSQL é explícita nos dois pontos que fecham o caso:
 
-> *"`RESET ROLE` sets the current user identifier to … the current **session user** identifier."*
+> *"`RESET ROLE` sets the current user identifier to the **connection-time setting** specified by the
+> command-line options, `ALTER ROLE`, or `ALTER DATABASE`, if any such settings exist. **Otherwise**,
+> `RESET ROLE` sets the current user identifier to the current session user identifier."*
+>
+> ⚠️ **A primeira oração decide o caso, e vinha elidida.** Toda a arquitetura depende de **não existir**
+> connection-time setting de `role`. São três vetores, e só um passa por `ALTER ROLE`:
+>
+> | Vetor | Onde mora |
+> |---|---|
+> | `ALTER ROLE app_login SET role = app` | SQL — já proibido abaixo |
+> | `ALTER DATABASE <db> SET role = app` | SQL — **não estava coberto** |
+> | `options=-c role=app` na connection string, ou `PGOPTIONS` | **configuração de deploy, nenhum SQL** |
+>
+> O terceiro é o perigoso: é o que alguém acrescenta para "resolver" um erro de permissão sem tocar em SQL,
+> e o teste hostil continua **verde**.
 > *"These forms can be executed by **any user**."*
 
 `RESET ROLE` **não é privilegiado**. Qualquer código com SQL cru emite aquilo — e um agente tentando resolver um erro de permissão escreve exatamente isso.
@@ -458,7 +502,7 @@ REVOKE TEMP ON DATABASE <db> FROM PUBLIC;   -- se não usar tabela temporária
 Duas armadilhas práticas:
 
 - **`ALTER DEFAULT PRIVILEGES` só afeta o futuro.** Função que já existe precisa de `REVOKE` explícito. A doc recomenda o revoke **na mesma transação que cria o objeto**, "para que não haja janela".
-- **As extensões quebram no dia 1.** `pgcrypto` e `citext` criam funções com `EXECUTE` para `PUBLIC`. Revogar em bloco tira `gen_random_uuid()` da aplicação. O revoke vem junto de `GRANT EXECUTE` explícito para `app` na lista curta do que ela usa — o que é bom, vira lista versionada, mas se não for previsto o primeiro deploy quebra e alguém reverte o endurecimento inteiro por pressa.
+- **As extensões quebram no dia 1.** `citext` cria funções com `EXECUTE` para `PUBLIC`; revogar em bloco tira `citext_eq`, `citext_cmp` e os operadores de comparação — e a igualdade case-insensitive de e-mail para de funcionar. *(`gen_random_uuid()` **não** serve de exemplo: é função core em `pg_catalog`, não criada por `db_owner`, logo imune ao `ALTER DEFAULT PRIVILEGES FOR ROLE db_owner`.)* O revoke vem junto de `GRANT EXECUTE` explícito para `app` na lista curta do que ela usa — o que é bom, vira lista versionada, mas se não for previsto o primeiro deploy quebra e alguém reverte o endurecimento inteiro por pressa.
 
 ### Extensões — `ALTER DEFAULT PRIVILEGES` não alcança
 
@@ -504,6 +548,7 @@ pg_has_role('app_login', 'app',      'USAGE')                 → false  -- INHE
 pg_has_role('app_login', 'app',      'SET')                   → true
 has_table_privilege('app_login', 'public.pedido', 'SELECT')   → false
 session_user = app_login · não superuser · não BYPASSRLS · não CREATEDB · não CREATEROLE
+current_setting('role', true)  →  nulo ou vazio     ← senão o RESET cai em app
 
 -- comportamento: a fuga não funciona
 RESET ROLE  → SELECT protegido → PERMISSION DENIED
@@ -571,12 +616,19 @@ Regra herdada e inegociável: **nenhum I/O externo dentro de transação.** Efei
 A captura da fila, que no SQL Server exigia `WITH (UPDLOCK, READPAST)`:
 
 ```sql
+-- TX 1: captura. O predicado PRECISA ler o lease.
 SELECT id, payload
   FROM outbox
- WHERE entregue_em IS NULL AND tentar_apos <= now()
- ORDER BY criado_em
+ WHERE entregue_em IS NULL
+   AND tentar_apos <= now()
+   AND (lease_until IS NULL OR lease_until <= now())   -- sem isto, reenvio a cada tick
    FOR UPDATE SKIP LOCKED
  LIMIT $1;
+
+UPDATE outbox
+   SET lease_until = clock_timestamp() + $2, lease_by = $3
+ WHERE id = ANY($4);
+COMMIT;
 ```
 
 `FOR UPDATE SKIP LOCKED` é nativo, legível, e resolve captura atômica sem hint proprietário. **A parte mais frágil do desenho do herz vira SQL padrão.**
@@ -598,11 +650,36 @@ COMMIT
         ↓
 
 TX 2
-  marca entregue
+  UPDATE outbox SET entregue_em = now()
+   WHERE id = $1 AND lease_by = $2 AND lease_until > now()
 COMMIT
 ```
 
-**claim → commit → I/O → acknowledge.** O diagrama fica no ADR nessa forma quase visual, porque é difícil um agente inventar outra coisa olhando para ele.
+**claim → commit → I/O → acknowledge.** O diagrama fica no ADR nessa forma quase visual, porque é difícil um
+agente inventar outra coisa olhando para ele.
+
+> ⚠️ **Três coisas que o desenho ingênuo erra, e as três são silenciosas.**
+>
+> **1 · O lease precisa estar no predicado.** Depois do COMMIT de TX 1 o lock de `FOR UPDATE` morre, e
+> `SKIP LOCKED` só pula linha travada por transação **aberta**. Sem `AND (lease_until IS NULL OR
+> lease_until <= now())`, a linha volta a satisfazer o predicado e sai de novo **a cada tick do poller**
+> enquanto o I/O está em voo. Isso não é o at-least-once declarado — é N envios por segundo por worker.
+>
+> **2 · TX 2 valida posse.** Se o lease expirou durante o I/O, dois workers escrevem por cima um do outro —
+> e um `500` tardio de W2 pode mandar para a fila morta uma mensagem que W1 **entregou**. Zero linhas
+> afetadas significa *"perdi o lease: não escrevo, não incremento tentativa, apenas logo"*.
+>
+> **3 · `now()` não avança dentro da transação.** É `transaction_timestamp()`. Numa captura em lote de 10
+> com chamadas de 5 s, o décimo item recebe lease já vencido. Usar `clock_timestamp()` ao gravar, ou um
+> item por transação.
+>
+> **Consequência de teste:** o lease é medido pelo relógio do **banco**. O teste de expiração semeia
+> `lease_until` no passado — nunca manipula o relógio da aplicação. Sem essa frase, o regime determinístico
+> do §7 aprova um mecanismo que nunca foi exercitado.
+
+**O outbox não preserva ordem.** Com `SKIP LOCKED` e N workers, `ORDER BY criado_em` ordena a *captura*,
+nunca a *entrega*. Se alguma mensagem depende de ordem, o consumidor precisa de número de sequência por
+chave de agregado — dedupe não reordena.
 
 - Lease com prazo, backoff exponencial, fila morta após N tentativas.
 - **Idempotência do consumidor é obrigatória** — reprocessamento acontece.
@@ -729,7 +806,7 @@ O último importa especialmente aqui: em PATCH com Zod e banco, a diferença ent
 | ⬜🔴 **Origem do conteúdo** | hardcode · MD/MDX no repo · CMS · banco. É literalmente o *"hardcoded"* da queixa original |
 | ⬜🔴 **Autorização** | O painel só tem auth **corporativa**. Falta o modelo acima disso, e a distinção que a IA mais erra: `if (!user) throw 401` não responde *"este usuário pode modificar **este** recurso"*. Autorização vira primitivo do `app/`, não invenção de cada rota |
 | ⬜🔴 **Contexto de tenant em RLS** | Se RLS for usada para multi-tenancy, o contexto precisa ser **transaction-local** — senão vaza por connection pooling |
-| ⬜ CSRF | Nasce junto com a decisão de autenticação, nunca isolada. O oRPC tem plugin para GET com `SameSite=Lax`, que não cobre `SameSite=None` |
+| ⬜ CSRF | Nasce junto com a decisão de autenticação, nunca isolada. O oRPC traz `SimpleCsrfProtectionHandlerPlugin` + `SimpleCsrfProtectionLinkPlugin`: conferência de **header customizado** (`x-csrf-token`, valor constante `"orpc"` por padrão), aplicada a **toda** procedure — não só GET, e **sem relação com `SameSite`**. A garantia vem do preflight CORS. Não substitui token por sessão |
 | ⬜ Unidade de dinheiro | Centavos, decimal ou nano. Ver §4.4 |
 | ⬜ Nível WCAG | O painel diz "declarado" e nunca nomeia A/AA/AAA |
 | ⬜ Nomes das cinco famílias de cor | Hoje são de PCP |
