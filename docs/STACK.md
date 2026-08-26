@@ -1,4 +1,4 @@
-# Stack v1.1
+# Stack v1.2
 
 > **A versão Postgres.** Arquivo separado do [PLANO.md](./PLANO.md).
 > **Estado:** revisada · 25/08/2026
@@ -13,7 +13,8 @@
 
 | Versão | O que mudou |
 |---|---|
-| **1.1** | Revisão por seis agentes: 89 achados, 19 críticos. **Outbox** reenviava a cada tick (o `SELECT` não lia o lease) e TX 2 não validava posse. **Duplicate-in-flight** tinha três respostas simultâneas e o teste aprovava a arquitetura rejeitada. **`RESET ROLE`**: a citação elidia a oração que decide o caso, e faltavam dois vetores. **Dinheiro**: `numeric[]` e `binary:true`. **CSRF** do oRPC descrito errado |
+| **1.2** | **Idempotência:** `409 nunca replay` era correção exagerada — são dois estados, com **recheck** depois do lock. **Advisory lock** em namespace `(int4,int4)`, separado do lock de migration em `bigint`. **DoS:** três tetos, não um — a fila do pool também enche. **`version`** ganha trigger, senão depende de memória. **Desfecho** separa `commandStatus` de `effectStatus`. **TTL** com lápide de retenção longa |
+| 1.1 | Revisão por seis agentes: 89 achados, 19 críticos. **Outbox** reenviava a cada tick (o `SELECT` não lia o lease) e TX 2 não validava posse. **Duplicate-in-flight** tinha três respostas simultâneas e o teste aprovava a arquitetura rejeitada. **`RESET ROLE`**: a citação elidia a oração que decide o caso, e faltavam dois vetores. **Dinheiro**: `numeric[]` e `binary:true`. **CSRF** do oRPC descrito errado |
 | 1.0 | Primeira versão que sobreviveu à revisão adversarial. Oito rodadas, resumidas abaixo |
 | 0.8 | **Pool:** espera limitada no HTTP não alcançava o bloqueio no índice único → `pg_try_advisory_xact_lock` fail-fast. **Replay:** envelope versionado era `unknown` disfarçado → desfecho estável separado do resultado tipado. **Extensões:** regra precisada para *trusted* + não-superuser |
 | 0.7 | **Idempotência:** versão no escopo causava cobrança dupla no deploy → chave estável entre versões. `pgcrypto` removido. `SECURITY DEFINER` com `search_path`. `409` decidido |
@@ -177,7 +178,8 @@ Um campo trafegando não impede o backend de processar duas vezes. A invariante 
 |---|---|
 | Mesmo `commandId`, mesmo hash | **Replay** do resultado guardado |
 | Mesmo `commandId`, hash diferente | **Erro** — é outro comando com id reaproveitado |
-| Dois concorrentes | Um executa; o segundo recebe `409` e **não espera** |
+| Dois concorrentes, o primeiro **em voo** | Um executa; o segundo recebe `409 IN_PROGRESS` e **não espera** |
+| Segundo chega **depois do commit** | **Replay** — o registro concluído existe |
 
 > **A invariante unificada.** Toda mutação idempotente que produza efeito externo persiste **estado de negócio, registro de idempotência e linha de outbox na mesma transação.**
 
@@ -206,7 +208,9 @@ replay   BEGIN
 1 linha de outbox
 nenhuma execução duplicada
 pico de conexões do banco ≤ limite declarado   ← sem esta, o teste aprova um DoS
-duplicatas excedentes: 409, NUNCA replay        ← replay aqui aprova o DoS
+nenhuma duplicata espera segurando recurso     ← a propriedade, não a contagem de status
+pico de pool.waitingCount ≤ limite declarado
+requests pendentes ao final = 0
 ```
 
 > ⚠️ **Uma linha de outbox não é um efeito externo.** O outbox é **at-least-once por construção**: o worker envia, o destinatário recebe, o processo morre antes de marcar entregue, e no restart envia de novo.
@@ -227,7 +231,23 @@ Só com cooperação do destinatário o efeito externo se aproxima de exactly-on
 **Foi descartada** pelo motivo do quadro abaixo: a espera consome conexão do pool antes de qualquer timeout
 de HTTP valer.
 
-**Escolhido: fail-fast.** O segundo request **não espera** — devolve a conexão e recebe `409`.
+**Escolhido: fail-fast.** O segundo request **não espera** — devolve a conexão.
+
+A ordem importa, e são três passos, não um:
+
+```
+1. registro concluído existe?           → sim  → REPLAY
+2. pg_try_advisory_xact_lock(…)         → false → 409 IN_PROGRESS, devolve a conexão
+3. adquiriu o lock                      → RECHECK — outro pode ter commitado entre 1 e 2
+                                        → só executa se ainda não existir
+```
+
+> ⚠️ **O recheck do passo 3 não é opcional.** Sem ele, dois requests que passam pelo passo 1 antes do commit
+> de A executam os dois — o lock serializa, não impede.
+>
+> E **o critério de aceite não conta status.** Num teste de 500 concorrentes, escalonamento faz alguns
+> chegarem depois do commit e receberem replay legitimamente. A propriedade é *nenhuma duplicata espera
+> segurando recurso*, nunca *499 recebem 409*.
 
 > ⚠️ **A espera precisa de teto.** 500 requests com o mesmo `commandId`, o primeiro travando 25 s, todos segurando conexão HTTP e do pool: a idempotência vira vetor de esgotamento de recurso. Numa stack para agentes isso é pior, porque um laço errado gera duplicata em volume.
 
@@ -236,10 +256,22 @@ de HTTP valer.
 > terminar. A conexão já foi consumida; timeout de HTTP não devolve conexão que o Postgres está segurando.
 > Com 500 duplicatas: 1 trabalhando, **499 conexões do pool paradas.**
 
-**A invariante:** duplicate-in-flight **nunca espera ocupando transação ou conexão do pool** pela janela HTTP.
+**A invariante:** duplicate-in-flight **nunca espera indefinidamente — nem no PostgreSQL, nem no pool, nem na
+borda HTTP.** Limitar só o banco deixa 490 requests na fila do pool: com `max: 10`, dez pegam client e o resto
+vai para a `pending queue` do `pg-pool`. São três tetos, e os três precisam existir:
 
 ```
-A  →  pg_try_advisory_xact_lock(hash(scope, commandId))  →  true   →  executa
+orçamento de concorrência HTTP
+        ↓
+teto da fila da aplicação
+        ↓
+pool max + connectionTimeoutMillis     ← sem o timeout, a fila não tem timer
+        ↓
+pg_try_advisory_xact_lock             ← só este protege o banco
+```
+
+```
+A  →  pg_try_advisory_xact_lock(NS_IDEMPOTENCIA, hash32(scope, commandId))  →  true   →  executa
 B  →  mesma chave                                         →  false  →  devolve a conexão
                                                               →  409 · Retry-After
 ```
@@ -248,12 +280,21 @@ Doc: *"either obtain the lock immediately and return `true`, or **return `false`
 
 Três premissas que precisam estar escritas, porque cada uma falha em silêncio:
 
-1. **Variante `_xact_`, obrigatoriamente.** Liberada no fim da transação, sem release manual — o mesmo instante
-   em que a linha de idempotência fica visível. A de sessão vazaria entre requests na conexão reaproveitada.
+1. **Variante `_xact_`, obrigatoriamente.** A de sessão vazaria entre requests na conexão reaproveitada do pool.
+   E a propriedade que sustenta o desenho é mais forte que "mesmo instante": em `CommitTransaction()` a ordem é
+   `RecordTransactionCommit()` → `ProcArrayEndTransaction()` → `ResourceOwnerRelease(RESOURCE_RELEASE_LOCKS)`.
+   **O estado de commit é publicado antes da liberação dos locks de transação** — logo, quando B adquire o lock
+   que A soltou, A já saiu do proc array. *(Camada dona: PostgreSQL, `xact.c`.)*
 2. **O lock vem antes do `INSERT`**, chaveado no mesmo escopo do índice único. Fora de ordem, B ainda bloqueia.
-3. **Colisão de hash é aceitável.** Advisory lock aceita `bigint`; dois comandos podem colidir. O custo é um
-   `409` espúrio. **A correção continua no índice único** — o lock é só o caminho rápido. Quem não souber disso
-   vai "consertar" a colisão removendo o lock, e o furo do pool volta. Registrado aqui como decisão — um teste que decide arquitetura sem o documento perceber é a classe de coisa que esta Stack existe para impedir.
+3. **Forma de dois `int4`, nunca de um `bigint`.** O PostgreSQL mantém **dois espaços de lock que não se
+   sobrepõem**: `(bigint)` e `(int4, int4)`. As migrations do prumo já usam o primeiro —
+   `pg_advisory_lock(8_140_772_301)` em `migrate.ts:43,53,58,81`, com o comentário *"Any other process using
+   this same key would be a bug"*. Se a idempotência hashear para `bigint`, um comando pode colidir com o lock
+   de migration e travar um deploy. Usar `pg_try_advisory_xact_lock(NS_IDEMPOTENCIA, hash32(…))` transforma
+   improbabilidade em **impossibilidade estrutural entre classes de lock**.
+4. **Colisão dentro do namespace é aceitável.** Dois comandos podem hashear igual; o custo é um `409` espúrio.
+   **A correção continua no índice único** — o lock é só o caminho rápido. Quem não souber disso vai
+   "consertar" a colisão removendo o lock, e o furo do pool volta. Registrado aqui como decisão — um teste que decide arquitetura sem o documento perceber é a classe de coisa que esta Stack existe para impedir.
 
 ### 3.2 O hash — canonicalização definida pelo contrato
 
@@ -302,6 +343,27 @@ Quem quer mesmo uma operação nova em `v2` **gera um `commandId` novo**.
 > Só funciona se `operationVersion` for **campo do cliente**, imútavel e carregado em todo retry, **declarado no
 > contrato**. Nunca inferido da versão do servidor em execução.
 
+### TTL — parte do contrato, não faxina
+
+`UNIQUE (scope, commandId)` para sempre faz a tabela crescer sem limite. E o conserto ingênuo cria o pior bug
+possível:
+
+```
+DELETE FROM comandos WHERE criado_em < now() - interval '30 days';
+        ↓
+retry antigo chega  →  não encontra o commandId  →  EXECUTA DE NOVO
+```
+
+Duas retenções, não uma:
+
+| O quê | Retenção |
+|---|---|
+| **Resultado detalhado** (payload, hash, resposta) | TTL curto — é o que pesa |
+| **Lápide**: `scope` · `commandId` · `commandStatus` · `completedAt` | Muito longa, ou permanente em operação sensível |
+
+Apagar o payload é faxina. Apagar a lápide é **reabrir a janela de execução dupla**, e o TTL da lápide tem de ser
+maior que qualquer retry que o cliente possa emitir.
+
 ### O replay cross-version — desfecho estável, não resultado tipado
 
 > **`version` como discriminador só funciona se o contrato contiver os schemas que ele pode selecionar.**
@@ -311,13 +373,19 @@ Duas coisas separadas:
 
 | | Estável entre versões? | Conteúdo |
 |---|---|---|
-| **Desfecho idempotente** | **Sim** | `commandId` · `status` · `operationVersion` · `resourceId` · `completedAt` |
+| **Desfecho idempotente** | **Sim** | `commandId` · `commandStatus` · `effectStatus` · `outboxId` · `operationVersion` · `resourceId?` · `completedAt` |
 | **Resultado da operação** | Não — tipado por versão | O objeto de resposta daquela versão |
 
 - **Mesma versão** → desfecho estável **mais** o resultado original tipado.
-- **Cross-version** → **só o desfecho estável.** Basta para dizer *"já executou, não execute de novo, e este foi
-  o recurso criado"*. Quem precisar do estado atual **busca o recurso** na forma corrente — nunca há tradução de
-  forma histórica.
+- **Cross-version** → **só o desfecho estável.** Basta para dizer *"já executou, não execute de novo"*. Quem
+  precisar do estado atual **busca o recurso** na forma corrente — nunca há tradução de forma histórica.
+
+> ⚠️ **`commandStatus` não é `effectStatus`.** A transação de negócio commita **antes** de o efeito externo ser
+> entregue — essa é a premissa inteira do outbox. Um desfecho que diga só `status: completed` faz o cliente ler
+> *"a cobrança saiu"* quando o que concluiu foi o commit local, e o webhook pode estar na fila morta.
+>
+> `commandStatus: committed` · `effectStatus: pending | delivered | dead` · `outboxId`. O `resourceId` continua
+> útil onde existe, mas **não é base universal do contrato**.
 
 **Por que isso importa.** Um `commandId` sobrevive a deploy; a normalização não. Se `v1` tem `quantity` default `1` e `v2` tem `10`, o mesmo payload bruto produz hashes diferentes — e numa janela de idempotência longa isso vira falso conflito ou replay indevido. Persistido junto: `operation`, `idempotencySchemaVersion`, `requestHash`. Comparação de hash só vale **dentro da mesma versão**; versão diferente é tratada explicitamente, nunca comparada às cegas.
 
@@ -358,6 +426,14 @@ RETURNING version;
 ```
 
 Zero linha afetada = conflito = **`409`, nunca retry automático**. Essa parte é herdada intacta do herz e continua certa.
+
+> ⚠️ **O incremento não pode depender de memória.** O `SET version = version + 1` protege *aquele* UPDATE. Um
+> agente escreve `UPDATE pedido SET estado = 'cancelado' WHERE id = $1` e a proteção inteira morre **sem erro**
+> — exatamente o que o primeiro princípio proíbe.
+>
+> Por isso o incremento vira **trigger `BEFORE UPDATE`**: `NEW.version := OLD.version + 1`. O
+> `WHERE version = $token` continua sendo a barreira otimista, mas incrementar deixa de ser lembrança e passa a
+> ser propriedade da tabela. Regra determinística: **tabela com coluna `version` sem o trigger reprova.**
 
 Exposto no contrato como valor **opaco e branded** — o cliente devolve o que recebeu, nunca constrói nem compara.
 
