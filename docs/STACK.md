@@ -287,10 +287,15 @@ Três premissas que precisam estar escritas, porque cada uma falha em silêncio:
    que A soltou, A já saiu do proc array. *(Camada dona: PostgreSQL, `xact.c`.)*
 2. **O lock vem antes do `INSERT`**, chaveado no mesmo escopo do índice único. Fora de ordem, B ainda bloqueia.
 3. **Forma de dois `int4`, nunca de um `bigint`.** O PostgreSQL mantém **dois espaços de lock que não se
-   sobrepõem**: `(bigint)` e `(int4, int4)`. As migrations do prumo já usam o primeiro —
-   `pg_advisory_lock(8_140_772_301)` em `migrate.ts:43,53,58,81`, com o comentário *"Any other process using
-   this same key would be a bug"*. Se a idempotência hashear para `bigint`, um comando pode colidir com o lock
-   de migration e travar um deploy. Usar `pg_try_advisory_xact_lock(NS_IDEMPOTENCIA, hash32(…))` transforma
+   sobrepõem**: `(bigint)` e `(int4, int4)`. **Dois** locks de infraestrutura já ocupam o primeiro:
+
+   | Quem | Chave | Onde |
+   |---|---|---|
+   | Migrations do projeto | `8_140_772_301` | `migrate.ts:43,53,58,81` — *"Any other process using this same key would be a bug"* |
+   | **Lock interno do Kysely** | `3853314791062309107` | `kysely/dist/dialect/postgres/postgres-adapter.js:4` |
+
+   Se a idempotência hashear para `bigint`, um comando pode colidir com **qualquer um dos dois** e travar um
+   deploy. Usar `pg_try_advisory_xact_lock(NS_IDEMPOTENCIA, hash32(…))` transforma
    improbabilidade em **impossibilidade estrutural entre classes de lock**.
 4. **Colisão dentro do namespace é aceitável.** Dois comandos podem hashear igual; o custo é um `409` espúrio.
    **A correção continua no índice único** — o lock é só o caminho rápido. Quem não souber disso vai
