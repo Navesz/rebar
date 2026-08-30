@@ -112,7 +112,8 @@ const REGRAS = [
   },
   {
     nome: 'string-de-conexao',
-    padrao: /\b(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|mssql|redis|amqp):\/\/[^\s:@/]+:[^\s:@/]+@/i,
+    padrao:
+      /\b(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|mssql|redis|amqp):\/\/[^\s:@/]+:[^\s:@/]+@/i,
   },
   {
     nome: 'senha-em-conexao',

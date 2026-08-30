@@ -3,7 +3,7 @@
 # fixadas das actions do CI, e é isso que esta configuração cobre.
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'

@@ -37,9 +37,14 @@ function listarMjs(raiz) {
     maxBuffer: 32 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
-  return [...new Set(
-    saida.split('\n').map((s) => s.trim()).filter((a) => a.toLowerCase().endsWith('.mjs')),
-  )].sort()
+  return [
+    ...new Set(
+      saida
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((a) => a.toLowerCase().endsWith('.mjs')),
+    ),
+  ].sort()
 }
 
 /**
@@ -64,7 +69,9 @@ function checarSintaxe({ raiz, prazo }) {
     const rel = arquivos[i]
     try {
       execFileSync(process.execPath, ['--check', join(raiz, rel)], {
-        cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: raiz,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     } catch (e) {
       const bruto = String(e.stderr || e.message || '')
@@ -78,8 +85,12 @@ function checarSintaxe({ raiz, prazo }) {
         fantasmas.push(rel)
         continue
       }
-      const linhas = bruto.split('\n').map((l) => l.trim()).filter(Boolean)
-      const alvo = linhas.find((l) => /SyntaxError|Error:/.test(l)) || linhas[0] || 'falhou sem mensagem'
+      const linhas = bruto
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+      const alvo =
+        linhas.find((l) => /SyntaxError|Error:/.test(l)) || linhas[0] || 'falhou sem mensagem'
       erros.push(`erro ${rel}: ${alvo}`)
     }
   }
@@ -89,7 +100,8 @@ function checarSintaxe({ raiz, prazo }) {
     // O executor não trata isso como reprovação de conteúdo.
     return {
       codigo: 2,
-      saida: `o git lista ${fantasmas.length} arquivo(s) que não estão no disco:\n` +
+      saida:
+        `o git lista ${fantasmas.length} arquivo(s) que não estão no disco:\n` +
         fantasmas.map((f) => `  ${f}`).join('\n') +
         '\nÍndice fora de sincronia. Rode: git add -A',
     }
@@ -97,7 +109,9 @@ function checarSintaxe({ raiz, prazo }) {
 
   return {
     codigo: erros.length ? 1 : 0,
-    saida: erros.length ? erros.join('\n') : `${arquivos.length} arquivo(s) .mjs sem erro de sintaxe`,
+    saida: erros.length
+      ? erros.join('\n')
+      : `${arquivos.length} arquivo(s) .mjs sem erro de sintaxe`,
   }
 }
 
@@ -113,6 +127,23 @@ export default [
     dica: 'Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`.',
     extrair: /^erro |SyntaxError|^o git lista|^  \S|^Índice/,
     tempoLimite: 2 * MINUTO,
+  },
+  {
+    nome: 'formato',
+    // O prettier é a ÚNICA dependência do repositório, e a fronteira é
+    // deliberada: o `index.mjs` continua importando só built-ins, então
+    // `npx github:Navesz/rebar` roda sem instalar nada. Zero dependência é
+    // propriedade do que confere, não do que se confere.
+    //
+    // Chamado pelo .cjs direto, e não por `npx prettier` nem pelo .bin: no
+    // Windows o `.bin/prettier` é um `.cmd` que o CreateProcess não executa sem
+    // shell, que é exatamente o bug que quebrou o passo `fronteiras` do alicerce.
+    comando: node('node_modules/prettier/bin/prettier.cjs', '--check', '.'),
+    exige: ['node_modules/prettier/bin/prettier.cjs'],
+    dica: 'Formatação não se discute, se roda: `npm run formatar`. Se o prettier não estiver aí, `npm ci`.',
+    extrair: /^\[warn\]|^\S+\.(mjs|cjs|json|ya?ml)$/im,
+    tempoLimite: 2 * MINUTO,
+    limite: 12,
   },
   {
     nome: 'elos',

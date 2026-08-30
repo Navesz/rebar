@@ -1,0 +1,14 @@
+# Prosa fica fora. O prettier reflui markdown, e as tabelas alinhadas à mão do
+# PLANO e do ESTADO viram um diff de milhares de linhas que esconde a mudança
+# real. Formatação de código é o que a regra `formatter` cobra; texto não.
+*.md
+LICENSE
+NOTICE
+
+# MATERIAL DE PROVA É BYTE-EXATO. Cada caso existe para produzir um resultado
+# específico no rebar-check; reformatá-lo muda o que a regra está lendo, e a
+# prova passaria a testar a saída do prettier em vez do que ela foi escrita
+# para testar.
+ferramental/rebar-check/provas/casos/
+
+node_modules/

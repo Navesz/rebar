@@ -6,9 +6,10 @@
 # roda no Windows. O defeito sobreviveu porque o CI dele só roda Linux. Aqui o
 # mesmo comando precisa passar nos dois sistemas ou não passa em nenhum.
 #
-# Sem `npm ci`, sem cache de dependência, sem passo de instalação: o rebar tem
-# zero dependência de propósito. O que confere o build não pode depender do
-# build. Se um dia aparecer um `npm ci` neste arquivo, a premissa quebrou.
+# Há um `npm ci`, e ele tem uma linha só de justificativa: o prettier. A
+# promessa de zero dependência é do CHECKER, não do repositório — `index.mjs`
+# importa só built-ins, e `npx github:Navesz/rebar` roda sem instalar nada.
+# Se um dia aparecer uma SEGUNDA dependência aqui sem ADR, a premissa quebrou.
 
 name: verificar
 
@@ -47,6 +48,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      # `npm ci` e não `npm install`: o lockfile é a fonte, e o CI não decide
+      # versão. Único pacote instalado é o prettier.
+      - run: npm ci
 
       - name: verificar
         # Um comando. Exit 0 é a única aprovação: 1 reprovou, 2 config errada,
