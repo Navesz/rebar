@@ -20,7 +20,8 @@
 
 import { readFileSync } from 'node:fs'
 
-const AGENTES = /^co-authored-by:.*(claude|anthropic|cursor|copilot|codex|devin|aider|gemini|noreply@anthropic)/im
+const AGENTES =
+  /^co-authored-by:.*(claude|anthropic|cursor|copilot|codex|devin|aider|gemini|noreply@anthropic)/im
 
 const arquivo = process.argv[2]
 if (!arquivo) {
@@ -29,7 +30,9 @@ if (!arquivo) {
 }
 
 let texto
-try { texto = readFileSync(arquivo, 'utf8') } catch (e) {
+try {
+  texto = readFileSync(arquivo, 'utf8')
+} catch (e) {
   console.error(`checar-mensagem: não consegui ler ${arquivo}: ${e.message}`)
   process.exit(2)
 }
@@ -39,7 +42,9 @@ try { texto = readFileSync(arquivo, 'utf8') } catch (e) {
 // e um diff que TOQUE numa linha de coautoria acusaria um commit inocente.
 const corte = texto.indexOf('\n# ------------------------ >8')
 const mensagem = (corte === -1 ? texto : texto.slice(0, corte))
-  .split('\n').filter((l) => !l.startsWith('#')).join('\n')
+  .split('\n')
+  .filter((l) => !l.startsWith('#'))
+  .join('\n')
 
 const achados = mensagem.split('\n').filter((l) => AGENTES.test(l))
 if (!achados.length) process.exit(0)
@@ -48,9 +53,9 @@ console.error('\n[coautoria] a mensagem declara uma IA como coautora:\n')
 for (const l of achados) console.error(`  ${l.trim()}`)
 console.error(
   '\nDecisão do projeto: IA não entra como coautora nos repositórios novos.\n' +
-  'Tire a linha e comite de novo.\n\n' +
-  'Na raiz, o conserto é não gerar o trailer:\n' +
-  '  .claude/settings.json  ->  { "includeCoAuthoredBy": false }\n' +
-  'Assim a string nunca existe, e não há falso positivo a discutir.\n'
+    'Tire a linha e comite de novo.\n\n' +
+    'Na raiz, o conserto é não gerar o trailer:\n' +
+    '  .claude/settings.json  ->  { "includeCoAuthoredBy": false }\n' +
+    'Assim a string nunca existe, e não há falso positivo a discutir.\n',
 )
 process.exit(1)

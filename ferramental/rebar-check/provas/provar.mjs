@@ -27,7 +27,15 @@
 // arquivo se recusa a herdar.
 
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -105,7 +113,11 @@ function apagar(dir) {
   emVoo.delete(dir)
   // maxRetries porque no Windows o git deixa objeto em .git/objects somente
   // leitura e o antivírus segura o handle por alguns milissegundos.
-  try { rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* é temporário; o SO limpa */ }
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  } catch {
+    /* é temporário; o SO limpa */
+  }
 }
 
 for (const sinal of ['SIGINT', 'SIGTERM']) {
@@ -136,7 +148,10 @@ function lerCommits(bloco, lado, erros) {
   const saida = []
   bloco.commits.forEach((cm, i) => {
     const onde = `${lado}.commits[${i}]`
-    if (!cm || typeof cm !== 'object' || Array.isArray(cm)) { erros.push(`${onde} não é objeto`); return }
+    if (!cm || typeof cm !== 'object' || Array.isArray(cm)) {
+      erros.push(`${onde} não é objeto`)
+      return
+    }
     if (typeof cm.mensagem !== 'string' || !cm.mensagem.length) erros.push(`${onde} sem "mensagem"`)
     const autor = typeof cm.autor === 'string' ? cm.autor.trim() : ''
     // O git recusa o commit inteiro se o --author vier torto. Reprovar a prova
@@ -155,8 +170,11 @@ function lerCaso(id) {
   if (!existsSync(arquivo)) return { erros: ['sem caso.json'] }
 
   let bruto
-  try { bruto = JSON.parse(readFileSync(arquivo, 'utf8')) }
-  catch (e) { return { erros: [`caso.json ilegível: ${e.message}`] } }
+  try {
+    bruto = JSON.parse(readFileSync(arquivo, 'utf8'))
+  } catch (e) {
+    return { erros: [`caso.json ilegível: ${e.message}`] }
+  }
   if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) {
     return { erros: ['caso.json não é um objeto'] }
   }
@@ -182,12 +200,23 @@ function lerCaso(id) {
   const lados = {}
   for (const lado of Object.keys(ESPERADO)) {
     const dir = join(base, lado)
-    if (!existsSync(dir)) { erros.push(`falta a pasta ${lado}/`); continue }
-    if (!statSync(dir).isDirectory()) { erros.push(`${lado}/ existe e não é pasta`); continue }
+    if (!existsSync(dir)) {
+      erros.push(`falta a pasta ${lado}/`)
+      continue
+    }
+    if (!statSync(dir).isDirectory()) {
+      erros.push(`${lado}/ existe e não é pasta`)
+      continue
+    }
     lados[lado] = { dir, commits: lerCommits(bruto[lado], lado, erros) }
   }
 
-  return { regra, erros, porque: typeof bruto.porque === 'string' ? bruto.porque.trim() : '', lados }
+  return {
+    regra,
+    erros,
+    porque: typeof bruto.porque === 'string' ? bruto.porque.trim() : '',
+    lados,
+  }
 }
 
 // ─────────────────────────────────────────────────────── execução de um lado
@@ -228,7 +257,12 @@ function rodarRegra(id, dir) {
   // não existe como executável no Windows. Foi o bug que quebrou o alicerce.
   const r = spawnSync(process.execPath, [INDEX, `--regra=${id}`, '--heuristicas', dir], {
     encoding: 'utf8',
-    env: { ...process.env, GIT_CONFIG_GLOBAL: SEM_CONFIG, GIT_CONFIG_SYSTEM: SEM_CONFIG, NO_COLOR: '1' },
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: SEM_CONFIG,
+      GIT_CONFIG_SYSTEM: SEM_CONFIG,
+      NO_COLOR: '1',
+    },
   })
   if (r.error) throw new Error(`não consegui rodar o index.mjs: ${r.error.message}`)
   return { codigo: r.status, saida: `${r.stdout || ''}${r.stderr || ''}`.trim() }
@@ -242,8 +276,9 @@ function provarLado(id, lado, spec) {
     const esperado = ESPERADO[lado]
     let estado = 'divergiu'
     if (codigo === esperado) estado = 'bateu'
-    else if (codigo === 2) estado = 'malformada'   // alvo inválido ou regra que o index.mjs não conhece
-    else if (codigo === 127) estado = 'quebrou'    // a regra lançou: achado da prova, não defeito dela
+    else if (codigo === 2)
+      estado = 'malformada' // alvo inválido ou regra que o index.mjs não conhece
+    else if (codigo === 127) estado = 'quebrou' // a regra lançou: achado da prova, não defeito dela
     return { lado, estado, codigo, esperado, saida }
   } catch (e) {
     // Falhou montando a fixture: é a prova que está torta, não a regra.
@@ -263,11 +298,16 @@ function provarLado(id, lado, spec) {
  */
 function regrasConhecidas() {
   const r = spawnSync(process.execPath, [INDEX, '--regra=__inexistente__'], {
-    encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' },
+    encoding: 'utf8',
+    env: { ...process.env, NO_COLOR: '1' },
   })
   const linha = `${r.stderr || ''}`.split('\n').find((l) => l.startsWith('disponíveis:'))
   if (!linha) return null
-  return linha.slice('disponíveis:'.length).split(',').map((s) => s.trim()).filter(Boolean)
+  return linha
+    .slice('disponíveis:'.length)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
 const MARCA = {
@@ -290,12 +330,16 @@ if (args.some((a) => a === '-h' || a === '--ajuda' || a === '--help')) {
   process.exit(0)
 }
 const flags = args.filter((a) => a.startsWith('-'))
-if (flags.length) morrer(`opção desconhecida: ${flags.join(', ')} — uso: node provar.mjs [id-da-regra]`)
+if (flags.length)
+  morrer(`opção desconhecida: ${flags.join(', ')} — uso: node provar.mjs [id-da-regra]`)
 if (args.length > 1) morrer('um id de regra por vez')
 const soEste = args[0] || null
 
 if (!existsSync(INDEX)) morrer(`index.mjs não está em ${INDEX}`)
-if (!existsSync(CASOS)) morrer(`${CASOS} não existe — 19 regras e nenhum caso é exatamente o buraco que estas provas fecham`)
+if (!existsSync(CASOS))
+  morrer(
+    `${CASOS} não existe — 19 regras e nenhum caso é exatamente o buraco que estas provas fecham`,
+  )
 
 const regras = regrasConhecidas()
 
@@ -327,7 +371,8 @@ for (const id of ids) {
   const caso = lerCaso(id)
   // Id que o index.mjs não conhece é prova mal formada. Pegar aqui evita montar
   // duas fixtures inteiras só para o index.mjs sair 2 nas duas.
-  if (regras && caso.regra && !regras.includes(caso.regra)) caso.erros.push(`o index.mjs não conhece a regra "${caso.regra}"`)
+  if (regras && caso.regra && !regras.includes(caso.regra))
+    caso.erros.push(`o index.mjs não conhece a regra "${caso.regra}"`)
 
   if (caso.erros.length) {
     malformados++
@@ -337,15 +382,23 @@ for (const id of ids) {
   }
 
   if (!provadas.includes(caso.regra)) provadas.push(caso.regra)
-  const resultados = Object.keys(ESPERADO).map((lado) => provarLado(caso.regra, lado, caso.lados[lado]))
+  const resultados = Object.keys(ESPERADO).map((lado) =>
+    provarLado(caso.regra, lado, caso.lados[lado]),
+  )
   const pior = resultados.find((x) => x.estado !== 'bateu')
 
   const resumoLados = resultados
-    .map((x) => `${x.lado} ${x.estado === 'bateu' ? c.verde(`exit ${x.codigo}`) : c.vermelho(`exit ${x.codigo}`)}`)
+    .map(
+      (x) =>
+        `${x.lado} ${x.estado === 'bateu' ? c.verde(`exit ${x.codigo}`) : c.vermelho(`exit ${x.codigo}`)}`,
+    )
     .join(c.fraco(' · '))
   console.log(`  ${MARCA[pior ? pior.estado : 'bateu']()} ${id.padEnd(largura)} ${resumoLados}`)
 
-  if (!pior) { bateram++; continue }
+  if (!pior) {
+    bateram++
+    continue
+  }
   if (resultados.some((x) => x.estado === 'malformada')) malformados++
   else divergiram++
 
@@ -355,25 +408,33 @@ for (const id of ids) {
     const explica = {
       divergiu: `esperava exit ${x.esperado}, saiu ${x.codigo}`,
       quebrou: `exit 127 — a regra LANÇOU: defeito do index.mjs, não do alvo`,
-      malformada: x.codigo === 2 ? 'exit 2 — alvo inválido ou invocação errada' : 'não consegui montar a fixture',
+      malformada:
+        x.codigo === 2
+          ? 'exit 2 — alvo inválido ou invocação errada'
+          : 'não consegui montar a fixture',
     }[x.estado]
     console.log(`      ${c.vermelho(`${x.lado}/`)} ${explica}`)
-    for (const l of x.saida.split('\n').filter(Boolean).slice(0, 6)) console.log(`        ${c.fraco(`│ ${l}`)}`)
+    for (const l of x.saida.split('\n').filter(Boolean).slice(0, 6))
+      console.log(`        ${c.fraco(`│ ${l}`)}`)
   }
 }
 
 const total = ids.length
 const placar = `${bateram} de ${total} caso(s) bateram`
-console.log(`\n  ${bateram === total ? c.verde(placar) : c.vermelho(placar)}` +
-  (divergiram ? c.vermelho(`  ·  ${divergiram} divergiu`) : '') +
-  (malformados ? c.amarelo(`  ·  ${malformados} mal formada(s)`) : ''))
+console.log(
+  `\n  ${bateram === total ? c.verde(placar) : c.vermelho(placar)}` +
+    (divergiram ? c.vermelho(`  ·  ${divergiram} divergiu`) : '') +
+    (malformados ? c.amarelo(`  ·  ${malformados} mal formada(s)`) : ''),
+)
 
 // Cobertura só informa. Fazer ela derrubar o exit code deixaria a suíte vermelha
 // até a 19ª regra ganhar caso, e suíte que nasce vermelha ninguém olha.
 if (regras && !soEste) {
   const sem = regras.filter((r) => !provadas.includes(r))
-  console.log(c.fraco(`  ${regras.length - sem.length} de ${regras.length} regras com prova`) +
-    (sem.length ? c.fraco(`  ·  sem prova: ${sem.join(', ')}`) : ''))
+  console.log(
+    c.fraco(`  ${regras.length - sem.length} de ${regras.length} regras com prova`) +
+      (sem.length ? c.fraco(`  ·  sem prova: ${sem.join(', ')}`) : ''),
+  )
 }
 
 console.log('')

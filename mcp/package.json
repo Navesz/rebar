@@ -5,7 +5,9 @@
   "description": "Servidor MCP do rebar: serve o plano por seção, lido do disco a cada chamada.",
   "license": "Apache-2.0",
   "type": "module",
-  "bin": { "rebar-mcp": "./src/index.mjs" },
+  "bin": {
+    "rebar-mcp": "./src/index.mjs"
+  },
   "scripts": {
     "start": "node src/index.mjs"
   },
@@ -13,5 +15,7 @@
     "@modelcontextprotocol/sdk": "^1.24.1",
     "zod": "^3.25.76"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

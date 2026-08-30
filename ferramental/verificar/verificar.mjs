@@ -87,7 +87,14 @@ if (desconhecidos.length) {
 // ── configuração ────────────────────────────────────────────────────────────
 
 const CHAVES_VALIDAS = new Set([
-  'nome', 'comando', 'funcao', 'dica', 'extrair', 'limite', 'tempoLimite', 'exige',
+  'nome',
+  'comando',
+  'funcao',
+  'dica',
+  'extrair',
+  'limite',
+  'tempoLimite',
+  'exige',
 ])
 
 async function carregarConfig() {
@@ -104,14 +111,18 @@ async function carregarConfig() {
     let dir = process.cwd()
     for (;;) {
       const tentativa = join(dir, 'verificar.config.mjs')
-      if (existsSync(tentativa)) { arquivo = tentativa; break }
+      if (existsSync(tentativa)) {
+        arquivo = tentativa
+        break
+      }
       const pai = dirname(dir)
       if (pai === dir) break
       dir = pai
     }
     if (!arquivo) {
       throw new ErroDeConfiguracao(
-        `Nenhum verificar.config.mjs de ${process.cwd()} até a raiz do disco.`)
+        `Nenhum verificar.config.mjs de ${process.cwd()} até a raiz do disco.`,
+      )
     }
   }
 
@@ -123,7 +134,9 @@ async function carregarConfig() {
   }
   const passos = modulo.default
   if (!Array.isArray(passos) || passos.length === 0) {
-    throw new ErroDeConfiguracao(`${arquivo} precisa exportar como default um array não vazio de passos.`)
+    throw new ErroDeConfiguracao(
+      `${arquivo} precisa exportar como default um array não vazio de passos.`,
+    )
   }
   return { passos, arquivo, raiz: dirname(arquivo) }
 }
@@ -134,7 +147,10 @@ function validarPassos(passos, arquivo) {
 
   passos.forEach((p, i) => {
     const onde = `passo #${i + 1}${p?.nome ? ` (${p.nome})` : ''}`
-    if (typeof p !== 'object' || p === null) { problemas.push(`${onde}: não é objeto.`); return }
+    if (typeof p !== 'object' || p === null) {
+      problemas.push(`${onde}: não é objeto.`)
+      return
+    }
 
     // FURO 1. A checagem é pelo NOME da chave, antes de qualquer outra coisa,
     // porque o objetivo não é ignorar o campo — é impedir que alguém o escreva
@@ -142,15 +158,18 @@ function validarPassos(passos, arquivo) {
     if ('opcional' in p) {
       problemas.push(
         `${onde}: o campo "opcional" não existe no rebar. No alicerce ele fazia um ` +
-        `passo FALHAR e mesmo assim imprimir APROVADO com exit 0. Passo que não ` +
-        `bloqueia não é passo do verificar: tire-o da lista.`)
+          `passo FALHAR e mesmo assim imprimir APROVADO com exit 0. Passo que não ` +
+          `bloqueia não é passo do verificar: tire-o da lista.`,
+      )
     }
     if ('pulado' in p || 'grupo' in p) {
       problemas.push(`${onde}: "pulado"/"grupo" não existem — todo passo selecionado sempre roda.`)
     }
     for (const k of Object.keys(p)) {
       if (!CHAVES_VALIDAS.has(k) && k !== 'opcional' && k !== 'pulado' && k !== 'grupo') {
-        problemas.push(`${onde}: chave desconhecida "${k}". Válidas: ${[...CHAVES_VALIDAS].join(', ')}.`)
+        problemas.push(
+          `${onde}: chave desconhecida "${k}". Válidas: ${[...CHAVES_VALIDAS].join(', ')}.`,
+        )
       }
     }
 
@@ -171,9 +190,14 @@ function validarPassos(passos, arquivo) {
       // Array, nunca string: string exige shell, e shell no Windows é cmd.exe
       // com regra de aspas própria. Foi execFileSync('npx', ...) sem shell:true
       // que quebrou o alicerce nesta máquina. Sem shell não há o que escapar.
-      if (!Array.isArray(p.comando) || p.comando.length === 0 ||
-          p.comando.some((a) => typeof a !== 'string' || a.length === 0)) {
-        problemas.push(`${onde}: "comando" precisa ser array de strings não vazias, ex.: [process.execPath, "x.mjs"].`)
+      if (
+        !Array.isArray(p.comando) ||
+        p.comando.length === 0 ||
+        p.comando.some((a) => typeof a !== 'string' || a.length === 0)
+      ) {
+        problemas.push(
+          `${onde}: "comando" precisa ser array de strings não vazias, ex.: [process.execPath, "x.mjs"].`,
+        )
       }
     }
     if (temFuncao && typeof p.funcao !== 'function') {
@@ -190,7 +214,8 @@ function validarPassos(passos, arquivo) {
         problemas.push(`${onde}: "${k}" precisa ser inteiro positivo.`)
       }
     }
-    if ('dica' in p && typeof p.dica !== 'string') problemas.push(`${onde}: "dica" precisa ser string.`)
+    if ('dica' in p && typeof p.dica !== 'string')
+      problemas.push(`${onde}: "dica" precisa ser string.`)
   })
 
   if (problemas.length) {
@@ -227,7 +252,9 @@ function executarComando(passo, raiz) {
     let saida = ''
     // Ferramenta que despeja megabytes existe. 1 MB já é mais do que suficiente
     // para extrair as primeiras linhas de erro.
-    const acumular = (pedaco) => { if (saida.length < 1_000_000) saida += String(pedaco) }
+    const acumular = (pedaco) => {
+      if (saida.length < 1_000_000) saida += String(pedaco)
+    }
     filho.stdout.on('data', acumular)
     filho.stderr.on('data', acumular)
 
@@ -280,7 +307,14 @@ async function executarFuncao(passo, raiz) {
   // função que bloqueia (execFileSync num laço, que é o caso do passo `sintaxe`)
   // precisa consultar `prazo` ela mesma — por isso ele vai no argumento.
   const relogio = new Promise((res) => {
-    const t = setTimeout(() => res({ estado: 'quebrou', saida: `[verificar] tempo limite de ${tempoLimite} ms estourado` }), tempoLimite)
+    const t = setTimeout(
+      () =>
+        res({
+          estado: 'quebrou',
+          saida: `[verificar] tempo limite de ${tempoLimite} ms estourado`,
+        }),
+      tempoLimite,
+    )
     t.unref()
   })
 
@@ -303,7 +337,11 @@ async function executar(passo, raiz) {
     const alvo = isAbsolute(rel) ? rel : join(raiz, rel)
     if (!existsSync(alvo)) {
       // Script ausente não é o repositório reprovando: é o ferramental faltando.
-      return { estado: 'quebrou', saida: `[verificar] arquivo exigido ausente: ${rel}`, duracaoMs: 0 }
+      return {
+        estado: 'quebrou',
+        saida: `[verificar] arquivo exigido ausente: ${rel}`,
+        duracaoMs: 0,
+      }
     }
   }
   return passo.comando ? executarComando(passo, raiz) : executarFuncao(passo, raiz)
@@ -334,8 +372,11 @@ function extrairErros(passo, saida) {
   const limite = passo.limite ?? LIMITE_LINHAS_PADRAO
   return {
     total: unicas.length,
-    mostradas: unicas.slice(0, limite).map((l) =>
-      l.length > LARGURA_MAXIMA_LINHA ? `${l.slice(0, LARGURA_MAXIMA_LINHA - 1)}…` : l),
+    mostradas: unicas
+      .slice(0, limite)
+      .map((l) =>
+        l.length > LARGURA_MAXIMA_LINHA ? `${l.slice(0, LARGURA_MAXIMA_LINHA - 1)}…` : l,
+      ),
   }
 }
 
@@ -358,38 +399,54 @@ function relatar(veredito) {
   else titulo = c.verde('APROVADO')
 
   const placar = `${resultados.length} de ${declarados} passos`
-  console.log(`\n${c.forte('VERIFICAR')} — ${titulo}  ${c.cinza(`${placar} · ${duracao(duracaoMs)}`)}`)
+  console.log(
+    `\n${c.forte('VERIFICAR')} — ${titulo}  ${c.cinza(`${placar} · ${duracao(duracaoMs)}`)}`,
+  )
 
   // FURO 2: a linha que o alicerce não imprimia. Ela vem ANTES dos detalhes
   // porque é a informação que muda a leitura de tudo o que vem depois.
   if (parcial) {
-    console.log(`\n  ${c.amarelo(c.forte(`PARCIAL — ${resultados.length} de ${declarados} passos. NÃO É APROVAÇÃO.`))}`)
+    console.log(
+      `\n  ${c.amarelo(c.forte(`PARCIAL — ${resultados.length} de ${declarados} passos. NÃO É APROVAÇÃO.`))}`,
+    )
     console.log(`  ${c.cinza(`não rodaram (${naoRodaram.length}): ${naoRodaram.join(' · ')}`)}`)
-    console.log(`  ${c.cinza('recorte serve para consertar, não para liberar. Rode sem --passo= antes de commitar.')}`)
+    console.log(
+      `  ${c.cinza('recorte serve para consertar, não para liberar. Rode sem --passo= antes de commitar.')}`,
+    )
   }
   console.log('')
 
   for (const r of [...quebrados, ...reprovados]) {
     const marca = r.estado === 'quebrou' ? c.amarelo('⚠') : c.vermelho('✗')
-    const rotulo = r.estado === 'quebrou'
-      ? c.amarelo('NÃO EXECUTOU')
-      : (r.erros.total === 1 ? '1 erro' : `${r.erros.total} erros`)
+    const rotulo =
+      r.estado === 'quebrou'
+        ? c.amarelo('NÃO EXECUTOU')
+        : r.erros.total === 1
+          ? '1 erro'
+          : `${r.erros.total} erros`
     console.log(`  ${marca} ${r.nome.padEnd(10)} ${rotulo}  ${c.cinza(duracao(r.duracaoMs))}`)
     for (const linha of r.erros.mostradas) console.log(`      ${linha}`)
     if (r.erros.total > r.erros.mostradas.length) {
-      console.log(c.cinza(`      … mais ${r.erros.total - r.erros.mostradas.length} · node ferramental/verificar/verificar.mjs --passo=${r.nome}`))
+      console.log(
+        c.cinza(
+          `      … mais ${r.erros.total - r.erros.mostradas.length} · node ferramental/verificar/verificar.mjs --passo=${r.nome}`,
+        ),
+      )
     }
     console.log('')
   }
 
-  if (aprovados.length) console.log(`  ${c.verde('✓')} ${aprovados.map((r) => r.nome).join(' · ')}\n`)
+  if (aprovados.length)
+    console.log(`  ${c.verde('✓')} ${aprovados.map((r) => r.nome).join(' · ')}\n`)
 
   // O config declara do mais barato ao mais caro, então o primeiro da ordem que
   // caiu é o que se conserta primeiro — e consertar costuma apagar os de baixo.
   const primeiro = resultados.find((r) => r.estado !== 'passou')
   if (primeiro) {
     const restantes = resultados.filter((r) => r.estado !== 'passou').length - 1
-    console.log(`  ${c.forte('Primeiro:')} ${primeiro.nome}.${primeiro.dica ? ` ${primeiro.dica}` : ''}`)
+    console.log(
+      `  ${c.forte('Primeiro:')} ${primeiro.nome}.${primeiro.dica ? ` ${primeiro.dica}` : ''}`,
+    )
     if (restantes === 1) console.log(c.cinza('  O outro pode sumir junto.'))
     else if (restantes > 1) console.log(c.cinza(`  Os outros ${restantes} podem sumir junto.`))
     console.log('')
@@ -406,7 +463,8 @@ async function principal() {
   if (opcoes.passo && selecionados.length === 0) {
     throw new ErroDeConfiguracao(
       `Passo "${opcoes.passo}" não existe em ${arquivo}.\n  ` +
-      `Disponíveis: ${passos.map((p) => p.nome).join(', ')}`)
+        `Disponíveis: ${passos.map((p) => p.nome).join(', ')}`,
+    )
   }
   const parcial = selecionados.length !== passos.length
   const naoRodaram = passos.filter((p) => !selecionados.includes(p)).map((p) => p.nome)
@@ -431,7 +489,9 @@ async function principal() {
   }
 
   const veredito = {
-    resultados, naoRodaram, parcial,
+    resultados,
+    naoRodaram,
+    parcial,
     declarados: passos.length,
     duracaoMs: Date.now() - inicio,
   }
@@ -446,20 +506,36 @@ async function principal() {
   const codigo = quebrou ? 127 : reprovou ? 1 : parcial ? 3 : 0
 
   if (opcoes.json) {
-    console.log(JSON.stringify({
-      resultado: quebrou ? 'quebrou' : reprovou ? 'reprovado' : parcial ? 'parcial' : 'aprovado',
-      parcial,
-      quando: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      duracaoMs: veredito.duracaoMs,
-      passosDeclarados: passos.length,
-      passosExecutados: resultados.length,
-      naoRodaram,
-      codigoSaida: codigo,
-      passos: resultados.map((r) => ({
-        nome: r.nome, estado: r.estado, codigo: r.codigo,
-        duracaoMs: r.duracaoMs, totalErros: r.erros.total, erros: r.erros.mostradas,
-      })),
-    }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          resultado: quebrou
+            ? 'quebrou'
+            : reprovou
+              ? 'reprovado'
+              : parcial
+                ? 'parcial'
+                : 'aprovado',
+          parcial,
+          quando: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          duracaoMs: veredito.duracaoMs,
+          passosDeclarados: passos.length,
+          passosExecutados: resultados.length,
+          naoRodaram,
+          codigoSaida: codigo,
+          passos: resultados.map((r) => ({
+            nome: r.nome,
+            estado: r.estado,
+            codigo: r.codigo,
+            duracaoMs: r.duracaoMs,
+            totalErros: r.erros.total,
+            erros: r.erros.mostradas,
+          })),
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     relatar(veredito)
   }

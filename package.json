@@ -9,6 +9,11 @@
     "verificar": "node ferramental/verificar/verificar.mjs",
     "provar": "node ferramental/rebar-check/provas/provar.mjs",
     "check": "node ferramental/rebar-check/index.mjs .",
-    "instalar-hooks": "node ferramental/hooks/instalar.mjs"
+    "instalar-hooks": "node ferramental/hooks/instalar.mjs",
+    "formato": "node node_modules/prettier/bin/prettier.cjs --check .",
+    "formatar": "node node_modules/prettier/bin/prettier.cjs --write ."
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
   }
 }

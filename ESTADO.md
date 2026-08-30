@@ -128,7 +128,7 @@ máquina:
 
 | Repo | Nota | Aplicáveis | N/A | Avisos |
 |---|---|---|---|---|
-| **rebar (ele mesmo)** | **90%** | 9/10 | 4 | — |
+| **rebar (ele mesmo)** | **100%** | 10/10 | 4 | — |
 | prumo | 69% | 9/13 | 1 | 2 |
 | ducado | 55% | 6/11 | 3 | 1 |
 | openkartline | 54% | 7/13 | 1 | 2 |
@@ -143,12 +143,12 @@ máquina:
 
 Agregado: **55 de 127** checagens aplicáveis passam — 43,3%. Mediana 37,5%.
 
-**Nenhum repositório passa em tudo, o rebar inclusive.** O teto é 90%, no próprio `rebar`,
-e a única que falta ali é `formatter` — decisão em aberto, registrada na §5. Entre os
+**Nenhum repositório que não seja a ferramenta passa em tudo.** O `rebar` fecha em
+100%, e é o único. Entre os
 repositórios que não são a ferramenta, o teto é 69% no `prumo` e o piso é 17% no
 `hug-brasil-propostas`.
 
-O `rebar` só subiu de 67% para 90% depois de um conserto que as próprias provas
+O `rebar` só chegou lá depois de um conserto que as próprias provas
 provocaram: os casos de `ui-falso` e `schema-orfao` são, por construção, repositórios
 defeituosos em miniatura, e rastreados dentro do rebar faziam o rebar reprovar em
 `ui-falso`, `schema-orfao` e `typecheck` — **acusado pelas próprias provas.** Agora a
@@ -158,10 +158,8 @@ mesmos declaram — `prumo`, `openkartline` e `decima-edicoes`. Dos outros nove,
 CI nenhum, dois têm CI e não têm script de lint/tipos/teste para ele alcançar, e um
 (`ducado`) tem os scripts e o CI não passa neles.
 
-O `rebar` reprova em `ci`, `formatter` e `licenca`. **A linha do `rebar` é um alvo em
-movimento:** às 13:38 desta mesma sessão ele dava 43% (3/7), e subiu para 67% porque outros
-agentes estavam pousando `.editorconfig`, `.env.example`, `.github/dependabot.yml`, `NOTICE`
-e `package.json` enquanto esta medição rodava. Remeça antes de citar o número.
+**A linha do `rebar` andou muito nesta sessão** — 43% (3/7) às 13:38, 67%, 90%, e 100%
+depois que o `formatter` foi resolvido. Remeça antes de citar o número.
 
 > ⚠️ **A tabela anterior desta seção estava descalibrada; os números `x/14` foram apagados,
 > não convertidos.** Ela saiu de uma régua em que `null` queria dizer duas coisas ao mesmo
@@ -236,16 +234,29 @@ três deles estão sendo portados por outros agentes agora, então **remeça ant
 
 | Item da §8.1 | Estado real hoje |
 |---|---|
-| `verificar/verificar.mjs` | **Nada.** `ferramental/verificar/` não existe. É o agregador que a §8.2 manda consertar em `verificar.mjs:124` — a distinção reprovou/quebrou já nasceu feita no `rebar-check` (exit 1 vs 127), o agregador é que falta |
-| `segredo/varrer-segredo.mjs` | **Em andamento.** `ferramental/segredo/` criada, **vazia** |
-| `elos/verificar-elos.mjs` | **Em andamento.** `ferramental/elos/` criada, **vazia** |
+| `verificar/verificar.mjs` | **Feito, e não portado — reescrito.** `ferramental/verificar/verificar.mjs` + `verificar.config.mjs`, 6 passos. Deliberadamente SEM as duas portas destrancadas do original: não existe campo `opcional` (lá, passo opcional que falha imprime APROVADO e sai 0) e `--passo=` imprime PARCIAL e sai 3, nunca 0 |
+| `segredo/varrer-segredo.mjs` | **Portado.** Com `senha`, `postgres`, `docker` e `local` na lista de placeholder — sem afrouxar o padrão de detecção. Roda no `verificar` e no `pre-commit` |
+| `elos/verificar-elos.mjs` | **Portado.** Roda no `verificar` |
 | `contexto/ai.mjs` | **Nada.** `ferramental/contexto/` não existe. É o que mede o orçamento de contexto — a métrica que a §12.5 item 6 diz ser a certa |
-| `hooks/` | **Em andamento.** `ferramental/hooks/` criada, **vazia** |
+| `hooks/` | **Portado e ampliado.** `pre-commit` (segredo em stage + coautoria) e `commit-msg` NOVO, que não existia no alicerce: o `rebar-check` lê `git log` e não enxerga o commit em curso, então ele impedia o trailer de FICAR, não de ENTRAR. Instale com `npm run instalar-hooks` — **não está instalado**, é decisão do dono |
 | 15 presets de fronteira (web 7 + api 8) com as 29 fixtures | **Nada.** `ferramental/fronteiras/` não existe. Fonte conferida em `alicerce/ferramental/fronteiras/`: 7 regras em `web-camadas.cjs`, 8 em `api-camadas.cjs`, 29 arquivos de fixture em `provas/web/` e `provas/api/`. O número da §8.1 está certo |
-| `ci/verificar.yml` como template | **Nada.** `.github/workflows/` não existe; `.github/` só tem `dependabot.yml`. É exatamente o que faz o `rebar` reprovar na regra `ci` |
+| `ci/verificar.yml` como template | **Feito.** `.github/workflows/verificar.yml`, matriz windows-latest + ubuntu-latest, `fetch-depth: 0` (com clone raso as regras que leem `git log` enxergariam um commit só e aprovariam qualquer histórico) |
 
-O que **existe** e não é da §8.1: `ferramental/rebar-check/provas/casos/` com 14 casos
-`aprovar`/`reprovar`, um para cada regra determinística.
+Sobram três dos sete: `contexto/ai.mjs`, os 15 presets de fronteira com as 29 fixtures, e
+o `perfil.esquema.json`.
+
+O que **existe** e não é da §8.1: `ferramental/rebar-check/provas/casos/` com **15 casos**
+`aprovar`/`reprovar` cobrindo as 14 regras determinísticas, e `ferramental/hooks/commit-msg`.
+
+**Decisão de 30/08 — o rebar adota o prettier.** É a única dependência do repositório, e a
+fronteira é deliberada: `index.mjs` continua importando só built-ins, então
+`npx github:Navesz/rebar` roda sem instalar nada. Zero dependência é propriedade do que
+**confere**, não do que se confere. As duas alternativas foram descartadas com motivo:
+aceitar o 90% deixaria o `verificar` vermelho para sempre, e portão que nunca fica verde é
+portão que se aprende a ignorar; estreitar a regra para dispensar repositório sem
+dependência seria abrir exceção para si mesmo na única régua que o projeto entrega.
+Custo pago: o CI ganhou um `npm ci`, e o prettier expandiu o `index.mjs` de 567 para 741
+linhas. Discutir isso é o que a regra existe para acabar.
 
 ### Decisões 🔴 em aberto
 
@@ -341,14 +352,20 @@ do `prumo`.
 
 ## 9. Próximo passo sugerido
 
-**Fazer o rebar passar no próprio checker.** Em 30/08 13:40:44 ele dá **67% (6 de 9)** em
-si mesmo — falta `ci`, `formatter` e LICENSE. `.editorconfig`, `.env.example`, dependabot e
-NOTICE já pousaram nesta sessão.
+**Feito em 30/08:** o rebar passa no próprio checker, 10 de 10, e
+`node ferramental/verificar/verificar.mjs` sai `APROVADO` em 6 de 6 passos.
 
-É o menor trabalho com o maior significado — a ferramenta que reprova os outros
-reprovando a si mesma é exatamente o padrão que o projeto existe para acabar. E ao
-consertar, o CI do rebar nasce rodando o próprio checker, que é o primeiro caso real de
-"a regra virou porta" — e o primeiro passo para sair do 0 de 12 do D+30.
+O próximo é o que transforma isso em imposição de verdade, e nenhum dos dois é código:
+
+1. **Instalar o hook** — `npm run instalar-hooks`. Está escrito e provado, e **não está
+   instalado**: mudar `core.hooksPath` do repositório é decisão do dono, não do agente.
+2. **Subir o repositório e ligar o branch protection.** O CI existe em arquivo; enquanto
+   não houver ruleset no GitHub exigindo o check por nome, um agente apaga o `.yml` e o PR
+   fica verde. É o **N4s** da §9.3 — o nível que só existe no servidor, e o único que
+   resiste ao agente.
+
+Só depois disso o D+30 (`≥2 repositórios com rebar-check no CI reprovando merge`) começa a
+contar. Hoje o placar é **1 de 12** — o próprio rebar.
 
 Depois: fechar o domínio de **isolamento de tenant**, que é onde está a única falha
 conhecida e documentada.
