@@ -638,13 +638,15 @@ Domínio PCP inteiro: `packages/dominio/`, contratos `pedido/estoque/estrutura/c
 
 # 9. Ordem de construção
 
-> ⚠️ **A versão anterior desta seção (7 passos, gerador + 3 presets + MCP) foi descartada pela revisão de escopo.** Motivo em §12.9. O que segue é a versão reduzida.
+> ⚠️ **A versão anterior desta seção (7 passos, gerador + 3 presets + MCP) foi descartada pela revisão de escopo.** Motivo em **§9.1**, logo abaixo — e o corte de escopo que o acompanha está em §12.5 item 9. (Antes esta linha apontava para uma §12.9 que nunca existiu: a §12 vai de 12.8 direto para a §13.) O que segue é a versão reduzida.
 
 ## 9.1 O que a revisão derrubou
 
 **Passos 1–4 não cabiam numa sessão e não entregavam nada olhável.** Eram 3–4 sessões para "um projeto novo e vazio que passa no lint" — e nenhum dos seis sites existentes ganhava coisa alguma.
 
-**A inversão gerador-primeiro estava errada.** O diagnóstico ("o alicerce morreu porque a imposição nunca encostou num projeto") está certo. A correção não é *gerar* um projeto — é **checar os que já existem**. Checar é retroativo e idempotente; gerar só serve para o projeto nº 8.
+**A inversão gerador-primeiro estava errada.** A correção não é *gerar* um projeto — é **checar os que já existem**. Checar é retroativo e idempotente; gerar só serve para o projeto nº 8.
+
+> ⚠️ **Correção de premissa, medida em 30/08.** O diagnóstico original desta seção era *"o alicerce morreu porque a imposição nunca encostou num projeto"*. **É falso.** O `ferramental/` do alicerce está instalado em dois repositórios — o próprio alicerce e o `prumo` — e no `prumo` ele gateia de verdade: `.github/workflows/ci.yml:113` roda `npm run verificar` → `node ferramental/verificar/verificar.mjs`, e a linha 207 roda `node ferramental/portao/provar-portao.mjs`. `prumo/ferramental/` tem 8 diretórios, 7 com o mesmo nome dos do alicerce, e a linha 139 do CI diz que os casos vieram do alicerce upstream. A formulação que a medição sustenta: **o rebar mede 12 repositórios e não impõe em nenhum; o alicerce mede 2 e impõe nos 2.** O problema do alicerce é escala (2 de 12), não contato. A conclusão — consumidor antes do gerador — sobrevive à correção, porque é a escala que o `rebar-check` ataca.
 
 > A inversão certa não é gerador-primeiro. É **consumidor-primeiro: escreva o que lê antes do que escreve.**
 
@@ -675,7 +677,9 @@ Por que esta fatia:
 5. **O gerador cai de graça depois.** Um checker que sabe dizer "falta robots.txt" está a um `--corrigir` de ser gerador. A ordem inversa não vale.
 6. Distribuição sem npm: `npx github:Navesz/rebar`.
 
-**O preditor que decidiu isto:** dos sete repositórios do dono, **o alicerce é o único sem tela e é o único morto.** ducado, vectra-painel, prumo, decima-edicoes, Galegos, openkartline — todos têm algo para olhar, todos sobreviveram. n=7, mas é 7 de 7. O plano anterior não tinha tela até o passo 3.
+**O preditor que decidiu isto:** dos sete repositórios do dono, **o alicerce é o único sem tela.** ducado, vectra-painel, prumo, decima-edicoes, Galegos, openkartline — todos têm algo para olhar. n=7, mas é 7 de 7. O plano anterior não tinha tela até o passo 3.
+
+A meia-frase "e é o único morto" foi tirada daqui: medido, o alicerce roda no CI do `prumo` (ver a correção de premissa em §9.1). O que a tela prediz é adoção, não sobrevida — e é adoção que o placar do `rebar-check` ataca.
 
 ## 9.3 O passo a passo numerado
 

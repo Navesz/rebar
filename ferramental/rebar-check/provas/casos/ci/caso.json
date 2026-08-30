@@ -1,0 +1,4 @@
+{
+  "regra": "ci",
+  "porque": "Repositório sem workflow nenhum não tem portão: o que passa é o que o autor lembrou de rodar na máquina dele. A regra lê a lista rastreada pelo git, então o lado aprovar também prova que um workflow só vale depois de commitado — arquivo não rastreado não conta."
+}

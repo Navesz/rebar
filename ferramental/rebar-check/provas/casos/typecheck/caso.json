@@ -1,0 +1,4 @@
+{
+  "regra": "typecheck",
+  "porque": "Projeto TypeScript cujo unico contato com o compilador e o build: o erro de tipo so aparece quando alguem tenta empacotar, ou em producao, nunca numa checagem que o CI possa chamar sozinha."
+}

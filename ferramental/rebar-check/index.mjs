@@ -107,6 +107,46 @@ function ehTeste(rel) {
   return NOME_TESTE.test(partes[partes.length - 1])
 }
 
+/**
+ * Tira da avaliação as árvores que são MATERIAL DE PROVA, não produto.
+ *
+ * Isto nasceu de uma falha real, e ela apareceu no minuto em que as provas
+ * foram escritas: os casos de `ui-falso` e `schema-orfao` são, por construção,
+ * repositórios defeituosos em miniatura. Rastreados dentro do rebar, eles
+ * fizeram o rebar reprovar em `ui-falso`, `schema-orfao` e `typecheck` —
+ * acusado pelas próprias provas. Uma ferramenta que não sabe distinguir o
+ * produto do material de prova mede o material de prova.
+ *
+ * Duas portas de saída, as duas VISÍVEIS na saída:
+ *
+ *   caso.json     marca a raiz de um caso de prova. É marcador específico, com
+ *                 significado único, e não serve de bypass genérico: para
+ *                 esconder código real você teria de declará-lo caso de prova.
+ *   .rebarignore  prefixos de caminho, um por linha, `#` comenta. Existe para
+ *                 vendor e material gerado. É bypass de verdade — por isso a
+ *                 contagem do que ele escondeu vai impressa no placar. Portão
+ *                 aberto tem de ser fato checado, não omissão.
+ */
+function semFixtures(dir, todos) {
+  const raizes = todos
+    .filter((a) => basename(a) === 'caso.json')
+    .map((a) => a.slice(0, -('caso.json'.length)))
+
+  const prefixos = (ler(dir, '.rebarignore') || '')
+    .split('\n').map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'))
+    .map((l) => (l.endsWith('/') ? l : l + '/'))
+
+  const arquivos = []
+  let provas = 0, ignorados = 0
+  for (const a of todos) {
+    if (raizes.some((p) => a.startsWith(p))) { provas++; continue }
+    if (prefixos.some((p) => a.startsWith(p))) { ignorados++; continue }
+    arquivos.push(a)
+  }
+  return { arquivos, ignorados: { provas, rebarignore: ignorados } }
+}
+
 /** Conteúdo dos arquivos de código rastreados, com teto de tamanho. */
 function fontes(dir, arquivos) {
   const out = []
@@ -357,7 +397,8 @@ function lerRepo(dir) {
 
   const ls = git(dir, ['ls-files'])
   if (!ls.ok) return { erro: ls.erro }
-  const arquivos = ls.saida ? ls.saida.split('\n').filter(Boolean) : []
+  const todos = ls.saida ? ls.saida.split('\n').filter(Boolean) : []
+  const { arquivos, ignorados } = semFixtures(dir, todos)
 
   const pkg = lerJson(dir, 'package.json')
   const fs_ = fontes(dir, arquivos)
@@ -377,7 +418,7 @@ function lerRepo(dir) {
   const autores = logAutores.ok && logAutores.saida ? logAutores.saida.split('\n').filter(Boolean) : []
 
   return {
-    dir, nome: basename(dir) || dir, arquivos, pkg, fontes: fs_, varsEnv, commits, autores,
+    dir, nome: basename(dir) || dir, arquivos, ignorados, pkg, fontes: fs_, varsEnv, commits, autores,
     envExample: ler(dir, '.env.example'),
     workflows: arquivos.filter((a) => /^\.github\/workflows\/.+\.ya?ml$/.test(a)),
   }
@@ -402,7 +443,7 @@ function avaliar(dir, filtro) {
     if (typeof saida === 'object' && saida.na) return { ...base, estado: 'na', motivo: saida.na }
     return { ...base, estado: 'reprovou', motivo: String(saida) }
   })
-  return { dir, nome: r.nome, resultados }
+  return { dir, nome: r.nome, ignorados: r.ignorados, resultados }
 }
 
 // ────────────────────────────────────────────────────────────────── saída
@@ -457,6 +498,11 @@ function imprimir(a) {
   if (n.quebrou) {
     console.log(`  ${c.amarelo(`⚠ ${n.quebrou} regra(s) QUEBRARAM — defeito do rebar-check, fora da nota`)}`)
   }
+  const ig = a.ignorados
+  if (ig?.rebarignore) {
+    console.log(`  ${c.amarelo(`⚠ ${ig.rebarignore} arquivo(s) escondidos por .rebarignore`)}`)
+  }
+  if (ig?.provas) console.log(c.fraco(`  ${ig.provas} arquivo(s) de caso de prova, fora da avaliação`))
 }
 
 // ─────────────────────────────────────────────────────────────────── main

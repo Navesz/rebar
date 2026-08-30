@@ -1,0 +1,4 @@
+{
+  "regra": "ci-gateia",
+  "porque": "Esta prova trava o falso positivo já medido no alicerce: a versão anterior procurava as palavras lint/typecheck/test literais no YAML e reprovava todo repositório que agrega a verificação num comando só. O lado aprovar tem um workflow que não contém NENHUMA das três palavras — chama apenas `npm run verificar`, que encadeia `estatica` (lint + typecheck) e `test`, exercitando dois níveis da expansão — e tem de PASSAR. Os dois package.json são byte a byte iguais: a única variável é a linha `run:` do workflow, então o lado reprovar só pode reprovar por o CI de fato não alcançar a verificação que o repositório possui."
+}

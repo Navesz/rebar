@@ -1,0 +1,4 @@
+{
+  "regra": "notice",
+  "porque": "Distribuicao sob Apache-2.0 sem o arquivo NOTICE: a secao 4(d) da propria licenca obriga o repasse do NOTICE, entao o repositorio esta em desacordo com a licenca que ele mesmo declara."
+}

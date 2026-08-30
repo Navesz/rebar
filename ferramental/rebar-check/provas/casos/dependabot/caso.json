@@ -1,0 +1,4 @@
+{
+  "regra": "dependabot",
+  "porque": "Projeto npm sem dependabot nem renovate acumula CVE em dependência transitiva sem ninguém abrir um PR. As duas árvores têm package.json — sem ele a regra cai em não-se-aplica e a prova não provaria nada — e diferem só pelo .github/dependabot.yml."
+}

@@ -1,0 +1,28 @@
+{
+  "regra": "coautoria-ia",
+  "porque": "As duas árvores têm o MESMO arquivo: só o histórico muda, então a prova mede exatamente o que a regra lê. O lado reprovar usa o trailer do Cursor em caixa baixa (`Co-authored-by:`) porque a regex ingênua procura só `Claude` com C maiúsculo e cobre 15% do problema medido; o lado aprovar tem um commit que CITA Claude e Copilot no corpo, que é o falso positivo que aparece assim que alguém tira o `^` ou o `/m` da regex e passa a casar a palavra solta no meio do texto.",
+  "aprovar": {
+    "commits": [
+      {
+        "mensagem": "cria o carregador de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "documenta como rodar o rebar-check\n\nO passo a passo cita Claude Code e Copilot no corpo da mensagem.\nCitar a ferramenta não é assinar coautoria com ela: aqui não há trailer.",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  },
+  "reprovar": {
+    "commits": [
+      {
+        "mensagem": "cria o carregador de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "ajusta a leitura do arquivo de configuração\n\nCo-authored-by: Cursor Agent <cursoragent@cursor.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  }
+}

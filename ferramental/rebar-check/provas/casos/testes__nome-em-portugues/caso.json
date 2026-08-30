@@ -1,0 +1,4 @@
+{
+  "regra": "testes",
+  "porque": "A outra metade do mesmo falso positivo. Esta variante isola o ramo de NOME DE ARQUIVO: o único teste do lado aprovar é `provar-soma.mjs`, na raiz, sem nenhuma pasta de teste no caminho. Existe separada porque a versão anterior desta prova tinha os dois ramos na mesma árvore — e, restaurando à mão a cegueira ao português, ela continuou VERDE, porque o outro ramo ainda casava. Prova que sobrevive à volta do defeito que ela trava não é prova."
+}

@@ -1,0 +1,54 @@
+# O portão do rebar. Um comando só, o mesmo que se roda na máquina:
+#   node ferramental/verificar/verificar.mjs
+#
+# A MATRIZ EXISTE POR UM MOTIVO MEDIDO. O config do alicerce checa sintaxe com
+# `find ferramental -name "*.mjs" -print0 | xargs -0 -n1 node --check`, que não
+# roda no Windows. O defeito sobreviveu porque o CI dele só roda Linux. Aqui o
+# mesmo comando precisa passar nos dois sistemas ou não passa em nenhum.
+#
+# Sem `npm ci`, sem cache de dependência, sem passo de instalação: o rebar tem
+# zero dependência de propósito. O que confere o build não pode depender do
+# build. Se um dia aparecer um `npm ci` neste arquivo, a premissa quebrou.
+
+name: verificar
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: verificar (${{ matrix.so }})
+    runs-on: ${{ matrix.so }}
+    strategy:
+      # Sem fail-fast: saber que quebrou só no Windows, ou nos dois, é metade do
+      # diagnóstico. Cancelar a outra plataforma esconde exatamente isso.
+      fail-fast: false
+      matrix:
+        so: [windows-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # O passo `auto` roda o rebar-check, e duas regras dele — coautoria-ia
+          # e identidade-git — leem `git log`. Com o clone raso padrão
+          # (fetch-depth: 1) elas enxergariam um commit só e aprovariam qualquer
+          # histórico. Verificação que só vê o último commit não é verificação.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: verificar
+        # Um comando. Exit 0 é a única aprovação: 1 reprovou, 2 config errada,
+        # 3 recorte parcial, 127 o ferramental quebrou — todos derrubam o job.
+        run: node ferramental/verificar/verificar.mjs
