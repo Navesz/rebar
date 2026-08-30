@@ -14,7 +14,18 @@
 // Uso:
 //   node index.mjs [caminho...]        placar por repositório
 //   node index.mjs --json [caminho]    saída para CI
+//   node index.mjs --regra=<id> [dir]  uma regra só (é o que as provas usam)
 //   node index.mjs --heuristicas       heurísticas também derrubam o exit code
+//
+// Códigos de saída — três coisas diferentes, três códigos diferentes:
+//   0    tudo que se aplica passou
+//   1    REPROVOU: violação real
+//   2    alvo inválido (não é repositório git) ou invocação errada
+//   127  QUEBROU: uma regra lançou exceção. Defeito do rebar-check, não do alvo.
+//
+// A distinção do 1 contra o 127 é a §8.2 do plano ("verificar.mjs:124 →
+// distinguir reprovou de quebrou"). Sem ela o bug do verificador entra na
+// conta como se fosse defeito do repositório auditado.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
@@ -31,17 +42,32 @@ const c = {
   forte: (s) => (cor ? `\x1b[1m${s}\x1b[0m` : s),
 }
 
-/** Roda git no repositório. Devolve '' em vez de lançar: repo sem commit é caso válido. */
+/**
+ * "Não se aplica" é um TERCEIRO estado, e criá-lo foi o conserto mais caro
+ * deste arquivo. Antes, regra sem objeto para checar devolvia `null` — o mesmo
+ * que "passou". Consequência medida: uma pasta VAZIA com um `.git/` vazio
+ * tirava 8 de 14, empatando com o próprio rebar e tirando o DOBRO do alicerce.
+ * O nada não conforma; o nada não se aplica. N/A sai do DENOMINADOR.
+ */
+const na = (motivo) => ({ na: motivo })
+
+/**
+ * Roda git. Distingue as duas coisas que antes eram a mesma:
+ *   { ok: true,  saida }  — rodou, pode ter saído vazio (repo sem commit é válido)
+ *   { ok: false, erro }   — o git falhou ou não existe
+ * O `catch { return '' }` de antes engolia "fatal: not a git repository" e
+ * devolvia string vazia, então `coautoria-ia` e `identidade-git` aprovavam um
+ * diretório que nem era repositório. Crash virava aprovação.
+ */
 function git(dir, args) {
   try {
-    return execFileSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim()
-  } catch { return '' }
-}
-
-/** Só o que o Git rastreia. Arquivo ignorado não faz parte do produto. */
-function rastreados(dir) {
-  const saida = git(dir, ['ls-files'])
-  return saida ? saida.split('\n').filter(Boolean) : []
+    const saida = execFileSync('git', args, {
+      cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { ok: true, saida: saida.trim() }
+  } catch (e) {
+    return { ok: false, erro: (e.stderr || e.message || '').toString().trim().split('\n')[0] }
+  }
 }
 
 function lerJson(dir, rel) {
@@ -57,20 +83,66 @@ function existe(dir, rel) {
 }
 
 const CODIGO = /\.(ts|tsx|js|jsx|mjs|cjs|svelte|vue|astro)$/i
-const TESTE = /(\.|\/)(test|spec)\.|(^|\/)(tests?|__tests__)\//i
 const IGNORAR = /(^|\/)(node_modules|dist|build|\.next|out|coverage|vendor)\//
+
+/**
+ * Um arquivo é teste se um SEGMENTO do caminho for pasta de teste, ou se o
+ * NOME for de teste. Por segmento, não por substring: "aprovar/" contém
+ * "provar" e não é pasta de teste.
+ *
+ * O português entra aqui porque a versão anterior era cega a ele. Medido no
+ * alicerce: 43 arquivos rastreados com "prova" no nome, e a regra enxergava
+ * ZERO — um checker escrito em português que não reconhece teste nomeado em
+ * português. Era um dos dois falsos positivos determinísticos provados.
+ */
+const PASTA_TESTE = new Set([
+  'test', 'tests', '__tests__', 'spec', 'specs',
+  'teste', 'testes', 'prova', 'provas',
+])
+const NOME_TESTE = /(\.|^)(test|spec|teste|prova)\.|^(provar|testar)[-.]/i
+
+function ehTeste(rel) {
+  const partes = rel.split('/')
+  if (partes.slice(0, -1).some((p) => PASTA_TESTE.has(p.toLowerCase()))) return true
+  return NOME_TESTE.test(partes[partes.length - 1])
+}
 
 /** Conteúdo dos arquivos de código rastreados, com teto de tamanho. */
 function fontes(dir, arquivos) {
   const out = []
   for (const a of arquivos) {
-    if (!CODIGO.test(a) || IGNORAR.test(a) || TESTE.test(a)) continue
+    if (!CODIGO.test(a) || IGNORAR.test(a) || ehTeste(a)) continue
     try {
       if (statSync(join(dir, a)).size > 512 * 1024) continue
       out.push([a, readFileSync(join(dir, a), 'utf8')])
     } catch { /* arquivo sumiu entre o ls-files e a leitura */ }
   }
   return out
+}
+
+/**
+ * Expande o que o CI de fato executa. Um workflow que roda `npm run verificar`
+ * está rodando o corpo de `verificar` — e, se aquele corpo chamar outro script,
+ * está rodando aquele também.
+ *
+ * Sem isto, `ci-gateia` procurava as palavras lint/typecheck/test literais no
+ * YAML e reprovava todo repositório que agrega a verificação num comando só.
+ * Era o segundo falso positivo determinístico provado.
+ */
+function textoEfetivoDoCi(yml, scripts, profundidade = 3) {
+  let texto = yml
+  const vistos = new Set()
+  for (let i = 0; i < profundidade; i++) {
+    let cresceu = false
+    for (const [nome, corpo] of Object.entries(scripts)) {
+      if (vistos.has(nome)) continue
+      // `npm run x`, `pnpm x`, `yarn x`, `run-s x`, `run-p x`
+      const invocado = new RegExp(`(?:npm\\s+run|pnpm\\s+(?:run\\s+)?|yarn\\s+(?:run\\s+)?|run-[sp])\\s+${nome}\\b`)
+      if (invocado.test(texto)) { texto += '\n' + corpo; vistos.add(nome); cresceu = true }
+    }
+    if (!cresceu) break
+  }
+  return texto
 }
 
 // ──────────────────────────────────────────────────────────────── as regras
@@ -80,6 +152,12 @@ function fontes(dir, arquivos) {
 // deu SETE ocorrências e ZERO verdadeiros positivos — cinco eram comentários
 // documentando a própria regra. Regra automática errada custa mais que regra
 // ausente, e heurística que barra ensina a desligar a saída inteira.
+//
+// `checar` devolve UMA de quatro coisas:
+//   null            passou
+//   'motivo'        reprovou
+//   na('motivo')    não se aplica — sai do denominador
+//   (lança)         quebrou — exit 127, defeito do rebar-check
 
 const REGRAS = [
 
@@ -91,38 +169,48 @@ const REGRAS = [
 
   { id: 'dependabot', classe: 'determinística', nivel: 'N4',
     titulo: 'atualização de dependência automatizada',
-    checar: (r) => (existe(r.dir, '.github/dependabot.yml') || existe(r.dir, '.github/dependabot.yaml') ||
-                    existe(r.dir, 'renovate.json') || existe(r.dir, '.github/renovate.json'))
-      ? null : 'sem dependabot nem renovate' },
+    checar: (r) => {
+      if (!r.pkg) return na('não é projeto npm')
+      return (existe(r.dir, '.github/dependabot.yml') || existe(r.dir, '.github/dependabot.yaml') ||
+              existe(r.dir, 'renovate.json') || existe(r.dir, '.github/renovate.json'))
+        ? null : 'sem dependabot nem renovate'
+    } },
 
   { id: 'ci', classe: 'determinística', nivel: 'N4',
     titulo: 'tem CI',
     checar: (r) => r.workflows.length ? null : 'nenhum workflow em .github/workflows/' },
 
   { id: 'ci-gateia', classe: 'determinística', nivel: 'N4',
-    titulo: 'o CI roda lint, tipos e teste',
+    titulo: 'o CI alcança a verificação que o repositório tem',
     checar: (r) => {
-      if (!r.workflows.length) return 'sem CI'
+      if (!r.workflows.length) return na('sem CI — quem cobra isso é a regra `ci`')
+      const scripts = r.pkg?.scripts || {}
+      // Só cobra o que o repositório POSSUI. Exigir `lint` de um repo sem lint
+      // é exigir que ele adote uma ferramenta — decisão de outro nível.
+      const alvos = ['lint', 'typecheck', 'test'].filter((g) => scripts[g])
+      if (!alvos.length) return na('package.json não tem script lint, typecheck nem test')
       const yml = r.workflows.map((w) => ler(r.dir, w) || '').join('\n')
-      const faltam = ['lint', 'typecheck', 'test'].filter((g) => !new RegExp(`\\b${g}\\b`).test(yml))
-      return faltam.length ? `CI não roda: ${faltam.join(', ')}` : null
+      const efetivo = textoEfetivoDoCi(yml, scripts)
+      const faltam = alvos.filter((g) => !new RegExp(`\\b${g}\\b`).test(efetivo))
+      return faltam.length ? `o CI não alcança: ${faltam.join(', ')}` : null
     } },
 
   { id: 'testes', classe: 'determinística', nivel: 'N3',
     titulo: 'tem teste',
-    checar: (r) => r.arquivos.some((a) => TESTE.test(a)) ? null : 'zero arquivo de teste' },
+    checar: (r) => r.arquivos.some(ehTeste) ? null : 'zero arquivo de teste' },
 
   { id: 'typecheck', classe: 'determinística', nivel: 'N0',
     titulo: 'tem script de typecheck',
     checar: (r) => {
-      if (!r.pkg) return null                       // não é projeto npm
+      if (!r.pkg) return na('não é projeto npm')
+      if (!r.arquivos.some((a) => /\.(ts|tsx)$/i.test(a))) return na('não tem TypeScript')
       return r.pkg.scripts?.typecheck ? null : 'package.json sem script "typecheck"'
     } },
 
   { id: 'formatter', classe: 'determinística', nivel: 'N1',
     titulo: 'tem formatador',
     checar: (r) => {
-      if (!r.pkg) return null
+      if (!r.pkg) return na('não é projeto npm')
       const d = { ...r.pkg.dependencies, ...r.pkg.devDependencies }
       return (d.prettier || d['@biomejs/biome'] || d.dprint) ? null : 'sem prettier, biome ou dprint'
     } },
@@ -130,7 +218,7 @@ const REGRAS = [
   { id: 'env-example', classe: 'determinística', nivel: 'N2',
     titulo: 'lê env e documenta em .env.example',
     checar: (r) => {
-      if (!r.varsEnv.size) return null              // não lê env: nada a documentar
+      if (!r.varsEnv.size) return na('não lê variável de ambiente')
       if (!r.envExample) return `lê ${r.varsEnv.size} variável(is) de ambiente e não tem .env.example`
       const faltando = [...r.varsEnv].filter((v) => !new RegExp(`^${v}\\s*=`, 'm').test(r.envExample))
       return faltando.length ? `não documentadas: ${faltando.slice(0, 4).join(', ')}` : null
@@ -144,13 +232,15 @@ const REGRAS = [
     titulo: 'Apache-2.0 acompanhado de NOTICE',
     checar: (r) => {
       const lic = r.arquivos.find((a) => /^LICEN[CS]E/i.test(a))
-      if (!lic || !/Apache License/i.test(ler(r.dir, lic) || '')) return null
+      if (!lic) return na('sem LICENSE — quem cobra isso é a regra `licenca`')
+      if (!/Apache License/i.test(ler(r.dir, lic) || '')) return na('a licença não é Apache')
       return r.arquivos.some((a) => /^NOTICE/i.test(a)) ? null : 'licença Apache sem NOTICE'
     } },
 
   { id: 'coautoria-ia', classe: 'determinística', nivel: 'N5',
     titulo: 'nenhum commit com coautoria de IA',
     checar: (r) => {
+      if (!r.commits.length) return na('repositório sem commit')
       const n = r.commits.filter((m) =>
         /^co-authored-by:.*(claude|anthropic|cursor|copilot|codex|devin|aider|gemini|noreply@anthropic)/im.test(m)
       ).length
@@ -162,6 +252,7 @@ const REGRAS = [
   { id: 'identidade-git', classe: 'determinística', nivel: 'N4',
     titulo: 'identidade de autor consistente',
     checar: (r) => {
+      if (!r.autores.length) return na('repositório sem commit')
       const ids = new Set(r.autores)
       if (ids.size <= 1) return null
       const pessoal = [...ids].filter((i) => !/@users\.noreply\.github\.com>/.test(i))
@@ -173,7 +264,7 @@ const REGRAS = [
     titulo: 'components/ui/ acompanhado de components.json',
     checar: (r) => {
       const temUi = r.arquivos.some((a) => /(^|\/)components\/ui\//.test(a))
-      if (!temUi) return null
+      if (!temUi) return na('não tem pasta components/ui/')
       return existe(r.dir, 'components.json') ? null
         : 'pasta components/ui/ imitando a convenção, sem components.json'
     } },
@@ -182,7 +273,7 @@ const REGRAS = [
     titulo: 'nenhum JSON Schema órfão',
     checar: (r) => {
       const schemas = r.arquivos.filter((a) => /\.schema\.json$/.test(a))
-      if (!schemas.length) return null
+      if (!schemas.length) return na('nenhum .schema.json no repositório')
       const todo = r.fontes.map(([, t]) => t).join('\n')
       const orfaos = schemas.filter((s) => !todo.includes(basename(s)))
       return orfaos.length ? `definido e nunca lido: ${orfaos.slice(0, 3).join(', ')}` : null
@@ -193,7 +284,7 @@ const REGRAS = [
   { id: 'shadcn-completo', classe: 'heurística', nivel: 'N1',
     titulo: 'shadcn com o aparato, não só a pasta',
     checar: (r) => {
-      if (!existe(r.dir, 'components.json')) return null
+      if (!existe(r.dir, 'components.json')) return na('não usa shadcn')
       const d = { ...r.pkg?.dependencies, ...r.pkg?.devDependencies }
       // ATENÇÃO: @radix-ui sozinho reprova o único repo que acertou. O Galegos
       // usa shadcn correto no estilo base-nova, com @base-ui/react e ZERO Radix.
@@ -228,10 +319,10 @@ const REGRAS = [
       // legítimo demais — material de three.js, véu de overlay — e a versão
       // ingênua desta regra deu 100% de falso positivo quando medida.
       const css = r.arquivos.filter((a) => /\.css$/.test(a))
-      if (!css.length) return null
+      if (!css.length) return na('nenhum .css no repositório')
       const noCss = new Set()
       for (const a of css) for (const m of (ler(r.dir, a) || '').matchAll(/#[0-9a-f]{6}/gi)) noCss.add(m[0].toLowerCase())
-      if (!noCss.size) return null
+      if (!noCss.size) return na('nenhuma cor hex no CSS')
       const dup = new Set()
       for (const [, t] of r.fontes) for (const m of t.matchAll(/#[0-9a-f]{6}/gi)) {
         if (noCss.has(m[0].toLowerCase())) dup.add(m[0].toLowerCase())
@@ -259,7 +350,15 @@ const REGRAS = [
 // ────────────────────────────────────────────────────────── leitura do repo
 
 function lerRepo(dir) {
-  const arquivos = rastreados(dir)
+  // Não basta existir `.git/`: uma pasta `.git/` VAZIA passa no existsSync e
+  // faz todo comando git falhar. Pergunte ao git, não ao disco.
+  const raiz = git(dir, ['rev-parse', '--git-dir'])
+  if (!raiz.ok) return { erro: raiz.erro || 'git indisponível' }
+
+  const ls = git(dir, ['ls-files'])
+  if (!ls.ok) return { erro: ls.erro }
+  const arquivos = ls.saida ? ls.saida.split('\n').filter(Boolean) : []
+
   const pkg = lerJson(dir, 'package.json')
   const fs_ = fontes(dir, arquivos)
 
@@ -269,53 +368,95 @@ function lerRepo(dir) {
   }
 
   // \x00 separa commits: mensagem de commit contém \n à vontade.
-  const bruto = git(dir, ['log', '--format=%B%x00'])
-  const commits = bruto ? bruto.split('\x00').map((s) => s.trim()).filter(Boolean) : []
-  const autores = (git(dir, ['log', '--format=%an <%ae>']) || '').split('\n').filter(Boolean)
+  // Repositório sem nenhum commit faz `git log` sair 128 — é estado válido,
+  // e vira lista vazia, que as regras tratam como N/A.
+  const logBruto = git(dir, ['log', '--format=%B%x00'])
+  const commits = logBruto.ok && logBruto.saida
+    ? logBruto.saida.split('\x00').map((s) => s.trim()).filter(Boolean) : []
+  const logAutores = git(dir, ['log', '--format=%an <%ae>'])
+  const autores = logAutores.ok && logAutores.saida ? logAutores.saida.split('\n').filter(Boolean) : []
 
   return {
-    dir, nome: basename(dir), arquivos, pkg, fontes: fs_, varsEnv, commits, autores,
+    dir, nome: basename(dir) || dir, arquivos, pkg, fontes: fs_, varsEnv, commits, autores,
     envExample: ler(dir, '.env.example'),
     workflows: arquivos.filter((a) => /^\.github\/workflows\/.+\.ya?ml$/.test(a)),
   }
 }
 
-function avaliar(dir) {
-  if (!existsSync(join(dir, '.git'))) return { dir, erro: 'não é repositório git' }
+function avaliar(dir, filtro) {
+  if (!existsSync(dir)) return { dir, nome: basename(dir) || dir, erro: 'caminho não existe' }
   const r = lerRepo(dir)
-  const resultados = REGRAS.map((regra) => {
-    let falha
-    try { falha = regra.checar(r) } catch (e) { falha = `a checagem quebrou: ${e.message}` }
-    return { id: regra.id, titulo: regra.titulo, classe: regra.classe, nivel: regra.nivel, falha }
+  if (r.erro) return { dir, nome: basename(dir) || dir, erro: r.erro }
+
+  const aRodar = filtro ? REGRAS.filter((x) => x.id === filtro) : REGRAS
+  const resultados = aRodar.map((regra) => {
+    const base = { id: regra.id, titulo: regra.titulo, classe: regra.classe, nivel: regra.nivel }
+    let saida
+    try {
+      saida = regra.checar(r)
+    } catch (e) {
+      // QUEBROU é defeito do rebar-check. Nunca entra na nota do alvo.
+      return { ...base, estado: 'quebrou', motivo: `${e.message}` }
+    }
+    if (saida === null || saida === undefined) return { ...base, estado: 'passou' }
+    if (typeof saida === 'object' && saida.na) return { ...base, estado: 'na', motivo: saida.na }
+    return { ...base, estado: 'reprovou', motivo: String(saida) }
   })
   return { dir, nome: r.nome, resultados }
 }
 
 // ────────────────────────────────────────────────────────────────── saída
 
+const MARCA = {
+  passou: () => c.verde('✓'),
+  reprovou: () => c.vermelho('✗'),
+  na: () => c.fraco('–'),
+  quebrou: () => c.amarelo('⚠'),
+}
+
+function nota(resultados) {
+  const det = resultados.filter((x) => x.classe === 'determinística')
+  const aplicaveis = det.filter((x) => x.estado === 'passou' || x.estado === 'reprovou')
+  return {
+    ok: aplicaveis.filter((x) => x.estado === 'passou').length,
+    total: aplicaveis.length,
+    na: det.filter((x) => x.estado === 'na').length,
+    quebrou: resultados.filter((x) => x.estado === 'quebrou').length,
+  }
+}
+
 function imprimir(a) {
-  if (a.erro) { console.log(`\n${c.forte(a.dir)}\n  ${c.vermelho('✗')} ${a.erro}`); return }
+  if (a.erro) { console.log(`\n${c.forte(a.nome)}\n  ${c.vermelho('✗')} ${a.erro}`); return }
 
   const det = a.resultados.filter((x) => x.classe === 'determinística')
   const heu = a.resultados.filter((x) => x.classe === 'heurística')
-  const okDet = det.filter((x) => !x.falha).length
 
   console.log(`\n${c.forte('rebar-check')} · ${c.forte(a.nome)}`)
   for (const x of det) {
-    const marca = x.falha ? c.vermelho('✗') : c.verde('✓')
-    const detalhe = x.falha ? c.fraco(`  ${x.falha}`) : ''
-    console.log(`  ${marca} ${x.id.padEnd(18)} ${x.titulo}${detalhe}`)
+    const detalhe = x.motivo ? c.fraco(`  ${x.motivo}`) : ''
+    const titulo = x.estado === 'na' ? c.fraco(x.titulo) : x.titulo
+    console.log(`  ${MARCA[x.estado]()} ${x.id.padEnd(18)} ${titulo}${detalhe}`)
   }
-  const heuFalhas = heu.filter((x) => x.falha)
-  if (heuFalhas.length) {
+  const heuVisiveis = heu.filter((x) => x.estado === 'reprovou' || x.estado === 'quebrou')
+  if (heuVisiveis.length) {
     console.log(c.fraco('  ── heurísticas (não entram na nota, não derrubam o CI)'))
-    for (const x of heuFalhas) {
-      console.log(`  ${c.amarelo('!')} ${x.id.padEnd(18)} ${c.fraco(x.falha)}`)
+    for (const x of heuVisiveis) {
+      console.log(`  ${MARCA[x.estado]()} ${x.id.padEnd(18)} ${c.fraco(x.motivo)}`)
     }
   }
-  const nota = `${okDet} de ${det.length}`
-  console.log(`  ${okDet === det.length ? c.verde(nota) : c.vermelho(nota)}` +
-    (heuFalhas.length ? c.fraco(`  ·  ${heuFalhas.length} aviso(s)`) : ''))
+
+  const n = nota(a.resultados)
+  if (n.total === 0) {
+    console.log(`  ${c.fraco('nada avaliável neste repositório')}`)
+  } else {
+    const txt = `${n.ok} de ${n.total}`
+    console.log(`  ${n.ok === n.total ? c.verde(txt) : c.vermelho(txt)}` +
+      (n.na ? c.fraco(`  ·  ${n.na} não se aplica`) : '') +
+      (heuVisiveis.length ? c.fraco(`  ·  ${heuVisiveis.length} aviso(s)`) : ''))
+  }
+  if (n.quebrou) {
+    console.log(`  ${c.amarelo(`⚠ ${n.quebrou} regra(s) QUEBRARAM — defeito do rebar-check, fora da nota`)}`)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────── main
@@ -323,28 +464,58 @@ function imprimir(a) {
 const args = process.argv.slice(2)
 const json = args.includes('--json')
 const heuristicasBarram = args.includes('--heuristicas')
+const regraArg = args.find((a) => a.startsWith('--regra='))
+const filtro = regraArg ? regraArg.slice('--regra='.length) : null
+
+const desconhecidas = args.filter((a) => a.startsWith('--') && !/^--(json|heuristicas|regra=)/.test(a))
+if (desconhecidas.length) {
+  console.error(`rebar-check: opção desconhecida: ${desconhecidas.join(', ')}`)
+  process.exit(2)
+}
+
+if (filtro && !REGRAS.some((x) => x.id === filtro)) {
+  console.error(`rebar-check: regra desconhecida: ${filtro}`)
+  console.error(`disponíveis: ${REGRAS.map((x) => x.id).join(', ')}`)
+  process.exit(2)
+}
+
 const alvos = args.filter((a) => !a.startsWith('--'))
 if (!alvos.length) alvos.push(process.cwd())
 
-const avaliacoes = alvos.map(avaliar)
+const avaliacoes = alvos.map((d) => avaliar(d, filtro))
 
 if (json) {
-  console.log(JSON.stringify(avaliacoes, null, 2))
+  console.log(JSON.stringify(
+    avaliacoes.map((a) => (a.erro ? a : { ...a, nota: nota(a.resultados) })), null, 2))
 } else {
   for (const a of avaliacoes) imprimir(a)
   if (avaliacoes.length > 1) {
     console.log(`\n${c.forte('resumo')}`)
     for (const a of avaliacoes) {
-      if (a.erro) { console.log(`  ${a.dir.padEnd(24)} ${c.vermelho(a.erro)}`); continue }
-      const det = a.resultados.filter((x) => x.classe === 'determinística')
-      const ok = det.filter((x) => !x.falha).length
-      const barra = '█'.repeat(ok) + '·'.repeat(det.length - ok)
-      const t = `${ok}/${det.length}`
-      console.log(`  ${a.nome.padEnd(24)} ${ok === det.length ? c.verde(barra) : c.vermelho(barra)} ${t}`)
+      if (a.erro) { console.log(`  ${a.nome.padEnd(24)} ${c.vermelho(a.erro)}`); continue }
+      const n = nota(a.resultados)
+      if (!n.total) { console.log(`  ${a.nome.padEnd(24)} ${c.fraco('nada avaliável')}`); continue }
+      // Barra de LARGURA FIXA. Com o N/A saindo do denominador cada repositório
+      // tem um total diferente, e uma barra de comprimento variável faria 2/6
+      // parecer pior que 3/11 — comparação que a régua não sustenta.
+      const pct = n.ok / n.total
+      const cheio = Math.round(pct * 10)
+      const barra = '█'.repeat(cheio) + '·'.repeat(10 - cheio)
+      console.log(`  ${a.nome.padEnd(24)} ${pct === 1 ? c.verde(barra) : c.vermelho(barra)}` +
+        ` ${String(Math.round(pct * 100)).padStart(3)}%` +
+        c.fraco(` ${n.ok}/${n.total}`) +
+        (n.na ? c.fraco(` · ${n.na} n/a`) : ''))
     }
   }
 }
 
-const reprovou = avaliacoes.some((a) => a.erro ||
-  a.resultados.some((x) => x.falha && (x.classe === 'determinística' || heuristicasBarram)))
+// Ordem dos códigos: QUEBROU domina REPROVOU. Um defeito no verificador
+// invalida o veredito — não se acusa um repositório com uma régua que quebrou.
+const quebrou = avaliacoes.some((a) => a.resultados?.some((x) => x.estado === 'quebrou'))
+const alvoInvalido = avaliacoes.some((a) => a.erro)
+const reprovou = avaliacoes.some((a) => a.resultados?.some((x) =>
+  x.estado === 'reprovou' && (x.classe === 'determinística' || heuristicasBarram)))
+
+if (quebrou) process.exit(127)
+if (alvoInvalido) process.exit(2)
 process.exit(reprovou ? 1 : 0)
