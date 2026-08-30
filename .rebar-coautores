@@ -1,0 +1,31 @@
+# Coautores HUMANOS aceitos neste repositório. ALLOWLIST, não lista de inimigos.
+#
+# Por que invertido: a política era uma ENUMERAÇÃO de 9 agentes de IA, e o ataque
+# de 2026-08-30 furou os dois lugares onde ela morava. Windsurf, ChatGPT, Cody,
+# Codeium, Amazon Q e Tabnine entraram no histórico com trailer que o
+# `git log --format=%(trailers)` reconhece — hook aprovando, exit 0 nos seis, e a
+# regra `coautoria-ia` acusando 1 de 9 commits quando 8 tinham trailer. Enumerar
+# agente é corrida que se perde toda semana; humano do projeto é lista curta e
+# que muda uma vez por ano.
+#
+# FORMATO: uma identidade por linha, `Nome <email>` ou só o e-mail. O que é
+# comparado é o E-MAIL, em caixa baixa. Nome é texto livre e não identifica
+# ninguém: `Claude <leonardonavesworking@gmail.com>` seria aceito e é o certo —
+# quem responde pelo commit é o dono do e-mail. Linha vazia e linha começada por
+# `#` são ignoradas.
+#
+# QUEM LÊ:
+#   ferramental/hooks/checar-mensagem.mjs  no commit-msg, antes de o commit existir
+#   regra `coautoria-ia` do rebar-check    no histórico, depois de ele existir
+#
+# ESTE ARQUIVO TEM DE ESTAR RASTREADO. O rebar-check só o aceita se o
+# `git ls-files` o listar, porque allowlist solta no disco é allowlist que o
+# auditor não vê — o mesmo bypass que o `.rebarignore` clandestino já teve, e que
+# aqui seria pior: um arquivo de dois bytes desligaria a regra inteira.
+#
+# Por que aqui na raiz e não em ferramental/: o rebar-check roda contra
+# repositório de TERCEIRO, e o terceiro não tem `ferramental/`. O caminho precisa
+# ser um só, previsível, sem pasta a criar — mesma família do `.rebarignore`.
+
+Naves <58537948+Navesz@users.noreply.github.com>
+Naves <leonardonavesworking@gmail.com>

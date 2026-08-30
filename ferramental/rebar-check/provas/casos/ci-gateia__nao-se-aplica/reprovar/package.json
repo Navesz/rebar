@@ -1,0 +1,7 @@
+{
+  "name": "alvo",
+  "private": true,
+  "scripts": {
+    "empacotar": "vite build"
+  }
+}

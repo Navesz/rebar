@@ -1,0 +1,7 @@
+{
+  "regra": "ui-falso",
+  "porque": "A regra acusa a pasta `components/ui/` criada à mão para parecer shadcn. Repositório que não tem essa pasta não imitou convenção nenhuma, e o ramo N/A é o que impede a regra de virar \"todo projeto tem de usar shadcn\" — que é o oposto do que ela mede. O lado `aprovar` tem um `src/botao.tsx`, componente de verdade fora da convenção, para provar que o N/A é sobre a PASTA e não sobre a ausência de componente. O lado `reprovar` tem a pasta sem `components.json` e continua reprovando.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

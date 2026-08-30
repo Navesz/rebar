@@ -1,0 +1,30 @@
+{
+  "regra": "coautoria-ia",
+  "porque": "O ramo de repositório de TERCEIRO, que não tem `.rebar-coautores` — nenhum dos dois lados tem o arquivo. Ali só resta enumerar agentes, e enumeração só prova PRESENÇA. O lado `reprovar` tem um agente da lista e continua reprovando, então a queda para o plano B não desarmou a regra. O lado `aprovar` tem um coautor que a lista não conhece e por isso declara `na`: um `✓` ali seria o checker afirmando \"não há IA\" sem ter como saber, que é exatamente a afirmação que os seis agentes do ataque de 2026-08-30 desmentiram. Repositório de terceiro SEM trailer nenhum passa por outro caminho — ausência de coautor é prova de ausência de coautor de IA — e é o caso `coautoria-ia` sem variante.",
+  "aprovar": {
+    "estado": "na",
+    "commits": [
+      {
+        "mensagem": "cria o carregador de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "ajusta a leitura do arquivo de configuração\n\nCo-authored-by: Fulano de Tal <fulano@empresa-qualquer.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  },
+  "reprovar": {
+    "estado": "reprovou",
+    "commits": [
+      {
+        "mensagem": "cria o carregador de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "ajusta a leitura do arquivo de configuração\n\nCo-authored-by: Cursor Agent <cursoragent@cursor.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  }
+}

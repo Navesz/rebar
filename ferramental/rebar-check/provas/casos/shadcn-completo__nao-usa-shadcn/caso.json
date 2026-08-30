@@ -1,0 +1,7 @@
+{
+  "regra": "shadcn-completo",
+  "porque": "Primeiro caso de uma heurística, e o lado N/A dele só é escrevível porque o runner passou a ler estado: `na` e `passou` saem os dois exit 0, então enquanto o veredito vinha do código de saída este lado não podia ser declarado. O ramo `não usa shadcn` é o que impede a heurística de cobrar cva e tailwind-merge de quem nunca escolheu shadcn. `aprovar/` é um projeto React sem `components.json`; `reprovar/` tem o `components.json` e um manifesto sem primitiva, sem cva e sem tailwind-merge, e continua avisando — a guarda de leitura desta regra vem DEPOIS do N/A de propósito, para que quem não usa shadcn não ganhe aviso por causa de manifesto quebrado.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

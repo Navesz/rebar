@@ -1,0 +1,30 @@
+{
+  "regra": "coautoria-ia",
+  "porque": "Trava a INVERSÃO DE POLÍTICA. Os dois lados têm a MESMA árvore, incluindo a mesma `.rebar-coautores` com um único humano — só o histórico muda. O lado `reprovar` usa `Co-authored-by: Windsurf <agent@windsurf.com>`, escolhido porque o Windsurf NÃO estava na lista de 9 agentes que a regra enumerava: medido em 2026-08-30, num repositório montado em tmpdir, Windsurf, ChatGPT, Cody, Codeium, Amazon Q e Tabnine entraram no histórico com trailer que o `git log --format=%(trailers)` reconheceu e a regra acusou 1 de 9 commits tendo 8 deles trailer. Quem reintroduzir a enumeração no lugar da allowlist faz este lado ficar verde, e a prova acusa. O lado `aprovar` usa o e-mail que ESTÁ na allowlist e prova a outra metade: allowlist que barra todo mundo não é allowlist, é veto.",
+  "aprovar": {
+    "estado": "passou",
+    "commits": [
+      {
+        "mensagem": "cria o carregador de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "ajusta a leitura do arquivo de configuração\n\nCo-authored-by: Ana Prova <ana@rebar.local>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  },
+  "reprovar": {
+    "estado": "reprovou",
+    "commits": [
+      {
+        "mensagem": "cria o carregador de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "ajusta a leitura do arquivo de configuração\n\nCo-authored-by: Windsurf <agent@windsurf.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  }
+}

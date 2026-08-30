@@ -1,0 +1,6 @@
+{
+  "regra": "typecheck",
+  "porque": "Exigir o script chamado exatamente `typecheck` cobrava do repositório o VOCABULÁRIO e não a prática — o mesmo erro que a regra `testes` cometia com nome de arquivo em português, num checker escrito em português. Medido: prumo (`\"tipos\": \"tsc -b\"`) e ducado (`\"tipos\"` na raiz e `\"typecheck\"` em três pacotes) foram acusados de não ter typecheck tendo os dois o script. Esta variante isola o ramo do NOME: o lado `aprovar` tem `tipos` e nada mais. A lista aceita continua sendo de NOMES de script, e o lado `reprovar` mostra por quê — ele roda `tsc -b` DENTRO de `empacotar`, que é exatamente a falha que o caso base descreve (o único contato com o compilador é o build) e continua reprovando. Foi o que preservou a acusação verdadeira contra navesz.github.io, cujo `build` é `npm run data && tsc --noEmit && vite build`.",
+  "aprovar": { "commits": [{ "mensagem": "script de tipos com nome em português", "autor": "Prova <prova@rebar.local>" }] },
+  "reprovar": { "commits": [{ "mensagem": "tsc escondido dentro do build", "autor": "Prova <prova@rebar.local>" }] }
+}

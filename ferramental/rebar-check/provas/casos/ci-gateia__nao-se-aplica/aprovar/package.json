@@ -1,0 +1,8 @@
+{
+  "name": "alvo",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test"
+  }
+}

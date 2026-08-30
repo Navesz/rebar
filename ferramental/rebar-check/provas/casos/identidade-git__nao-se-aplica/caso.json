@@ -1,0 +1,17 @@
+{
+  "regra": "identidade-git",
+  "porque": "Os dois ramos N/A da regra, um por pasta. `aprovar/` declara `\"commits\": []`: sem histórico não há identidade a comparar, e a versão que engolia o erro do `git log` fazia esse repositório APROVAR numa regra sobre autoria. `reprovar/` tem um commit só, do dependabot: bot commita, e commitar não faz dele uma identidade inconsistente do dono. Esse segundo ramo tem preço medido — sem a lista de bots, o merge commit que o GitHub cria em refs/pull/N/merge contava como segunda pessoa E como e-mail pessoal exposto, dois falsos positivos de uma vez, e TODO pull request nascia reprovado.",
+  "aprovar": {
+    "estado": "na",
+    "commits": []
+  },
+  "reprovar": {
+    "estado": "na",
+    "commits": [
+      {
+        "mensagem": "bump da dependência",
+        "autor": "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+      }
+    ]
+  }
+}

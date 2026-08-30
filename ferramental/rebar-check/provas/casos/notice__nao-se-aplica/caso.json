@@ -1,0 +1,10 @@
+{
+  "regra": "notice",
+  "porque": "Os dois ramos N/A da regra, um por pasta. `aprovar/` não tem LICENSE: a ausência de licença é falha da regra `licenca`, e acusar aqui de novo contaria a mesma dívida duas vezes no denominador. `reprovar/` tem uma LICENSE MIT: a obrigação de repassar o NOTICE é da seção 4(d) da Apache-2.0 e de mais nenhuma licença, então exigi-la de um projeto MIT seria inventar uma cláusula que ele não assinou. Os dois lados saem N/A por motivos diferentes, e trocar qualquer um deles por `passou` faz o caso acusar.",
+  "aprovar": {
+    "estado": "na"
+  },
+  "reprovar": {
+    "estado": "na"
+  }
+}

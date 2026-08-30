@@ -1,0 +1,10 @@
+{
+  "regra": "hex-cru",
+  "porque": "Os dois ramos N/A da regra, um por pasta. A heurística só acusa hex que JÁ EXISTE como token no CSS, porque a versão ingênua dela deu 100% de falso positivo quando medida — hex solto tem contexto legítimo demais, material de three.js e véu de overlay. `aprovar/` não tem .css nenhum e `reprovar/` tem um .css escrito só com cores nomeadas: nos dois a tabela de tokens sai vazia, e sem tabela a comparação não existe. Trocar qualquer um dos dois `na` por `null` faz a heurística afirmar \"não há cor duplicada\" num repositório onde ela não olhou para cor nenhuma.",
+  "aprovar": {
+    "estado": "na"
+  },
+  "reprovar": {
+    "estado": "na"
+  }
+}

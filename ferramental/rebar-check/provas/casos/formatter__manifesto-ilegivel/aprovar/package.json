@@ -1,0 +1,5 @@
+{
+  "name": "prova-formatter-manifesto-ilegivel-aprovar",
+  "private": true,
+  "workspaces": ["apps/*"]
+}

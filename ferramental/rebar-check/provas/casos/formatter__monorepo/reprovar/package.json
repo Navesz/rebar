@@ -1,0 +1,5 @@
+{
+  "name": "prova-formatter-monorepo-reprovar",
+  "private": true,
+  "workspaces": ["apps/*"]
+}

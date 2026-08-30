@@ -1,0 +1,10 @@
+{
+  "regra": "ci-gateia",
+  "porque": "Os DOIS ramos N/A desta regra num caso só, um por pasta — as pastas se chamam `aprovar` e `reprovar` por herança do formato, e aqui cada uma isola um ramo diferente. `aprovar/` tem os scripts lint e test e nenhum workflow: quem cobra a existência de CI é a regra `ci`, e cobrar duas vezes a mesma ausência mede a mesma coisa duas vezes e reprova o repositório em dobro. `reprovar/` tem workflow e um package.json cujo único script é `empacotar`: a regra só cobra o que o repositório POSSUI, porque exigir `lint` de quem não tem lint é exigir a adoção de uma ferramenta, decisão de outro nível. Qualquer um dos dois virando `passou` faz o caso acusar.",
+  "aprovar": {
+    "estado": "na"
+  },
+  "reprovar": {
+    "estado": "na"
+  }
+}

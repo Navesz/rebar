@@ -1,0 +1,6 @@
+{
+  "regra": "formatter",
+  "porque": "A mesma classe do `ui-falso__monorepo`, no eixo das dependências: a regra lia só `dependencies`/`devDependencies` da RAIZ. Medido, o openkartline foi acusado de \"sem prettier, biome ou dprint\" sendo um workspace pnpm com `\"prettier\": \"^3.4.2\"` em apps/web/package.json e dois scripts (`format`, `format:check`) que o chamam. A raiz de monorepo costuma não declarar dependência nenhuma — é só o mapa dos workspaces. Aqui a união crua de todos os manifestos é o casamento certo, e em `ui-falso` não é: o gerenciador de pacotes iça o formatador para o workspace inteiro, então declarar prettier num pacote formata o repositório todo, enquanto um `components.json` configura os aliases de um projeto só. As duas raízes são idênticas; só o manifesto do pacote muda.",
+  "aprovar": { "commits": [{ "mensagem": "prettier declarado no pacote, não na raiz", "autor": "Prova <prova@rebar.local>" }] },
+  "reprovar": { "commits": [{ "mensagem": "monorepo com linter e nenhum formatador", "autor": "Prova <prova@rebar.local>" }] }
+}

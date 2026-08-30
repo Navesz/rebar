@@ -44,11 +44,29 @@
 // Pular passo é a mecânica que produz falso verde; aqui todo passo selecionado
 // sempre roda até o fim. A ordem barato-antes-de-caro do config continua
 // valendo — ela decide qual falha é reportada como "conserte primeiro".
+//
+// FURO 3 — a forja de config. Auditoria de 2026-08-30: escrevi em
+// $TEMP/forja.config.mjs seis passos com `funcao: () => ({ codigo: 0 })` e rodei
+// `verificar.mjs --config=$TEMP/forja.config.mjs`. Saída: "VERIFICAR — APROVADO
+// 6 de 6 passos · 1 ms", exit 0 — byte-indistinguível de uma aprovação real,
+// porque NENHUM campo, nem no texto nem no --json, dizia qual config tinha
+// rodado. Duas trancas aqui: (1) o caminho do config e a raiz resolvida são
+// SEMPRE impressos, em toda saída, aprovada ou não; (2) config que não é um
+// arquivo rastreado dentro da árvore de trabalho do git vira CONFIG EXTERNO e
+// nunca sai 0 — cai no 3, a mesma lógica do PARCIAL. `--config=` vazio, que
+// antes caía em silêncio na busca automática, agora é exit 2.
+//
+// FURO 4 — o portão emudecia o único canal que denuncia bypass. `extrairErros`
+// só rodava quando o passo NÃO passava, então a stdout de um passo aprovado era
+// descartada inteira — inclusive as linhas "⚠ N arquivo(s) escondidos por
+// .rebarignore" do rebar-check, que são justamente o aviso de que alguém
+// escondeu arquivo da régua. Daí o campo `avisar`: uma RegExp por passo, extraída
+// e impressa MESMO quando o passo passa, numa seção "avisos" abaixo do placar.
 
-import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { execFileSync, spawn } from 'node:child_process'
+import { existsSync, realpathSync } from 'node:fs'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const LIMITE_LINHAS_PADRAO = 6
 const LARGURA_MAXIMA_LINHA = 160
@@ -57,10 +75,14 @@ const TEMPO_LIMITE_PADRAO = 5 * 60 * 1000
 // ── invocação ───────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2)
+// `?.slice()` devolvia '' para `--config=`, e '' é falsy: o executor caía na
+// busca automática e rodava OUTRO config sem dizer nada. A presença do flag e o
+// valor dele são duas perguntas diferentes, então são duas variáveis.
+const argConfig = args.find((a) => a.startsWith('--config='))
 const opcoes = {
   json: args.includes('--json'),
   passo: args.find((a) => a.startsWith('--passo='))?.slice('--passo='.length),
-  config: args.find((a) => a.startsWith('--config='))?.slice('--config='.length),
+  config: argConfig === undefined ? undefined : argConfig.slice('--config='.length),
 }
 
 const cor = process.stdout.isTTY && !process.env.NO_COLOR && !opcoes.json
@@ -73,6 +95,11 @@ const c = {
 }
 
 class ErroDeConfiguracao extends Error {}
+
+// Separada de ErroDeConfiguracao porque o código de saída é outro, e a diferença
+// importa: config torto é exit 2 ("conserte a invocação"); config adulterado é
+// exit 1, uma REPROVAÇÃO do repositório — alguém escondeu uma alteração do git.
+class ErroDeIntegridade extends Error {}
 
 // Argumento posicional silenciosamente ignorado é como se pede uma coisa e se
 // recebe outra com exit 0. Aqui qualquer coisa fora do vocabulário sai 2.
@@ -95,11 +122,173 @@ const CHAVES_VALIDAS = new Set([
   'limite',
   'tempoLimite',
   'exige',
+  'avisar',
 ])
+
+// git é o único juiz de "este arquivo pertence a este repositório". Silencioso
+// porque toda falha aqui (git ausente, diretório fora de repositório, arquivo
+// não rastreado) tem o mesmo significado para quem chama: não deu para provar a
+// procedência. Quem chama decide o que fazer com o null.
+function gitSilencioso(argumentos, cwd) {
+  try {
+    const saida = execFileSync('git', argumentos, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    return saida.trim()
+  } catch {
+    return null
+  }
+}
+
+// No Windows o tmpdir costuma vir em nome 8.3 (C:\Users\LEONA~1\...) enquanto o
+// git devolve o nome longo. Comparar as duas formas dá "fora da raiz" para
+// caminho que está dentro. realpathSync normaliza as duas pontas; se o caminho
+// não existir mais, o resolve cru já serve.
+function caminhoReal(p) {
+  try {
+    return realpathSync(p)
+  } catch {
+    return resolve(p)
+  }
+}
+
+// O repositório do PRÓPRIO verificar.mjs, resolvido a partir do diretório do
+// script e nunca do cwd — mesma razão do instalar.mjs: rodar de dentro de outro
+// clone não pode mudar qual repositório está em jogo.
+const DIRETORIO_DESTE_SCRIPT = dirname(fileURLToPath(import.meta.url))
+
+function topoGit(dir) {
+  const bruto = gitSilencioso(['rev-parse', '--show-toplevel'], dir)
+  // git devolve barra normal mesmo no Windows; resolve() põe no formato do SO.
+  return bruto === null ? null : caminhoReal(resolve(bruto))
+}
+
+function mesmoCaminho(a, b) {
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
+}
+
+/**
+ * Prova que a régua veio do repositório que a régua diz verificar.
+ *
+ * Três condições, e nenhuma sobra. Auditei as duas primeiras sozinhas e as duas
+ * furam: "estar dentro de uma árvore de trabalho do git" cai com um `git init`
+ * no $TEMP, e "ser rastreado" cai com um `git add` + `git commit` nesse mesmo
+ * repositório de mentira — medido, o forjado voltou a imprimir "APROVADO 8 de 8
+ * · exit 0". A condição que fecha é a terceira: a raiz do config tem de ser a
+ * MESMA raiz do verificar.mjs que está executando. O commit forjado do atacante
+ * é revisável, sim — só que num histórico que ninguém deste projeto lê.
+ */
+function procedenciaDoConfig(arquivo) {
+  const topo = topoGit(dirname(arquivo))
+  if (topo === null) {
+    return { raizGit: null, externo: true, motivo: 'não está dentro de árvore de trabalho do git' }
+  }
+  const real = caminhoReal(arquivo)
+  const dentro =
+    process.platform === 'win32'
+      ? real.toLowerCase().startsWith(topo.toLowerCase() + sep)
+      : real.startsWith(topo + sep)
+  if (!dentro) {
+    return { raizGit: topo, externo: true, motivo: `está fora da raiz do git (${topo})` }
+  }
+
+  const topoDoScript = topoGit(DIRETORIO_DESTE_SCRIPT)
+  if (topoDoScript === null) {
+    return {
+      raizGit: topo,
+      externo: true,
+      motivo: 'não consegui achar o repositório do próprio verificar.mjs para comparar',
+    }
+  }
+  if (!mesmoCaminho(topo, topoDoScript)) {
+    return {
+      raizGit: topo,
+      externo: true,
+      motivo: `vem de outro repositório (${topo}); este verificar.mjs pertence a ${topoDoScript}`,
+    }
+  }
+
+  const rel = relative(topo, real).split(sep).join('/')
+  if (gitSilencioso(['ls-files', '--error-unmatch', '--', rel], topo) === null) {
+    return { raizGit: topo, externo: true, motivo: `"${rel}" não é rastreado por este repositório` }
+  }
+  return { raizGit: topo, externo: false, motivo: null, rel }
+}
+
+/**
+ * Integridade do config, e por que esta checagem mora AQUI e não num passo.
+ *
+ * Tentei primeiro botá-la no passo `higiene` do verificar.config.mjs. Medido no
+ * clone de teste: `git update-index --skip-worktree verificar.config.mjs` +
+ * reescrever o arquivo com oito passos `() => ({codigo:0})` ⇒ "APROVADO 8 de 8
+ * · exit 0". Óbvio em retrospecto — o passo que detectaria a troca é declarado
+ * pelo arquivo trocado. Régua não confere a si mesma quando é a régua que foi
+ * substituída. Então quem confere o config é o executor, antes de acreditar
+ * numa linha dele.
+ *
+ * O que ISTO não cobre, e é honesto dizer: quem consegue reescrever
+ * verificar.mjs apaga esta função. Contra esse, a defesa não é código — é o
+ * arquivo estar no HEAD, passar por revisão, e o caminho do config aparecer
+ * impresso em toda execução.
+ */
+function integridadeDoConfig(topo, rel) {
+  // 1 — bit de rastreio. `git status`, `git diff` e `git diff HEAD` são todos
+  // cegos a skip-worktree e a assume-unchanged; `ls-files -v` é o único que vê.
+  const marca = gitSilencioso(['ls-files', '-v', '--', rel], topo)
+  if (marca && !marca.startsWith('H ')) {
+    const letra = marca[0]
+    const nome =
+      letra === 'S'
+        ? 'skip-worktree'
+        : letra >= 'a' && letra <= 'z'
+          ? 'assume-unchanged'
+          : `estado de índice "${letra}"`
+    return {
+      adulterado: true,
+      motivo:
+        `${rel} está marcado como ${nome} no índice: o git parou de olhar o disco ` +
+        `para este arquivo, então status e diff mentem sobre ele.\n` +
+        `  Desfaça: git update-index --no-skip-worktree --no-assume-unchanged ${rel}`,
+    }
+  }
+
+  // 2 — o disco contra o HEAD. Divergir é normal (é o que edição é). Divergir
+  // SEM aparecer no status é a assinatura da adulteração: quem edita de boa fé
+  // aparece no status.
+  const noHead = gitSilencioso(['rev-parse', `HEAD:${rel}`], topo)
+  if (noHead === null) return { adulterado: false, motivo: null }
+  // `hash-object` com caminho aplica o mesmo filtro de limpeza do commit (o
+  // .gitattributes normaliza fim de linha), então é comparação de igual para igual.
+  const noDisco = gitSilencioso(['hash-object', '--', rel], topo)
+  if (noDisco === null || noDisco === noHead) return { adulterado: false, motivo: null }
+  const visivel = gitSilencioso(['status', '--porcelain', '--', rel], topo)
+  if (visivel) return { adulterado: false, motivo: null }
+  return {
+    adulterado: true,
+    motivo:
+      `${rel} no disco (${noDisco.slice(0, 12)}) difere do HEAD (${noHead.slice(0, 12)}) ` +
+      `e NÃO aparece em git status. Uma alteração invisível ao status não é edição, é ocultação.`,
+  }
+}
+
+function auditarConfig(arquivo) {
+  const p = procedenciaDoConfig(arquivo)
+  if (p.externo) return { ...p, adulterado: false, motivoAdulteracao: null }
+  const i = integridadeDoConfig(p.raizGit, p.rel)
+  return { ...p, adulterado: i.adulterado, motivoAdulteracao: i.motivo }
+}
 
 async function carregarConfig() {
   let arquivo
-  if (opcoes.config) {
+  if (opcoes.config !== undefined) {
+    // `--config=` sem valor não é "use o padrão": é comando pela metade. Aceitá-lo
+    // como padrão era um jeito de rodar um config e acreditar que rodou outro.
+    if (opcoes.config.trim() === '') {
+      throw new ErroDeConfiguracao('--config= veio vazio. Passe um caminho ou omita o flag.')
+    }
     arquivo = resolve(process.cwd(), opcoes.config)
     if (!existsSync(arquivo)) {
       throw new ErroDeConfiguracao(`--config=${opcoes.config} não existe (procurei em ${arquivo}).`)
@@ -126,6 +315,14 @@ async function carregarConfig() {
     }
   }
 
+  // A auditoria vem ANTES do import, e não depois: `import` executa o topo do
+  // módulo. Config adulterado não roda nem uma linha — nem para depois ser
+  // reprovado.
+  const procedencia = auditarConfig(arquivo)
+  if (procedencia.adulterado) {
+    throw new ErroDeIntegridade(`${arquivo}\n\n  ${procedencia.motivoAdulteracao}`)
+  }
+
   let modulo
   try {
     modulo = await import(pathToFileURL(arquivo).href)
@@ -138,7 +335,7 @@ async function carregarConfig() {
       `${arquivo} precisa exportar como default um array não vazio de passos.`,
     )
   }
-  return { passos, arquivo, raiz: dirname(arquivo) }
+  return { passos, arquivo, raiz: dirname(arquivo), procedencia }
 }
 
 function validarPassos(passos, arquivo) {
@@ -203,8 +400,8 @@ function validarPassos(passos, arquivo) {
     if (temFuncao && typeof p.funcao !== 'function') {
       problemas.push(`${onde}: "funcao" precisa ser função.`)
     }
-    if ('extrair' in p && !(p.extrair instanceof RegExp)) {
-      problemas.push(`${onde}: "extrair" precisa ser RegExp.`)
+    for (const k of ['extrair', 'avisar']) {
+      if (k in p && !(p[k] instanceof RegExp)) problemas.push(`${onde}: "${k}" precisa ser RegExp.`)
     }
     if ('exige' in p && (!Array.isArray(p.exige) || p.exige.some((a) => typeof a !== 'string'))) {
       problemas.push(`${onde}: "exige" precisa ser array de caminhos relativos à raiz.`)
@@ -354,15 +551,44 @@ async function executar(passo, raiz) {
 // leitura inteira de contexto; as mesmas 6 linhas certas custam quase nada.
 const PADRAO_ERRO = /(^|\s)(error|erro|✗|✘|⚠|FAIL|failed|falhou)\b|error TS\d+|:\d+:\d+/i
 
-function extrairErros(passo, saida) {
-  const linhas = String(saida)
+// RegExp com flag /g carrega lastIndex entre chamadas de .test(), o que faz o
+// filtro casar linha sim, linha não. Como as regexes vêm do config e o autor não
+// tem por que saber disso, a cópia sem /g é feita aqui em vez de recusar a flag.
+function semGlobal(re) {
+  return re.flags.includes('g') ? new RegExp(re.source, re.flags.replace(/g/g, '')) : re
+}
+
+function linhasUteis(saida) {
+  return String(saida)
     .split('\n')
     .map((l) => l.replace(/\s+$/, ''))
     .filter((l) => l.trim().length > 0)
+}
 
-  let candidatas = passo.extrair
-    ? linhas.filter((l) => passo.extrair.test(l))
-    : linhas.filter((l) => PADRAO_ERRO.test(l))
+function encurtar(l) {
+  return l.length > LARGURA_MAXIMA_LINHA ? `${l.slice(0, LARGURA_MAXIMA_LINHA - 1)}…` : l
+}
+
+// FURO 4. Roda para TODO passo, inclusive o que passou: um aviso só serve se
+// aparece justamente quando nada mais está gritando.
+function extrairAvisos(passo, saida) {
+  if (!passo.avisar) return []
+  const re = semGlobal(passo.avisar)
+  const unicas = [
+    ...new Set(
+      linhasUteis(saida)
+        .filter((l) => re.test(l))
+        .map((l) => l.trim()),
+    ),
+  ]
+  return unicas.slice(0, passo.limite ?? LIMITE_LINHAS_PADRAO).map(encurtar)
+}
+
+function extrairErros(passo, saida) {
+  const linhas = linhasUteis(saida)
+
+  const re = passo.extrair ? semGlobal(passo.extrair) : null
+  let candidatas = re ? linhas.filter((l) => re.test(l)) : linhas.filter((l) => PADRAO_ERRO.test(l))
 
   // Sem padrão reconhecido, as últimas linhas costumam ser o resumo da
   // ferramenta — mais úteis que as primeiras, que são banner.
@@ -370,14 +596,7 @@ function extrairErros(passo, saida) {
 
   const unicas = [...new Set(candidatas.map((l) => l.trim()))]
   const limite = passo.limite ?? LIMITE_LINHAS_PADRAO
-  return {
-    total: unicas.length,
-    mostradas: unicas
-      .slice(0, limite)
-      .map((l) =>
-        l.length > LARGURA_MAXIMA_LINHA ? `${l.slice(0, LARGURA_MAXIMA_LINHA - 1)}…` : l,
-      ),
-  }
+  return { total: unicas.length, mostradas: unicas.slice(0, limite).map(encurtar) }
 }
 
 // ── relatório ───────────────────────────────────────────────────────────────
@@ -387,7 +606,8 @@ function duracao(ms) {
 }
 
 function relatar(veredito) {
-  const { resultados, naoRodaram, parcial, declarados, duracaoMs } = veredito
+  const { resultados, naoRodaram, parcial, declarados, duracaoMs, arquivo, raiz, procedencia } =
+    veredito
   const quebrados = resultados.filter((r) => r.estado === 'quebrou')
   const reprovados = resultados.filter((r) => r.estado === 'reprovou')
   const aprovados = resultados.filter((r) => r.estado === 'passou')
@@ -395,6 +615,7 @@ function relatar(veredito) {
   let titulo
   if (quebrados.length) titulo = c.amarelo('QUEBROU')
   else if (reprovados.length) titulo = c.vermelho('REPROVADO')
+  else if (procedencia.externo) titulo = c.amarelo('CONFIG EXTERNO')
   else if (parcial) titulo = c.amarelo('PARCIAL')
   else titulo = c.verde('APROVADO')
 
@@ -402,6 +623,21 @@ function relatar(veredito) {
   console.log(
     `\n${c.forte('VERIFICAR')} — ${titulo}  ${c.cinza(`${placar} · ${duracao(duracaoMs)}`)}`,
   )
+
+  // FURO 3: sem estas duas linhas, "APROVADO 6 de 6" de um config forjado no
+  // $TEMP é byte-por-byte igual ao de um config real. Impressas SEMPRE — um
+  // campo que só aparece quando há problema é um campo que ninguém aprende a ler.
+  console.log(`  ${c.cinza('config')}  ${arquivo}`)
+  console.log(`  ${c.cinza('raiz')}    ${raiz}`)
+
+  if (procedencia.externo) {
+    console.log(
+      `\n  ${c.amarelo(c.forte('CONFIG EXTERNO'))} — ${procedencia.motivo}. ${c.forte('NÃO É APROVAÇÃO.')}`,
+    )
+    console.log(
+      `  ${c.cinza('os passos rodaram, mas quem escreveu a régua não está sob revisão deste repositório.')}`,
+    )
+  }
 
   // FURO 2: a linha que o alicerce não imprimia. Ela vem ANTES dos detalhes
   // porque é a informação que muda a leitura de tudo o que vem depois.
@@ -439,6 +675,21 @@ function relatar(veredito) {
   if (aprovados.length)
     console.log(`  ${c.verde('✓')} ${aprovados.map((r) => r.nome).join(' · ')}\n`)
 
+  // FURO 4: seção própria, abaixo do placar, alimentada também pelos passos que
+  // PASSARAM. É por aqui que "⚠ N arquivo(s) escondidos por .rebarignore" chega
+  // a quem lê — antes, a stdout de um passo aprovado era descartada inteira.
+  const comAviso = resultados.filter((r) => r.avisos.length)
+  if (comAviso.length) {
+    const n = comAviso.reduce((s, r) => s + r.avisos.length, 0)
+    console.log(
+      `  ${c.amarelo(c.forte(`avisos (${n})`))} ${c.cinza('— não reprovam, mas são reais')}`,
+    )
+    for (const r of comAviso) {
+      for (const linha of r.avisos) console.log(`      ${c.cinza(r.nome.padEnd(8))} ${linha}`)
+    }
+    console.log('')
+  }
+
   // O config declara do mais barato ao mais caro, então o primeiro da ordem que
   // caiu é o que se conserta primeiro — e consertar costuma apagar os de baixo.
   const primeiro = resultados.find((r) => r.estado !== 'passou')
@@ -456,7 +707,7 @@ function relatar(veredito) {
 // ── principal ───────────────────────────────────────────────────────────────
 
 async function principal() {
-  const { passos, arquivo, raiz } = await carregarConfig()
+  const { passos, arquivo, raiz, procedencia } = await carregarConfig()
   validarPassos(passos, arquivo)
 
   const selecionados = opcoes.passo ? passos.filter((p) => p.nome === opcoes.passo) : passos
@@ -485,6 +736,7 @@ async function principal() {
       dica: passo.dica,
       duracaoMs: r.duracaoMs ?? 0,
       erros: r.estado === 'passou' ? { total: 0, mostradas: [] } : extrairErros(passo, r.saida),
+      avisos: extrairAvisos(passo, r.saida),
     })
   }
 
@@ -494,6 +746,9 @@ async function principal() {
     parcial,
     declarados: passos.length,
     duracaoMs: Date.now() - inicio,
+    arquivo,
+    raiz,
+    procedencia,
   }
 
   // Ordem de precedência, e ela não é arbitrária: QUEBROU domina REPROVOU
@@ -501,9 +756,14 @@ async function principal() {
   // domina PARCIAL porque um passo que rodou e disse não é veredito de verdade,
   // e escondê-lo atrás do 3 perderia informação. PARCIAL domina o 0 sempre —
   // é a porta trancada do FURO 2.
+  //
+  // CONFIG EXTERNO entra na mesma faixa do PARCIAL, e pela mesma razão: os
+  // passos podem ter todos passado, mas quem escolheu os passos não está sob
+  // revisão. Isso não acusa o repositório (não é 1) nem absolve (nunca é 0).
   const quebrou = resultados.some((r) => r.estado === 'quebrou')
   const reprovou = resultados.some((r) => r.estado === 'reprovou')
-  const codigo = quebrou ? 127 : reprovou ? 1 : parcial ? 3 : 0
+  const externo = procedencia.externo
+  const codigo = quebrou ? 127 : reprovou ? 1 : parcial || externo ? 3 : 0
 
   if (opcoes.json) {
     console.log(
@@ -513,9 +773,20 @@ async function principal() {
             ? 'quebrou'
             : reprovou
               ? 'reprovado'
-              : parcial
-                ? 'parcial'
-                : 'aprovado',
+              : externo
+                ? 'config-externo'
+                : parcial
+                  ? 'parcial'
+                  : 'aprovado',
+          // FURO 3: o consumidor de --json precisa poder responder "qual régua
+          // produziu este veredito?" sem confiar na palavra de quem rodou.
+          config: {
+            arquivo,
+            raiz,
+            raizGit: procedencia.raizGit,
+            externo,
+            motivoExterno: procedencia.motivo,
+          },
           parcial,
           quando: new Date().toISOString().slice(0, 16).replace('T', ' '),
           duracaoMs: veredito.duracaoMs,
@@ -530,6 +801,7 @@ async function principal() {
             duracaoMs: r.duracaoMs,
             totalErros: r.erros.total,
             erros: r.erros.mostradas,
+            avisos: r.avisos,
           })),
         },
         null,
@@ -544,6 +816,24 @@ async function principal() {
 }
 
 principal().catch((e) => {
+  if (e instanceof ErroDeIntegridade) {
+    if (opcoes.json) {
+      console.log(
+        JSON.stringify(
+          { resultado: 'config-adulterado', codigoSaida: 1, motivo: e.message.trim() },
+          null,
+          2,
+        ),
+      )
+    } else {
+      console.error(`\n${c.vermelho('VERIFICAR — CONFIG ADULTERADO')}\n\n  ${e.message}\n`)
+      console.error(
+        `  ${c.cinza('nenhum passo rodou: a régua que diria se está tudo bem é a peça trocada.')}\n`,
+      )
+    }
+    process.exitCode = 1
+    return
+  }
   const titulo = e instanceof ErroDeConfiguracao ? 'ERRO DE CONFIGURAÇÃO' : 'ERRO INTERNO'
   console.error(`\n${c.vermelho(`VERIFICAR — ${titulo}`)}\n\n  ${e.message}\n`)
   // Config quebrada nunca é aprovação nem reprovação do repositório.

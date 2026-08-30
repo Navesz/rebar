@@ -1,0 +1,10 @@
+{
+  "name": "prova-typecheck-nome-em-portugues-reprovar",
+  "private": true,
+  "scripts": {
+    "empacotar": "tsc -b && vite build"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
