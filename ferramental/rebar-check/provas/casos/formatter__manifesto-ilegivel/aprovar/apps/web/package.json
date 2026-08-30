@@ -1,0 +1,10 @@
+{
+  "name": "@prova/web",
+  "private": true,
+  "scripts": {
+    "formatar": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.0"
+  }
+}

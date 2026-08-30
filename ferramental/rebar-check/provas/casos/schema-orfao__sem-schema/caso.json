@@ -1,0 +1,7 @@
+{
+  "regra": "schema-orfao",
+  "porque": "Sem nenhum `.schema.json` rastreado não há contrato para envelhecer em silêncio, e a regra não tem objeto. O ramo importa porque o lado positivo dela é uma busca por SUBSTRING no texto de todas as fontes: sem a guarda, um repositório sem schema nenhum passaria por um caminho que nunca foi exercitado, e \"passou\" ali é uma afirmação sobre zero arquivos. O lado `aprovar` tem código de verdade e nenhum schema; o lado `reprovar` tem `esquemas/pessoa.schema.json` que ninguém cita e continua reprovando.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

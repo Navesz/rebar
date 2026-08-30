@@ -73,12 +73,55 @@ function git(dir, args) {
   }
 }
 
-function lerJson(dir, rel) {
+/**
+ * Leitura com TRÊS estados, pelo mesmo motivo que `na()` existe: duas caixas
+ * não bastam para três coisas.
+ *
+ *   { estado: 'ok', texto }       li
+ *   { estado: 'ausente' }         não existe — N/A legítimo
+ *   { estado: 'ilegivel', erro }  EXISTE e não consegui ler
+ *
+ * O `catch { return null }` de antes fundia "ausente" com "ilegível", e o
+ * `pkg === null` virava `na('não é projeto npm')` — que SAI DO DENOMINADOR.
+ * Medido no ataque: um repositório 9 de 10 (90%) com o package.json
+ * sintaticamente quebrado vira 6 de 6 (100%) — quatro regras (dependabot,
+ * ci-gateia, typecheck, formatter) somem da conta e o repositório passa a
+ * tirar nota MÁXIMA. Quebrar o arquivo melhorava a nota. É a mesma classe de
+ * "crash virava aprovação" que o `git()` já consertou, agora no disco.
+ *
+ * `rastreado` fecha a segunda porta do mesmo ataque: `rm package.json` sem
+ * commitar deixa o arquivo no índice do git e fora do disco. Para quem veio da
+ * lista do `git ls-files` o índice é a verdade sobre existir, então ENOENT ali
+ * é "existe e não pude ler", não "não existe".
+ */
+function lerArquivo(dir, rel, rastreado = false) {
   try {
-    return JSON.parse(readFileSync(join(dir, rel), 'utf8'))
-  } catch {
-    return null
+    return { estado: 'ok', texto: readFileSync(join(dir, rel), 'utf8') }
+  } catch (e) {
+    const some = e.code === 'ENOENT' || e.code === 'ENOTDIR'
+    if (some && !rastreado) return { estado: 'ausente' }
+    const erro = some ? 'rastreado pelo git e ausente do disco' : e.code || e.message
+    return { estado: 'ilegivel', erro }
   }
+}
+
+function lerJsonRastreado(dir, rel) {
+  const bruto = lerArquivo(dir, rel, true)
+  if (bruto.estado !== 'ok') return bruto
+  let valor
+  try {
+    valor = JSON.parse(bruto.texto)
+  } catch (e) {
+    return { estado: 'ilegivel', erro: `JSON inválido: ${e.message.split('\n')[0]}` }
+  }
+  // `null`, lista e número são JSON válidos e não são manifesto. Sem esta
+  // peneira, um `package.json` com o conteúdo `null` passaria por "li" e
+  // `valor.scripts` lançaria lá na regra — exit 127, acusando o rebar-check
+  // de um defeito que é do alvo.
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
+    return { estado: 'ilegivel', erro: 'JSON válido mas não é um objeto' }
+  }
+  return { estado: 'ok', valor }
 }
 
 function ler(dir, rel) {
@@ -130,6 +173,48 @@ function ehTeste(rel) {
 }
 
 /**
+ * Código de produção rastreado — o crivo que `fontes()` aplica ANTES de tirar
+ * teste. Extraído para que a CONTAGEM do que sai por ser teste use exatamente
+ * o mesmo crivo da exclusão: contagem calculada por um crivo parecido, mas
+ * outro, é pior que contagem nenhuma, porque parece conferir.
+ */
+const ehCodigoAvaliavel = (a) => CODIGO.test(a) && !IGNORAR.test(a)
+
+/**
+ * Onde um `caso.json` tem significado de marcador. Fora daqui é arquivo comum.
+ *
+ * O comentário que estava neste arquivo afirmava que o marcador "não serve de
+ * bypass genérico". A auditoria provou o contrário com três bytes:
+ *
+ *     echo "{}" > dominios/caso.json && git add dominios/caso.json
+ *
+ * A árvore inteira de `dominios/` saiu da avaliação. Nenhuma validação de
+ * conteúdo — `{}` bastava — e o único sinal foi a contagem de fixtures subir
+ * de 63 para 70, em cinza-fraco e SEM símbolo de aviso.
+ *
+ * Prefixo literal, e não "qualquer pasta terminada em provas/casos/": o
+ * marcador vale no lugar onde as provas DESTE repositório moram e em nenhum
+ * outro. Reconhecer o caminho por forma devolveria o bypass genérico com um
+ * `mkdir -p` a mais.
+ */
+const CASOS_PROVAS = 'ferramental/rebar-check/provas/casos/'
+
+/**
+ * Schema mínimo do marcador: `regra` e `porque`, os dois campos que o
+ * provar.mjs exige de todo caso. Um `caso.json` sem eles não é caso de prova,
+ * é um arquivo com o nome certo — e esconder árvore era exatamente o que se
+ * conseguia com um arquivo com o nome certo.
+ */
+function marcadorInvalido(dir, rel) {
+  const lido = lerJsonRastreado(dir, rel)
+  if (lido.estado !== 'ok') return lido.erro
+  const falta = ['regra', 'porque'].filter(
+    (k) => typeof lido.valor[k] !== 'string' || !lido.valor[k].trim(),
+  )
+  return falta.length ? `sem ${falta.join(' nem ')}` : null
+}
+
+/**
  * Tira da avaliação as árvores que são MATERIAL DE PROVA, não produto.
  *
  * Isto nasceu de uma falha real, e ela apareceu no minuto em que as provas
@@ -139,22 +224,53 @@ function ehTeste(rel) {
  * acusado pelas próprias provas. Uma ferramenta que não sabe distinguir o
  * produto do material de prova mede o material de prova.
  *
- * Duas portas de saída, as duas VISÍVEIS na saída:
+ * Duas portas de saída, as duas VISÍVEIS na saída, e as duas com fechadura:
  *
- *   caso.json     marca a raiz de um caso de prova. É marcador específico, com
- *                 significado único, e não serve de bypass genérico: para
- *                 esconder código real você teria de declará-lo caso de prova.
+ *   caso.json     marca a raiz de um caso de prova. Só vale sob CASOS_PROVAS e
+ *                 só com o schema mínimo — ver a nota lá em cima, que registra
+ *                 o ataque de três bytes que a versão anterior aceitava.
+ *                 Marcador recusado vira AVISO, nomeando o arquivo.
  *   .rebarignore  prefixos de caminho, um por linha, `#` comenta. Existe para
  *                 vendor e material gerado. É bypass de verdade — por isso a
- *                 contagem do que ele escondeu vai impressa no placar. Portão
- *                 aberto tem de ser fato checado, não omissão.
+ *                 contagem do que ele escondeu vai impressa no placar, e por
+ *                 isso ele tem de estar RASTREADO. Portão aberto tem de ser
+ *                 fato checado, não omissão.
  */
 function semFixtures(dir, todos) {
-  const raizes = todos
-    .filter((a) => basename(a) === 'caso.json')
-    .map((a) => a.slice(0, -'caso.json'.length))
+  const raizes = []
+  const marcadoresRecusados = []
+  for (const a of todos.filter((x) => basename(x) === 'caso.json')) {
+    const prefixo = a.slice(0, -'caso.json'.length)
+    // Raiz vazia é o pior caso do ataque: um `caso.json` na RAIZ do repositório
+    // produz prefixo '' e `''.startsWith` casa com TUDO — o repositório inteiro
+    // desapareceria da avaliação com um arquivo de três bytes.
+    if (!prefixo) {
+      marcadoresRecusados.push(`${a} — na raiz do repositório, esconderia o repositório inteiro`)
+      continue
+    }
+    // `prefixo === CASOS_PROVAS` é a mesma armadilha um nível abaixo: um
+    // marcador posto na pasta que CONTÉM os casos apagaria todos de uma vez.
+    if (!prefixo.startsWith(CASOS_PROVAS) || prefixo === CASOS_PROVAS) {
+      marcadoresRecusados.push(`${a} — fora de ${CASOS_PROVAS}<caso>/`)
+      continue
+    }
+    const invalido = marcadorInvalido(dir, a)
+    if (invalido) {
+      marcadoresRecusados.push(`${a} — ${invalido}`)
+      continue
+    }
+    raizes.push(prefixo)
+  }
 
-  const prefixos = (ler(dir, '.rebarignore') || '')
+  // Lido do GIT, não do disco. Um `.rebarignore` não rastreado — inclusive um
+  // escondido atrás de `.git/info/exclude` — cegava o checker sem existir para
+  // o git: não entra em diff, não entra em review, não aparece no `git status`.
+  // Bypass que não está sob revisão é porta dos fundos, então aqui ele é
+  // ignorado por inteiro e o fato vira aviso.
+  const ignoreRastreado = todos.includes('.rebarignore')
+  const ignoreNoDisco = ler(dir, '.rebarignore')
+  const ignoreClandestino = ignoreNoDisco !== null && !ignoreRastreado
+  const prefixos = (ignoreRastreado ? ignoreNoDisco || '' : '')
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith('#'))
@@ -174,14 +290,23 @@ function semFixtures(dir, todos) {
     }
     arquivos.push(a)
   }
-  return { arquivos, ignorados: { provas, rebarignore: ignorados } }
+  return {
+    arquivos,
+    ignorados: {
+      provas,
+      raizesDeProva: raizes,
+      marcadoresRecusados,
+      rebarignore: ignorados,
+      rebarignoreClandestino: ignoreClandestino,
+    },
+  }
 }
 
 /** Conteúdo dos arquivos de código rastreados, com teto de tamanho. */
 function fontes(dir, arquivos) {
   const out = []
   for (const a of arquivos) {
-    if (!CODIGO.test(a) || IGNORAR.test(a) || ehTeste(a)) continue
+    if (!ehCodigoAvaliavel(a) || ehTeste(a)) continue
     try {
       if (statSync(join(dir, a)).size > 512 * 1024) continue
       out.push([a, readFileSync(join(dir, a), 'utf8')])
@@ -190,6 +315,119 @@ function fontes(dir, arquivos) {
     }
   }
   return out
+}
+
+// ─────────────────────────────── defesa procurada onde o defeito foi achado
+//
+// Classe inteira de falso positivo consertada aqui: DEFEITO PROCURADO
+// RECURSIVAMENTE, DEFESA PROCURADA SÓ NA RAIZ. `ui-falso` varria
+// `components/ui/` em qualquer profundidade e conferia `components.json` só em
+// `r.dir`; `formatter`, `typecheck` e `shadcn-completo` liam só o package.json
+// da raiz. Cinco dos doze repositórios medidos são monorepo, e a acusação caía
+// em cima justamente deles. Medido: prumo, ducado e LinhaK acusados de
+// "components/ui/ sem components.json" tendo os três o arquivo rastreado
+// (apps/web/, apps/web/, web/); openkartline acusado de "sem prettier" com
+// prettier declarado em apps/web/package.json. Cinco achados, cinco falsos.
+
+const RE_MANIFESTO = /(^|\/)package\.json$/
+const RE_COMPONENTS_JSON = /(^|\/)components\.json$/
+// Prefixo do diretório de um arquivo, no formato do git: '' na raiz,
+// 'apps/web/' com barra no fim. O git SEMPRE devolve barra normal, inclusive no
+// Windows; `join`/`sep` aqui produziriam 'apps\web\' e nada casaria com nada.
+const pastaDe = (rel) => rel.slice(0, rel.lastIndexOf('/') + 1)
+
+/**
+ * Todo package.json RASTREADO, lido, com o estado da leitura preservado.
+ * `arquivos` já veio filtrado por `semFixtures`, então os manifestos dos casos
+ * de prova do próprio rebar ficam de fora — como têm de ficar.
+ */
+function manifestosNpm(dir, arquivos) {
+  return arquivos
+    .filter((a) => RE_MANIFESTO.test(a) && !IGNORAR.test(a))
+    .map((rel) => ({ rel, ...lerJsonRastreado(dir, rel) }))
+}
+
+/**
+ * Porta única das regras que dependem de manifesto: devolve string de
+ * REPROVAÇÃO quando existe package.json rastreado que não pôde ser lido, e
+ * null quando dá para seguir. Reprovação e não `na()`, porque N/A sai do
+ * denominador e era exatamente por aí que o ataque entrava; reprovação e não
+ * exceção, porque um package.json quebrado é defeito do ALVO, e o 127 está
+ * reservado para defeito do rebar-check.
+ */
+function manifestoIlegivel(r, sePresta = () => true) {
+  const maus = r.manifestos.filter((m) => m.estado !== 'ok' && sePresta(m))
+  if (!maus.length) return null
+  const lista = maus.slice(0, 3).map((m) => `${m.rel} (${m.erro})`)
+  return `package.json ilegível, impossível avaliar: ${lista.join('; ')}`
+}
+
+/**
+ * A guarda restrita ao manifesto da RAIZ, para as regras cuja aplicabilidade é
+ * do repositório e não do pacote. Precisa ser restrita: com a guarda ampla,
+ * um pacote ilegível em `web/` faria `dependabot` REPROVAR um repositório que
+ * nem tem package.json na raiz — trocaria um falso negativo por um falso
+ * positivo, que é a troca que este passo inteiro existe para não fazer.
+ */
+const raizIlegivel = (r) => manifestoIlegivel(r, (m) => m.rel === 'package.json')
+
+/**
+ * União de dependencies + devDependencies de TODOS os manifestos.
+ *
+ * Aqui a união crua é o casamento certo, e em `ui-falso` não é — a diferença é
+ * o que cada defesa defende. Formatador e primitiva de UI são resolvidos pelo
+ * gerenciador de pacotes do WORKSPACE INTEIRO (npm/pnpm/yarn içam para a raiz),
+ * então declarar prettier num pacote formata o repositório todo. Já um
+ * `components.json` configura os aliases de UM projeto e não alcança o pacote
+ * vizinho.
+ */
+function dependenciasDeTodos(r) {
+  const d = {}
+  for (const m of r.manifestos) {
+    if (m.estado !== 'ok') continue
+    Object.assign(d, m.valor.dependencies, m.valor.devDependencies)
+  }
+  return d
+}
+
+/** Nomes de script declarados em qualquer manifesto do repositório. */
+function scriptsDeTodos(r) {
+  const nomes = new Set()
+  for (const m of r.manifestos) {
+    if (m.estado !== 'ok') continue
+    const s = m.valor.scripts
+    if (!s || typeof s !== 'object' || Array.isArray(s)) continue
+    for (const n of Object.keys(s)) nomes.add(n)
+  }
+  return nomes
+}
+
+/**
+ * A pasta e todos os diretórios acima dela, até a raiz: 'apps/web/src/' vira
+ * ['apps/web/src/', 'apps/web/', 'apps/', ''].
+ *
+ * É a regra de casamento por PROXIMIDADE de `ui-falso`. Subir é o único
+ * caminho que reproduz como a ferramenta real resolve: o `components.json`
+ * mora na raiz do PROJETO e os aliases dele apontam para baixo. Por isso
+ * `apps/web/components.json` defende `apps/web/src/components/ui/` (está
+ * acima) e NÃO defende `packages/outro/components/ui/` (é irmão, não
+ * ancestral) — que era o risco de trocar "só na raiz" por "existe em qualquer
+ * lugar", uma troca de falso positivo por falso negativo.
+ *
+ * A subida vai até a raiz de propósito, sem parar na fronteira do pacote: um
+ * `components.json` na raiz de monorepo de app único é configuração legítima
+ * do app aninhado, e o arquivo não diz para quem ele aponta. Entre acusar
+ * quem não deve e calar sobre quem deve, uma regra determinística escolhe
+ * calar — é a mesma conta que rebaixou a regra de cor literal a heurística.
+ */
+function ancestrais(pasta) {
+  const saida = [pasta]
+  let p = pasta
+  while (p) {
+    p = p.slice(0, p.lastIndexOf('/', p.length - 2) + 1)
+    saida.push(p)
+  }
+  return saida
 }
 
 /**
@@ -249,6 +487,128 @@ function textoEfetivoDoCi(yml, scripts, profundidade = 3) {
 const EH_BOT =
   /<[^>]*(noreply@github\.com|\[bot\]@|@bots\.|dependabot|renovate|github-actions)[^>]*>|\[bot\]\s*</i
 
+// ─────────────────────────────────── coautoria: allowlist de humanos
+
+/**
+ * Onde mora a allowlist de coautores humanos, na raiz do repositório AUDITADO.
+ *
+ * Caminho único e sem pasta a criar porque o rebar-check roda contra
+ * repositório de terceiro: `ferramental/` é layout do rebar, `.rebar-coautores`
+ * é convenção que qualquer repositório consegue adotar com um arquivo — mesma
+ * família do `.rebarignore`.
+ */
+const ALLOWLIST_COAUTORES = '.rebar-coautores'
+
+/**
+ * A lista de agentes de IA, usada SÓ quando o repositório auditado não tem
+ * allowlist. Está aqui documentada como o que é: uma corrida perdida.
+ *
+ * A versão anterior tinha 9 nomes. O ataque de 2026-08-30 montou um repositório
+ * em tmpdir e passou seis agentes atuais de uma vez — Windsurf, ChatGPT, Cody,
+ * Codeium, Amazon Q, Tabnine —, todos com trailer que o
+ * `git log --format=%(trailers:key=Co-authored-by)` reconheceu, e a regra acusou
+ * "1 de 9 commits" num histórico onde 8 commits tinham trailer de coautoria.
+ * Esta lista tem quatro vezes mais nomes e vai envelhecer do mesmo jeito; é por
+ * isso que ela é o PLANO B, e não a política.
+ *
+ * Nome de agente que também é nome de gente (Cody, Jules) entra pelo domínio, e
+ * não solto: acusar `Cody Silva <cody@empresa.com>` de ser IA seria transformar
+ * a lista perdida numa lista perdida E injusta.
+ */
+const AGENTES_ENUMERADOS =
+  /(claude|anthropic|cursor\.(com|sh)|cursoragent|copilot|codex|openai|chatgpt|devin|cognition|aider|gemini|google-labs-jules|jules@google|windsurf|codeium|sourcegraph|tabnine|amazon\s*q|amazonaws|codewhisperer|q-developer|replit|bolt\.new|v0\.dev|lovable|cline|roo-?code|kilo-?code|continue\.dev|sweep(ai|\.dev)|qodo|codium|coderabbit|greptile|ellipsis\.dev|korbit|bito\.ai|blackbox|phind|supermaven|augmentcode|zencoder|refact\.ai|sourcery|openhands|opendevin|all-hands|swe-agent|gpt-engineer|mentat|trae\.ai|marscode|comate|\[bot\])/i
+
+const emailDeCoautor = (valor) => {
+  const m = /<([^<>]*)>/.exec(valor)
+  const bruto = (m ? m[1] : valor).trim().toLowerCase()
+  return bruto.includes('@') ? bruto : null
+}
+
+/**
+ * A allowlist tem de estar RASTREADA, não só existir no disco.
+ *
+ * É a mesma porta que o `.rebarignore` clandestino já teve, e aqui seria pior:
+ * um arquivo de dois bytes largado no disco desligaria a regra inteira do
+ * repositório auditado sem aparecer em diff nenhum. `r.arquivos` vem do
+ * `git ls-files`, então quem não está lá não existe para esta regra.
+ */
+function lerAllowlistCoautores(r) {
+  if (!r.arquivos.includes(ALLOWLIST_COAUTORES)) return { estado: 'ausente' }
+  const bruto = lerArquivo(r.dir, ALLOWLIST_COAUTORES, true)
+  if (bruto.estado !== 'ok') return { estado: 'ilegivel', erro: bruto.erro }
+  const emails = new Set()
+  for (const linha of bruto.texto.split(/\r?\n/)) {
+    const l = linha.trim()
+    if (!l || l.startsWith('#')) continue
+    const e = emailDeCoautor(l)
+    if (e) emails.add(e)
+  }
+  return { estado: 'ok', emails }
+}
+
+/**
+ * Os trailers de coautoria do histórico, perguntados AO GIT.
+ *
+ * `%(trailers:key=Co-authored-by)` é o mesmo parser que decide o que é trailer
+ * de verdade — resolve dobramento de linha e não confunde uma linha solta no
+ * meio do corpo com um trailer. Ler `%B` e passar regex era reimplementar isso
+ * à mão, e à mão o `Co-authored-by:` contrabandeado abaixo da linha de tesoura
+ * do `git commit -v` já entrou uma vez.
+ *
+ * O plano B existe para git anterior ao 2.22, que não conhece o placeholder e o
+ * devolve literal. Quando ele roda, o motivo impresso diz que rodou: veredito
+ * lido por instrumento pior tem de aparecer como tal.
+ */
+function coautoresDoHistorico(r) {
+  const SEP_COMMIT = '\x00'
+  const SEP_TRAILER = '\x1e'
+  const log = git(r.dir, [
+    'log',
+    '--format=%(trailers:key=Co-authored-by,valueonly=true,separator=%x1e)%x00',
+  ])
+  const suportado = log.ok && !log.saida.includes('%(trailers')
+  const coautores = []
+
+  if (suportado) {
+    const registros = log.saida.split(SEP_COMMIT)
+    // O último pedaço depois do %x00 final é resto vazio, não commit.
+    for (const reg of registros.slice(0, -1)) {
+      for (const v of reg.split(SEP_TRAILER)) {
+        const valor = v.trim()
+        if (valor) coautores.push({ valor, email: emailDeCoautor(valor) })
+      }
+    }
+    return { coautores, total: r.commits.length, porEnumeracaoDoTexto: null }
+  }
+
+  for (const m of r.commits.join('\n').matchAll(/^co-authored-by:[ \t]*(.+)$/gim)) {
+    const valor = m[1].trim()
+    if (valor) coautores.push({ valor, email: emailDeCoautor(valor) })
+  }
+  return {
+    coautores,
+    total: r.commits.length,
+    porEnumeracaoDoTexto: log.ok ? 'git sem %(trailers)' : log.erro || 'git log falhou',
+  }
+}
+
+/**
+ * O que conta como "existe uma checagem de tipo que dá para chamar sozinha".
+ *
+ * Exigir o nome literal `typecheck` cobrava do repositório o VOCABULÁRIO, não
+ * a prática — o mesmo erro que a regra `testes` cometia com nome de arquivo em
+ * português. Medido: prumo (`"tipos": "tsc -b"`) e ducado (`"tipos"` na raiz e
+ * `"typecheck"` em três pacotes) eram acusados de não ter typecheck tendo os
+ * dois o script.
+ *
+ * A lista é de NOMES de script, e isso é deliberado: o que a regra quer é um
+ * alvo que o CI consiga invocar. `navesz.github.io` tem `tsc --noEmit` DENTRO
+ * do `build` e continua reprovando — corretamente, porque é exatamente a falha
+ * que a prova desta regra descreve, "o único contato com o compilador é o
+ * build".
+ */
+const NOMES_TYPECHECK = ['typecheck', 'type-check', 'check-types', 'tipos', 'tsc']
+
 const REGRAS = [
   // ── determinísticas ─────────────────────────────────────────────────────
 
@@ -266,6 +626,12 @@ const REGRAS = [
     nivel: 'N4',
     titulo: 'atualização de dependência automatizada',
     checar: (r) => {
+      // Guarda de leitura só: a aplicabilidade continua sendo o package.json da
+      // RAIZ, porque dependabot e renovate são configuração de repositório e
+      // não de pacote. Sem a guarda, quebrar o package.json tirava esta regra
+      // do denominador junto com as outras três.
+      const ilegivel = raizIlegivel(r)
+      if (ilegivel) return ilegivel
       if (!r.pkg) return na('não é projeto npm')
       return existe(r.dir, '.github/dependabot.yml') ||
         existe(r.dir, '.github/dependabot.yaml') ||
@@ -290,6 +656,11 @@ const REGRAS = [
     nivel: 'N4',
     titulo: 'o CI alcança a verificação que o repositório tem',
     checar: (r) => {
+      // Mesma guarda de leitura das outras: com o package.json quebrado,
+      // `r.pkg?.scripts` virava `{}`, `alvos` ficava vazio e a regra saía do
+      // denominador. Quatro regras sumindo é o que fazia 9 de 10 virar 6 de 6.
+      const ilegivel = raizIlegivel(r)
+      if (ilegivel) return ilegivel
       if (!r.workflows.length) return na('sem CI — quem cobra isso é a regra `ci`')
       const scripts = r.pkg?.scripts || {}
       // Só cobra o que o repositório POSSUI. Exigir `lint` de um repo sem lint
@@ -317,9 +688,14 @@ const REGRAS = [
     nivel: 'N0',
     titulo: 'tem script de typecheck',
     checar: (r) => {
-      if (!r.pkg) return na('não é projeto npm')
+      const ilegivel = manifestoIlegivel(r)
+      if (ilegivel) return ilegivel
+      if (!r.manifestos.length) return na('não é projeto npm')
       if (!r.arquivos.some((a) => /\.(ts|tsx)$/i.test(a))) return na('não tem TypeScript')
-      return r.pkg.scripts?.typecheck ? null : 'package.json sem script "typecheck"'
+      const nomes = scriptsDeTodos(r)
+      return NOMES_TYPECHECK.some((n) => nomes.has(n))
+        ? null
+        : `nenhum package.json rastreado tem script ${NOMES_TYPECHECK.join(', ')}`
     },
   },
 
@@ -329,8 +705,10 @@ const REGRAS = [
     nivel: 'N1',
     titulo: 'tem formatador',
     checar: (r) => {
-      if (!r.pkg) return na('não é projeto npm')
-      const d = { ...r.pkg.dependencies, ...r.pkg.devDependencies }
+      const ilegivel = manifestoIlegivel(r)
+      if (ilegivel) return ilegivel
+      if (!r.manifestos.length) return na('não é projeto npm')
+      const d = dependenciasDeTodos(r)
       return d.prettier || d['@biomejs/biome'] || d.dprint ? null : 'sem prettier, biome ou dprint'
     },
   },
@@ -376,17 +754,64 @@ const REGRAS = [
     id: 'coautoria-ia',
     classe: 'determinística',
     nivel: 'N5',
-    titulo: 'nenhum commit com coautoria de IA',
+    titulo: 'coautoria só de humanos da allowlist',
     checar: (r) => {
       if (!r.commits.length) return na('repositório sem commit')
-      const n = r.commits.filter((m) =>
-        /^co-authored-by:.*(claude|anthropic|cursor|copilot|codex|devin|aider|gemini|noreply@anthropic)/im.test(
-          m,
-        ),
-      ).length
-      // A queixa original era "o Claude". Medido: o Cursor é 6x mais frequente,
-      // e o trailer tem casing diferente. Regex que só pega Claude cobre 15%.
-      return n ? `${n} de ${r.commits.length} commits` : null
+
+      const { coautores, total, porEnumeracaoDoTexto } = coautoresDoHistorico(r)
+
+      // Zero trailer de coautoria é o único veredito que NÃO depende de saber
+      // quem é IA e quem é gente: não há coautor nenhum, logo não há coautor de
+      // IA. Vale com allowlist e sem, e é o caso dos 11 commits deste
+      // repositório. Sai antes de tudo para que o ramo N/A abaixo nunca engula
+      // um repositório que está genuinamente limpo.
+      if (!coautores.length) return null
+
+      const lista = lerAllowlistCoautores(r)
+      if (lista.estado === 'ilegivel')
+        return `${ALLOWLIST_COAUTORES} está rastreada e não pude ler: ${lista.erro}`
+
+      const fonte = porEnumeracaoDoTexto
+        ? ' (trailers lidos do texto: ' + porEnumeracaoDoTexto + ')'
+        : ''
+
+      if (lista.estado === 'ok') {
+        const forasteiros = coautores.filter((x) => !x.email || !lista.emails.has(x.email))
+        if (!forasteiros.length) return null
+        return (
+          `${forasteiros.length} de ${total} commits com coautor fora de ${ALLOWLIST_COAUTORES}: ` +
+          [...new Set(forasteiros.map((x) => x.valor))].slice(0, 3).join(' · ') +
+          fonte
+        )
+      }
+
+      // Sem allowlist só resta ENUMERAR, e enumeração é a forma que este
+      // conserto existe para abandonar: medido em 2026-08-30, a lista de 9
+      // agentes deixou passar Windsurf, ChatGPT, Cody, Codeium, Amazon Q e
+      // Tabnine de uma só vez. Aqui ela sobrevive por um motivo estreito: o
+      // rebar-check roda contra repositório de TERCEIRO, que não tem a
+      // allowlist do rebar, e desligar a regra ali seria trocar um portão
+      // furado por portão nenhum.
+      //
+      // O que muda é o que a enumeração tem direito de AFIRMAR. Achou um agente
+      // conhecido, reprova — enumeração prova presença. Não achou, NÃO passa:
+      // vira N/A dizendo que há coautor que não dá para classificar. Enumeração
+      // não prova ausência, e um "✓" ali seria o checker afirmando o que não
+      // sabe. É a mesma disciplina do `na()` no alto deste arquivo: o que não dá
+      // para decidir sai do denominador, com o motivo impresso.
+      const suspeitos = coautores.filter((x) => AGENTES_ENUMERADOS.test(x.valor))
+      if (suspeitos.length) {
+        return (
+          `${suspeitos.length} de ${total} commits com coautoria de IA, por ENUMERAÇÃO ` +
+          `(sem ${ALLOWLIST_COAUTORES} rastreada): ` +
+          [...new Set(suspeitos.map((x) => x.valor))].slice(0, 3).join(' · ') +
+          fonte
+        )
+      }
+      return na(
+        `${coautores.length} coautor(es) e nenhuma ${ALLOWLIST_COAUTORES} rastreada — ` +
+          'só dá para enumerar agentes conhecidos, e enumeração não prova ausência',
+      )
     },
   },
 
@@ -413,11 +838,24 @@ const REGRAS = [
     nivel: 'N1',
     titulo: 'components/ui/ acompanhado de components.json',
     checar: (r) => {
-      const temUi = r.arquivos.some((a) => /(^|\/)components\/ui\//.test(a))
-      if (!temUi) return na('não tem pasta components/ui/')
-      return existe(r.dir, 'components.json')
-        ? null
-        : 'pasta components/ui/ imitando a convenção, sem components.json'
+      // A BASE de uma pasta de UI é o diretório que contém `components/`:
+      // `apps/web/src/components/ui/botao.tsx` tem base `apps/web/src/`. É de
+      // lá que a busca pela defesa sobe.
+      const bases = new Set()
+      for (const a of r.arquivos) {
+        const m = /^((?:.*?\/)?)components\/ui\//.exec(a)
+        if (m) bases.add(m[1])
+      }
+      if (!bases.size) return na('não tem pasta components/ui/')
+      const defesas = new Set(r.componentsJson.map(pastaDe))
+      const orfas = [...bases].filter((b) => !ancestrais(b).some((p) => defesas.has(p)))
+      return orfas.length
+        ? `components/ui/ imitando a convenção, sem components.json em nenhum diretório acima: ` +
+            orfas
+              .slice(0, 3)
+              .map((b) => `${b}components/ui/`)
+              .join(', ')
+        : null
     },
   },
 
@@ -443,15 +881,34 @@ const REGRAS = [
     nivel: 'N1',
     titulo: 'shadcn com o aparato, não só a pasta',
     checar: (r) => {
-      if (!existe(r.dir, 'components.json')) return na('não usa shadcn')
-      const d = { ...r.pkg?.dependencies, ...r.pkg?.devDependencies }
+      // Mesmo conserto do `ui-falso` e do `formatter`: o `components.json`
+      // procurado em qualquer profundidade, o aparato procurado em todos os
+      // manifestos. Antes, monorepo nenhum chegava a ser avaliado por esta
+      // heurística — prumo, ducado e LinhaK saíam por `na('não usa shadcn')`
+      // tendo os três o arquivo rastreado numa subpasta.
+      if (!r.componentsJson.length) return na('não usa shadcn')
+      // A guarda de leitura vem DEPOIS do N/A: quem não usa shadcn não deve
+      // ganhar aviso por causa de um package.json quebrado. Aqui isso é seguro
+      // porque heurística não entra no denominador — não há N/A a lavar.
+      const ilegivel = manifestoIlegivel(r)
+      if (ilegivel) return ilegivel
+      const d = dependenciasDeTodos(r)
       // ATENÇÃO: @radix-ui sozinho reprova o único repo que acertou. O Galegos
       // usa shadcn correto no estilo base-nova, com @base-ui/react e ZERO Radix.
+      //
+      // `radix-ui` sem barra é o pacote unificado que substituiu os
+      // `@radix-ui/react-*` avulsos, e a ausência dele aqui era um falso
+      // positivo latente que este passo destapou: passando a enxergar
+      // `apps/web/components.json`, a heurística acusou o ducado de
+      // "components.json sem primitiva" com `"radix-ui": "^1.6.7"` declarado e
+      // `import { Select as SelectPrimitive } from 'radix-ui'` em oito
+      // componentes. Defesa procurada com nome velho é a mesma classe de erro
+      // que defesa procurada só na raiz.
       const primitiva = Object.keys(d).some(
-        (k) => k.startsWith('@radix-ui/') || k === '@base-ui/react',
+        (k) => k.startsWith('@radix-ui/') || k === 'radix-ui' || k === '@base-ui/react',
       )
       const faltam = []
-      if (!primitiva) faltam.push('primitiva (@radix-ui/* ou @base-ui/react)')
+      if (!primitiva) faltam.push('primitiva (@radix-ui/*, radix-ui ou @base-ui/react)')
       if (!d['class-variance-authority']) faltam.push('cva')
       if (!d['tailwind-merge']) faltam.push('tailwind-merge')
       return faltam.length ? `components.json sem ${faltam.join(', ')}` : null
@@ -547,8 +1004,25 @@ function lerRepo(dir) {
   const todos = ls.saida ? ls.saida.split('\n').filter(Boolean) : []
   const { arquivos, ignorados } = semFixtures(dir, todos)
 
-  const pkg = lerJson(dir, 'package.json')
+  const manifestos = manifestosNpm(dir, arquivos)
+  const componentsJson = arquivos.filter((a) => RE_COMPONENTS_JSON.test(a) && !IGNORAR.test(a))
+  // `pkg` continua sendo só o manifesto da RAIZ, e só para quem depende dele
+  // por razão própria (`ci-gateia` lê os scripts que o workflow invoca,
+  // `dependabot` decide aplicabilidade). Quem pergunta sobre o repositório
+  // inteiro usa `manifestos`.
+  const raiz_ = manifestos.find((m) => m.rel === 'package.json')
+  const pkg = raiz_?.estado === 'ok' ? raiz_.valor : null
   const fs_ = fontes(dir, arquivos)
+  // `ehTeste` serve nas DUAS pontas: define o que satisfaz a regra `testes` e
+  // filtra o que entra em `fontes()`. Medido no ataque, com os mesmos bytes:
+  // renomear uma pasta para `provas/` tirou o conteúdo dela de env-example,
+  // schema-orfao, telefone, url-producao e idioma-unico E ainda satisfez
+  // `testes` — "2 de 8 + 2 avisos" virou "3 de 7 + 0 avisos", sem uma linha
+  // dizendo o que sumiu. A contagem é o que transforma esse portão aberto em
+  // fato checado, do mesmo jeito que já se faz com o .rebarignore.
+  const excluidosPorTeste = arquivos.filter((a) => ehCodigoAvaliavel(a) && ehTeste(a))
+  ignorados.testes = excluidosPorTeste.length
+  ignorados.amostraTestes = excluidosPorTeste.slice(0, 3)
 
   const varsEnv = new Set()
   for (const [, t] of fs_) {
@@ -580,6 +1054,8 @@ function lerRepo(dir) {
     arquivos,
     ignorados,
     pkg,
+    manifestos,
+    componentsJson,
     fontes: fs_,
     varsEnv,
     commits,
@@ -671,11 +1147,44 @@ function imprimir(a) {
     )
   }
   const ig = a.ignorados
+  // Cada portão de exclusão imprime uma linha, mesmo quando não escondeu nada
+  // de errado. Bypass A e B eram invisíveis: um subia um número em cinza-fraco
+  // sem símbolo, o outro não subia nada. Aviso com a LISTA, não só a contagem —
+  // número sozinho não dá para conferir.
+  if (ig?.marcadoresRecusados?.length) {
+    console.log(
+      `  ${c.amarelo(`⚠ ${ig.marcadoresRecusados.length} caso.json IGNORADO(S) como marcador de prova:`)}`,
+    )
+    for (const m of ig.marcadoresRecusados) console.log(`      ${c.amarelo(m)}`)
+  }
+  if (ig?.rebarignoreClandestino) {
+    console.log(
+      `  ${c.amarelo('⚠ .rebarignore existe no disco e NÃO está rastreado — ignorado por inteiro')}`,
+    )
+  }
   if (ig?.rebarignore) {
     console.log(`  ${c.amarelo(`⚠ ${ig.rebarignore} arquivo(s) escondidos por .rebarignore`)}`)
   }
-  if (ig?.provas)
-    console.log(c.fraco(`  ${ig.provas} arquivo(s) de caso de prova, fora da avaliação`))
+  if (ig?.provas) {
+    // Prefixo comum fatorado: todas as raízes aceitas moram sob CASOS_PROVAS
+    // por construção, e repetir 40 caracteres por linha esconderia a lista
+    // dentro do próprio comprimento dela.
+    const nomes = (ig.raizesDeProva || []).map((p) => p.slice(CASOS_PROVAS.length, -1))
+    console.log(
+      c.fraco(
+        `  ${ig.provas} arquivo(s) de caso de prova, fora da avaliação` +
+          `  ·  ${CASOS_PROVAS}{${nomes.join(', ')}}`,
+      ),
+    )
+  }
+  if (ig?.testes) {
+    const amostra = ig.amostraTestes?.length ? `: ${ig.amostraTestes.join(', ')}` : ''
+    console.log(
+      c.fraco(
+        `  ${ig.testes} arquivo(s) de código fora das regras de conteúdo por serem teste${amostra}`,
+      ),
+    )
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────── main

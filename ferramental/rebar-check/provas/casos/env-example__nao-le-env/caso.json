@@ -1,0 +1,7 @@
+{
+  "regra": "env-example",
+  "porque": "A regra existe para o .env.example pela metade, que é pior que a ausência porque parece completo. Mas repositório que não lê variável nenhuma não deve um .env.example a ninguém: exigi-lo criaria um arquivo vazio de cerimônia em todo projeto. O lado `aprovar` tem código de verdade e zero `process.env`, e tem de sair N/A. O lado `reprovar` lê `API_TOKEN` e não tem o arquivo, então a guarda não pode ter virado uma saída para a regra inteira.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

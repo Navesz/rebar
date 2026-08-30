@@ -1,0 +1,7 @@
+# Allowlist de coautores HUMANOS. Rastreada pelo git — é o que a regra exige.
+#
+# Um nome só, e um nome que não é nome de agente nenhum: o lado `reprovar`
+# desta prova usa o Windsurf, que a lista de 9 agentes da versão anterior NÃO
+# conhecia. Se alguém reintroduzir a enumeração no lugar da allowlist, o lado
+# reprovar vira verde e a prova acusa.
+Ana Prova <ana@rebar.local>

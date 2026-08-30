@@ -1,0 +1,7 @@
+{
+  "regra": "dependabot",
+  "porque": "O ramo N/A `não é projeto npm` sai do DENOMINADOR, e ramo que sai do denominador é o lugar por onde a nota sobe sem ninguém consertar nada — foi assim que o package.json quebrado transformava 9 de 10 em 6 de 6. Enquanto o runner lia exit code, este ramo era intravável: `na` e `passou` saem 0 os dois. O lado `aprovar` é uma árvore sem package.json nenhum e tem de sair N/A, não `passou`: dependabot e renovate são configuração de projeto npm, e cobrar isso de um repositório que não é npm seria inventar dívida. Com a mutação `na(...)` → `null`, este lado vira `passou` e o caso acusa.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "style": "new-york",
+  "tsx": true,
+  "aliases": {
+    "ui": "@/components/ui"
+  }
+}

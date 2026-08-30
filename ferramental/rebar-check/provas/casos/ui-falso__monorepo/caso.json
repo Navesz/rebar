@@ -1,0 +1,6 @@
+{
+  "regra": "ui-falso",
+  "porque": "A classe de falso positivo \"defeito procurado recursivamente, defesa procurada só na raiz\". A regra varria `components/ui/` em qualquer profundidade e conferia `components.json` só em `r.dir`: medido, prumo, ducado e LinhaK foram os três acusados de imitar a convenção tendo os três o arquivo rastreado numa subpasta (apps/web/, apps/web/, web/). Cinco dos doze repositórios auditados são monorepo, e a acusação caía justamente sobre eles. As duas árvores são idênticas menos por `apps/web/components.json`. O `apps/loja/components.json` está nos DOIS lados de propósito: ele torna a prova imune ao conserto preguiçoso — trocar \"só na raiz\" por \"existe em qualquer lugar\" faria o lado `reprovar` sair 0, porque um `components.json` de pacote irmão passaria a defender `apps/web/`. Só o casamento por proximidade, subindo a árvore a partir da pasta de UI, faz os dois lados baterem.",
+  "aprovar": { "commits": [{ "mensagem": "monorepo com components.json no pacote", "autor": "Prova <prova@rebar.local>" }] },
+  "reprovar": { "commits": [{ "mensagem": "monorepo sem components.json no pacote da UI", "autor": "Prova <prova@rebar.local>" }] }
+}

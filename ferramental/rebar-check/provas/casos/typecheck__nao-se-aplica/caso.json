@@ -1,0 +1,10 @@
+{
+  "regra": "typecheck",
+  "porque": "Os dois ramos N/A da regra, um por pasta. `aprovar/` tem `src/app.ts` — TypeScript de verdade — e NENHUM package.json: sem manifesto não há script para invocar, e a regra pede um alvo que o CI consiga chamar. `reprovar/` tem o package.json e nenhum arquivo .ts ou .tsx: cobrar checagem de tipo de um projeto que não tem tipo é acusar por vocabulário. A presença do TypeScript no lado sem manifesto é deliberada, e é o que faz cada pasta isolar UM ramo: sem ela o lado `aprovar` seria N/A por dois motivos ao mesmo tempo, e a mutação de qualquer um dos dois continuaria achando o outro pela frente. Cada ramo tem de ser o único caminho do seu lado, ou a prova não diz qual deles travou.",
+  "aprovar": {
+    "estado": "na"
+  },
+  "reprovar": {
+    "estado": "na"
+  }
+}

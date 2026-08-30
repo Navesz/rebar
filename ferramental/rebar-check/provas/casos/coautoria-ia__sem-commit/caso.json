@@ -1,0 +1,16 @@
+{
+  "regra": "coautoria-ia",
+  "porque": "Repositório recém-iniciado, com a árvore no índice e nenhum commit, é estado legítimo — e faz o `git log` sair 128. O ramo N/A existe porque a alternativa é o `catch` que engolia o erro e devolvia string vazia, e string vazia não tem trailer de coautoria: o repositório sem histórico APROVAVA numa regra sobre histórico. Crash virando aprovação é a mesma classe de defeito que o `git()` deste arquivo documenta. O lado `aprovar` declara `\"commits\": []` e tem de sair N/A; o lado `reprovar` tem o trailer e continua reprovando, então a guarda não desligou a regra.",
+  "aprovar": {
+    "estado": "na",
+    "commits": []
+  },
+  "reprovar": {
+    "commits": [
+      {
+        "mensagem": "ajusta o carregador de configuração\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  }
+}

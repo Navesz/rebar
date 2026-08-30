@@ -1,0 +1,4 @@
+{
+  "name": "prova-formatter-manifesto-ilegivel-reprovar",
+  "private": true,
+  "workspaces": ["apps/*",]
