@@ -1,0 +1,4 @@
+{
+  "regra": "testes",
+  "porque": "Trava um dos dois falsos positivos determinísticos já medidos: a regra era cega a teste nomeado em português — 43 arquivos rastreados com `prova` no nome no alicerce e a regra enxergava ZERO, num checker escrito em português. Esta variante isola o ramo de SEGMENTO DE CAMINHO: o único arquivo de teste do lado aprovar é `provas/soma.mjs`, e nenhum nome de arquivo casaria sozinho. Se o segmento `provas` sair do reconhecedor, o lado aprovar sai 1."
+}

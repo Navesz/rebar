@@ -1,0 +1,10 @@
+{
+  "name": "prova-formatter-reprovar",
+  "private": true,
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.9.0"
+  }
+}

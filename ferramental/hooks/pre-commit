@@ -1,0 +1,39 @@
+#!/bin/sh
+# Hook antes do commit — SÓ O QUE É RÁPIDO.
+#
+# Hook lento é hook desligado, e hook desligado verifica zero. O alvo é menos de
+# 5 segundos. Nada de typecheck, nada de teste, nada de build: isso é trabalho
+# do CI, que pode demorar porque ninguém está esperando na frente dele.
+#
+# Aqui moram as duas coisas que precisam ser barradas ANTES de existir, porque
+# depois já é tarde. Nas duas, o commit novo não conserta:
+#   · segredo, uma vez no histórico, exige ROTAÇÃO da credencial;
+#   · trailer de coautoria de IA, uma vez no histórico, só sai reescrevendo o
+#     histórico — que é operação de força, não de rotina.
+#
+# Instale com: node ferramental/hooks/instalar.mjs
+# Pule uma vez com: git commit --no-verify
+
+set -e
+
+RAIZ=$(git rev-parse --show-toplevel)
+cd "$RAIZ"
+
+# 1. Segredo no que está em stage. Só o stage, não o repositório inteiro: é o
+#    que o commit está prestes a acrescentar, e é o que cabe no orçamento.
+node ferramental/segredo/varrer-segredo.mjs --staged
+
+# 2. Coautoria de IA no histórico. Uma regra só, e o motivo NÃO é tempo: medido
+#    contra este repositório, a regra sozinha leva 0,237 s e o placar completo
+#    leva 0,246 s. O motivo é o veredito. O placar completo sai 1 enquanto
+#    houver UM buraco aberto — e há sempre. Posto no hook, ele barraria todo
+#    commit por dívida velha que o commit não introduziu, e em uma semana
+#    alguém aliasa o --no-verify e o hook deixa de existir. O hook barra só o
+#    que este commit está acrescentando; o placar inteiro é trabalho do CI.
+#
+#    Divisão de trabalho com o hook commit-msg: o rebar-check lê `git log`, e o
+#    commit em curso ainda não está lá — este passo impede o trailer de FICAR.
+#    Impedir que ele ENTRE é do commit-msg, que roda com a mensagem na mão.
+node ferramental/rebar-check/index.mjs --regra=coautoria-ia
+
+exit 0

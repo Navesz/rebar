@@ -115,37 +115,67 @@ request seguinte.
 transação por caso de uso, aberta só no UnitOfWork" — não adiciona disciplina, move a
 existente.
 
-### 4.2 `rebar-check` · 20 checagens, zero dependência
+### 4.2 `rebar-check` · 19 checagens, zero dependência
 
 `ferramental/rebar-check/index.mjs` — roda em qualquer repositório, **nunca escreve**.
 
-14 determinísticas derrubam o exit code · 6 heurísticas só informam. A separação é
+14 determinísticas derrubam o exit code · 5 heurísticas só informam. A separação é
 medida: a regra de cor literal ingênua deu **7 ocorrências e zero verdadeiros positivos**
 no herz — cinco eram comentários documentando a própria regra.
 
-Placar medido em 30/08, os 12 repositórios git da máquina:
+Placar medido em **30/08**, com a **régua recalibrada**, nos 12 repositórios git da
+máquina:
 
-| Repo | Nota | |
-|---|---|---|
-| prumo | **9/14** | 2 avisos |
-| ducado | **9/14** | 1 aviso |
-| **rebar (ele mesmo)** | **8/14** | — |
-| vectra-painel | 8/14 | — |
-| openkartline | 8/14 | 2 avisos |
-| VectraB-Lab | 8/14 | — |
-| decima-edicoes | 6/14 | 2 avisos |
-| LinhaK | 6/14 | — |
-| Galegos | 5/14 | 3 avisos |
-| navesz.github.io | 5/14 | 2 avisos |
-| alicerce | **4/14** | 11 de 11 commits com coautoria de IA |
-| hug-brasil-propostas | **3/14** | 2 avisos |
+| Repo | Nota | Aplicáveis | N/A | Avisos |
+|---|---|---|---|---|
+| **rebar (ele mesmo)** | **90%** | 9/10 | 4 | — |
+| prumo | 69% | 9/13 | 1 | 2 |
+| ducado | 55% | 6/11 | 3 | 1 |
+| openkartline | 54% | 7/13 | 1 | 2 |
+| vectra-painel | 50% | 5/10 | 4 | — |
+| decima-edicoes | 42% | 5/12 | 2 | 2 |
+| VectraB-Lab | 33% | 2/6 | 8 | — |
+| LinhaK | 33% | 3/9 | 5 | — |
+| Galegos | 27% | 3/11 | 3 | 3 |
+| alicerce | 20% | 2/10 | 4 | — |
+| navesz.github.io | 20% | 2/10 | 4 | 2 |
+| hug-brasil-propostas | **17%** | 2/12 | 2 | 2 |
 
-Média 6,6. **Nenhum repo passa em tudo, e o pior nota é o `alicerce`** — o repositório
-que existe para impor. Nota mais alta em `prumo` e `ducado`, que são os únicos com CI que
-de fato roda lint, tipos e teste.
+Agregado: **55 de 127** checagens aplicáveis passam — 43,3%. Mediana 37,5%.
 
-Validado contra a forense, que virou a fixture: reproduz os números que seis agentes
-mediram independentemente.
+**Nenhum repositório passa em tudo, o rebar inclusive.** O teto é 90%, no próprio `rebar`,
+e a única que falta ali é `formatter` — decisão em aberto, registrada na §5. Entre os
+repositórios que não são a ferramenta, o teto é 69% no `prumo` e o piso é 17% no
+`hug-brasil-propostas`.
+
+O `rebar` só subiu de 67% para 90% depois de um conserto que as próprias provas
+provocaram: os casos de `ui-falso` e `schema-orfao` são, por construção, repositórios
+defeituosos em miniatura, e rastreados dentro do rebar faziam o rebar reprovar em
+`ui-falso`, `schema-orfao` e `typecheck` — **acusado pelas próprias provas.** Agora a
+árvore marcada por um `caso.json` sai da avaliação, e a contagem do que saiu vai impressa
+no placar. Só **três** repositórios têm CI que alcança a verificação que eles
+mesmos declaram — `prumo`, `openkartline` e `decima-edicoes`. Dos outros nove, seis não têm
+CI nenhum, dois têm CI e não têm script de lint/tipos/teste para ele alcançar, e um
+(`ducado`) tem os scripts e o CI não passa neles.
+
+O `rebar` reprova em `ci`, `formatter` e `licenca`. **A linha do `rebar` é um alvo em
+movimento:** às 13:38 desta mesma sessão ele dava 43% (3/7), e subiu para 67% porque outros
+agentes estavam pousando `.editorconfig`, `.env.example`, `.github/dependabot.yml`, `NOTICE`
+e `package.json` enquanto esta medição rodava. Remeça antes de citar o número.
+
+> ⚠️ **A tabela anterior desta seção estava descalibrada; os números `x/14` foram apagados,
+> não convertidos.** Ela saiu de uma régua em que `null` queria dizer duas coisas ao mesmo
+> tempo — "passou" e "não havia o que checar". Consequência medida: uma pasta **vazia** com
+> um `.git/` vazio tirava **8 de 14**, empatava com o `rebar` e tirava o dobro do `alicerce`.
+> O nada não conforma. Três consertos entraram de uma vez: o N/A saiu do **denominador**
+> (por isso a nota virou percentual e o denominador varia por repositório), o crash do git
+> virou erro explícito em vez de aprovação silenciosa, e dois falsos positivos
+> determinísticos caíram — teste nomeado em português (43 arquivos invisíveis no alicerce)
+> e CI que agrega a verificação num comando só. Número velho e número novo **não são
+> comparáveis**; não subtraia um do outro.
+
+A forense continua valendo como fixture de conteúdo; o que mudou foi a escala, não os
+achados individuais.
 
 ### 4.3 Documentos
 
@@ -196,6 +226,26 @@ Reiniciar:
 | MCP | Esqueleto em `mcp/src/index.mjs`, **nunca rodou** |
 | CI do próprio rebar | Ele reprova a si mesmo em 5 checagens |
 | `perfil.esquema.json` | Não existe — o pipeline painel→perfil→gerador é prosa |
+
+### Os sete itens da §8.1 do PLANO — o que era para vir do alicerce "como está"
+
+Este bloco não existia neste arquivo. Os sete itens não tinham sido adiados: tinham
+**sumido do radar** — um grep por `8.1|portar|varrer-segredo|verificar.mjs|hooks/|elos`
+neste arquivo devolvia zero linhas. Estado verificado no disco em **30/08 13:41:32**;
+três deles estão sendo portados por outros agentes agora, então **remeça antes de citar**.
+
+| Item da §8.1 | Estado real hoje |
+|---|---|
+| `verificar/verificar.mjs` | **Nada.** `ferramental/verificar/` não existe. É o agregador que a §8.2 manda consertar em `verificar.mjs:124` — a distinção reprovou/quebrou já nasceu feita no `rebar-check` (exit 1 vs 127), o agregador é que falta |
+| `segredo/varrer-segredo.mjs` | **Em andamento.** `ferramental/segredo/` criada, **vazia** |
+| `elos/verificar-elos.mjs` | **Em andamento.** `ferramental/elos/` criada, **vazia** |
+| `contexto/ai.mjs` | **Nada.** `ferramental/contexto/` não existe. É o que mede o orçamento de contexto — a métrica que a §12.5 item 6 diz ser a certa |
+| `hooks/` | **Em andamento.** `ferramental/hooks/` criada, **vazia** |
+| 15 presets de fronteira (web 7 + api 8) com as 29 fixtures | **Nada.** `ferramental/fronteiras/` não existe. Fonte conferida em `alicerce/ferramental/fronteiras/`: 7 regras em `web-camadas.cjs`, 8 em `api-camadas.cjs`, 29 arquivos de fixture em `provas/web/` e `provas/api/`. O número da §8.1 está certo |
+| `ci/verificar.yml` como template | **Nada.** `.github/workflows/` não existe; `.github/` só tem `dependabot.yml`. É exatamente o que faz o `rebar` reprovar na regra `ci` |
+
+O que **existe** e não é da §8.1: `ferramental/rebar-check/provas/casos/` com 14 casos
+`aprovar`/`reprovar`, um para cada regra determinística.
 
 ### Decisões 🔴 em aberto
 
@@ -268,20 +318,37 @@ modificação** em dois sites.
 > **D+7 está CUMPRIDO** — o checker rodou contra **12** repositórios em 30/08,
 > quatro vezes o mínimo exigido.
 
-O preditor que orientou a ordem: dos sete repos do dono, **o alicerce é o único sem tela
-e é o único morto**. Placar é a tela do rebar.
+**D+30 é o marco que ainda não tem número, e a comparação honesta desmonta a vaidade do
+D+7.** Medido: **o rebar mede 12 repositórios e não impõe em nenhum; o alicerce mede 2 e
+impõe nos 2.** O `ferramental/` do alicerce está instalado em exatamente dois lugares —
+o próprio alicerce e o `prumo` — e no `prumo` ele **gateia de verdade**:
+`prumo/.github/workflows/ci.yml:113` roda `npm run verificar`, que é
+`node ferramental/verificar/verificar.mjs`, e a linha 207 roda
+`node ferramental/portao/provar-portao.mjs`. `prumo/ferramental/` tem 8 diretórios, 7 deles
+com o mesmo nome dos do alicerce, e a linha 139 do próprio CI diz que os casos vieram do
+alicerce upstream.
+
+> ⚠️ **A premissa "o alicerce nunca encostou em projeto real" é falsa** e circulou como
+> justificativa de desenho. Ela sobrevive no cabeçalho de `ferramental/rebar-check/index.mjs`
+> e em `docs/PLANO.md` §9.1. Encostou, e no único repositório que o rebar mediu em 69%. O
+> que o alicerce não fez foi **escalar** — 2 de 12. Esse é o diagnóstico defensável.
+
+O preditor que orientou a ordem: dos sete repos do dono, **o alicerce é o único sem tela**.
+Placar é a tela do rebar. A parte "e é o único morto" não se mede: ele está rodando no CI
+do `prumo`.
 
 ---
 
 ## 9. Próximo passo sugerido
 
-**Fazer o rebar passar no próprio checker.** Ele dá **8/14** em si mesmo — falta
-`.editorconfig`, dependabot, CI, `ci-gateia`, `.env.example` e LICENSE.
+**Fazer o rebar passar no próprio checker.** Em 30/08 13:40:44 ele dá **67% (6 de 9)** em
+si mesmo — falta `ci`, `formatter` e LICENSE. `.editorconfig`, `.env.example`, dependabot e
+NOTICE já pousaram nesta sessão.
 
 É o menor trabalho com o maior significado — a ferramenta que reprova os outros
 reprovando a si mesma é exatamente o padrão que o projeto existe para acabar. E ao
 consertar, o CI do rebar nasce rodando o próprio checker, que é o primeiro caso real de
-"a regra virou porta".
+"a regra virou porta" — e o primeiro passo para sair do 0 de 12 do D+30.
 
 Depois: fechar o domínio de **isolamento de tenant**, que é onde está a única falha
 conhecida e documentada.

@@ -1,0 +1,13 @@
+{
+  "name": "prova-ci-gateia",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "node ferramenta/lint.mjs",
+    "typecheck": "node ferramenta/typecheck.mjs",
+    "test": "node --test provas/",
+    "estatica": "npm run lint && npm run typecheck",
+    "verificar": "npm run estatica && npm run test",
+    "construir": "node ferramenta/empacotar.mjs"
+  }
+}

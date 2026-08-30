@@ -1,0 +1,4 @@
+{
+  "regra": "env-example",
+  "porque": "Variavel de ambiente que o codigo le e o .env.example nao lista: quem clona o repositorio so descobre que ela existe quando a aplicacao quebra em runtime, e o .env.example pela metade e pior que a ausencia porque parece completo."
+}

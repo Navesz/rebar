@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pessoa",
+  "type": "object",
+  "required": ["nome"],
+  "properties": {
+    "nome": { "type": "string" },
+    "idade": { "type": "integer", "minimum": 0 }
+  }
+}

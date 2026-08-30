@@ -1,0 +1,9 @@
+# Só github-actions. O rebar é zero-dependência por decisão, então não há
+# manifesto npm para o Dependabot vigiar — o que envelhece aqui são as versões
+# fixadas das actions do CI, e é isso que esta configuração cobre.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

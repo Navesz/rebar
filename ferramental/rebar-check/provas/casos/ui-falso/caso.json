@@ -1,0 +1,4 @@
+{
+  "regra": "ui-falso",
+  "porque": "A falha real é a pasta `components/ui/` criada à mão para PARECER shadcn sem nunca ter passado pelo CLI: sem `components.json`, `npx shadcn add` não sabe onde escrever, os aliases não existem e a próxima pessoa acha que pode atualizar um componente que ninguém gera. As duas árvores têm o mesmo `components/ui/botao.tsx`; só o `components.json` muda, então se a regra parar de olhar para ele o lado reprovar sai 0 e a prova acusa."
+}

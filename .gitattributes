@@ -1,0 +1,18 @@
+# Fim de linha normalizado para LF no repositório, sempre.
+#
+# Sem isto o git avisa "LF will be replaced by CRLF" em todo `git add` feito no
+# Windows, e o CI em matriz Windows + Linux passa a comparar arquivos que
+# diferem só no fim de linha. A matriz existe para pegar defeito de
+# portabilidade real — o defeito do `npx` sobreviveu um ano no alicerce porque
+# o CI dele só rodava Linux —, então ruído de CRLF nela é ruído que ensina a
+# ignorar a matriz.
+*         text=auto eol=lf
+
+# O hook é executado pelo git; CRLF no shebang faz o Windows não achar o
+# interpretador.
+pre-commit text eol=lf
+
+*.png     binary
+*.jpg     binary
+*.ico     binary
+*.woff2   binary

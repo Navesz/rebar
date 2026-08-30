@@ -1,0 +1,4 @@
+{
+  "regra": "formatter",
+  "porque": "Projeto npm que tem linter e nenhum formatador: cada maquina reindenta o arquivo do seu jeito e o diff da revisao vira ruido de espaco em branco em vez de mudanca de comportamento."
+}

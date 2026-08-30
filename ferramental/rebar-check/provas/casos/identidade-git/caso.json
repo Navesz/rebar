@@ -1,0 +1,28 @@
+{
+  "regra": "identidade-git",
+  "porque": "A falha real é a mesma pessoa commitando ora como `Leonardo Naves <...@users.noreply.github.com>`, ora como `leona <leonardo@empresa.com.br>`: o histórico público passa a carregar o e-mail pessoal e o `git shortlog` conta duas pessoas onde há uma. O lado aprovar tem DOIS commits com a identidade idêntica, então uma regra que contasse commits em vez de combinações distintas de nome/e-mail reprovaria ali e a prova acusaria.",
+  "aprovar": {
+    "commits": [
+      {
+        "mensagem": "cria o leiame",
+        "autor": "Leonardo Naves <12345+leona@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "descreve o propósito do repositório",
+        "autor": "Leonardo Naves <12345+leona@users.noreply.github.com>"
+      }
+    ]
+  },
+  "reprovar": {
+    "commits": [
+      {
+        "mensagem": "cria o leiame",
+        "autor": "Leonardo Naves <12345+leona@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "descreve o propósito do repositório",
+        "autor": "leona <leonardo@empresa.com.br>"
+      }
+    ]
+  }
+}
