@@ -37,7 +37,7 @@ jobs:
         so: [windows-latest, ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # O passo `auto` roda o rebar-check, e duas regras dele — coautoria-ia
           # e identidade-git — leem `git log`. Com o clone raso padrão
