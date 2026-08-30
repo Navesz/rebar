@@ -237,6 +237,18 @@ function textoEfetivoDoCi(yml, scripts, profundidade = 3) {
 //   na('motivo')    não se aplica — sai do denominador
 //   (lança)         quebrou — exit 127, defeito do rebar-check
 
+/**
+ * Bot commita, e commitar não faz dele uma identidade inconsistente do dono.
+ *
+ * Sem esta lista, o merge commit que o GitHub cria em `refs/pull/N/merge` —
+ * autorado por `GitHub <noreply@github.com>` — conta como segunda pessoa E como
+ * "e-mail pessoal exposto", dois falsos positivos de uma vez. Medido: com isso
+ * TODO pull request nascia reprovado, o que tornava fisicamente impossível
+ * ligar o rebar como check obrigatório de merge em qualquer repositório.
+ */
+const EH_BOT =
+  /<[^>]*(noreply@github\.com|\[bot\]@|@bots\.|dependabot|renovate|github-actions)[^>]*>|\[bot\]\s*</i
+
 const REGRAS = [
   // ── determinísticas ─────────────────────────────────────────────────────
 
@@ -385,7 +397,9 @@ const REGRAS = [
     titulo: 'identidade de autor consistente',
     checar: (r) => {
       if (!r.autores.length) return na('repositório sem commit')
-      const ids = new Set(r.autores)
+      const humanos = r.autores.filter((a) => !EH_BOT.test(a))
+      if (!humanos.length) return na('só há commit de bot')
+      const ids = new Set(humanos)
       if (ids.size <= 1) return null
       const pessoal = [...ids].filter((i) => !/@users\.noreply\.github\.com>/.test(i))
       const extra = pessoal.length ? ` (e-mail pessoal exposto: ${pessoal.length})` : ''
@@ -553,7 +567,10 @@ function lerRepo(dir) {
           .map((s) => s.trim())
           .filter(Boolean)
       : []
-  const logAutores = git(dir, ['log', '--format=%an <%ae>'])
+  // --no-merges: em pull request o GitHub cria um merge commit autorado por
+  // `GitHub <noreply@github.com>`. Sem isto, TODO PR nasce reprovado nesta regra
+  // — medido, e era o que impedia fisicamente ligar o rebar num PR de verdade.
+  const logAutores = git(dir, ['log', '--no-merges', '--format=%an <%ae>'])
   const autores =
     logAutores.ok && logAutores.saida ? logAutores.saida.split('\n').filter(Boolean) : []
 
