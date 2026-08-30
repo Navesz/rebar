@@ -464,7 +464,7 @@ Esse é o retrato exato de "esquecendo do shadcn": a IA reproduz a **aparência*
 
 | Caso | Repo |
 |---|---|
-| PII de terceiro publicada — nome de funcionária, celular, 2 CNPJs, endereço. Removida em `94c6ac1`, **ainda no histórico** | HUG |
+| Dado pessoal de terceiro entrou num commit, foi removido depois e **continua no histórico** — segredo e PII não se corrigem com commit novo. O commit e os campos ficam fora deste documento de propósito: este repositório é público e o outro também, e apontar o lugar exato seria republicar o dado. Detalhe no privado, com o dono | HUG |
 | 623 linhas de catálogo e preço em `.ts`; **zero `process.env` no repo inteiro** | GAL |
 | Número de WhatsApp hardcoded em dois formatos; o README documenta o hardcode | GAL |
 | Marca em duas grafias — `Galegos` e `Gallegos` — no mesmo app, inclusive no `<title>` | GAL |
