@@ -965,13 +965,78 @@ A dor medida é outra, e é literalmente a queixa: `src/lib/whatsapp.ts:7` tem o
 **dois formatos**, `src/lib/viacep.ts` tem URL de produção, e `process.env` aparece **zero
 vezes** em todo o `src/`. Não é "onde mora o texto" — é **configuração assada no código**.
 
-### O que falta para esta decisão ter dentes
+### O que falta para esta decisão ter dentes · AINDA ABERTO
 
-Fechar a §12.3 no texto não fecha nada. Falta a regra determinística
+Fechar a §12.3 no texto não fecha nada. Faltava a regra determinística
 **`conteudo-fora-do-codigo`**, com os dois casos que a regra-mãe exige: `aprovar/` é a saída
 do gerador, `reprovar/` é a mesma saída com um preço e uma frase plantados num `.tsx`.
-Enquanto ela não existir, isto é prosa — que é exatamente o defeito que o repositório
+Enquanto ela não existisse, isto era prosa — que é exatamente o defeito que o repositório
 inteiro existe para combater.
+
+> ⚠️ **A regra existe e está HEURÍSTICA. A §12.3 NÃO está fechada.**
+>
+> Ela nasceu determinística em 30/08 e foi rebaixada em 31/08 por auditoria adversarial.
+> Três defeitos, todos medidos:
+>
+> - **As provas dela são decorativas.** Das 32 mutações aplicadas ao `index.mjs`, 16
+>   sobreviveram — **nove das 16 estão nesta regra**. Apagar a exigência de dígito do padrão
+>   de preço, baixar o mínimo da frase de 25 para 1 caractere, e desligar o filtro de sinal
+>   de código: os três deixam a suíte 2 de 2 verde. O `aprovar/` nem contém `R$`, então a
+>   discriminação que o `caso.json` diz exercitar não é exercitada.
+> - **Ela acusa vocabulário de interface**, que é o que o comentário dela promete deixar de
+>   fora: 27 das 185 frases (15%) são rótulo de ação ou estado vazio/carregando/erro.
+>   *"Não deu para abrir o cofre."* não vai para `conteudo/*.json`.
+> - **17 das 185 são fragmento, não literal.** O casamento corta no primeiro `<`, então
+>   frase atravessada por um `<strong>` vira dois ou três achados.
+>
+> Precisa subir a determinística **antes de o gerador existir** — é a saída do gerador que
+> ela existe para vigiar. Enquanto for heurística, esta decisão está tomada no texto e sem
+> dente no código.
+
+**A regra existe**, em `ferramental/rebar-check/index.mjs`, hoje heurística, com os dois
+casos em `provas/casos/conteudo-fora-do-codigo/` e um terceiro par para os ramos N/A em
+`conteudo-fora-do-codigo__nao-adotou/`. O gerador ainda não existe, então o `aprovar/` foi
+escrito à mão na forma decidida aqui: `conteudo/inicio.json` com o texto e o preço em
+centavos, e um `app/pagina.tsx` que só LÊ aquele arquivo.
+
+Duas coisas medidas que a decisão precisa carregar junto:
+
+**1. A definição de "literal de conteúdo" é estreita de propósito, e mesmo estreita ela
+acusa todo mundo.** Ela reconhece duas formas — `R$` seguido de dígito, e nó de texto de
+JSX com quatro palavras ou mais —, escolhidas por serem impossíveis de confundir com
+`className`, `import`, `aria-label` ou chave de objeto. Medida em 30/08 contra os 11
+repositórios da máquina, **sem** o portão de aplicabilidade, ela acha **188 literais em 45
+arquivos de 7 repositórios** (a soma 147+13+12+9+3+3+1 fecha em sete; `alicerce`,
+`navesz.github.io`, `openkartline` e `VectraB-Lab` dão zero), dos quais **147 só no `decima-edicoes`, em 15 dos 25 arquivos
+dele** — depois `ducado` 13, `hug-brasil-propostas` 12, `vectra-painel` 9, `Galegos` 3,
+`prumo` 3 e `LinhaK` 1. **A afirmação original desta linha — "nenhum dos 188 é falso" —
+não se sustenta**, e a auditoria a derrubou classificando as 185 frases uma a uma: 27 são
+vocabulário de interface, que é a quinta categoria que a própria definição promete excluir.
+O acerto que resta é real e vale registrar: não há uma única string de `className`, de
+`import`, de `aria-label` ou de chave de objeto — a exclusão de atributo por construção do
+JSX funciona. O que a tabela prova é que **todo site
+escrito à mão viola esta asserção**, e portanto a asserção não pode ser cobrada de quem não
+prometeu cumpri-la.
+
+**2. Daí o portão: a regra só se aplica a quem tem `conteudo/*.json` rastreado.** Mesma
+forma do `notice` (só cobra NOTICE de quem escolheu Apache) e do `ui-falso` (só cobra
+`components.json` de quem criou `components/ui/`). Com o portão, os 11 repositórios medidos
+saem N/A com o motivo impresso, e a saída do gerador é cobrada por inteiro.
+
+**3. A inversão que a medição revelou, e que vale registrar contra a própria §12.3.** O
+`Galegos` — o repositório que esta seção cita como o pior caso, com as 623 linhas de
+`menu.ts` — dá apenas **3** literais nesta definição, contra 147 do `decima-edicoes`, e o
+único que toca o `menu.ts` é um **preço** (`src/lib/menu.ts:590`, `"+ R$ 4,00 para trocar o
+refri por Coca lata."`). O motivo é que o conteúdo do Galegos mora num `.ts` de DADO, não
+em JSX. A definição mede
+"prosa renderizada dentro de componente", que não é o mesmo que "conteúdo dentro de
+`src/`". Detectar catálogo em objeto literal de `.ts` é o buraco que sobra, e ele fica
+aberto de propósito: qualquer padrão que o pegue também pega toda tabela de constantes de
+todo projeto, e regra larga queima a ferramenta.
+
+O que a §12.3 também ganhou de dentes na mesma passagem: a regra `telefone` subiu de
+heurística a **determinística**, com 1 verdadeiro e 0 falsos em 417 arquivos de código
+medidos. O número do Galegos, que esta seção cita como a dor original, agora reprova merge.
 
 ### CMS: emitido e desconectado
 

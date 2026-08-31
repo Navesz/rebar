@@ -203,15 +203,20 @@ também em tempo de execução, que é o número que vale:
 
 ```bash
 node ferramental/rebar-check/index.mjs --json .   # e contar o array `resultados` por classe
-# 19 resultados · determinística 14 · heurística 5
+# 21 resultados · determinística 17 · heurística 4
 ```
 
 Determinísticas, e derrubam o exit code: `editorconfig`, `dependabot`, `ci`, `ci-gateia`,
-`testes`, `typecheck`, `formatter`, `env-example`, `licenca`, `notice`, `coautoria-ia`,
-`identidade-git`, `ui-falso`, `schema-orfao`.
+`testes`, `typecheck`, `formatter`, `env-example`, `licenca`, `readme`, `notice`,
+`coautoria-ia`, `identidade-git`, `ui-falso`, `schema-orfao`,
+`conteudo-fora-do-codigo`, `telefone`.
 
-Heurísticas, e só informam: `shadcn-completo`, `telefone`, `url-producao`, `hex-cru`,
-`idioma-unico`.
+Heurísticas, e só informam: `shadcn-completo`, `url-producao`, `hex-cru`, `idioma-unico`.
+
+`telefone` subiu de heurística a determinística em 2026-08-30, com o número que a promoveu
+escrito na própria regra: 1 verdadeiro e 0 falsos em 417 arquivos de código medidos.
+`url-producao` NÃO subiu, e o porquê também está lá — 6 acusações verdadeiras, das quais só
+2 são o defeito que o nome da regra promete.
 
 A separação é medida, e o motivo está escrito em `index.mjs:466-470`: a regra de cor
 literal ingênua deu 7 ocorrências e zero verdadeiros positivos no herz — cinco eram
@@ -221,33 +226,36 @@ comentários documentando a própria regra.
 
 ```bash
 node ferramental/rebar-check/index.mjs .
-# 10 de 10 · 4 não se aplica · exit 0
-# 156 arquivo(s) de caso de prova, fora da avaliação
+# 11 de 11 · 6 não se aplica · exit 0
+# 161 arquivo(s) de caso de prova, fora da avaliação
 # 2 arquivo(s) de código fora das regras de conteúdo por serem teste
 ```
 
-Os 4 que não se aplicam: `ci-gateia` (o `package.json` não tem script de lint, typecheck
-nem test), `typecheck` (não tem TypeScript), `ui-falso` (não tem `components/ui/`) e
-`schema-orfao` (nenhum `.schema.json`).
+Os 6 que não se aplicam: `ci-gateia` (o `package.json` não tem script de lint, typecheck
+nem test), `typecheck` (não tem TypeScript), `env-example` (não lê variável de ambiente do
+projeto — `NO_COLOR` e `CI` são do ambiente), `ui-falso` (não tem `components/ui/`),
+`schema-orfao` (nenhum `.schema.json`) e `conteudo-fora-do-codigo` (não adotou
+`conteudo/*.json`).
 
-**A nota conta só as determinísticas.** `10 de 10` é sobre as 14 determinísticas menos as 4
-que não se aplicam. As 5 heurísticas ficam fora do denominador e aparecem como aviso.
+**A nota conta só as determinísticas.** `11 de 11` é sobre as 17 determinísticas menos as 6
+que não se aplicam. As 4 heurísticas ficam fora do denominador e aparecem como aviso.
 
-### 4.3 PROVADO · As provas — 33 casos, 16 de 19 regras
+### 4.3 PROVADO · As provas — 47 casos, 21 de 21 regras
 
 ```bash
 npm run provar
-# 33 de 33 caso(s) bateram
-# 16 de 19 regras com prova · sem prova: telefone, url-producao, idioma-unico
+# 47 de 47 caso(s) bateram
+# 21 de 21 regras com prova
 # exit 0
 
-ls ferramental/rebar-check/provas/casos | wc -l    # 33
+ls ferramental/rebar-check/provas/casos | wc -l    # 47
 ```
 
 O caminho é `ferramental/rebar-check/provas/casos/`, **não** `provas/casos/` na raiz.
 
-As 14 determinísticas estão todas cobertas. Das 5 heurísticas, duas têm prova (`hex-cru`,
-`shadcn-completo`) e três não (`telefone`, `url-producao`, `idioma-unico`).
+Toda regra tem caso, determinística e heurística. A caça a falso positivo de 2026-08-30
+acrescentou 13 casos e não sobrou buraco: `telefone`, `url-producao`, `idioma-unico` e a
+regra nova `conteudo-fora-do-codigo` eram os quatro que faltavam.
 
 **O formato das provas mudou, e a mudança é o conserto de um furo.** O runner lê agora o
 `estado` que a regra emite no `--json`, e não o exit code. O motivo está em
@@ -486,7 +494,7 @@ find . -name "*.schema.json" -not -path "*/node_modules/*"
 ```
 
 **Correção de um erro do ESTADO anterior:** ele dizia que o CI do próprio rebar "reprova a
-si mesmo em 5 checagens". Não reprova. `npm run check` sai 10 de 10, 4 n/a, exit 0.
+si mesmo em 5 checagens". Não reprova. `npm run check` sai 11 de 11, 6 n/a, exit 0.
 
 ### 5.2 Os sete itens da §8.1 do PLANO — o que era para vir do alicerce
 
@@ -806,8 +814,8 @@ o arquivo rastreado, `openkartline` acusado de "sem prettier" com prettier decla
 
 ## 11. Próximo passo
 
-Feito nesta sessão, e não é pouco: o rebar passa na própria régua (10 de 10), o `verificar`
-fechou 8 de 8, as provas foram de 15 para 33 casos com um formato que trava os ramos N/A,
+Feito nesta sessão, e não é pouco: o rebar passa na própria régua (11 de 11), o `verificar`
+fechou 8 de 8, as provas foram de 15 para 47 casos com um formato que trava os ramos N/A,
 os hooks foram instalados, e doze ataques foram fechados.
 
 O que falta é o que transforma isso em imposição de verdade, e o primeiro item não é código:
