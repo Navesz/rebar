@@ -77,11 +77,11 @@ O `127` domina o `1`: não se acusa um repositório com uma régua que quebrou.
 
 ## O que ele checa
 
-**14 determinísticas** derrubam o exit code:
+**15 determinísticas** derrubam o exit code:
 
 `editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` ·
-`env-example` · `licenca` · `notice` · `coautoria-ia` · `identidade-git` · `ui-falso` ·
-`schema-orfao`
+`env-example` · `licenca` · `readme` · `notice` · `coautoria-ia` · `identidade-git` ·
+`ui-falso` · `schema-orfao`
 
 **5 heurísticas** só informam, e a separação é medida, não estética:
 
@@ -95,7 +95,7 @@ saída inteira.
 ### Toda regra nasce com dois casos
 
 ```bash
-npm run provar     # 33 casos · 16 de 19 regras com prova
+npm run provar     # 34 casos · 17 de 20 regras com prova
 ```
 
 Cada caso monta um repositório em miniatura num diretório temporário, com `git init`
@@ -103,7 +103,7 @@ próprio, e confere o **estado** da regra — passou, reprovou, não se aplica o
 Nunca escreve no repositório vivo.
 
 Ler só o exit code não bastava: `passou` e `não se aplica` saem os dois como `0`, então
-**13 das 19 regras eram inprováveis por construção.** Hoje, restaurar à mão qualquer um
+**13 das 20 regras eram inprováveis por construção.** Hoje, restaurar à mão qualquer um
 desses 13 ramos faz a suíte reprovar.
 
 ## O portão
@@ -136,7 +136,7 @@ Honesto, e medido:
 
 | | |
 |---|---|
-| O checker | **funciona** — 19 regras, 33 provas, rodado contra 19 repositórios |
+| O checker | **funciona** — 20 regras, 34 provas, rodado contra 19 repositórios |
 | O portão | **funciona** — CI verde nos dois sistemas, merge barrado com PR plantado |
 | Domínio de privilégio de banco | **provado** — 16 asserções contra PostgreSQL 17 real |
 | `npm create rebar` (o gerador) | **não existe** |
