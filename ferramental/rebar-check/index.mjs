@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 // rebar-check — roda contra QUALQUER repositório e imprime um placar.
 //
-// Por que isto existe antes do gerador: o alicerce morreu porque a imposição
-// nunca encostou num projeto. Checar é retroativo e funciona nos repositórios
-// que já existem; gerar só serve para o próximo. A inversão certa não é
-// gerador-primeiro, é CONSUMIDOR-primeiro.
+// Por que isto existe antes do gerador: o projeto anterior não escalou. A
+// versão antiga deste comentário dizia que ele "morreu porque a imposição
+// nunca encostou num projeto", e isso foi MEDIDO e é FALSO — o ferramental
+// dele gateia o CI de um repositório real, `prumo/.github/workflows/ci.yml`
+// linha 113. Encostou em 2 de 19. O que faltou foi escala, não contato.
+// Checar é retroativo e funciona nos repositórios que já existem; gerar só
+// serve para o próximo. A inversão certa não é gerador-primeiro, é
+// CONSUMIDOR-primeiro.
 //
 // Zero dependência: só built-ins do Node. O que confere o build não pode
-// depender do build, e assim `npx github:Navesz/rebar` funciona sem instalar.
+// depender do build, e assim `npx github:Navesz/rebar` funciona sem instalar
+// — o campo `bin` do package.json é o que faz o npx resolver isto, e a
+// promessa ficou falsa desde o primeiro commit até o campo existir.
 //
 // Nunca escreve nada. Lê o repositório e sai.
 //
