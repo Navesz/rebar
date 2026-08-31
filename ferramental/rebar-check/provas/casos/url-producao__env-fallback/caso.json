@@ -1,0 +1,4 @@
+{
+  "regra": "url-producao",
+  "porque": "Trava o falso positivo que abriu este passo, e ele foi medido: `decima-edicoes/app/lib/site.ts` linha 5 escreve `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'` — variável de ambiente com padrão sensato, que é EXATAMENTE o que se quer que a pessoa escreva — e a regra acusava. O mesmo padrão pegava o `hug-brasil-propostas` duas vezes, em `scripts/check-access.js` e em `src/lib/accessControl.ts`. Três das doze acusações eram a régua batendo em quem acertou, e regra que pune o comportamento correto ensina a desligar a saída inteira. Os dois lados têm o MESMO endereço na MESMA constante: só o fallback muda. Quem apagar a defesa faz o lado `aprovar` ficar vermelho."
+}

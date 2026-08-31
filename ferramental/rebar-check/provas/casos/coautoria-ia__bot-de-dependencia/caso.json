@@ -1,0 +1,34 @@
+{
+  "regra": "coautoria-ia",
+  "porque": "A lista de agentes terminava num `\\[bot\\]` solto, e aquele curinga afirmava uma coisa falsa: que todo App do GitHub que assina um trailer é agente de IA. Medido em 2026-08-30: o `ducado` era acusado de \"1 de 25 commits com coautoria de IA\" e o ÚNICO trailer do histórico inteiro é `dependabot[bot]`; no `openkartline` o curinga inflava a acusação de 2 para 6, porque 4 dos 6 eram dependabot. Bumpador de dependência não escreve código a partir de um enunciado — é o mesmo julgamento que a regra `identidade-git` já faz com `EH_BOT`. Os dois lados têm o MESMO commit do dependabot; o lado `reprovar` acrescenta UM commit com coautoria de agente de IA, e a diferença é só essa. Quem devolver o curinga faz o lado `aprovar` ficar vermelho; quem tirar a enumeração inteira faz o `reprovar` ficar verde.",
+  "aprovar": {
+    "estado": "passou",
+    "commits": [
+      {
+        "mensagem": "cria o leitor de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "sobe oxlint de 1.0.0 para 1.1.0\n\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  },
+  "reprovar": {
+    "estado": "reprovou",
+    "commits": [
+      {
+        "mensagem": "cria o leitor de configuração",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "sobe oxlint de 1.0.0 para 1.1.0\n\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      },
+      {
+        "mensagem": "reescreve o leitor de configuração\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+        "autor": "Ana Prova <ana@rebar.local>"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "regra": "env-example",
+  "porque": "`.env.example` documenta o que o programa LÊ EM EXECUÇÃO, e variável citada em comentário não é lida por ninguém. Isto não é hipótese: ao escrever a nota do conserto do `url-producao` neste repositório, a frase de exemplo com `process` `.env` fez o próprio rebar reprovar em `env-example` cobrando duas variáveis que não existem em lugar nenhum. É a mesma armadilha que já custou uma regra a este arquivo — das sete ocorrências que a regra de cor literal deu no herz, cinco eram comentários documentando a própria regra. Os dois lados têm o MESMO comentário citando a MESMA variável: no lado `reprovar` ela também é lida de verdade.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

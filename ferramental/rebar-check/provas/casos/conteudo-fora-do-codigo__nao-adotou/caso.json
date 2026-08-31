@@ -1,0 +1,10 @@
+{
+  "regra": "conteudo-fora-do-codigo",
+  "porque": "Os dois lados alcançam ramos N/A DIFERENTES, e o primeiro é o que impede esta regra de queimar a ferramenta. Medido em 2026-08-30: ignorando o portão de aplicabilidade, a definição de literal de conteúdo acha 188 ocorrências nos 11 repositórios — 185 frases e 3 preços; e 17 delas são fragmento, não literal, porque o casamento corta no primeiro `<` — 147 só no `decima-edicoes`, em 15 dos 25 arquivos dele. Nenhum é falso, e é justamente esse o problema: TODO site escrito à mão viola a asserção, então ela só pode ser cobrada de quem prometeu cumpri-la. O lado `aprovar` tem preço E frase plantados no `.tsx` e NÃO tem `conteudo/`, e tem de sair N/A — quem tirar o portão faz este lado ficar vermelho e a regra passa a acusar meio mundo. O lado `reprovar` tem `conteudo/` e nenhum código em `src/` nem em `app/`: promessa sem objeto também não se avalia.",
+  "aprovar": {
+    "estado": "na"
+  },
+  "reprovar": {
+    "estado": "na"
+  }
+}

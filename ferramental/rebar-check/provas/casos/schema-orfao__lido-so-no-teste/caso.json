@@ -1,0 +1,4 @@
+{
+  "regra": "schema-orfao",
+  "porque": "Teste que importa o schema é a prova mais forte que existe de que alguém o lê: se o schema mudar, o teste quebra. A regra procurava o leitor só no código de PRODUÇÃO, porque `fontes()` tira teste — e teste é o que quase toda outra regra deve mesmo ignorar. Medido em 2026-08-30: `openkartline` era acusado de dois schemas \"definidos e nunca lidos\" com `apps/web/src/services/schemaContract.test.ts` importando os dois nas linhas 2 e 3. Era a única acusação desta regra nos 11 repositórios, e era falsa. Os dois lados têm o MESMO schema e o MESMO teste; no lado `reprovar` o teste valida outra coisa, então o schema fica sem nenhum leitor."
+}

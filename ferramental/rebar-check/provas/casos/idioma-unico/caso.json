@@ -1,0 +1,7 @@
+{
+  "regra": "idioma-unico",
+  "porque": "Era a última das 21 regras sem caso, e regra sem caso é regra que ninguém pode refatorar com segurança. A falha real é o repositório que troca de idioma no meio: o `prumo`, medido em 2026-08-30, tem 24 arquivos com comentário em português e 47 em inglês, e a próxima pessoa escreve no idioma do arquivo que abriu primeiro. O piso é `min(pt, en) >= 3` de propósito — uma linha solta em inglês num repositório em português é citação, não troca de idioma —, e os dois lados existem para travar esse piso pelos dois lados: o `aprovar` tem QUATRO arquivos em português e zero em inglês, o `reprovar` tem os mesmos quatro mais TRÊS em inglês, exatamente o piso. Quem baixar o piso para 1 faz o `aprovar` continuar verde e não é pego; quem subir para 4 faz o `reprovar` ficar verde e é.",
+  "aprovar": {
+    "estado": "passou"
+  }
+}

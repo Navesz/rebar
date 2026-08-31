@@ -1,0 +1,4 @@
+{
+  "regra": "ci-gateia",
+  "porque": "A expansão seguia `npm run x` para o CORPO do script e parava no `node <arquivo>`. Medido em 2026-08-30: o `ducado` era acusado de \"o CI não alcança: lint\" com `.github/workflows/verificar.yml` rodando `npm run verificar`, o script `verificar` sendo `node ci/verificar.mjs`, e aquele arquivo rodando `npm run --silent lint` na linha 21. A cadeia real tem três elos e a expansão percorria dois — parar no `node` era declarar que o CI não alcança o lint que ele alcança em toda execução. Os dois lados têm o MESMO workflow, o MESMO package.json e o MESMO runner: só a lista de passos DENTRO do runner muda."
+}
