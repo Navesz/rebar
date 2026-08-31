@@ -690,26 +690,49 @@ O checker rodou nesta sessão contra **18 repositórios que não são o rebar** 
 mesmo. Seis vezes o mínimo de 3, não quatro vezes como este arquivo dizia. O número que ele
 publicava, 12, estava errado. A tabela da §4.8 é a saída.
 
-### D+30 — ZERO. Nenhuma das três exigências tem o primeiro passo dado
+### D+30 — 1 de 2. O primeiro repositório está gateado de verdade
 
-Isto precisa estar na cara, porque é o marco que apaga o repositório se falhar.
+Em 30/08/2026 o rebar saiu de ZERO para UM. As três exigências do critério, cumpridas
+para o primeiro repositório e com link:
 
-**(1) Zero repositórios chamam `rebar-check` no CI.**
+**(1) O `rebar-check` roda no CI.** `.github/workflows/verificar.yml`, matriz
+`windows-latest` + `ubuntu-latest`, chamando `node ferramental/verificar/verificar.mjs`,
+cujo último passo é o `rebar-check` apontado para o próprio repositório.
 
-```bash
-grep -rl "rebar" --include="*.yml" --include="*.yaml" <os outros 18 repos>
-# nenhum arquivo
-```
-
-**(2) Não existe execução de CI nenhuma.** O remoto foi criado e está vazio.
+**(2) Existe execução, e ela é verde nos dois sistemas.**
 
 ```bash
-git ls-remote origin    # exit 0, ZERO refs
+gh run view 33341062882 --json conclusion,jobs
+# success · windows-latest 57 s · ubuntu-latest 14 s
+```
+https://github.com/Navesz/rebar/actions/runs/33341062882
+
+Foi a **primeira vez que qualquer coisa deste repositório rodou fora do Windows.** Eu
+tinha registrado que esperava quebrar em Linux; não quebrou. O motivo provável são os dois
+consertos do passo 1: o `.gitattributes` com `eol=lf` e o bit `+x` nos hooks, que eram
+exatamente os dois defeitos que quebrariam lá.
+
+**(3) O merge é reprovado de verdade, com PR plantado.** Apaguei o `.editorconfig` de
+propósito num branch e abri PR:
+
+```bash
+gh pr view 3 --json mergeStateStatus,statusCheckRollup
+# estado: BLOCKED
+# verificar (windows-latest): FAILURE · verificar (ubuntu-latest): FAILURE
+```
+https://github.com/Navesz/rebar/pull/3 — fechado depois da prova.
+
+E o push direto na `main` também é recusado:
+
+```
+! [remote rejected] main -> main (push declined due to repository rule violations)
 ```
 
-**(3) Sem execução, não há link de execução.** E sem PR, não há merge reprovado.
+O ruleset é https://github.com/Navesz/rebar/rules/21884527, com
+`bypass_actors: []` e `current_user_can_bypass: "never"` — **nem o dono passa por cima.**
+É o N4s da §9.3: o único nível que não mora em arquivo que o agente edita.
 
-**O placar real é 1 de 19 — só o próprio rebar.** Não 1 de 12.
+**Falta o segundo repositório.** O critério exige ≥2, e o placar é **1 de 19**.
 
 A comparação que desmonta a vaidade do D+7: **o rebar mede 19 repositórios e impõe em 1 —
 ele mesmo; o alicerce mede 2 e impõe nos 2.** Medir é ler; impor é barrar. O D+7 conta
