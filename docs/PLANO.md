@@ -782,7 +782,34 @@ O dono já escreve cláusula "Reconsider if" nos ADRs do prumo. Aplicada aqui, c
 | **D+60** | ≥1 checagem disparou contra algo que o dono queria fazer, **e ele consertou o código em vez de desligar a checagem** | A regra estava errada — é o *"regra automática errada custa mais que regra ausente"* |
 | **D+90** | Checagens cresceram ≤50% **e** o nº de repositórios usando cresceu | Se checagem cresce e adoção não, virou alicerce. Congela a lista |
 
-**Parada dura:** dois repositórios novos iniciados sem o rebar, em sequência. O dono criou 3 repos em 48 h — este critério dá veredito em dias.
+**Parada dura:** dois repositórios novos iniciados sem o rebar, em sequência, **depois de
+o gerador existir**.
+
+> ⚠️ **Este critério DISPAROU em 31/08/2026, e foi emendado — não ignorado.**
+>
+> A redação original era "dois repositórios novos iniciados sem o rebar, em sequência", sem
+> a última cláusula. Medido:
+>
+> ```
+> rebar         primeiro commit  25/08 23:35
+> LinhaK        primeiro commit  29/08 18:47
+> VectraB-Lab   primeiro commit  29/08 18:48
+> ```
+>
+> Dois repositórios novos, com **um minuto de diferença**, quatro dias depois do rebar
+> nascer, nenhum usando rebar. Pelo texto original, o repositório seria apagado hoje.
+>
+> A emenda tem um motivo e ele é verificável: **não existe comando para iniciar um
+> repositório com o rebar.** `npx github:Navesz/rebar novo` não foi escrito. O critério
+> media adoção de uma capacidade que o projeto nunca teve — mediu a ausência do gerador,
+> não a rejeição da ferramenta.
+>
+> O que a emenda NÃO faz: não suspende o relógio. D+30 e D+60 seguem nas datas originais.
+> E a partir do dia em que o gerador existir, a cláusula volta a valer com dentes — dois
+> repositórios novos sem ele, em sequência, e acabou.
+>
+> Registrado assim porque o critério existe justamente para impedir racionalização, e
+> emendar sem deixar a ata é a racionalização que ele proíbe.
 
 **Não-escopo:** nenhum preset `app` ou `api` antes de o `site` ter sido usado **sem modificação** em dois sites.
 
@@ -830,17 +857,128 @@ Consequência: estas dez linhas do painel dizem N1 e não têm ferramenta, imple
 
 **E a decisão que habilitaria tudo isso — "qual linter, com que capacidade de regra própria" — não existe no painel.** O nível N1 inteiro depende de uma decisão que ninguém tomou. É o item mais urgente do esquema.
 
-## 12.2 O preset `site` não pode usar a stack do herz como está
+## 12.2 ~~O preset `site` não pode usar a stack do herz como está~~ · FECHADA em 31/08
 
 A stack herdada é Vite + TanStack Router = **SPA**. O buraco que o rebar existe para tapar inclui `<title>`, `og:image` e sitemap.
 
 **WhatsApp, LinkedIn, Slack e Discord não executam JavaScript.** O `og:image` de um SPA simplesmente não funciona — o preview do link vem vazio.
 
-> Ou o preset `site` não é a stack do herz, ou o preset `site` não resolve o problema declarado. **Falta uma decisão 🔴: estratégia de renderização — SPA · SSG · SSR · ilhas.**
+### A decisão: divisão de stack POR PRESET
 
-## 12.3 A decisão que o painel não tem e que É a queixa original
+| Preset | Build e rotas | Por quê |
+|---|---|---|
+| `site` | **Next 16 App Router + `output: 'export'`** (SSG) | é o único caminho GA que entrega `og:image` em HTML |
+| `app` | Vite + TanStack Router | continua como está |
+
+**A premissa desta seção estava errada na parte que decide.** Ela tratava "a stack herdada
+é Vite + TanStack Router" como fato do preset `site`. Medido em 31/08 nos repositórios do
+dono:
+
+```
+SITES   Galegos 16.2.12 · decima-edicoes 16.3.2 · hug-brasil 16.2.10   → Next App Router
+APPS    ducado ^1.170.32 · LinhaK ^1.170.18                            → TanStack Router
+```
+
+O dono **já dividiu a stack por preset na prática**. O documento é que impunha uma só. E o
+único site dele com metadado correto é o único com `output: 'export'` —
+`decima-edicoes/next.config.ts:6`, com `og.jpg` 1200×630, `sitemap.ts`, `robots.ts` e
+`manifest.ts`.
+
+### O spike que fechou o furo material
+
+Ninguém tinha verificado se as três peças funcionam JUNTAS. Rodado em 31/08, em diretório
+temporário:
+
+```bash
+npx shadcn@latest create -t next -b base -p nova --pointer -n spike -y
+# → components.json  style: base-nova · rsc: true
+# → @base-ui/react ^1.7.0 · ZERO @radix-ui · React 19.2.4 · Tailwind 4 · Next 16.2.6
+
+# + output: 'export' e images.unoptimized no next.config.ts
+npx next build
+# → ✓ todas as rotas prerendered as static content, exit 0
+
+grep og:image out/index.html
+# → <meta property="og:image" content="https://exemplo.com.br/og.jpg"/>
+```
+
+O `og:image` com URL absoluta chega num HTML estático de 12 KB, sem uma linha de
+JavaScript. É exatamente a propriedade que a seção duvidava.
+
+Vale registrar que `shadcn create -d` tem como padrão `--template=next --preset=base-nova`:
+**a recomendação coincide com o default do upstream**, não briga com ele.
+
+### O que isso custa
+
+**MAJOR na Stack, e chamar de MINOR seria conveniência.** Trocar builder e roteador do
+preset `site` é reversão de decisão fechada, e o documento existe para registrar isso. O
+que NÃO é tocado, e é a peça mais cara: `Galegos/components.json:3` prova `style: base-nova`
+com `rsc: true` rodando em Next 16 sobre `@base-ui/react`, com zero Radix. React 19,
+Tailwind 4, shadcn sobre Base UI e as libs do TanStack que não são de rota — todos intactos.
+
+## 12.3 ~~A decisão que o painel não tem e que É a queixa original~~ · FECHADA em 31/08
 
 **Origem do conteúdo: hardcode · MD/MDX no repo · CMS · banco.** É o *"hardcoded"* da queixa do dono, textualmente. O painel não tem uma linha sobre onde mora o texto do site. Sem essa decisão, o gerador produz exatamente o que existe para impedir — como o `menu.ts` de 623 linhas do Galegos.
+
+### A decisão: dado tipado no repositório, validado no build
+
+Preset `site`: o conteúdo mora em `conteudo/*.json`, com um schema que **reprova o build**
+se divergir. Sem MD/MDX por padrão, sem CMS hospedado, sem banco.
+
+E a parte que não é óbvia: **identidade do negócio — telefone, nome fantasia, CNPJ,
+endereço — é CONTEÚDO validado, não variável de ambiente.**
+
+### Por que env var é a resposta errada, e a prova é do próprio dono
+
+Existe um PR aberto no Galegos que tentou exatamente isso, e está estacionado de propósito.
+`Navesz/Galegos#1`, branch `chore/contact-out-of-source`, no corpo dele:
+
+> *"would build a wa.me link with no recipient, so a live menu would silently stop
+> delivering orders"*
+
+Tirar o telefone do código para env var trocou **hardcode visível** por **falha invisível
+em produção**: o build passa, o deploy sobe, o cardápio abre, e o botão de pedido gera link
+sem destinatário. Ninguém vê no code review. Esse é o pior negócio possível, e o dono
+percebeu sozinho — por isso o PR não mesclou.
+
+O discriminador que sobrou da revisão adversarial tem dois eixos, e o dado só entra no
+repositório se os dois forem verdadeiros:
+
+1. **renderiza em rota pública** — se aparece na tela para qualquer visitante, não é segredo
+2. **é dado de primeira parte** — da própria empresa, não de pessoa física terceira
+
+O WhatsApp do Galegos: renderiza em toda página, é da empresa. **Conteúdo.** Já o nome e o
+celular de uma funcionária que vazaram no `hug-brasil-propostas` falham o eixo 2 —
+terceiro — e não entram nem como conteúdo nem como env var: não entram.
+
+### O que a medição sustenta, e o que ela NÃO sustenta
+
+Sustenta: `Galegos/src/lib/menu.ts` tem **623 linhas** de catálogo dentro de `src/`, e
+0 de 4 sites usam MD/MDX, e nenhum paga fornecedor de CMS.
+
+**Não sustenta** a ideia de que trocar preço é o gargalo: dos 8 commits do Galegos, 4 tocam
+o `menu.ts` e **zero** tocam só ele. Não existe commit de conteúdo puro. Com 8 commits o
+repositório é jovem demais para provar dor de manutenção — e registrar isso importa mais
+que a conveniência de ter um número a favor.
+
+A dor medida é outra, e é literalmente a queixa: `src/lib/whatsapp.ts:7` tem o número em
+**dois formatos**, `src/lib/viacep.ts` tem URL de produção, e `process.env` aparece **zero
+vezes** em todo o `src/`. Não é "onde mora o texto" — é **configuração assada no código**.
+
+### O que falta para esta decisão ter dentes
+
+Fechar a §12.3 no texto não fecha nada. Falta a regra determinística
+**`conteudo-fora-do-codigo`**, com os dois casos que a regra-mãe exige: `aprovar/` é a saída
+do gerador, `reprovar/` é a mesma saída com um preço e uma frase plantados num `.tsx`.
+Enquanto ela não existir, isto é prosa — que é exatamente o defeito que o repositório
+inteiro existe para combater.
+
+### CMS: emitido e desconectado
+
+O gerador emite `.pages.yml` (Pages CMS, MIT) **sempre, e desconectado**. São ~40 linhas de
+YAML que transformam "conectar um editor" numa decisão de cinco minutos em vez de uma
+refatoração. Conectar exige dar **acesso de escrita** ao repositório para um serviço de
+terceiro hospedado — decisão tomada em 31/08: **não conectar agora.**
 
 ## 12.4 Três níveis herdados errados, violando a regra-mãe
 
