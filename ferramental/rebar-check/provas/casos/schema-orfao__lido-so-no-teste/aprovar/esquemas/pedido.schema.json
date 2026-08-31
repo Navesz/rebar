@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pedido",
+  "type": "object",
+  "required": ["id", "itens"],
+  "properties": {
+    "id": { "type": "string" },
+    "itens": { "type": "array", "items": { "type": "string" } }
+  }
+}

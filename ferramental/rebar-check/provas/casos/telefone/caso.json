@@ -1,0 +1,4 @@
+{
+  "regra": "telefone",
+  "porque": "A §12.3 do plano fechou que telefone é CONTEÚDO validado, não código e não variável de ambiente, e o custo do erro está documentado no próprio Galegos: o PR `Navesz/Galegos#1` tentou mover o número para env var e o dono parou o PR, porque o build passa, o deploy sobe e o `wa.me` gera link sem destinatário. A regra virou determinística com um verdadeiro e zero falsos em 417 arquivos de código medidos. Os dois lados têm o MESMO número escrito do MESMO jeito: no lado `aprovar` ele está num COMENTÁRIO e no `reprovar` numa constante que o programa usa. Comentário não sobe no `wa.me`, e a régua que acusasse comentário acusaria a própria nota que a explica — foi o que aconteceu neste repositório enquanto esta regra era escrita."
+}

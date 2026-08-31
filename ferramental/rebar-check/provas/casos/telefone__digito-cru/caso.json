@@ -1,0 +1,4 @@
+{
+  "regra": "telefone",
+  "porque": "O padrão antigo aceitava ONZE DÍGITOS SEGUIDOS sem pontuação nenhuma, desde que houvesse um `9` na terceira casa — e um código de barras EAN-13 de produto casa com isso. Aceitável numa heurística que só informa; inaceitável numa regra que reprova merge, e a regra acabou de virar determinística. Os dois lados têm o MESMO EAN-13: o lado `reprovar` acrescenta o mesmo número escrito COM marca de telefone brasileiro, o código de país 55. Quem afrouxar o padrão de volta faz o lado `aprovar` ficar vermelho acusando um código de barras de ser telefone."
+}

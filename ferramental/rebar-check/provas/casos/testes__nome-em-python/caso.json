@@ -1,0 +1,4 @@
+{
+  "regra": "testes",
+  "porque": "O padrão de nome conhecia só o ponto (`.test.`), e a convenção de Python e de Go escreve o separador com sublinhado. Medido em 2026-08-30: o `VectraB-Lab` era acusado de \"zero arquivo de teste\" tendo três scripts `*_test.py` rastreados, entre eles `02-obd-kline/vectra_kw82_test.py`. É a mesma cegueira de vocabulário que já custou um falso positivo a esta regra em português — 43 arquivos com \"prova\" no nome e zero enxergados. Os dois lados têm o MESMO módulo; só o arquivo de teste ao lado dele muda. O `TESTE-1-cabo-KKL.md` do mesmo repositório continua NÃO contando, e é por isso que o separador aceito é `_` e não `-`."
+}

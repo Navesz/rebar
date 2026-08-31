@@ -150,6 +150,24 @@ const CODIGO = /\.(ts|tsx|js|jsx|mjs|cjs|svelte|vue|astro)$/i
 const IGNORAR = /(^|\/)(node_modules|dist|build|\.next|out|coverage|vendor)\//
 
 /**
+ * Variáveis que o AMBIENTE fornece, não o projeto. Saem da conta de
+ * `env-example` porque `.env.example` documenta o que a pessoa tem de
+ * PREENCHER, e ninguém preenche NO_COLOR num arquivo de exemplo.
+ *
+ * Medido em 2026-08-30 nos 11 repositórios: `NO_COLOR` era a ÚNICA variável do
+ * alicerce (que assim virava "lê 1 variável e não tem .env.example") e a ÚNICA
+ * cobrada do prumo, que tem .env.example com PRUMO_KEK e DATABASE_URL
+ * documentados. Dois de seis acusados eram isto. `CI` inflava openkartline de
+ * 4 para 5 — lá a acusação continua de pé porque as outras quatro são reais.
+ *
+ * A lista é curta de propósito, e cada nome está aqui por ser produzido por
+ * quem RODA o programa (terminal, runner de CI, toolchain) e não por quem o
+ * configura. Nome de plataforma (GITHUB_*, VERCEL_*) não entrou porque não
+ * apareceu em nenhum dos 11 — lista maior que a medição é adivinhação.
+ */
+const ENV_DO_AMBIENTE = new Set(['CI', 'NO_COLOR', 'FORCE_COLOR', 'NODE_ENV'])
+
+/**
  * Um arquivo é teste se um SEGMENTO do caminho for pasta de teste, ou se o
  * NOME for de teste. Por segmento, não por substring: "aprovar/" contém
  * "provar" e não é pasta de teste.
@@ -158,6 +176,18 @@ const IGNORAR = /(^|\/)(node_modules|dist|build|\.next|out|coverage|vendor)\//
  * alicerce: 43 arquivos rastreados com "prova" no nome, e a regra enxergava
  * ZERO — um checker escrito em português que não reconhece teste nomeado em
  * português. Era um dos dois falsos positivos determinísticos provados.
+ *
+ * `_test.` e `test_` entram pela MESMA razão, uma língua abaixo: a convenção de
+ * Python e de Go escreve `vectra_kw82_test.py`, e o padrão anterior só conhecia
+ * o ponto (`.test.`). Medido em 2026-08-30 nos 12 repositórios: o VectraB-Lab
+ * era acusado de "zero arquivo de teste" tendo TRÊS scripts `*_test.py`
+ * rastreados. Reconhecer a convenção acrescenta exatamente 3 arquivos em 12
+ * repositórios e ZERO arquivo de código avaliável — nenhuma regra de conteúdo
+ * perde texto por causa disto, e a conta está no relatório.
+ *
+ * O prefixo solto (`TESTE-1-cabo-KKL.md`) fica de fora de propósito: separador
+ * `-` sem ponto é nome de documento, e aceitá-lo transformaria um `.md` de
+ * anotação em prova de que o repositório testa.
  */
 const PASTA_TESTE = new Set([
   'test',
@@ -170,7 +200,7 @@ const PASTA_TESTE = new Set([
   'prova',
   'provas',
 ])
-const NOME_TESTE = /(\.|^)(test|spec|teste|prova)\.|^(provar|testar)[-.]/i
+const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar)[-.]|^test_/i
 
 function ehTeste(rel) {
   const partes = rel.split('/')
@@ -308,19 +338,33 @@ function semFixtures(dir, todos) {
   }
 }
 
-/** Conteúdo dos arquivos de código rastreados, com teto de tamanho. */
+/**
+ * Conteúdo dos arquivos de código rastreados, com teto de tamanho, separado nas
+ * duas pilhas que as regras de fato querem: `producao` e `teste`.
+ *
+ * A separação sai daqui, e não de um segundo laço, porque a peneira tem de ser
+ * a MESMA nas duas pontas — o arquivo lá em cima já registra que contagem
+ * calculada por um crivo parecido, mas outro, é pior que contagem nenhuma.
+ *
+ * `teste` existe porque quase toda regra de conteúdo quer olhar só produção, e
+ * UMA não quer: `schema-orfao` pergunta se alguém LÊ o schema, e um teste de
+ * contrato que o importa é a prova mais forte possível de que alguém lê.
+ * Medido: `openkartline` era acusado de dois schemas "definidos e nunca lidos"
+ * com `apps/web/src/services/schemaContract.test.ts` importando os dois.
+ */
 function fontes(dir, arquivos) {
-  const out = []
+  const producao = []
+  const teste = []
   for (const a of arquivos) {
-    if (!ehCodigoAvaliavel(a) || ehTeste(a)) continue
+    if (!ehCodigoAvaliavel(a)) continue
     try {
       if (statSync(join(dir, a)).size > 512 * 1024) continue
-      out.push([a, readFileSync(join(dir, a), 'utf8')])
+      ;(ehTeste(a) ? teste : producao).push([a, readFileSync(join(dir, a), 'utf8')])
     } catch {
       /* arquivo sumiu entre o ls-files e a leitura */
     }
   }
-  return out
+  return { producao, teste }
 }
 
 // ─────────────────────────────── defesa procurada onde o defeito foi achado
@@ -437,6 +481,14 @@ function ancestrais(pasta) {
 }
 
 /**
+ * Um runner chamado por um script: `node ci/verificar.mjs`, `tsx scripts/x.ts`.
+ * Só o caminho, sem `..` — o alvo tem de ser um arquivo DO repositório, e a
+ * conferência final é a lista do `git ls-files`, não este padrão.
+ */
+const RE_RUNNER =
+  /(?:^|[\s;&|])(?:node|tsx|ts-node|bun)\s+(?:--?[\w-]+(?:=\S+)?\s+)*([\w./-]+\.[cm]?[jt]s)\b/g
+
+/**
  * Expande o que o CI de fato executa. Um workflow que roda `npm run verificar`
  * está rodando o corpo de `verificar` — e, se aquele corpo chamar outro script,
  * está rodando aquele também.
@@ -444,10 +496,24 @@ function ancestrais(pasta) {
  * Sem isto, `ci-gateia` procurava as palavras lint/typecheck/test literais no
  * YAML e reprovava todo repositório que agrega a verificação num comando só.
  * Era o segundo falso positivo determinístico provado.
+ *
+ * A segunda perna — seguir `node <arquivo>` para DENTRO do arquivo — fecha o
+ * mesmo furo um degrau adiante, e ele foi medido: o `ducado` era acusado de "o
+ * CI não alcança: lint" com `.github/workflows/verificar.yml` rodando
+ * `npm run verificar`, o script `verificar` sendo `node ci/verificar.mjs`, e
+ * aquele arquivo rodando `npm run --silent lint` na linha 21. A cadeia real
+ * tem três elos e a expansão só percorria dois; parar no `node` era declarar
+ * que o CI não alcança o lint que ele alcança em toda execução.
+ *
+ * A expansão só ACRESCENTA texto, então só pode transformar reprovação em
+ * aprovação — nunca inventar acusação. O teto é `profundidade` e cada nome e
+ * cada arquivo entram uma vez só, senão um script que chama a si mesmo faria
+ * o laço crescer para sempre.
  */
-function textoEfetivoDoCi(yml, scripts, profundidade = 3) {
+function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
   let texto = yml
   const vistos = new Set()
+  const lidos = new Set()
   for (let i = 0; i < profundidade; i++) {
     let cresceu = false
     for (const [nome, corpo] of Object.entries(scripts)) {
@@ -457,10 +523,21 @@ function textoEfetivoDoCi(yml, scripts, profundidade = 3) {
         `(?:npm\\s+run|pnpm\\s+(?:run\\s+)?|yarn\\s+(?:run\\s+)?|run-[sp])\\s+${nome}\\b`,
       )
       if (invocado.test(texto)) {
-        texto += '\n' + corpo
+        texto += '\n' + semComentario(corpo)
         vistos.add(nome)
         cresceu = true
       }
+    }
+    for (const m of [...texto.matchAll(RE_RUNNER)]) {
+      // Normalizado para barra normal e sem `./`: o git devolve
+      // `ci/verificar.mjs` e o YAML pode escrever `./ci/verificar.mjs`.
+      const rel = m[1].replace(/\\/g, '/').replace(/^\.\//, '')
+      if (lidos.has(rel) || !r.arquivos.includes(rel)) continue
+      lidos.add(rel)
+      const corpo = ler(r.dir, rel)
+      if (corpo === null) continue
+      texto += '\n' + semComentario(corpo)
+      cresceu = true
     }
     if (!cresceu) break
   }
@@ -522,7 +599,28 @@ const ALLOWLIST_COAUTORES = '.rebar-coautores'
  * a lista perdida numa lista perdida E injusta.
  */
 const AGENTES_ENUMERADOS =
-  /(claude|anthropic|cursor\.(com|sh)|cursoragent|copilot|codex|openai|chatgpt|devin|cognition|aider|gemini|google-labs-jules|jules@google|windsurf|codeium|sourcegraph|tabnine|amazon\s*q|amazonaws|codewhisperer|q-developer|replit|bolt\.new|v0\.dev|lovable|cline|roo-?code|kilo-?code|continue\.dev|sweep(ai|\.dev)|qodo|codium|coderabbit|greptile|ellipsis\.dev|korbit|bito\.ai|blackbox|phind|supermaven|augmentcode|zencoder|refact\.ai|sourcery|openhands|opendevin|all-hands|swe-agent|gpt-engineer|mentat|trae\.ai|marscode|comate|\[bot\])/i
+  /(claude|anthropic|cursor\.(com|sh)|cursoragent|copilot|codex|openai|chatgpt|devin|cognition|aider|gemini|google-labs-jules|jules@google|windsurf|codeium|sourcegraph|tabnine|amazon\s*q|amazonaws|codewhisperer|q-developer|replit|bolt\.new|v0\.dev|lovable|cline|roo-?code|kilo-?code|continue\.dev|sweep(ai|\.dev)|qodo|codium|coderabbit|greptile|ellipsis\.dev|korbit|bito\.ai|blackbox|phind|supermaven|augmentcode|zencoder|refact\.ai|sourcery|openhands|opendevin|all-hands|swe-agent|gpt-engineer|mentat|trae\.ai|marscode|comate)/i
+
+/**
+ * Automação que NÃO escreve código a partir de um enunciado: bumpador de
+ * dependência, formatador de imagem, robô de release. Sai do bolo ANTES de
+ * classificar, porque coautoria de robô de manutenção não é coautoria de IA.
+ *
+ * Isto existe porque a lista acima terminava num `\[bot\]` solto, e aquele
+ * curinga afirmava uma coisa falsa: que todo App do GitHub que assina um
+ * trailer é agente de IA. Medido em 2026-08-30: o `ducado` era acusado de "1 de
+ * 25 commits com coautoria de IA" e o ÚNICO trailer do histórico inteiro é
+ * `dependabot[bot]`. No `openkartline` o curinga inflava a acusação de 2 para
+ * 6 — 4 dos 6 eram dependabot e só 2 eram Claude, então o número impresso era
+ * o triplo do verdadeiro.
+ *
+ * É o mesmo julgamento que `EH_BOT` já faz uma regra abaixo, com a mesma frase:
+ * bot commita, e commitar não faz dele autor de IA. E é o oposto do que o
+ * curinga fazia — enumerar quem NÃO é IA aqui é seguro porque errar para menos
+ * cai no ramo N/A ("não dá para classificar"), e não numa aprovação silenciosa.
+ */
+const AUTOMACAO_NAO_IA =
+  /(dependabot|renovate|greenkeeper|snyk-bot|imgbot|allcontributors|pre-commit-ci|mergify|semantic-release|release-please|github-actions)/i
 
 const emailDeCoautor = (valor) => {
   const m = /<([^<>]*)>/.exec(valor)
@@ -615,6 +713,111 @@ function coautoresDoHistorico(r) {
  */
 const NOMES_TYPECHECK = ['typecheck', 'type-check', 'check-types', 'tipos', 'tsc']
 
+// ───────────────────────────────── o que é, e o que NÃO é, literal de conteúdo
+//
+// A §12.3 do plano fechou que o conteúdo do preset `site` mora em
+// `conteudo/*.json` e que identidade do negócio — telefone, preço, endereço —
+// é conteúdo validado, não código. A regra `conteudo-fora-do-codigo` cobra isso.
+//
+// A parte difícil não é a asserção, é a DEFINIÇÃO. String de `className`, de
+// `import`, de `aria-label` e de chave de objeto não são conteúdo, e a versão
+// larga desta regra acusaria todas. Por isso ela reconhece só DUAS formas, as
+// duas escolhidas por serem impossíveis de confundir com as quatro de cima:
+//
+//   1. PREÇO — `R$` seguido de dígito. Não existe em nome de classe, em
+//      caminho de import, em chave de objeto nem em rótulo de acessibilidade.
+//      Repare que a exigência é o DÍGITO: `` `R$ ${valor}` `` não casa, e é o
+//      certo — formatador de moeda é código, valor de moeda é conteúdo.
+//
+//   2. FRASE RENDERIZADA — texto entre `>` e `<`, isto é, nó de texto de JSX.
+//      Por construção do JSX, className/import/aria-label/chave vivem em
+//      ATRIBUTO ou fora da marcação, e nó de texto é o que o visitante lê.
+//
+// Quanto isso pega: medido em 2026-08-30 nos 11 repositórios, IGNORANDO o
+// portão de aplicabilidade, a definição acha 188 ocorrências em 45 arquivos de 7
+// repositórios — 147 só no decima-edicoes, em 15 dos 25 arquivos dele, depois
+// ducado 13, hug-brasil-propostas 12, vectra-painel 9, Galegos 3, prumo 3 e
+// LinhaK 1. Nenhum dos 188 é falso; abri a lista e são todos conteúdo mesmo,
+// sem uma única string de className, de import, de aria-label ou de chave. O
+// que a tabela prova é outra coisa — que TODO site escrito à mão viola esta
+// asserção, e portanto a asserção não pode ser cobrada de quem não prometeu
+// cumpri-la.
+//
+// Vale registrar a inversão que a mesma tabela mostrou, porque ela é um limite
+// da definição e não um elogio a ela: o Galegos, que a §12.3 cita como o pior
+// caso com as 623 linhas de `menu.ts`, dá 3 — e o que o pega lá é o PREÇO
+// (`src/lib/menu.ts` linha 590), não a frase. Catálogo em objeto literal de
+// `.ts` continua invisível, e continua de propósito: o padrão que o pegasse
+// pegaria junto toda tabela de constantes de todo projeto.
+//
+// É daí que sai o portão: a regra só se aplica ao repositório que ADOTOU a
+// convenção, ou seja, que tem `conteudo/*.json` rastreado. Mesma forma do
+// `notice` (só cobra NOTICE de quem escolheu Apache) e do `ui-falso` (só cobra
+// components.json de quem criou components/ui/). Com o portão, os 11
+// repositórios medidos dão N/A com o motivo impresso, e a saída do gerador —
+// que nasce com `conteudo/` — é cobrada por inteiro.
+
+const RE_CONTEUDO_JSON = /^((?:.*\/)?)conteudo\/[^/]+\.json$/
+const PRECO_BRL = /R\$\s?\d[\d.,]*/
+const RE_JSX = /\.(tsx|jsx)$/i
+
+/**
+ * Tira comentário. O `[^:]` antes do `//` é o que impede de comer o `//` de
+ * `https://` e cortar o resto da linha junto.
+ *
+ * Existe fora da regra de conteúdo porque duas regras dependem dele pelo mesmo
+ * motivo, e o motivo está registrado neste arquivo desde a primeira medição:
+ * das SETE ocorrências que a regra de cor literal deu no herz, CINCO eram
+ * comentários documentando a própria regra. Comentário que aciona a regra que
+ * ele explica é a forma mais barata de queimar a ferramenta — e ela quase
+ * aconteceu de novo aqui: escrever o número do Galegos por extenso na nota do
+ * `telefone` fez o rebar acusar o próprio index.mjs, e escrever
+ * `process` `.env.X` na nota do `url-producao` fez o `env-example` cobrar
+ * `.env.example` para uma variável que não existe.
+ */
+function semComentario(t) {
+  return t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+}
+
+/** Sem comentário e sem linha de import: nenhum dos dois é renderizado. */
+function semComentarioNemImport(t) {
+  return semComentario(t).replace(/^\s*import[^\n]*$/gm, ' ')
+}
+
+/**
+ * Nós de texto de JSX que são frase, e não sobra de sintaxe.
+ *
+ * O casamento é `>…<` sem chave e sem quebra de linha no começo, porque
+ * `>{expressao}<` e `>\n  <` são as duas formas de JSX que NÃO carregam texto.
+ * Depois vêm os cortes, e cada um existe contra um falso positivo concreto:
+ *
+ *   PROIBIDO   mata o que atravessou o `>` de uma seta ou de uma comparação:
+ *              `=> a.length < 3` tem `=`, `.` colada e `<`. Sinal de código
+ *              numa frase é sinal de que não é frase.
+ *   4 palavras e 25 caracteres separam frase de rótulo. "Salvar" e "Ver mais"
+ *              são vocabulário de interface e vão continuar no componente;
+ *              "Mesa de jantar em madeira maciça" é catálogo.
+ *   90% de letras derruba tabela de números e caminho de arquivo que
+ *              sobreviveram aos cortes acima.
+ */
+const TEXTO_JSX = /> *([^<>{}\n][^<>{}]{18,}?) *</g
+const SINAL_DE_CODIGO = /[=;()[\]$`|&/\\]|\.\w|:\s/
+const PALAVRA = /[\p{L}][\p{L}'’-]*/gu
+
+function frasesRenderizadas(t) {
+  const achadas = []
+  for (const m of t.matchAll(TEXTO_JSX)) {
+    const frase = m[1].replace(/\s+/g, ' ').trim()
+    if (frase.length < 25 || SINAL_DE_CODIGO.test(frase)) continue
+    const palavras = frase.match(PALAVRA) || []
+    if (palavras.length < 4 || palavras.filter((p) => p.length >= 3).length < 3) continue
+    const letras = (frase.match(/[\p{L} ,.;:!?'’-]/gu) || []).length
+    if (letras / frase.length < 0.9) continue
+    achadas.push(frase)
+  }
+  return achadas
+}
+
 const REGRAS = [
   // ── determinísticas ─────────────────────────────────────────────────────
 
@@ -674,7 +877,7 @@ const REGRAS = [
       const alvos = ['lint', 'typecheck', 'test'].filter((g) => scripts[g])
       if (!alvos.length) return na('package.json não tem script lint, typecheck nem test')
       const yml = r.workflows.map((w) => ler(r.dir, w) || '').join('\n')
-      const efetivo = textoEfetivoDoCi(yml, scripts)
+      const efetivo = textoEfetivoDoCi(yml, scripts, r)
       const faltam = alvos.filter((g) => !new RegExp(`\\b${g}\\b`).test(efetivo))
       return faltam.length ? `o CI não alcança: ${faltam.join(', ')}` : null
     },
@@ -794,7 +997,10 @@ const REGRAS = [
     checar: (r) => {
       if (!r.commits.length) return na('repositório sem commit')
 
-      const { coautores, total, porEnumeracaoDoTexto } = coautoresDoHistorico(r)
+      const { coautores: brutos, total, porEnumeracaoDoTexto } = coautoresDoHistorico(r)
+      // Automação de manutenção sai antes de qualquer contagem, para que ela não
+      // apareça nem no veredito nem no NÚMERO impresso — ver AUTOMACAO_NAO_IA.
+      const coautores = brutos.filter((x) => !AUTOMACAO_NAO_IA.test(x.valor))
 
       // Zero trailer de coautoria é o único veredito que NÃO depende de saber
       // quem é IA e quem é gente: não há coautor nenhum, logo não há coautor de
@@ -903,9 +1109,148 @@ const REGRAS = [
     checar: (r) => {
       const schemas = r.arquivos.filter((a) => /\.schema\.json$/.test(a))
       if (!schemas.length) return na('nenhum .schema.json no repositório')
-      const todo = r.fontes.map(([, t]) => t).join('\n')
+      // Teste CONTA como leitor, e é o único lugar do arquivo onde ele conta.
+      //
+      // As outras regras de conteúdo perguntam o que o produto FAZ, e teste não
+      // é produto. Esta pergunta é outra: existe alguém que lê este schema? Um
+      // teste de contrato que o importa responde SIM da forma mais forte que
+      // existe — se o schema mudar, o teste quebra. Medido: o `openkartline`
+      // era acusado de dois schemas "definidos e nunca lidos" com
+      // `apps/web/src/services/schemaContract.test.ts` importando os dois nas
+      // linhas 2 e 3. Era a única acusação desta regra nos 11 repositórios, e
+      // era falsa.
+      const todo = [...r.fontes, ...r.fontesTeste].map(([, t]) => t).join('\n')
       const orfaos = schemas.filter((s) => !todo.includes(basename(s)))
       return orfaos.length ? `definido e nunca lido: ${orfaos.slice(0, 3).join(', ')}` : null
+    },
+  },
+
+  {
+    id: 'conteudo-fora-do-codigo',
+    // NASCEU DETERMINÍSTICA E FOI REBAIXADA NO MESMO DIA, 31/08. Fica
+    // heurística até três coisas serem consertadas, e as três foram medidas por
+    // auditoria adversarial, não supostas:
+    //
+    // 1. AS PROVAS DELA SÃO DECORATIVAS. Das 32 mutações aplicadas ao index.mjs,
+    //    16 sobreviveram — e NOVE das 16 estão nesta regra. Apagar a exigência
+    //    de dígito do padrão de preço: 2 de 2 casos verdes. Baixar o mínimo da
+    //    frase de 25 caracteres para 1: 2 de 2 verdes. Desligar o filtro de
+    //    sinal de código: 2 de 2 verdes. O `aprovar/` nem contém `R$`, então a
+    //    discriminação que o caso.json diz exercitar não é exercitada.
+    //
+    // 2. ELA ACUSA VOCABULÁRIO DE INTERFACE, que o comentário dela promete
+    //    deixar de fora. Das 185 frases, 27 (15%) são rótulo de ação ou estado
+    //    vazio/carregando/erro: "Imprimir ou salvar em PDF", "Carregando o
+    //    índice de preços…", "Não deu para abrir o cofre.". Mandar isso para
+    //    `conteudo/*.json` não é a §12.3, é ruído — e ruído que barra merge.
+    //
+    // 3. O CASAMENTO CORTA NO PRIMEIRO `<`, então frase atravessada por um
+    //    `<strong>` vira dois ou três achados. 17 das 185 começam com ponto ou
+    //    no meio da oração: não são literais, são fragmentos.
+    //
+    // Heurística ela informa e não barra, que é o lugar certo de uma regra
+    // nessa maturidade. A §12.3 do plano NÃO está fechada enquanto ela não
+    // subir — e ela precisa subir antes de o gerador existir, porque é a saída
+    // do gerador que ela existe para vigiar.
+    classe: 'heurística',
+    nivel: 'N1',
+    titulo: 'conteúdo em conteudo/*.json, não dentro de src/ nem de app/',
+    // A definição de "literal de conteúdo", o número que ela deu nos 11
+    // repositórios e o motivo do portão de aplicabilidade estão no bloco de
+    // comentário acima de `RE_CONTEUDO_JSON`.
+    checar: (r) => {
+      // A base é o diretório que contém `conteudo/`: em monorepo,
+      // `apps/site/conteudo/menu.json` tem base `apps/site/`. A asserção fica
+      // presa àquela base, e não ao repositório inteiro, pelo mesmo motivo que
+      // `ui-falso` casa por proximidade: um `apps/painel/` vizinho que nunca
+      // prometeu nada não pode ser acusado pela promessa do `apps/site/`.
+      const bases = new Set()
+      for (const a of r.arquivos) {
+        const m = RE_CONTEUDO_JSON.exec(a)
+        if (m) bases.add(m[1])
+      }
+      if (!bases.size) {
+        return na(
+          'nenhum conteudo/*.json rastreado — o repositório não adotou a convenção da §12.3',
+        )
+      }
+      const sob = (a) =>
+        [...bases].some((b) => a.startsWith(`${b}src/`) || a.startsWith(`${b}app/`))
+      const alvos = r.fontes.filter(([a]) => sob(a))
+      if (!alvos.length) return na('há conteudo/*.json e nenhum código em src/ nem em app/ ao lado')
+
+      const achados = []
+      for (const [a, bruto] of alvos) {
+        const t = semComentarioNemImport(bruto)
+        const preco = PRECO_BRL.exec(t)
+        if (preco) achados.push(`${a}: preço ${JSON.stringify(preco[0])}`)
+        // Frase só em arquivo com JSX. Num `.ts` puro não existe nó de texto, e
+        // procurar `>…<` lá seria ler operador de comparação como prosa.
+        if (!RE_JSX.test(a)) continue
+        const frases = frasesRenderizadas(t)
+        if (frases.length) {
+          achados.push(`${a}: frase ${JSON.stringify(frases[0].slice(0, 60))}`)
+        }
+      }
+      return achados.length
+        ? `${achados.length} literal(is) de conteúdo fora de conteudo/: ${achados.slice(0, 3).join(' · ')}`
+        : null
+    },
+  },
+
+  {
+    id: 'telefone',
+    // SOBE DE HEURÍSTICA A DETERMINÍSTICA, e o número que decidiu está aqui.
+    //
+    // Medido em 2026-08-30 nos 11 repositórios + o rebar: 417 arquivos de
+    // código de produção varridos, UMA acusação — `Galegos/src/lib/whatsapp.ts`
+    // linha 7, um `const WHATSAPP_NUMBER` com o celular da pizzaria em treze
+    // dígitos —, e ela é verdadeira. Um verdadeiro, zero falsos, em 417
+    // arquivos. (O número não é transcrito aqui de propósito: ver a nota do
+    // `semComentario`, onde está o que acontece quando ele é.)
+    //
+    // A §12.3 do plano fechou a decisão que dá o dente: telefone, CNPJ e
+    // endereço são CONTEÚDO validado, não código e não variável de ambiente. E
+    // o custo do erro está documentado no próprio Galegos: `Navesz/Galegos#1`
+    // tentou mover o número para env var e o dono parou o PR, porque o build
+    // passa e o `wa.me` sobe sem destinatário. Determinística é o que faz a
+    // decisão valer.
+    //
+    // O padrão foi APERTADO junto com a promoção, e essa é a metade cara. O
+    // antigo `\(?\d{2}\)?\s?9\d{4}-?\d{4}` aceitava ONZE DÍGITOS SEGUIDOS sem
+    // pontuação nenhuma, com um `9` na terceira casa: um EAN-13 de produto
+    // (`7891234599999`) casava. Aceitável numa heurística que só informa;
+    // inaceitável numa regra que reprova merge. Agora só conta o que traz
+    // MARCA de telefone brasileiro — link `wa.me`, código de país 55, ou a
+    // pontuação de DDD. O mesmo Galegos continua sendo pego (`55` + `24` + `9`
+    // + oito dígitos) e os outros 416 arquivos continuam limpos: o aperto não
+    // custou nem um verdadeiro positivo.
+    classe: 'determinística',
+    nivel: 'N1',
+    titulo: 'sem telefone brasileiro no código',
+    checar: (r) => {
+      const re =
+        /wa\.me\/\d{8,}|\+?55\s?\(?\d{2}\)?\s?9\d{4}-?\d{4}|\(\d{2}\)\s?9\d{4}-?\d{4}|\b\d{2}\s9\d{4}-\d{4}\b/
+      // Comentário fora: ver a nota do `semComentario`. O que a §12.3 proíbe é
+      // o número que o programa USA — o que sobe no `wa.me` e no `tel:` —, e
+      // esse mora em código executado, não em nota de rodapé.
+      // ONZE DÍGITOS CRUS contam SÓ quando o arquivo monta um `wa.me` ou um
+      // `tel:`. É o conserto de uma regressão que o aperto acima causou e que a
+      // auditoria pegou: o MESMO celular do Galegos escrito sem o DDI, no mesmo
+      // arquivo, montando o mesmo link, passava limpo. O contexto é o que
+      // separa telefone de código de barras: um EAN-13 não vira link de
+      // WhatsApp, e por isso o dígito cru só conta acompanhado.
+      const cru = /\b\d{2}9\d{8}\b/
+      const usaContato = /wa\.me|tel:|whatsapp/i
+      const hits = r.fontes
+        .filter(([, t]) => {
+          const limpo = semComentario(t)
+          return re.test(limpo) || (usaContato.test(limpo) && cru.test(limpo))
+        })
+        .map(([a]) => a)
+      return hits.length
+        ? `telefone é conteúdo, não código (§12.3) — ${hits.length} arquivo(s): ${hits.slice(0, 3).join(', ')}`
+        : null
     },
   },
 
@@ -952,28 +1297,80 @@ const REGRAS = [
   },
 
   {
-    id: 'telefone',
-    classe: 'heurística',
-    nivel: 'N1',
-    titulo: 'sem telefone brasileiro no código',
-    checar: (r) => {
-      const re = /\(?\d{2}\)?\s?9\d{4}-?\d{4}|\b55\d{2}9\d{8}\b|wa\.me\/\d+/
-      const hits = r.fontes.filter(([, t]) => re.test(t)).map(([a]) => a)
-      return hits.length ? `${hits.length} arquivo(s): ${hits.slice(0, 3).join(', ')}` : null
-    },
-  },
-
-  {
     id: 'url-producao',
     classe: 'heurística',
+    // POR QUE CONTINUA HEURÍSTICA, com o número na mão.
+    //
+    // Depois dos dois consertos abaixo a regra passou de 12 arquivos acusados
+    // em 7 repositórios para 6 arquivos em 5, e os 6 são literalmente
+    // verdadeiros — nenhum é falso positivo. Mesmo assim ela NÃO sobe a
+    // determinística, e o motivo é o nome dela: 4 dos 6 são endereço de API
+    // PÚBLICA DE TERCEIRO (`viacep.com.br`, `api.bcb.gov.br`,
+    // `api.deepinfra.com`, `api.replicate.com`) e só 2 são a origem de produção
+    // do próprio site (`decima-edicoes/scripts/verify-static.mjs`,
+    // `navesz.github.io/scripts/fetch-data.mjs`). Fixar o endereço de uma API
+    // pública é engenharia normal, não defeito; o defeito é fixar PARA ONDE
+    // ESTE site sobe. Separar os dois exige saber a origem do deploy, e o
+    // checker não sabe. Barrar merge com 2 de 6 de precisão sobre o defeito que
+    // a regra nomeia é punir comportamento correto — e regra que pune
+    // comportamento correto ensina a desligar a saída inteira.
     nivel: 'N2',
     titulo: 'sem URL de produção fora de configuração',
     checar: (r) => {
-      const re =
-        /https?:\/\/(?!localhost|127\.0\.0\.1|www\.w3\.org|schema\.org|json-schema\.org|fonts\.(?:googleapis|gstatic)\.com|registry\.npmjs)[a-z0-9.-]+\.(?:com|com\.br|br|app|dev|io|net|site)/i
-      const hits = r.fontes
-        .filter(([a, t]) => !/config|\.d\.ts$/i.test(a) && re.test(t))
-        .map(([a]) => a)
+      // CONSERTO 1 — o padrão env-fallback, que é o padrão CERTO.
+      //
+      // `process.env.X ?? 'https://…'` é exatamente o que se quer que a pessoa
+      // escreva: variável de ambiente com padrão sensato. Medido:
+      // `decima-edicoes/app/lib/site.ts:5` acusado por
+      // `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`,
+      // e `hug-brasil-propostas` acusado DUAS vezes pela mesma forma
+      // (`scripts/check-access.js:3` e `src/lib/accessControl.ts:6`). Três das
+      // doze acusações eram a régua batendo em quem acertou.
+      //
+      // O fallback é apagado do texto ANTES da busca, e não o arquivo inteiro:
+      // um arquivo pode ter o padrão certo numa linha e o endereço cru na
+      // outra, e absolver o arquivo por causa da linha boa seria trocar este
+      // falso positivo por um falso negativo.
+      const ENV_FALLBACK =
+        /(?:process|import\.meta)\.env(?:\.[A-Za-z_$][\w$]*|\[\s*['"][^'"]+['"]\s*\])\s*(?:\?\?|\|\|)\s*(['"`])[^'"`]*\1/g
+
+      // CONSERTO 2 — endereço só conta quando é usado COMO endereço.
+      //
+      // O literal tem de ABRIR uma string e vir logo depois de uma chamada de
+      // requisição ou de um nome de endereço. Medido, três acusações caíram e
+      // as três não se sustentavam ao abrir o arquivo:
+      //   openkartline/apps/web/src/App.tsx:521 — `href="https://github.com/…"`,
+      //     um link do rodapé para o próprio repositório. Link é link.
+      //   prumo/…/migrations/20260825_0003_credentials.ts — vinte campos
+      //     `doc: 'https://docs.fal.ai'`, catálogo de documentação semeado em
+      //     tabela. É DADO, e dado é o lugar certo dele.
+      //   prumo/…/collectors/index.ts:76 — o endereço dentro da string de
+      //     `User-Agent`. Não abre string nenhuma, então nem chega a ser testado.
+      const ABERTURA =
+        /(['"`])(https?:\/\/(?!localhost|127\.0\.0\.1|www\.w3\.org|schema\.org|json-schema\.org|fonts\.(?:googleapis|gstatic)\.com|registry\.npmjs)[a-z0-9.-]+\.(?:com|com\.br|br|app|dev|io|net|site)[^'"`]*)/gi
+      const CHAMADA = /(?:fetch|axios(?:\.\w+)?|request|createClient|connect|new\s+URL)\s*\(\s*$/i
+      // Português na lista pela mesma razão de `NOMES_TYPECHECK` e de
+      // `NOME_TESTE`: régua escrita em português que só reconhece nome de
+      // variável em inglês é cega ao repositório que ela existe para medir.
+      // `origem`, `endereco` e `servidor` são o que um projeto daqui escreve
+      // onde o `decima-edicoes` escreveu `origin`.
+      const NOME_ENDERECO =
+        /[A-Za-z0-9_$]*(?:url|uri|endpoint|origin|origem|host|base|site|api|endereco|endereço|servidor)\s*[:=]\s*$/i
+
+      const hits = []
+      for (const [a, bruto] of r.fontes) {
+        if (/config|\.d\.ts$/i.test(a)) continue
+        const t = bruto.replace(ENV_FALLBACK, ' ')
+        for (const m of t.matchAll(ABERTURA)) {
+          // 60 caracteres bastam para o `const NOME_LONGO =` mais folgado e
+          // impedem que uma linha vizinha empreste o veredito à seguinte.
+          const antes = t.slice(Math.max(0, m.index - 60), m.index)
+          if (CHAMADA.test(antes) || NOME_ENDERECO.test(antes)) {
+            hits.push(a)
+            break
+          }
+        }
+      }
       return hits.length ? `${hits.length} arquivo(s): ${hits.slice(0, 3).join(', ')}` : null
     },
   },
@@ -1048,7 +1445,7 @@ function lerRepo(dir) {
   // inteiro usa `manifestos`.
   const raiz_ = manifestos.find((m) => m.rel === 'package.json')
   const pkg = raiz_?.estado === 'ok' ? raiz_.valor : null
-  const fs_ = fontes(dir, arquivos)
+  const { producao: fs_, teste: fsTeste } = fontes(dir, arquivos)
   // `ehTeste` serve nas DUAS pontas: define o que satisfaz a regra `testes` e
   // filtra o que entra em `fontes()`. Medido no ataque, com os mesmos bytes:
   // renomear uma pasta para `provas/` tirou o conteúdo dela de env-example,
@@ -1060,10 +1457,17 @@ function lerRepo(dir) {
   ignorados.testes = excluidosPorTeste.length
   ignorados.amostraTestes = excluidosPorTeste.slice(0, 3)
 
+  // Comentário fora ANTES da varredura: `.env.example` documenta o que o
+  // programa LÊ EM EXECUÇÃO, e variável citada em comentário não é lida por
+  // ninguém. Sem isto, uma nota explicando o padrão env-fallback fazia o
+  // próprio rebar reprovar em `env-example` por duas variáveis inexistentes.
   const varsEnv = new Set()
   for (const [, t] of fs_) {
-    for (const m of t.matchAll(/(?:process|import\.meta)\.env\.([A-Z][A-Z0-9_]*)/g))
-      varsEnv.add(m[1])
+    for (const m of semComentario(t).matchAll(
+      /(?:process|import\.meta)\.env\.([A-Z][A-Z0-9_]*)/g,
+    )) {
+      if (!ENV_DO_AMBIENTE.has(m[1])) varsEnv.add(m[1])
+    }
   }
 
   // \x00 separa commits: mensagem de commit contém \n à vontade.
@@ -1093,6 +1497,7 @@ function lerRepo(dir) {
     manifestos,
     componentsJson,
     fontes: fs_,
+    fontesTeste: fsTeste,
     varsEnv,
     commits,
     autores,

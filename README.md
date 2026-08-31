@@ -95,7 +95,7 @@ saída inteira.
 ### Toda regra nasce com dois casos
 
 ```bash
-npm run provar     # 34 casos · 17 de 20 regras com prova
+npm run provar     # 47 casos · 21 de 21 regras com prova
 ```
 
 Cada caso monta um repositório em miniatura num diretório temporário, com `git init`
@@ -136,13 +136,13 @@ Honesto, e medido:
 
 | | |
 |---|---|
-| O checker | **funciona** — 20 regras, 34 provas, rodado contra 19 repositórios |
+| O checker | **funciona** — 21 regras, 47 provas, rodado contra 19 repositórios |
 | O portão | **funciona** — CI verde nos dois sistemas, merge barrado com PR plantado |
 | Domínio de privilégio de banco | **provado** — 16 asserções contra PostgreSQL 17 real |
 | `npm create rebar` (o gerador) | **não existe** |
 | Presets `site` / `app` / `api` | **não existem** |
 
-O rebar tira **10 de 10** na própria régua. Isso não é motivo de orgulho — é o mínimo para
+O rebar tira **11 de 11** na própria régua. Isso não é motivo de orgulho — é o mínimo para
 ter autoridade de exigir dos outros.
 
 Detalhe completo, com o comando que reproduz cada número, em **[ESTADO.md](ESTADO.md)**.

@@ -1,0 +1,4 @@
+{
+  "regra": "url-producao",
+  "porque": "Trava dois falsos positivos medidos em 2026-08-30. `openkartline/apps/web/src/App.tsx` linha 521 era acusado por `href=\"https://github.com/Navesz/openkartline\"`, um link do rodapé para o próprio repositório; e `prumo/apps/server/src/db/migrations/20260825_0003_credentials.ts` era acusado por vinte campos `doc: 'https://docs.fal.ai'`, catálogo de documentação semeado em tabela. Link é link e dado é dado: nenhum dos dois é endereço que o programa chama, e nenhum dos dois deixa de funcionar quando o deploy muda de lugar. O lado `reprovar` é o lado `aprovar` MAIS uma requisição para um endereço fixo — a única diferença é o defeito, então nenhuma parte da acusação pode vir do link nem do campo de documentação."
+}

@@ -1,0 +1,4 @@
+{
+  "regra": "conteudo-fora-do-codigo",
+  "porque": "A §12.3 do plano fechou que o conteúdo do preset `site` mora em `conteudo/*.json`, e o próprio plano registra que fechar no texto não fecha nada: \"enquanto ela não existir, isto é prosa\". O lado `aprovar` é a forma decidida — conteúdo em `conteudo/inicio.json` e componente que LÊ aquele arquivo, sem um literal. O lado `reprovar` é a MESMA árvore com um preço e uma frase plantados no `.tsx`, que é literalmente o par que a §12.3 pede. Os dois lados têm o mesmo `conteudo/inicio.json`, o mesmo formatador de moeda e o mesmo componente: a única diferença são os dois literais. O formatador fica nos dois lados de propósito — `R$` sem dígito depois não é preço, e uma regra que acusasse o formatador proibiria formatar dinheiro."
+}

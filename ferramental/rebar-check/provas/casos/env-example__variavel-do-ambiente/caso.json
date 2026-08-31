@@ -1,0 +1,7 @@
+{
+  "regra": "env-example",
+  "porque": "`.env.example` documenta o que a pessoa tem de PREENCHER, e ninguém preenche `NO_COLOR` num arquivo de exemplo: quem o define é o terminal, e quem define `CI` é o runner. Medido em 2026-08-30, dois dos seis acusados eram só isto — o `alicerce` virava \"lê 1 variável de ambiente e não tem .env.example\" tendo `NO_COLOR` como única variável do repositório, e o `prumo` era cobrado por `NO_COLOR` tendo `.env.example` com `PRUMO_KEK` e `DATABASE_URL` documentados. O lado `aprovar` lê SÓ variáveis do ambiente e tem de sair N/A; o lado `reprovar` lê as mesmas MAIS uma variável do projeto e continua reprovando, para que a peneira não vire uma saída para a regra inteira.",
+  "aprovar": {
+    "estado": "na"
+  }
+}
