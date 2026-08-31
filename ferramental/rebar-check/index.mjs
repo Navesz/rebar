@@ -744,6 +744,36 @@ const REGRAS = [
   },
 
   {
+    id: 'readme',
+    classe: 'determinística',
+    nivel: 'N7',
+    titulo: 'tem README',
+    // ESTA REGRA PEGA ZERO HOJE, e isso fica escrito aqui de propósito.
+    //
+    // Medido em 31/08/2026 nos 12 repositórios da máquina: TODOS têm README,
+    // de 25 a 282 linhas úteis, e NENHUM é boilerplate de framework (procurei
+    // por "bootstrapped with create-next-app", "npm create vite", "Getting
+    // Started with Create React App" e afins — zero ocorrências).
+    //
+    // Então por que existe. Primeiro: duas horas antes de esta linha ser
+    // escrita, o próprio rebar era o único repositório sem README, e foi a
+    // público assim — enquanto o docs/PLANO.md listava "README como
+    // entregável" DUAS VEZES como buraco que este projeto existe para tapar.
+    // A régua não enxergava o buraco que o plano dela nomeava.
+    // Segundo: o gerador vai produzir repositório novo, e repositório novo
+    // nasce sem README por padrão.
+    //
+    // Só PRESENÇA, sem piso de tamanho. Um limite de linhas reprovaria
+    // `navesz.github.io` (25 linhas) e `VectraB-Lab` (31), que são projetos
+    // pequenos com README proporcional — e regra automática errada custa mais
+    // que regra ausente.
+    checar: (r) =>
+      r.arquivos.some((a) => /^readme(\.[a-z]+)?$/i.test(a))
+        ? null
+        : 'ausente — é a primeira coisa que se vê num repositório público',
+  },
+
+  {
     id: 'notice',
     classe: 'determinística',
     nivel: 'N7',

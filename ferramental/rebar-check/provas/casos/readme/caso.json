@@ -1,0 +1,4 @@
+{
+  "regra": "readme",
+  "porque": "O próprio rebar foi a público sem README, enquanto o docs/PLANO.md listava \"README como entregável\" duas vezes como buraco que ele existe para tapar. A régua não enxergava o buraco que o plano dela nomeava. Esta prova trava a volta disso — e trava também o gerador, que vai produzir repositório novo, e repositório novo nasce sem README."
+}
