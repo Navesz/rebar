@@ -43,6 +43,16 @@ const ARQUIVOS_DO_PORTAO = ['verificar.config.mjs', 'ferramental/verificar/verif
 const HOOKS_ESPERADOS = ['pre-commit', 'commit-msg']
 const HOOKS_PATH_ESPERADO = 'ferramental/hooks'
 
+// Primeira linha de uma mensagem de erro.
+//
+// Existe porque interpolar um split de quebra de linha dentro de template
+// literal ja quebrou este arquivo duas vezes hoje: o escape escrito a mao
+// virou quebra de verdade no meio da string, e o node parou de compilar. A
+// funcao tira o escape de dentro da template.
+function primeiraLinha(mensagem) {
+  return String(mensagem).split(String.fromCharCode(10))[0]
+}
+
 function git(raiz, argumentos) {
   return execFileSync('git', argumentos, {
     cwd: raiz,
@@ -379,7 +389,7 @@ function checarSintaxe({ raiz, prazo }) {
 //      que pega erro de tipo, e ela funciona porque `Site` NÃO é declarado à
 //      mão: `esquema.ts` o deriva do validador (`Inferir<typeof formaDoSite>`).
 //      Tipo e objeto validado são a mesma forma por construção, então perguntar
-//      ao objeto é perguntar ao tipo. `site.meta.tituloo` no `manifest.ts` —
+//      ao objeto é perguntar ao tipo. `site.meta.nomeCurtoo` no `manifest.ts` —
 //      exatamente o "Property 'tituloo' does not exist" do tsc — fica vermelho
 //      aqui, e fica vermelho também dentro de um `.tsx`, que é onde o item 1
 //      não alcança.
@@ -443,6 +453,29 @@ function porNoCaminho(alvo, caminho, valor) {
 }
 
 /** Todos os `.ts`/`.tsx` sob a raiz, em ordem estável. */
+/**
+ * Os .json embarcados, coletados a parte.
+ *
+ * `blocosDe` devolve so .ts/.tsx porque a contagem e as checagens de tipo
+ * dependem disso. LACUNA ACHADA PELA PROPRIA PROVA deste passo, em 31/08: os
+ * .json que o gerador copia — o `modelo.json`, o `site.json` — nao entravam em
+ * lista nenhuma, entao um JSON quebrado passava limpo e ia inteiro para todo
+ * projeto gerado, aparecendo so quando alguem tentasse le-lo. O passo dizia "os
+ * blocos estao bons" sobre um conjunto que ele nao tinha olhado por completo,
+ * que e a mesma classe de mentira que o gerador cometia ao dizer "projeto
+ * completo".
+ */
+function jsonsDe(dir, base = '') {
+  const saida = []
+  for (const nome of readdirSync(dir).sort()) {
+    const cheio = join(dir, nome)
+    const rel = base ? `${base}/${nome}` : nome
+    if (statSync(cheio).isDirectory()) saida.push(...jsonsDe(cheio, rel))
+    else if (nome.endsWith('.json')) saida.push({ rel, cheio })
+  }
+  return saida
+}
+
 function blocosDe(dir, base = '') {
   const saida = []
   for (const nome of readdirSync(dir).sort()) {
@@ -628,6 +661,23 @@ export async function checarBlocos({ raiz }) {
       }
     }
 
+    // 1b ── os .json embarcados parseiam
+    //
+    // LACUNA ACHADA PELA PRÓPRIA PROVA deste passo, em 31/08: ele contava "8
+    // bloco(s) embarcado(s)" e só conferia sintaxe dos `.ts`. Um `modelo.json`
+    // quebrado passava limpo e ia inteiro para todo projeto gerado, onde só
+    // apareceria quando alguém tentasse lê-lo. O passo estava dizendo "os
+    // blocos estão bons" sobre um conjunto que ele não tinha olhado por
+    // completo — que é a mesma classe de mentira que o gerador cometia ao
+    // dizer "projeto completo".
+    for (const b of jsonsDe(dir)) {
+      try {
+        JSON.parse(readFileSync(b.cheio, 'utf8'))
+      } catch (e) {
+        erros.push(`erro ${b.rel}: JSON inválido — ${primeiraLinha(e.message)}`)
+      }
+    }
+
     // 2 ── o esquema executa, e vale nas duas direções
     const caminhoEsquema = join(dir, 'conteudo', 'esquema.ts')
     const caminhoJson = join(dir, 'conteudo', 'site.json')
@@ -769,7 +819,7 @@ export default [
   },
   {
     // Depois de `sintaxe` porque é da mesma família — "o código sequer é
-    // código" — e antes de `formato` porque é mais barato: 0,3 s contra 1,0 s.
+    // código" — e antes de `formato` porque é mais barato: 0,06 s contra 1,0 s.
     nome: 'blocos',
     funcao: checarBlocos,
     dica: 'Os .ts/.tsx de novo/site/blocos/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles.',
@@ -809,6 +859,29 @@ export default [
     dica: 'Segredo não se corrige com commit novo — precisa rotacionar a credencial.',
     extrair: /^\s*(erro|error|✗|✘)/i,
     tempoLimite: 3 * MINUTO,
+  },
+  {
+    nome: 'passos',
+    // O PORTAO PROVANDO O PORTAO. Passo que e `comando:` ja se prova sozinho —
+    // se o script sumir, o passo cai. Passo que e `funcao:` e codigo do portao,
+    // e codigo do portao sem prova e o defeito que este repositorio persegue,
+    // cometido no lugar mais caro possivel.
+    //
+    // ACHADO DA AUDITORIA DE 31/08: `checarBlocos` entrou com 410 linhas —
+    // incluindo um tokenizador de string e template escrito a mao — e ZERO
+    // teste. Trocando o corpo dele por `return { codigo: 0 }`, o verificar
+    // continuava APROVADO 9 de 9 e nada acusava. Medido depois de escrever a
+    // prova: a mesma mutacao mata 3 dos 7 testes.
+    //
+    // E a prova achou uma lacuna no primeiro uso: o passo contava "8 blocos" e
+    // so conferia sintaxe dos .ts — um modelo.json quebrado passava limpo e ia
+    // para todo projeto gerado.
+    comando: node('--test', 'ferramental/verificar/provar-passos.mjs'),
+    exige: ['ferramental/verificar/provar-passos.mjs'],
+    dica: 'Um passo do verificar parou de pegar o que devia. O portao nao se prova sozinho — esta suite e quem o prova.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 3 * MINUTO,
+    limite: 8,
   },
   {
     nome: 'provas',
