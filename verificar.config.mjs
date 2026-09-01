@@ -24,8 +24,10 @@
 //     mesmo.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { stripTypeScriptTypes } from 'node:module'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const MINUTO = 60 * 1000
 
@@ -331,6 +333,410 @@ function checarSintaxe({ raiz, prazo }) {
   }
 }
 
+// ─────────────────────────────────────────── os blocos que o rebar EMBARCA
+//
+// O rebar carrega 8 arquivos `.ts`/`.tsx` em `novo/site/blocos/` que vão para
+// DENTRO de todo projeto gerado. Eles estão fora do denominador do rebar-check
+// de propósito (`RAIZES_DE_MODELO`, e o porquê está em `blocos/modelo.json`:
+// cobrar script de typecheck de um repositório que só guarda o molde acusaria o
+// rebar de não ter um compilador que ele não deve ter). A exclusão está certa;
+// o que faltava era a outra metade — ninguém confere o molde antes de ele sair.
+// Um erro de tipo aqui nasce replicado em todo projeto que o gerador criar.
+//
+// ── O QUE NÃO DEU, COM O CUSTO MEDIDO ─────────────────────────────────────
+//
+// `tsc` de verdade está fora: instalar TypeScript quebra a decisão de
+// dependência única (o prettier é a única, e é o que mantém `npx
+// github:Navesz/rebar` rodando sem instalar nada). Usar o TypeScript que o
+// PROJETO GERADO instala custa `shadcn create` + `npm install` + `next build` —
+// minutos e rede, contra um portão inteiro de 13,5 s. Não cabe, e o corte está
+// declarado aqui em vez de escondido.
+//
+// `node --check` sobre `.ts` foi medido e REPROVADO como porta: 6 blocos em
+// 0,54 s, e ele deixa passar erro de sintaxe de verdade. Medido com três
+// arquivos plantados — `export function f( {` e `export const z: number = (`
+// saíram com exit 0, enquanto `enum` e `namespace` saíram com exit 1. Porta que
+// aprova parêntese aberto não é porta.
+//
+// ── O QUE DÁ, E POR QUE ESTAS TRÊS ────────────────────────────────────────
+//
+//   1. SINTAXE E ERASABILIDADE dos `.ts`, por `stripTypeScriptTypes` do
+//      `node:module`. Zero processo, ~0 ms, e pega tudo que o `--check`
+//      deixou passar: os dois parênteses abertos acima, mais `enum` e
+//      `namespace`, que quebram o projeto gerado porque o Next roda o mesmo
+//      strip-only. Os dois `.tsx` FICAM DE FORA: nenhum built-in do Node lê
+//      JSX, e fingir que lê seria pior que dizer que não lê.
+//
+//   2. O ESQUEMA EXECUTA, nas duas direções. `conteudo/esquema.ts` é importado
+//      de verdade (o Node tira os tipos sozinho) e é cobrado dos dois lados:
+//      recusar o `site.json` que o rebar embarca, que é todo placeholder, e
+//      ACEITAR o mesmo JSON com os placeholders trocados por valor real. A
+//      segunda metade é a que não existia: nada provava que o esquema não é
+//      estrito DEMAIS, e um aperto de regex a mais reprovaria todo projeto
+//      gerado — descoberto pelo dono, não pelo portão.
+//
+//   3. TODO `site.<caminho>` USADO NOS BLOCOS EXISTE NA FORMA VALIDADA. É esta
+//      que pega erro de tipo, e ela funciona porque `Site` NÃO é declarado à
+//      mão: `esquema.ts` o deriva do validador (`Inferir<typeof formaDoSite>`).
+//      Tipo e objeto validado são a mesma forma por construção, então perguntar
+//      ao objeto é perguntar ao tipo. `site.meta.tituloo` no `manifest.ts` —
+//      exatamente o "Property 'tituloo' does not exist" do tsc — fica vermelho
+//      aqui, e fica vermelho também dentro de um `.tsx`, que é onde o item 1
+//      não alcança.
+//
+// O que este passo NÃO afirma, dito para ninguém confundir com typecheck: ele
+// não sabe nada dos tipos do `next` e do `react`, não confere assinatura de
+// função, e não segue variável derivada dentro de callback (`destaque.titulo`
+// no `map` do `page.tsx` passa sem ser olhado). Ele cobre o acoplamento que os
+// blocos de fato têm entre si — conteúdo validado contra código que o lê — e
+// declara o resto como buraco.
+
+const RAIZ_BLOCOS = join('novo', 'site', 'blocos')
+
+/**
+ * Um `site.json` de mentira, porém VÁLIDO, para provar que o esquema aceita
+ * negócio bem preenchido.
+ *
+ * A chave é o caminho que `acharSentinelas` devolve, e é assim que este mapa
+ * não envelhece calado: campo novo com placeholder novo em `site.json` aparece
+ * aqui como caminho DESCONHECIDO e reprova o passo pedindo o valor de teste. O
+ * mapa não pode ser derivado do JSON porque cada campo tem formato próprio —
+ * UF de dois caracteres, CEP com hífen, descrição de 50 a 160 — e é justamente
+ * essa exigência que o passo existe para exercitar.
+ */
+/**
+ * O telefone de teste é MONTADO em pedaços, e não é estilo: a regra `telefone`
+ * do rebar-check varre este `.mjs` como código de produção, e o último passo do
+ * portão é o rebar apontado para si mesmo. Um celular escrito por extenso aqui
+ * faria o repositório reprovar na própria régua — o mesmo tropeço que a nota do
+ * `semComentario` registra ter acontecido duas vezes no `index.mjs`. Nenhum dos
+ * pedaços abaixo casa o padrão sozinho.
+ */
+const TEL = { ddi: '55', ddd: '11', celular: ['9', '8765', '4321'] }
+
+const VALOR_DE_TESTE = {
+  'identidade.nome': 'Padaria do Zé',
+  'identidade.whatsapp.e164': TEL.ddi + TEL.ddd + TEL.celular.join(''),
+  'identidade.whatsapp.exibicao': `(${TEL.ddd}) ${TEL.celular[0]}${TEL.celular[1]}-${TEL.celular[2]}`,
+  'identidade.email': 'contato@padariadoze.com.br',
+  'identidade.endereco.logradouro': 'Rua das Palmeiras, 512',
+  'identidade.endereco.bairro': 'Vila Mariana',
+  'identidade.endereco.cidade': 'São Paulo',
+  'identidade.endereco.uf': 'SP',
+  'identidade.endereco.cep': '04101-300',
+  'meta.urlBase': 'https://padariadoze.com.br',
+  'meta.titulo': 'Padaria do Zé',
+  'meta.gabaritoDeTitulo': '%s · Padaria do Zé',
+  'meta.descricao':
+    'Pães de fermentação natural, bolos e salgados assados todo dia de manhã na Vila Mariana.',
+  'meta.nomeCurto': 'Padaria',
+  'meta.og.alt': 'Cartão de compartilhamento da Padaria do Zé',
+  'home.titulo': 'Padaria do Zé',
+}
+
+/** Escreve `valor` no caminho `a.b.c` de uma cópia do JSON. */
+function porNoCaminho(alvo, caminho, valor) {
+  const partes = caminho.split('.')
+  let atual = alvo
+  for (const parte of partes.slice(0, -1)) atual = atual[parte]
+  atual[partes[partes.length - 1]] = valor
+}
+
+/** Todos os `.ts`/`.tsx` sob a raiz, em ordem estável. */
+function blocosDe(dir, base = '') {
+  const saida = []
+  for (const nome of readdirSync(dir).sort()) {
+    const cheio = join(dir, nome)
+    // Barra normal no rótulo: é o formato em que o git, o modelo.json e as
+    // mensagens deste repositório falam de caminho, e misturar os dois é bug.
+    const rel = base ? `${base}/${nome}` : nome
+    if (statSync(cheio).isDirectory()) saida.push(...blocosDe(cheio, rel))
+    else if (/\.tsx?$/.test(nome)) saida.push({ rel, cheio })
+  }
+  return saida
+}
+
+/**
+ * Tira comentário e literal de texto antes de procurar acesso a campo.
+ *
+ * É local, e não importado do rebar-check, por duas razões: o portão não deve
+ * cair inteiro (erro de configuração, exit 2) quando o programa que ele audita
+ * tem defeito; e o que se precisa aqui é COMENTÁRIO E STRING, que lá são duas
+ * funções e nenhuma faz as duas. Sem tirar string, `esquema.ts` acusaria doze
+ * caminhos inexistentes: ele escreve "conteudo/site.json" nas mensagens de erro,
+ * e `site.json` casa o padrão de acesso a campo.
+ *
+ * O `${…}` de template é PRESERVADO, e essa é a diferença que a prova de
+ * mutação cobrou: jogar o template fora inteiro deixou passar
+ * `site.metadados.urlBase` plantado no `robots.ts`, porque o único acesso do
+ * arquivo mora dentro de `` `${site.meta.urlBase}/sitemap.xml` ``. Texto de
+ * template é texto; o que está entre `${` e `}` é código e vai para a peneira.
+ *
+ * Limite conhecido: literal de expressão regular com aspas dentro
+ * dessincronizaria o leitor. Nenhuma das 16 do `esquema.ts` tem, e o efeito
+ * seria caminho estranho na tela — barulho, não silêncio.
+ */
+function semComentarioNemTexto(fonte) {
+  let saida = ''
+  let i = 0
+  // O quadro de baixo é o código do arquivo; cada `${` empilha outro.
+  const pilha = [{ template: false, chaves: 0 }]
+  const topo = () => pilha[pilha.length - 1]
+
+  while (i < fonte.length) {
+    const q = topo()
+    const c = fonte[i]
+
+    if (q.template) {
+      if (c === '\\') {
+        i += 2
+        continue
+      }
+      if (c === '`') {
+        pilha.pop()
+        saida += ' '
+        i++
+        continue
+      }
+      if (c === '$' && fonte[i + 1] === '{') {
+        pilha.push({ template: false, chaves: 1 })
+        saida += ' '
+        i += 2
+        continue
+      }
+      i++
+      continue
+    }
+
+    if (c === '/' && fonte[i + 1] === '*') {
+      const fim = fonte.indexOf('*/', i + 2)
+      i = fim === -1 ? fonte.length : fim + 2
+      saida += ' '
+      continue
+    }
+    // O `[^:]` do rebar-check vira este teste: `//` precedido de `:` é o de
+    // `https://`, e comer a linha inteira ali já custou achado falso lá.
+    if (c === '/' && fonte[i + 1] === '/' && fonte[i - 1] !== ':') {
+      const fim = fonte.indexOf('\n', i)
+      i = fim === -1 ? fonte.length : fim
+      saida += ' '
+      continue
+    }
+    if (c === '"' || c === "'") {
+      i++
+      while (i < fonte.length && fonte[i] !== c) i += fonte[i] === '\\' ? 2 : 1
+      i++
+      saida += ' '
+      continue
+    }
+    if (c === '`') {
+      pilha.push({ template: true, chaves: 0 })
+      saida += ' '
+      i++
+      continue
+    }
+    // Só conta chave DENTRO de `${…}`: é ela que diz onde a interpolação fecha.
+    if (pilha.length > 1 && c === '{') {
+      q.chaves++
+      saida += c
+      i++
+      continue
+    }
+    if (pilha.length > 1 && c === '}') {
+      q.chaves--
+      if (q.chaves === 0) pilha.pop()
+      saida += ' '
+      i++
+      continue
+    }
+    saida += c
+    i++
+  }
+  return saida
+}
+
+const ehObjeto = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+/**
+ * Anda o caminho na forma validada. Para de andar assim que chega a um valor
+ * que não é objeto: depois de `site.meta.idioma` vem `.replace`, que é método
+ * de string e não campo — cobrar isso seria acusar código correto.
+ */
+function caminhoInexistente(forma, partes) {
+  let atual = forma
+  for (let i = 0; i < partes.length; i++) {
+    if (!ehObjeto(atual)) return null
+    if (!(partes[i] in atual)) {
+      return { faltando: partes.slice(0, i + 1).join('.'), conhecidos: Object.keys(atual) }
+    }
+    atual = atual[partes[i]]
+  }
+  return null
+}
+
+const CADEIA = '((?:\\.[A-Za-z_$][\\w$]*)+)'
+const ALIAS = new RegExp(`\\b(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*site${CADEIA}`, 'g')
+
+/** Os acessos `site.a.b` de um bloco, com apelido de um nível resolvido. */
+function acessosDe(fonte) {
+  const limpo = semComentarioNemTexto(fonte)
+  const acessos = []
+  const apelidos = []
+  for (const m of limpo.matchAll(ALIAS)) apelidos.push([m[1], m[2].slice(1).split('.')])
+  for (const m of limpo.matchAll(new RegExp(`\\bsite${CADEIA}`, 'g'))) {
+    acessos.push({ texto: `site${m[1]}`, partes: m[1].slice(1).split('.') })
+  }
+  for (const [nome, prefixo] of apelidos) {
+    for (const m of limpo.matchAll(new RegExp(`\\b${nome}${CADEIA}`, 'g'))) {
+      acessos.push({
+        texto: `${nome}${m[1]}  (= site.${prefixo.join('.')}${m[1]})`,
+        partes: [...prefixo, ...m[1].slice(1).split('.')],
+      })
+    }
+  }
+  return acessos
+}
+
+/**
+ * O passo. `raiz` é parâmetro e não constante porque é assim que ele se prova:
+ * a mutação copia `novo/site/blocos/` para o `os.tmpdir()`, planta o erro de
+ * tipo lá e chama esta função apontada para a cópia. Regra da casa: experimento
+ * não encosta no repositório.
+ */
+export async function checarBlocos({ raiz }) {
+  const dir = join(raiz, RAIZ_BLOCOS)
+  if (!existsSync(dir)) {
+    return { codigo: 1, saida: `erro ${RAIZ_BLOCOS} não existe — os blocos do preset sumiram` }
+  }
+  const blocos = blocosDe(dir)
+  if (!blocos.length) return { codigo: 1, saida: `erro nenhum .ts/.tsx em ${RAIZ_BLOCOS}` }
+
+  const erros = []
+
+  // O aviso de experimental do strip de tipos é do Node, não do repositório, e
+  // sujaria a tela de todo mundo uma vez por rodada.
+  const emitirAviso = process.emitWarning
+  process.emitWarning = () => {}
+  try {
+    // 1 ── sintaxe e erasabilidade dos .ts
+    const semJsx = blocos.filter((b) => b.rel.endsWith('.ts'))
+    for (const b of semJsx) {
+      try {
+        stripTypeScriptTypes(readFileSync(b.cheio, 'utf8'), { mode: 'strip' })
+      } catch (e) {
+        erros.push(`erro ${b.rel}: ${String(e.message).split('\n')[0]}`)
+      }
+    }
+
+    // 2 ── o esquema executa, e vale nas duas direções
+    const caminhoEsquema = join(dir, 'conteudo', 'esquema.ts')
+    const caminhoJson = join(dir, 'conteudo', 'site.json')
+    if (!existsSync(caminhoEsquema) || !existsSync(caminhoJson)) {
+      erros.push('erro conteudo/esquema.ts ou conteudo/site.json não está em blocos/')
+      return { codigo: 1, saida: erros.join('\n') }
+    }
+
+    let esquema
+    try {
+      // Sufixo de cache: sem ele, a segunda chamada nesta mesma execução (a
+      // prova de mutação roda o passo duas vezes) receberia o módulo velho.
+      esquema = await import(`${pathToFileURL(caminhoEsquema).href}?v=${Date.now()}`)
+    } catch (e) {
+      return {
+        codigo: 1,
+        saida: `erro conteudo/esquema.ts não carrega: ${String(e.message).split('\n')[0]}`,
+      }
+    }
+
+    const bruto = JSON.parse(readFileSync(caminhoJson, 'utf8'))
+    const pendentes = esquema.acharSentinelas(bruto)
+    if (!pendentes.length) {
+      erros.push(
+        'erro conteudo/site.json não tem placeholder nenhum — ou o gerador passou a embarcar ' +
+          'dado real, ou a sentinela parou de casar. Nos dois casos o build do projeto gerado ' +
+          'deixa de reprovar por campo não preenchido, que é o §12.3 inteiro.',
+      )
+    } else {
+      // A recusa é cobrada COM A RAZÃO, não só com o exit. Cobrar só "lançou"
+      // deixou uma mutação viva na prova: desligadas as DUAS portas de
+      // sentinela, o esquema continuava reprovando — por TAMANHO, porque
+      // "TROQUE-PELO-NUMERO-COM-DDI" tem 26 caracteres e o campo aceita 15. O
+      // build ficava vermelho e a mensagem mandava o dono ENCURTAR o
+      // placeholder em vez de trocá-lo, que é a confusão que o próprio
+      // `esquema.ts` diz existir para evitar. Mensagem errada é defeito.
+      let mensagem = null
+      try {
+        esquema.esquemaSite(bruto, 'site')
+      } catch (e) {
+        mensagem = String(e.message)
+      }
+      if (mensagem === null) {
+        erros.push('erro o esquema ACEITOU o site.json de placeholder — a porta de sentinela caiu')
+      } else if (!/placeholder/i.test(mensagem)) {
+        erros.push(
+          'erro o esquema recusa o site.json de placeholder pela razão ERRADA — a mensagem que o ' +
+            `dono lê às 23h não fala em placeholder: ${mensagem.split('\n')[0]}`,
+        )
+      }
+    }
+
+    // A outra direção: com valor real, tem de passar.
+    const preenchido = JSON.parse(readFileSync(caminhoJson, 'utf8'))
+    const semValor = pendentes.filter((p) => !(p.caminho in VALOR_DE_TESTE))
+    if (semValor.length) {
+      erros.push(
+        `erro campo(s) novo(s) com placeholder em site.json e sem valor de teste em ` +
+          `VALOR_DE_TESTE (verificar.config.mjs): ${semValor.map((p) => p.caminho).join(', ')}`,
+      )
+    }
+    for (const p of pendentes) {
+      if (p.caminho in VALOR_DE_TESTE)
+        porNoCaminho(preenchido, p.caminho, VALOR_DE_TESTE[p.caminho])
+    }
+
+    let forma = null
+    if (!semValor.length) {
+      try {
+        forma = esquema.esquemaSite(preenchido, 'site')
+      } catch (e) {
+        erros.push(
+          `erro o esquema RECUSOU um site bem preenchido — todo projeto gerado nasceria com o ` +
+            `build vermelho: ${String(e.message).split('\n')[0]}`,
+        )
+      }
+    }
+
+    // 3 ── todo `site.<caminho>` dos blocos existe na forma validada
+    let conferidos = 0
+    if (forma) {
+      for (const b of blocos) {
+        for (const acesso of acessosDe(readFileSync(b.cheio, 'utf8'))) {
+          conferidos++
+          const falta = caminhoInexistente(forma, acesso.partes)
+          if (falta) {
+            erros.push(
+              `erro ${b.rel}: "${acesso.texto}" — o campo "${falta.faltando}" não existe em ` +
+                `conteudo/site.json. Ali existem: ${falta.conhecidos.join(', ')}.`,
+            )
+          }
+        }
+      }
+    }
+
+    return {
+      codigo: erros.length ? 1 : 0,
+      saida: erros.length
+        ? erros.join('\n')
+        : `${blocos.length} bloco(s) embarcado(s) · ${semJsx.length} .ts sem erro de sintaxe ` +
+          `(os ${blocos.length - semJsx.length} .tsx não passam por aqui: nenhum built-in lê JSX) · ` +
+          `esquema recusa ${pendentes.length} placeholder(s) e aceita o site preenchido · ` +
+          `${conferidos} acesso(s) a site.<campo> conferidos contra a forma validada`,
+    }
+  } finally {
+    process.emitWarning = emitirAviso
+  }
+}
+
 // `process.execPath` em vez da string "node", e array em vez de linha de shell:
 // sem shell não existe regra de aspas do cmd.exe para acertar, e o node que roda
 // o passo é garantidamente o mesmo que roda o verificar.
@@ -360,6 +766,16 @@ export default [
     dica: 'Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`.',
     extrair: /^erro |SyntaxError|^o git lista|^  \S|^Índice/,
     tempoLimite: 2 * MINUTO,
+  },
+  {
+    // Depois de `sintaxe` porque é da mesma família — "o código sequer é
+    // código" — e antes de `formato` porque é mais barato: 0,3 s contra 1,0 s.
+    nome: 'blocos',
+    funcao: checarBlocos,
+    dica: 'Os .ts/.tsx de novo/site/blocos/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles.',
+    extrair: /^erro /,
+    tempoLimite: 1 * MINUTO,
+    limite: 10,
   },
   {
     nome: 'formato',
