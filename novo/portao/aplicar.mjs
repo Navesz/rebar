@@ -78,6 +78,201 @@ const COPIADOS_DO_REBAR = [
 // Os dois arquivos que o git precisa ver como 100755. Ver `marcarExecutaveis`.
 const EXECUTAVEIS = [`${PASTA_HOOKS}/pre-commit`, `${PASTA_HOOKS}/commit-msg`]
 
+// ───────────────────────────── o que o scaffold emite, e o destino de cada arquivo
+//
+// ESTA LISTA EXISTE PORQUE O SILÊNCIO JÁ DEIXOU PASSAR UM ARQUIVO.
+//
+// O `shadcn create` emitiu 23 arquivos na medição de 2026-08-31 (Next 16,
+// base-nova). O portão tinha decisão escrita sobre cinco deles e NENHUMA
+// palavra sobre os outros dezoito — e um desses dezoito era um `AGENTS.md` de 5
+// linhas, em inglês, que é instrução direta para agente de IA num projeto cuja
+// regra é português. Ele atravessou o portão inteiro sem encostar em nada:
+// nenhuma das 22 regras do rebar-check o vê. A `idioma-unico` só lê COMENTÁRIO
+// DE CÓDIGO (`r.fontes`), então prosa em `.md` nunca chega nela; a `readme` só
+// pergunta se existe README. Não foi aprovação, foi ausência de pergunta.
+//
+// Então a pergunta passa a ser feita para TODO arquivo do scaffold, aqui, uma
+// vez, por escrito. Três destinos possíveis e nada mais:
+//
+//   'sobrescrito'   — o portão ou o preset `site` escreve por cima.
+//   'complementado' — o arquivo do scaffold continua valendo e ganha o nosso
+//                     acréscimo; nunca substituído.
+//   'preservado'    — fica exatamente como o shadcn entregou, DE PROPÓSITO.
+//
+// A chave usa barra normal porque é assim que o `git ls-files` devolve caminho
+// nos dois sistemas — comparar com `path.join` aqui seria comparar `\` com `/`
+// e nunca casar no Windows.
+const DESTINO_DO_SCAFFOLD = {
+  'AGENTS.md': {
+    destino: 'sobrescrito',
+    porque:
+      'instrução de agente em inglês, e só o boilerplate do shadcn; ver `garantirAgents`, ' +
+      'que reescreve em pt-BR e preserva o bloco de terceiro intacto',
+  },
+  'README.md': {
+    destino: 'sobrescrito',
+    porque: 'boilerplate de framework, e é a primeira coisa que se vê num repositório público',
+  },
+  'app/layout.tsx': {
+    destino: 'sobrescrito',
+    porque: 'o preset `site` põe o metadado que sobrevive sem JavaScript',
+  },
+  'app/page.tsx': {
+    destino: 'sobrescrito',
+    porque: 'o preset `site` põe a home que lê `conteudo/site.json`',
+  },
+  'next.config.ts': {
+    destino: 'complementado',
+    porque: 'ganha `output: "export"` e `images.unoptimized`; ver `garantirExportEstatico`',
+  },
+  'package.json': {
+    destino: 'complementado',
+    porque: 'ganha os scripts `test` e `verificar`; o resto do manifesto é do scaffold',
+  },
+  '.prettierignore': {
+    destino: 'complementado',
+    porque: 'o do shadcn não conhece prosa nem licença; o que ele já lista continua valendo',
+  },
+  '.gitignore': {
+    destino: 'complementado',
+    porque:
+      'o preset `site` acrescenta `/out`, que é a saída do export; o scaffold não sabe que ' +
+      'vai exportar',
+  },
+  '.prettierrc': {
+    destino: 'preservado',
+    porque:
+      '`endOfLine: "lf"` já bate com o nosso .gitattributes, e o `prettier-plugin-tailwindcss` ' +
+      'e o `tailwindStylesheet` são configuração do tema que veio junto — reescrever é brigar ' +
+      'com o formatador do próprio scaffold',
+  },
+  'eslint.config.mjs': {
+    destino: 'preservado',
+    porque: '`globalIgnores` já cobre `out/**`, que é para onde o export escreve',
+  },
+  'tsconfig.json': {
+    destino: 'preservado',
+    porque:
+      'o `include` cobre .ts/.tsx/.mts e NÃO cobre .mjs — o `testes/portao.test.mjs` fica fora ' +
+      'do typecheck de propósito: ele é Node puro, não TypeScript, e roda no `node --test`',
+  },
+  'app/globals.css': {
+    destino: 'preservado',
+    porque:
+      'é o tema base-nova inteiro, em token do Tailwind 4; encostar aqui é assumir a ' +
+      'manutenção do tema do shadcn para sempre. A regra `hex-cru` cobra que o código não ' +
+      'duplique estes tokens em hex',
+  },
+  'app/favicon.ico': {
+    destino: 'preservado',
+    porque:
+      'o preset `site` gera og.png e icone-192/512.png, que são outra coisa: o Next serve ' +
+      'este arquivo como /favicon.ico e nada do nosso o substitui',
+  },
+  'components.json': {
+    destino: 'preservado',
+    porque:
+      'é o contrato do `shadcn add`; as regras `ui-falso` e `shadcn-completo` do rebar-check ' +
+      'exigem que ele exista ao lado de components/ui/',
+  },
+  'components/ui/button.tsx': {
+    destino: 'preservado',
+    porque: 'componente do registro, atualizado por `shadcn add`, não por nós',
+  },
+  'components/theme-provider.tsx': {
+    destino: 'preservado',
+    porque: 'idem — vem do template `next` do shadcn',
+  },
+  'lib/utils.ts': {
+    destino: 'preservado',
+    porque: 'o `cn()`; todo componente do registro importa daqui pelo alias do components.json',
+  },
+  'components/.gitkeep': { destino: 'preservado', porque: 'pasta aliasada no components.json' },
+  'lib/.gitkeep': { destino: 'preservado', porque: 'pasta aliasada no components.json' },
+  'hooks/.gitkeep': {
+    destino: 'preservado',
+    porque:
+      'pasta de React hooks, aliasada como `@/hooks` — é exatamente por causa dela que os ' +
+      'hooks de git vão para `.githooks/` e não para `hooks/`',
+  },
+  'public/.gitkeep': {
+    destino: 'preservado',
+    porque: 'o preset `site` escreve as imagens ao lado; o marcador não atrapalha',
+  },
+  'postcss.config.mjs': { destino: 'preservado', porque: 'plugin do Tailwind 4, e nada além' },
+  'package-lock.json': {
+    destino: 'preservado',
+    porque:
+      'é o resultado do `npm install` que o scaffold acabou de rodar; reescrever à mão é ' +
+      'fabricar um lock que não corresponde a nenhuma instalação',
+  },
+}
+
+// O DESTINO DE ARQUIVO QUE ESTA LISTA NÃO CONHECE: fica no disco e VIRA AVISO,
+// com o nome dele na tela.
+//
+// Nunca apagado — apagar arquivo que o scaffold acabou de escrever, sem saber o
+// que ele é, é pior que a omissão que esta lista conserta. E nunca silencioso:
+// o `index.mjs` derruba o exit code do gerador para 1 quando há qualquer aviso,
+// então uma release do shadcn que passe a emitir um arquivo novo faz o gerador
+// sair vermelho com o nome do arquivo, e alguém decide. Foi assim que o
+// AGENTS.md teria aparecido no dia em que nasceu, em vez de num ataque
+// adversarial semanas depois.
+//
+// O oráculo é o ÍNDICE DO GIT, e não o disco. Medido em 2026-08-31: o `shadcn
+// create` roda `git init` e deixa os 23 arquivos EM STAGE, sem nenhum commit.
+// O preset `site` e o portão escrevem só no disco — nenhum dos dois toca no
+// índice, e o `git add -A` do gerador só roda depois. Logo, neste ponto do
+// fluxo, `git ls-files` é exatamente a lista do que o shadcn emitiu, sem uma
+// linha de acoplamento com o que o vizinho escreveu.
+function conferirScaffold(destino, avisos) {
+  let bruto
+  try {
+    // -z: sem `-z` o git cita caminho com caractere fora do ASCII entre aspas e
+    // com escape de barra invertida, e a comparação com a chave da lista falha
+    // justo no arquivo de nome estranho, que é o que mais precisa de aviso.
+    bruto = execFileSync('git', ['ls-files', '-z'], { cwd: destino, encoding: 'utf8' })
+  } catch (erro) {
+    avisos.push(
+      `não consegui ler o índice do scaffold (${erro.message}) — a varredura de arquivo ` +
+        'desconhecido NÃO rodou, e é ela que impede que arquivo novo do shadcn entre calado',
+    )
+    return null
+  }
+  const emitidos = bruto.split('\0').filter(Boolean)
+  if (!emitidos.length) {
+    avisos.push(
+      'o índice do git está vazio neste ponto — o `shadcn create` deixava 23 arquivos em ' +
+        'stage em 2026-08-31. Mudou de comportamento, e a varredura de arquivo desconhecido ' +
+        'perdeu o oráculo dela: confira à mão o que o scaffold emitiu',
+    )
+    return null
+  }
+
+  const desconhecidos = emitidos.filter((a) => !(a in DESTINO_DO_SCAFFOLD))
+  if (desconhecidos.length) {
+    avisos.push(
+      `o scaffold emitiu ${desconhecidos.length} arquivo(s) que DESTINO_DO_SCAFFOLD não ` +
+        `conhece: ${desconhecidos.join(', ')}. Ficaram como vieram, intocados. Decida o ` +
+        'destino de cada um em novo/portao/aplicar.mjs — foi calado assim que o AGENTS.md ' +
+        'em inglês entrou',
+    )
+  }
+
+  // A deriva contrária também conta: arquivo que a lista espera e o scaffold
+  // parou de emitir. Sem `eslint.config.mjs` o `npm run lint` morre, e o script
+  // `verificar` — que é o CI inteiro — morre junto.
+  const sumidos = Object.keys(DESTINO_DO_SCAFFOLD).filter((a) => !emitidos.includes(a))
+  if (sumidos.length) {
+    avisos.push(
+      `o scaffold NÃO emitiu ${sumidos.length} arquivo(s) que DESTINO_DO_SCAFFOLD espera: ` +
+        `${sumidos.join(', ')}. Ou o shadcn mudou, ou a lista envelheceu`,
+    )
+  }
+
+  return { emitidos: emitidos.length, desconhecidos, sumidos }
+}
+
 // ──────────────────────────────────────────────────────────────── utilitários
 
 function escrever(destino, rel, texto) {
@@ -183,6 +378,138 @@ Apache-2.0. Ver \`LICENSE\` e \`NOTICE\`.
 
 Copyright ${ano} ${dono}.
 `
+}
+
+// ─────────────────────────────────────────────────────────────────── AGENTS.md
+//
+// A DECISÃO, POR ESCRITO: (a) SOBRESCREVER EM pt-BR, PRESERVANDO O BLOCO DO
+// SHADCN. Não (b), "deixar como está".
+//
+// O que o `shadcn create` entrega é um AGENTS.md de 5 linhas, em inglês, entre
+// os marcadores `BEGIN:nextjs-agent-rules`. O conteúdo é bom e é verdadeiro:
+// avisa que aquela versão do Next tem breaking change e manda ler a doc em
+// `node_modules/next/dist/docs/` antes de escrever código.
+//
+// POR QUE NÃO (b). O argumento de (b) é razoável e não é o que decide: sim,
+// instrução de agente em inglês funciona, e o modelo que vai ler isto entende
+// os dois idiomas. Mas o arquivo não é UM PARÁGRAFO EM INGLÊS — ele é O ÚNICO
+// CONTEÚDO do arquivo, e é conteúdo de terceiro sobre o framework. Um agente
+// que abre este AGENTS.md aprende sobre o Next e ZERO sobre este projeto: não
+// fica sabendo que o idioma é português, que conteúdo não mora no código, que
+// dependência nova precisa de motivo, nem que ele próprio não pode assinar o
+// commit. A forense original deste projeto listou "AGENTS.md ausente ou só
+// boilerplate" como falha de frequência 5 em 6 repositórios — este arquivo é
+// exatamente o caso "só boilerplate", e um gerador que fabrica a falha que a
+// forense do próprio dono catalogou está fabricando dívida.
+//
+// POR QUE O BLOCO FICA INTACTO. Ele não é nosso e envelhece com o Next: fala da
+// versão instalada AQUI, e uma tradução nossa vira uma cópia que apodrece na
+// próxima release do shadcn — o mesmo motivo pelo qual este repositório delega o
+// scaffold inteiro em vez de manter uma cópia dele. É extraído pelos marcadores
+// e recolocado byte a byte, com uma única mudança declarada: o CRLF vira LF,
+// porque o `escrever()` normaliza o arquivo inteiro e o .gitattributes ia
+// normalizar de qualquer jeito no `git add`.
+const MARCADOR_AGENTES = '<!-- rebar:agentes -->'
+const RE_BLOCO_SHADCN =
+  /<!--\s*BEGIN:nextjs-agent-rules\s*-->[\s\S]*?<!--\s*END:nextjs-agent-rules\s*-->/
+
+function moldeAgents(nome, blocoTerceiro) {
+  const terceiro = blocoTerceiro
+    ? `## Aviso do scaffold, preservado como veio
+
+O bloco abaixo é do \`shadcn create\`, está em inglês e fica INTACTO de
+propósito: ele fala da versão do Next que está instalada aqui e envelhece junto
+com ela. Traduzir seria manter uma cópia que apodrece na próxima release.
+
+${blocoTerceiro}
+`
+    : ''
+
+  return `${MARCADOR_AGENTES}
+
+# Instruções de agente — ${nome}
+
+Leia o \`README.md\` antes de escrever qualquer coisa: a pilha, os comandos e o
+motivo de cada escolha estão lá. Este arquivo é só o que muda o SEU
+comportamento.
+
+## O idioma é português do Brasil
+
+Código, comentário, nome de arquivo e mensagem de commit. O comentário explica o
+PORQUÊ, com o número medido quando houver — não repete o que a linha abaixo dele
+já diz.
+
+## Conteúdo não mora no código
+
+Telefone, CNPJ, endereço, preço e URL de produção vão em \`conteudo/*.json\`,
+validados no build. Literal em \`.tsx\` ou em variável de ambiente faz o build
+passar e o site quebrar **em silêncio**, depois de publicado. As regras
+\`conteudo-fora-do-codigo\`, \`telefone\` e \`url-producao\` do rebar-check cobram isso.
+
+## Dependência nova precisa de motivo escrito
+
+Se um built-in do Node ou do próprio Next resolve, é ele.
+
+## Você não assina o commit
+
+A coautoria aceita aqui é uma **allowlist de humanos**, em \`.rebar-coautores\`.
+Não acrescente trailer \`Co-authored-by\` seu: o \`.githooks/commit-msg\` barra
+antes de o commit existir, e a regra \`coautoria-ia\` barra depois, no histórico.
+Para entrar na lista é preciso ser uma pessoa do projeto, e quem edita o arquivo
+é o dono.
+
+## Rode o portão antes de dizer pronto
+
+\`\`\`sh
+npm run verificar   # lint, typecheck, teste e build — o mesmo comando que o CI roda
+\`\`\`
+
+Verde comprado desligando regra é dívida, não conclusão.
+
+${terceiro}`
+}
+
+/**
+ * Escreve o AGENTS.md em pt-BR preservando o bloco de terceiro, de forma
+ * idempotente e SEM NUNCA destruir texto que não seja o boilerplate do shadcn.
+ *
+ * Os quatro estados, e nenhum deles é silencioso:
+ *
+ *   'já estava'    o arquivo já tem o nosso marcador — segunda passagem do
+ *                  gerador, ou o preset escreveu antes. No-op declarado, que é
+ *                  a regra deste arquivo inteiro.
+ *   'reescrito'    o arquivo era SÓ o bloco do shadcn (e espaço em branco). É o
+ *                  caso que a decisão (a) existe para tratar.
+ *   'sem bloco'    o arquivo não existia, ou não tinha o bloco. Sai o molde
+ *                  pt-BR sozinho.
+ *   'não mexi'     havia texto fora do bloco que não é nosso. Alguém escreveu
+ *                  ali, ou uma versão futura do shadcn passou a escrever mais.
+ *                  Vira AVISO e o arquivo fica como está: sobrescrever prosa de
+ *                  outro é exatamente o defeito que o `force: true` de gerador
+ *                  em camadas comete.
+ */
+function garantirAgents(destino, nome, avisos) {
+  const rel = 'AGENTS.md'
+  const atual = lerSe(destino, rel)
+
+  if (atual !== null && atual.includes(MARCADOR_AGENTES)) return 'já estava'
+
+  const casou = atual === null ? null : atual.match(RE_BLOCO_SHADCN)
+  const bloco = casou ? casou[0].replace(/\r\n/g, '\n') : ''
+
+  if (atual !== null) {
+    const resto = atual.replace(RE_BLOCO_SHADCN, '').trim()
+    if (resto) {
+      avisos.push(
+        'AGENTS.md tem texto fora do bloco `nextjs-agent-rules` que não é do portão — ' +
+          'não sobrescrevi. Confira à mão se as regras do projeto estão lá, em pt-BR',
+      )
+      return 'não mexi'
+    }
+  }
+
+  escrever(destino, rel, moldeAgents(nome, bloco))
+  return atual === null ? 'sem bloco' : bloco ? 'reescrito' : 'sem bloco'
 }
 
 // ─────────────────────────────────────────────────────────────── as etapas
@@ -366,6 +693,11 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
   escrever(destino, 'README.md', moldeReadme(nome, dono, ano))
   escritos.push('NOTICE', '.rebar-coautores', 'README.md')
 
+  // O AGENTS.md do scaffold é o segundo — e último — arquivo do scaffold que o
+  // portão sobrescreve. Ver o cabeçalho de `garantirAgents` para a decisão.
+  const agents = garantirAgents(destino, nome, avisos)
+  if (agents !== 'não mexi') escritos.push(`AGENTS.md (${agents})`)
+
   // O .prettierignore do shadcn não conhece prosa nem licença. Acrescentar, não
   // substituir: o que ele já lista (.next/, coverage/) continua valendo.
   const ignore = lerSe(destino, '.prettierignore')
@@ -385,7 +717,14 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
   const elos = garantirScripts(destino, avisos)
   escritos.push('next.config.ts', 'package.json')
 
-  return { escritos, avisos, elos, exportEstatico }
+  // POR ÚLTIMO, e por dois motivos. Primeiro: só faz sentido perguntar "sobrou
+  // arquivo sem decisão?" depois de todas as decisões terem sido executadas.
+  // Segundo: o oráculo é o índice do git, e o índice tem de continuar sendo o
+  // que o `shadcn create` deixou — o `git add -A` do gerador vem depois desta
+  // função, e depois dele `git ls-files` passaria a listar o nosso também.
+  const scaffold = conferirScaffold(destino, avisos)
+
+  return { escritos, avisos, elos, exportEstatico, agents, scaffold }
 }
 
-export { marcarExecutaveis, PASTA_HOOKS, EXECUTAVEIS }
+export { marcarExecutaveis, PASTA_HOOKS, EXECUTAVEIS, DESTINO_DO_SCAFFOLD, MARCADOR_AGENTES }

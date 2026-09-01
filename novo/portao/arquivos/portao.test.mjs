@@ -38,8 +38,43 @@ test('os arquivos do portão estão no lugar', () => {
     'LICENSE',
     'NOTICE',
     'README.md',
+    'AGENTS.md',
   ]) {
     assert.ok(tem(arquivo), `faltando: ${arquivo}`)
+  }
+})
+
+test('o AGENTS.md fala deste projeto, e não só do framework', () => {
+  // POR QUE ESTE TESTE. O `shadcn create` entrega um AGENTS.md de 5 linhas em
+  // inglês, que só avisa sobre breaking change do Next. Ele atravessa as 22
+  // regras do rebar-check sem encostar em nenhuma — a `idioma-unico` só lê
+  // comentário de CÓDIGO, e a `readme` só olha o README. A forense original
+  // catalogou "AGENTS.md ausente ou só boilerplate" com frequência 5 em 6.
+  // Sem este teste, desfazer a decisão do portão não acende nada.
+  const agents = ler('AGENTS.md')
+  assert.match(agents, /<!-- rebar:agentes -->/, 'AGENTS.md não passou pelo portão')
+  // As duas âncoras que a decisão prometeu: para onde o agente é mandado ler, e
+  // onde está a allowlist que diz que ele não assina o commit.
+  assert.match(agents, /README\.md/, 'AGENTS.md não aponta para o README')
+  assert.match(agents, /\.rebar-coautores/, 'AGENTS.md não aponta para a allowlist de coautores')
+  assert.match(agents, /português do Brasil/i, 'AGENTS.md não declara o idioma do projeto')
+})
+
+test('o bloco do shadcn no AGENTS.md fica intacto, se ele veio', () => {
+  // Informação de terceiro sobre a versão do Next instalada AQUI. Ela envelhece
+  // com o Next e não é nossa para reescrever; o portão a extrai pelos
+  // marcadores e a recoloca. Se o bloco existe, tem de estar fechado — meio
+  // bloco é bloco truncado pela reescrita, e é o defeito que este teste caça.
+  const agents = ler('AGENTS.md')
+  const abre = agents.includes('BEGIN:nextjs-agent-rules')
+  const fecha = agents.includes('END:nextjs-agent-rules')
+  assert.equal(abre, fecha, 'o bloco `nextjs-agent-rules` ficou pela metade no AGENTS.md')
+  if (abre) {
+    assert.match(
+      agents,
+      /node_modules\/next\/dist\/docs/,
+      'o bloco do shadcn perdeu o conteúdo dele na reescrita',
+    )
   }
 })
 

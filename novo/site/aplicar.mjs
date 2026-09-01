@@ -42,9 +42,109 @@ function encurtar(nome) {
 }
 
 /**
- * Preenche `conteudo/site.json` com o que o gerador sabe. O resto continua
- * sendo texto de exemplo, e continua VISIVELMENTE de exemplo: o dono troca no
- * JSON, sem abrir um `.tsx`.
+ * O mesmo token de `conteudo/esquema.ts`, e a duplicação é DELIBERADA: aquele
+ * arquivo é TypeScript compilado pelo Next dentro do projeto gerado, este é
+ * `.mjs` rodando no Node do gerador, e não existe importação honesta entre os
+ * dois sem inventar uma etapa de build só para o gerador. Duas linhas de regex
+ * iguais custam menos que isso — e se divergirem, o pior que acontece é o
+ * gerador anunciar de menos: quem reprova o build é o esquema, sempre.
+ */
+const SENTINELA = /\bTROQUE-[A-Z-]{3,}/
+
+/** Todo texto do JSON com o caminho até ele. */
+function caminharTextos(valor, caminho, saida) {
+  if (typeof valor === 'string') {
+    saida.push([caminho, valor])
+    return
+  }
+  if (Array.isArray(valor)) {
+    valor.forEach((item, i) => caminharTextos(item, `${caminho}[${i}]`, saida))
+    return
+  }
+  if (valor && typeof valor === 'object') {
+    for (const [chave, item] of Object.entries(valor)) {
+      caminharTextos(item, caminho ? `${caminho}.${chave}` : chave, saida)
+    }
+  }
+}
+
+/**
+ * Os campos que saíram com placeholder — ou seja, a dívida que este preset
+ * acabou de criar e que só o dono pode pagar.
+ */
+export function pendencias(conteudo) {
+  const textos = []
+  caminharTextos(conteudo, '', textos)
+  return textos.filter(([, valor]) => SENTINELA.test(valor))
+}
+
+/**
+ * As pendências de um projeto JÁ GERADO, lidas do disco.
+ *
+ * Existe para o `novo/index.mjs` poder transformar a dívida em AVISO e, com
+ * isso, em exit code — hoje ele sai 0 dizendo "projeto completo" enquanto nove
+ * campos esperam a mão do dono, e 0 é a mentira que faz o resto do placar não
+ * valer nada. O `index.mjs` é de outra frente e não foi tocado; a chamada que
+ * falta lá é uma linha:
+ *
+ *   const pendentes = pendenciasDoProjeto(destino)
+ *   if (pendentes.length) avisosSite.push(`${pendentes.length} campo(s) de ...`)
+ *
+ * e o exit passa a 1 com a frase que ele já tem escrita: "a régua passou, mas
+ * há aviso acima que precisa de mão". É essa a semântica certa — gerado, não
+ * falhado.
+ */
+export function pendenciasDoProjeto(destino) {
+  return pendencias(JSON.parse(readFileSync(join(destino, 'conteudo', 'site.json'), 'utf8')))
+}
+
+/**
+ * O aviso que o gerador dá na cara do dono.
+ *
+ * POR QUE O PRESET FALA POR SI, em vez de devolver a lista para o `index.mjs`
+ * imprimir junto com o resto: quem cria a dívida é este módulo, na hora em que
+ * escreve o `site.json`, e o anúncio no mesmo instante não depende de nenhum
+ * chamador lembrar de perguntar. O `index.mjs` continua dono do placar e do
+ * exit code; este bloco é o que garante que a dívida seja VISTA mesmo quando o
+ * preset é chamado sozinho (`node novo/site/aplicar.mjs ...`), que é como o
+ * desenvolvimento dele acontece.
+ *
+ * E o tom é o que importa: o projeto NÃO falhou, ele saiu inteiro. O que falta
+ * é fato do negócio, que o gerador não tem e não deve inventar.
+ */
+function anunciarPendencias(pendentes) {
+  if (!pendentes.length) return
+  const risca = '─'.repeat(66)
+  // Recuo de sete espaços para alinhar com o corpo dos passos do `index.mjs`.
+  // Linha vazia sai vazia mesmo — recuo em linha em branco é espaço à direita,
+  // e o `.editorconfig` do projeto gerado proíbe.
+  const eco = (linha = '') => console.log(linha ? `       ${linha}` : '')
+  eco(risca)
+  eco(`PRECISA DE MÃO — ${pendentes.length} campo(s) de conteudo/site.json saíram`)
+  eco('com PLACEHOLDER, e o `npm run build` DESTE projeto REPROVA até você')
+  eco('trocá-los. É de propósito, e é o motivo de o rebar existir: telefone')
+  eco('plausível-porém-falso sobe, parece certo e para de entregar pedido em')
+  eco('SILÊNCIO (§12.3 / Navesz/Galegos#1).')
+  eco()
+  for (const [caminho, valor] of pendentes) eco(`  ${caminho} = ${JSON.stringify(valor)}`)
+  eco()
+  eco('Abra conteudo/site.json e escreva os valores reais. O build diz o')
+  eco('formato exigido de cada um, todos de uma vez, numa mensagem só.')
+  eco(risca)
+}
+
+/**
+ * Preenche `conteudo/site.json` com o que o gerador SABE — nome, domínio, data.
+ *
+ * O que ele NÃO SABE fica com sentinela, e nunca com um valor plausível. Era
+ * daqui que saía `"5500000000000"`: casava o `/^[1-9]\d{9,14}$/` do esquema, o
+ * build saía 0, e o HTML publicado carregava `https://wa.me/5500000000000` em
+ * duas posições — botão e rodapé. O gerador reproduzindo, sozinho, o defeito
+ * que o projeto inteiro existe para impedir.
+ *
+ * A regra agora: placeholder é INERTE E BARULHENTO. `TROQUE-PELO-NUMERO-COM-DDI`
+ * não vira link por acidente, e `conteudo/esquema.ts` reprova o build enquanto
+ * ele estiver lá.
  */
 export function montarConteudo({ nome, dominio, agora }) {
   const base = JSON.parse(readFileSync(join(BLOCOS, 'conteudo', 'site.json'), 'utf8'))
@@ -63,7 +163,7 @@ export function montarConteudo({ nome, dominio, agora }) {
  * Aplica tudo em `destino`. Devolve a lista de caminhos escritos, relativa ao
  * destino, para o portão poder conferir o que saiu.
  */
-export function aplicarSite({ destino, nome, dominio, agora }) {
+export function aplicarSite({ destino, nome, dominio, agora, silencioso = false }) {
   const escritos = []
   const gravar = (relativo, dados) => {
     const alvo = join(destino, ...relativo.split('/'))
@@ -119,6 +219,10 @@ export function aplicarSite({ destino, nome, dominio, agora }) {
     writeFileSync(gitignore, `${atual.replace(/\n*$/, '\n')}\n# saída do output: "export"\n/out\n`)
     escritos.push('.gitignore')
   }
+
+  // 5. A dívida, na cara. Por último de propósito: o dono lê o que falta depois
+  //    de ver que tudo foi escrito, não no meio da lista de arquivos.
+  if (!silencioso) anunciarPendencias(pendencias(conteudo))
 
   return escritos
 }

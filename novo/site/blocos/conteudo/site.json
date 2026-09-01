@@ -1,26 +1,26 @@
 {
   "identidade": {
-    "nome": "Sua Empresa",
+    "nome": "TROQUE-PELO-NOME-DO-NEGOCIO",
     "whatsapp": {
-      "e164": "5500000000000",
-      "exibicao": "(00) 00000-0000"
+      "e164": "TROQUE-PELO-NUMERO-COM-DDI",
+      "exibicao": "TROQUE-PELO-NUMERO-VISIVEL"
     },
-    "email": "contato@exemplo.com.br",
+    "email": "TROQUE-PELO-EMAIL-REAL",
     "endereco": {
-      "logradouro": "Rua Exemplo, 100",
-      "bairro": "Centro",
-      "cidade": "Sao Paulo",
-      "uf": "SP",
-      "cep": "01000-000"
+      "logradouro": "TROQUE-PELA-RUA-E-NUMERO",
+      "bairro": "TROQUE-PELO-BAIRRO",
+      "cidade": "TROQUE-PELA-CIDADE",
+      "uf": "TROQUE-PELA-UF",
+      "cep": "TROQUE-PELO-CEP"
     }
   },
   "meta": {
-    "urlBase": "https://exemplo.com.br",
+    "urlBase": "https://TROQUE-PELO-DOMINIO",
     "idioma": "pt-BR",
-    "titulo": "Sua Empresa",
-    "gabaritoDeTitulo": "%s · Sua Empresa",
-    "descricao": "Troque este texto pela descricao real do negocio: e ela que aparece no Google e no preview de link do WhatsApp.",
-    "nomeCurto": "Empresa",
+    "titulo": "TROQUE-PELO-NOME-DO-NEGOCIO",
+    "gabaritoDeTitulo": "%s · TROQUE-PELO-NOME-DO-NEGOCIO",
+    "descricao": "TROQUE-PELA-DESCRICAO-REAL: o que o negocio faz, em uma frase, porque e ela que aparece no Google e no preview de link do WhatsApp.",
+    "nomeCurto": "TROQUE-NOME",
     "atualizadoEm": "2026-08-31",
     "cores": {
       "tema": "#0f172a",
@@ -30,11 +30,11 @@
       "caminho": "/og.png",
       "largura": 1200,
       "altura": 630,
-      "alt": "Cartao de compartilhamento de Sua Empresa"
+      "alt": "Cartao de compartilhamento de TROQUE-PELO-NOME-DO-NEGOCIO"
     }
   },
   "home": {
-    "titulo": "Sua Empresa",
+    "titulo": "TROQUE-PELO-NOME-DO-NEGOCIO",
     "subtitulo": "Troque este subtitulo pelo que o negocio faz, em uma frase que um desconhecido entenda.",
     "chamadaAcao": "Falar no WhatsApp",
     "mensagemWhatsapp": "Ola! Vim pelo site e gostaria de mais informacoes.",

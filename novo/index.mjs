@@ -293,6 +293,27 @@ async function main(argv) {
       }
       const escritosSite = aplicarSite({ destino, nome, dominio, agora: new Date() }) || []
       eco(`       preset site: ${escritosSite.length} arquivo(s) · domínio ${dominio}`)
+
+      // O GERADOR NÃO PODE DIZER "projeto completo" PARA UM PROJETO QUE NÃO
+      // COMPILA. Achado da auditoria de 31/08: com git configurado — o caso
+      // normal — a saída era `gerador: exit 0 — projeto completo` para um
+      // projeto cujo próprio `npm run verificar` sai 1 com nove placeholders.
+      //
+      // A função abaixo já existia, exportada e documentada, e ninguém a
+      // chamava. Um conserto escrito e não ligado é um conserto que não existe
+      // — e é a mesma classe do defeito que o rebar inteiro persegue: a regra
+      // está no arquivo e nenhuma máquina a executa.
+      const { pendenciasDoProjeto } = await import(pathToFileURL(caminhoSite).href)
+      if (typeof pendenciasDoProjeto === 'function') {
+        const pendentes = pendenciasDoProjeto(destino)
+        if (pendentes.length) {
+          avisosSite.push(
+            `${pendentes.length} campo(s) de conteudo/site.json saíram com PLACEHOLDER — ` +
+              `o \`npm run build\` deste projeto REPROVA até você trocá-los ` +
+              `(é de propósito: veja o bloco acima)`,
+          )
+        }
+      }
     } catch (erro) {
       avisosSite.push(`o preset site falhou (${erro.message}) — saiu o scaffold cru do shadcn`)
       eco(`       preset site: FALHOU — ${erro.message}`)

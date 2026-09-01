@@ -45,7 +45,7 @@
 // conta como se fosse defeito do repositório auditado.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -856,8 +856,8 @@ const NOMES_TYPECHECK = ['typecheck', 'type-check', 'check-types', 'tipos', 'tsc
 // que nasce com `conteudo/` — é cobrada por inteiro.
 
 const RE_CONTEUDO_JSON = /^((?:.*\/)?)conteudo\/[^/]+\.json$/
-const PRECO_BRL = /R\$\s?\d[\d.,]*/
-const RE_JSX = /\.(tsx|jsx)$/i
+export const PRECO_BRL = /R\$\s?\d[\d.,]*/
+export const RE_JSX = /\.(tsx|jsx)$/i
 
 /**
  * Tira comentário. O `[^:]` antes do `//` é o que impede de comer o `//` de
@@ -878,7 +878,7 @@ function semComentario(t) {
 }
 
 /** Sem comentário e sem linha de import: nenhum dos dois é renderizado. */
-function semComentarioNemImport(t) {
+export function semComentarioNemImport(t) {
   return semComentario(t).replace(/^\s*import[^\n]*$/gm, ' ')
 }
 
@@ -1245,7 +1245,7 @@ function sinalDeCodigo(frase) {
 }
 
 /** As frases de CONTEÚDO de um arquivo JSX, pela definição do bloco acima. */
-function frasesDeConteudo(t) {
+export function frasesDeConteudo(t) {
   const achadas = []
   for (const no of nosDeTexto(t)) {
     if (!PROSA.has(no.dono)) continue
@@ -1626,8 +1626,14 @@ const REGRAS = [
     //    um deles fica vermelho se a guarda correspondente for afrouxada.
     //
     // 4. VOCABULÁRIO DE INTERFACE EM `<p>` — NÃO CEDEU, e é o que recusa a
-    //    promoção. Medido antes: 27 de 185 (14,6%). Medido depois: 37 de 262
-    //    (14,1%). A estrutura não moveu o número porque os que restam moram em
+    //    promoção. Medido antes: 27 de 185 (14,6%). Medido depois: 31 de 262
+    //    (11,8%), e este número é RECONTÁVEL — `node medir-conteudo.mjs <repos>`
+    //    imprime a tabela e a classificação. O 14,1% que esta linha publicava
+    //    até 31/08 vinha de contagem à mão e não se reproduzia; o instrumento
+    //    foi escrito justamente porque este repositório já publicou número
+    //    errado quatro vezes, e ele desmentiu o primeiro número que checou —
+    //    o mais caro do arquivo, o que RECUSA a promoção desta regra.
+    //    A estrutura não moveu o número porque os que restam moram em
     //    elemento de prosa de verdade: "Nenhuma proposta salva ainda." é um
     //    `<p>` sob `history.length === 0` e "Clique para enviar a logo da
     //    empresa" é um `<p>` ao lado de um `<input type="file">`. Separá-los de
@@ -1636,7 +1642,7 @@ const REGRAS = [
     //    lista incompleta não deixa de excluir, ela ACUSA. É a inversão exata
     //    do argumento do `coautoria-ia`: lá a enumeração prova presença e por
     //    isso pode reprovar; aqui ela precisaria provar AUSÊNCIA de instrução
-    //    para não acusar, e não prova. Com 14% de ruído, determinística barra
+    //    para não acusar, e não prova. Com ~12% de ruído, determinística barra
     //    merge por rótulo de campo — e regra que barra merge por rótulo de
     //    campo ensina a desligar a saída inteira.
     //
@@ -1929,7 +1935,7 @@ const REGRAS = [
 
 // ────────────────────────────────────────────────────────── leitura do repo
 
-function lerRepo(dir) {
+export function lerRepo(dir) {
   // Não basta existir `.git/`: uma pasta `.git/` VAZIA passa no existsSync e
   // faz todo comando git falhar. Pergunte ao git, não ao disco.
   const raiz = git(dir, ['rev-parse', '--git-dir'])
@@ -2149,106 +2155,138 @@ function imprimir(a) {
 }
 
 // ─────────────────────────────────────────────────────────────────── main
-
-const args = process.argv.slice(2)
-
-// ─── despacho do subcomando `novo`, ANTES de qualquer parse de opção
 //
-// Vem primeiro de propósito: o gerador tem a linha de comando dele (`<nome>
-// [dominio]`), e deixar o parser do checker olhar para ela produziria "opção
-// desconhecida" em bandeira que é do outro programa.
+// A linha de comando só roda quando ESTE arquivo é o PROGRAMA. Importado como
+// biblioteca — é o que `medir-conteudo.mjs` faz para reusar a definição de
+// literal de conteúdo em vez de reimplementá-la — o módulo entrega só os
+// símbolos exportados e não avalia, não imprime e não sai.
 //
-// O import é DINÂMICO e só acontece aqui. Assim `npx github:Navesz/rebar .`
-// — o caminho quente, o que roda em CI — não paga nada por o gerador existir,
-// e continua funcionando num checkout onde `novo/` não veio junto.
-if (args[0] === 'novo') {
-  const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-  const gerador = join(RAIZ, 'novo', 'index.mjs')
-  if (!existsSync(gerador)) {
-    console.error(`rebar: subcomando "novo" pede ${gerador}, que não está neste checkout.`)
-    console.error('       Para auditar uma pasta chamada "novo", escreva ./novo')
+// `realpathSync` nos DOIS lados porque o npx instala o bin como LINK: no Linux
+// `node_modules/.bin/rebar` é um symlink para este arquivo, e comparar caminho
+// cru daria falso justo no caminho quente. Também é o que faz a caixa do
+// Windows não decidir nada: `c:/USERS/...` e `C:/Users/...` voltam iguais do
+// realpath, e conferido — as duas formas rodam a linha de comando.
+//
+// Os dois casos de borda, e por que caem para lados OPOSTOS:
+//   · SEM `argv[1]` — `node -e`, `--input-type=module`, REPL. Aí nenhum arquivo
+//     é o programa, então este também não é: devolve FALSE e o embutidor recebe
+//     só os símbolos. Sem esta linha, `node -e "import('…/index.mjs')"` fazia o
+//     checker auditar o diretório corrente e sair 2 — medido.
+//   · REALPATH FALHA num caminho que EXISTE como argumento. Aí não dá para
+//     saber, e devolve TRUE: o arquivo volta a se comportar como programa, que
+//     é o que ele fazia antes deste guarda. Errar para "programa" é errar alto
+//     (imprime e sai com código); errar para "biblioteca" seria um `npx` que
+//     não faz nada e sai 0.
+const EH_PROGRAMA = (() => {
+  if (!process.argv[1]) return false
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    return true
+  }
+})()
+
+if (EH_PROGRAMA) {
+  const args = process.argv.slice(2)
+
+  // ─── despacho do subcomando `novo`, ANTES de qualquer parse de opção
+  //
+  // Vem primeiro de propósito: o gerador tem a linha de comando dele (`<nome>
+  // [dominio]`), e deixar o parser do checker olhar para ela produziria "opção
+  // desconhecida" em bandeira que é do outro programa.
+  //
+  // O import é DINÂMICO e só acontece aqui. Assim `npx github:Navesz/rebar .`
+  // — o caminho quente, o que roda em CI — não paga nada por o gerador existir,
+  // e continua funcionando num checkout onde `novo/` não veio junto.
+  if (args[0] === 'novo') {
+    const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+    const gerador = join(RAIZ, 'novo', 'index.mjs')
+    if (!existsSync(gerador)) {
+      console.error(`rebar: subcomando "novo" pede ${gerador}, que não está neste checkout.`)
+      console.error('       Para auditar uma pasta chamada "novo", escreva ./novo')
+      process.exit(2)
+    }
+    console.log(`rebar: subcomando "novo" → gerador (para auditar a pasta "novo", use ./novo)`)
+    // O gerador chama `process.exit` por conta própria no fim do main dele, então
+    // este import não retorna. Se um dia retornar, o exit 0 abaixo é o certo:
+    // significa que o módulo carregou e terminou sem reclamar.
+    await import(pathToFileURL(gerador).href)
+    process.exit(0)
+  }
+
+  const json = args.includes('--json')
+  const heuristicasBarram = args.includes('--heuristicas')
+  const regraArg = args.find((a) => a.startsWith('--regra='))
+  const filtro = regraArg ? regraArg.slice('--regra='.length) : null
+
+  const desconhecidas = args.filter(
+    (a) => a.startsWith('--') && !/^--(json|heuristicas|regra=)/.test(a),
+  )
+  if (desconhecidas.length) {
+    console.error(`rebar-check: opção desconhecida: ${desconhecidas.join(', ')}`)
     process.exit(2)
   }
-  console.log(`rebar: subcomando "novo" → gerador (para auditar a pasta "novo", use ./novo)`)
-  // O gerador chama `process.exit` por conta própria no fim do main dele, então
-  // este import não retorna. Se um dia retornar, o exit 0 abaixo é o certo:
-  // significa que o módulo carregou e terminou sem reclamar.
-  await import(pathToFileURL(gerador).href)
-  process.exit(0)
-}
 
-const json = args.includes('--json')
-const heuristicasBarram = args.includes('--heuristicas')
-const regraArg = args.find((a) => a.startsWith('--regra='))
-const filtro = regraArg ? regraArg.slice('--regra='.length) : null
+  if (filtro && !REGRAS.some((x) => x.id === filtro)) {
+    console.error(`rebar-check: regra desconhecida: ${filtro}`)
+    console.error(`disponíveis: ${REGRAS.map((x) => x.id).join(', ')}`)
+    process.exit(2)
+  }
 
-const desconhecidas = args.filter(
-  (a) => a.startsWith('--') && !/^--(json|heuristicas|regra=)/.test(a),
-)
-if (desconhecidas.length) {
-  console.error(`rebar-check: opção desconhecida: ${desconhecidas.join(', ')}`)
-  process.exit(2)
-}
+  const alvos = args.filter((a) => !a.startsWith('--'))
+  if (!alvos.length) alvos.push(process.cwd())
 
-if (filtro && !REGRAS.some((x) => x.id === filtro)) {
-  console.error(`rebar-check: regra desconhecida: ${filtro}`)
-  console.error(`disponíveis: ${REGRAS.map((x) => x.id).join(', ')}`)
-  process.exit(2)
-}
+  const avaliacoes = alvos.map((d) => avaliar(d, filtro))
 
-const alvos = args.filter((a) => !a.startsWith('--'))
-if (!alvos.length) alvos.push(process.cwd())
-
-const avaliacoes = alvos.map((d) => avaliar(d, filtro))
-
-if (json) {
-  console.log(
-    JSON.stringify(
-      avaliacoes.map((a) => (a.erro ? a : { ...a, nota: nota(a.resultados) })),
-      null,
-      2,
-    ),
-  )
-} else {
-  for (const a of avaliacoes) imprimir(a)
-  if (avaliacoes.length > 1) {
-    console.log(`\n${c.forte('resumo')}`)
-    for (const a of avaliacoes) {
-      if (a.erro) {
-        console.log(`  ${a.nome.padEnd(24)} ${c.vermelho(a.erro)}`)
-        continue
+  if (json) {
+    console.log(
+      JSON.stringify(
+        avaliacoes.map((a) => (a.erro ? a : { ...a, nota: nota(a.resultados) })),
+        null,
+        2,
+      ),
+    )
+  } else {
+    for (const a of avaliacoes) imprimir(a)
+    if (avaliacoes.length > 1) {
+      console.log(`\n${c.forte('resumo')}`)
+      for (const a of avaliacoes) {
+        if (a.erro) {
+          console.log(`  ${a.nome.padEnd(24)} ${c.vermelho(a.erro)}`)
+          continue
+        }
+        const n = nota(a.resultados)
+        if (!n.total) {
+          console.log(`  ${a.nome.padEnd(24)} ${c.fraco('nada avaliável')}`)
+          continue
+        }
+        // Barra de LARGURA FIXA. Com o N/A saindo do denominador cada repositório
+        // tem um total diferente, e uma barra de comprimento variável faria 2/6
+        // parecer pior que 3/11 — comparação que a régua não sustenta.
+        const pct = n.ok / n.total
+        const cheio = Math.round(pct * 10)
+        const barra = '█'.repeat(cheio) + '·'.repeat(10 - cheio)
+        console.log(
+          `  ${a.nome.padEnd(24)} ${pct === 1 ? c.verde(barra) : c.vermelho(barra)}` +
+            ` ${String(Math.round(pct * 100)).padStart(3)}%` +
+            c.fraco(` ${n.ok}/${n.total}`) +
+            (n.na ? c.fraco(` · ${n.na} n/a`) : ''),
+        )
       }
-      const n = nota(a.resultados)
-      if (!n.total) {
-        console.log(`  ${a.nome.padEnd(24)} ${c.fraco('nada avaliável')}`)
-        continue
-      }
-      // Barra de LARGURA FIXA. Com o N/A saindo do denominador cada repositório
-      // tem um total diferente, e uma barra de comprimento variável faria 2/6
-      // parecer pior que 3/11 — comparação que a régua não sustenta.
-      const pct = n.ok / n.total
-      const cheio = Math.round(pct * 10)
-      const barra = '█'.repeat(cheio) + '·'.repeat(10 - cheio)
-      console.log(
-        `  ${a.nome.padEnd(24)} ${pct === 1 ? c.verde(barra) : c.vermelho(barra)}` +
-          ` ${String(Math.round(pct * 100)).padStart(3)}%` +
-          c.fraco(` ${n.ok}/${n.total}`) +
-          (n.na ? c.fraco(` · ${n.na} n/a`) : ''),
-      )
     }
   }
+
+  // Ordem dos códigos: QUEBROU domina REPROVOU. Um defeito no verificador
+  // invalida o veredito — não se acusa um repositório com uma régua que quebrou.
+  const quebrou = avaliacoes.some((a) => a.resultados?.some((x) => x.estado === 'quebrou'))
+  const alvoInvalido = avaliacoes.some((a) => a.erro)
+  const reprovou = avaliacoes.some((a) =>
+    a.resultados?.some(
+      (x) => x.estado === 'reprovou' && (x.classe === 'determinística' || heuristicasBarram),
+    ),
+  )
+
+  if (quebrou) process.exit(127)
+  if (alvoInvalido) process.exit(2)
+  process.exit(reprovou ? 1 : 0)
 }
-
-// Ordem dos códigos: QUEBROU domina REPROVOU. Um defeito no verificador
-// invalida o veredito — não se acusa um repositório com uma régua que quebrou.
-const quebrou = avaliacoes.some((a) => a.resultados?.some((x) => x.estado === 'quebrou'))
-const alvoInvalido = avaliacoes.some((a) => a.erro)
-const reprovou = avaliacoes.some((a) =>
-  a.resultados?.some(
-    (x) => x.estado === 'reprovou' && (x.classe === 'determinística' || heuristicasBarram),
-  ),
-)
-
-if (quebrou) process.exit(127)
-if (alvoInvalido) process.exit(2)
-process.exit(reprovou ? 1 : 0)
