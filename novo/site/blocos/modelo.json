@@ -1,0 +1,4 @@
+{
+  "para": "novo/site/aplicar.mjs — blocos do preset `site`, copiados para dentro do projeto gerado",
+  "porque": "Estes .tsx e .ts sao MODELO, nao produto do rebar. Rastreados aqui, faziam a regra `typecheck` enxergar um projeto TypeScript sem compilador e a nota do rebar cair de 11 de 11 para 11 de 13 — medido num espelho do repositorio com novo/ commitado. Eles continuam sendo checados onde caem: o passo 5 do gerador roda a regua no projeto recem-criado, ja com tsconfig e package.json do Next em volta."
+}

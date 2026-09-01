@@ -22,6 +22,17 @@
 //   node index.mjs --json [caminho]    saída para CI
 //   node index.mjs --regra=<id> [dir]  uma regra só (é o que as provas usam)
 //   node index.mjs --heuristicas       heurísticas também derrubam o exit code
+//   node index.mjs novo <nome> [dom]   despacha para o GERADOR, novo/index.mjs
+//
+// O subcomando `novo` mora aqui, e não num segundo `bin`, por uma razão de
+// mecânica do npx: `npx github:Navesz/rebar novo meu-site` resolve o bin que
+// tem o NOME DO PACOTE — `rebar`, este arquivo — e passa "novo" como primeiro
+// argumento. Sem o despacho, o checker tratava "novo" como caminho a auditar e
+// saía 2 dizendo "caminho não existe". Um `bin` extra não conserta isso: ele só
+// é alcançável por `npx -p github:Navesz/rebar rebar-novo …`, que ninguém
+// digita. Ele existe assim mesmo, como forma inequívoca — ver o package.json.
+//
+// Para auditar uma pasta que se chame literalmente `novo`, use `./novo`.
 //
 // Códigos de saída — três coisas diferentes, três códigos diferentes:
 //   0    tudo que se aplica passou
@@ -35,7 +46,8 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { join, basename, dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // ─────────────────────────────────────────────────────────────── utilitários
 
@@ -236,17 +248,50 @@ const ehCodigoAvaliavel = (a) => CODIGO.test(a) && !IGNORAR.test(a)
 const CASOS_PROVAS = 'ferramental/rebar-check/provas/casos/'
 
 /**
- * Schema mínimo do marcador: `regra` e `porque`, os dois campos que o
- * provar.mjs exige de todo caso. Um `caso.json` sem eles não é caso de prova,
- * é um arquivo com o nome certo — e esconder árvore era exatamente o que se
- * conseguia com um arquivo com o nome certo.
+ * MODELO NÃO É PRODUTO — é a mesma lição do `caso.json`, um andar acima, e ela
+ * voltou no minuto em que o gerador entrou no repositório.
+ *
+ * `novo/site/blocos/` e `novo/portao/arquivos/` são ARQUIVOS QUE VÃO SER
+ * COPIADOS para outro repositório. Rastreados aqui dentro, o rebar passou a se
+ * medir por eles. Medido em 2026-08-31, com o `novo/` commitado num espelho do
+ * repositório em os.tmpdir() (22 arquivos):
+ *
+ *   typecheck    – não tem TypeScript   →  ✗ nenhum package.json rastreado tem
+ *                                            script typecheck, …
+ *   nota         11 de 11               →  11 de 13
+ *
+ * Os cinco `.tsx`/`.ts` de `novo/site/blocos/app/` e `conteudo/` fizeram o
+ * rebar parecer um projeto TypeScript sem compilador. Não é: o rebar não tem
+ * uma linha de TypeScript própria, e esses cinco arquivos só são compilados
+ * DEPOIS de copiados, pelo `tsc` do projeto gerado.
+ *
+ * E aí está o argumento que autoriza a exclusão sem afrouxar nada: o modelo
+ * continua sendo checado, só que ONDE ELE CAI. O passo 5 do gerador roda esta
+ * mesma régua no projeto recém-criado, com o modelo já no lugar, com o
+ * `tsconfig.json` e o `package.json` do Next em volta. Medir o modelo no lugar
+ * errado não é rigor a mais, é uma medição de outra coisa.
+ *
+ * A fechadura é dupla e as duas metades são obrigatórias:
+ *   1. o prefixo tem de ser EXATAMENTE uma das raízes literais abaixo — não
+ *      "começa com", não "qualquer pasta chamada blocos". Sem isto o marcador
+ *      viraria o bypass genérico que o `caso.json` já tentou ser;
+ *   2. tem de existir o `modelo.json` com `para` e `porque`, rastreado e
+ *      legível. Marcador recusado vira AVISO nomeando o arquivo.
+ * E a contagem sai impressa no placar, sempre, como a das provas.
  */
-function marcadorInvalido(dir, rel) {
+const RAIZES_DE_MODELO = ['novo/portao/arquivos/', 'novo/site/blocos/']
+
+/**
+ * Schema mínimo do marcador: para o `caso.json`, `regra` e `porque`, os dois
+ * campos que o provar.mjs exige de todo caso; para o `modelo.json`, `para` e
+ * `porque`. Um marcador sem eles não é marcador, é um arquivo com o nome certo
+ * — e esconder árvore era exatamente o que se conseguia com um arquivo com o
+ * nome certo.
+ */
+function marcadorInvalido(dir, rel, campos = ['regra', 'porque']) {
   const lido = lerJsonRastreado(dir, rel)
   if (lido.estado !== 'ok') return lido.erro
-  const falta = ['regra', 'porque'].filter(
-    (k) => typeof lido.valor[k] !== 'string' || !lido.valor[k].trim(),
-  )
+  const falta = campos.filter((k) => typeof lido.valor[k] !== 'string' || !lido.valor[k].trim())
   return falta.length ? `sem ${falta.join(' nem ')}` : null
 }
 
@@ -272,6 +317,27 @@ function marcadorInvalido(dir, rel) {
  *                 isso ele tem de estar RASTREADO. Portão aberto tem de ser
  *                 fato checado, não omissão.
  */
+/**
+ * Modo de cada arquivo no ÍNDICE do git, não no disco.
+ *
+ * A distinção decide a regra `hooks-executaveis`: o `chmod` que um instalador
+ * faz é local e não viaja no clone; o que viaja é o modo commitado. Num clone
+ * Linux, hook com modo 100644 é ignorado pelo git EM SILÊNCIO — o instalador
+ * imprime "hooks instalados" e nada roda.
+ */
+function modosDoIndice(dir) {
+  const r = git(dir, ['ls-files', '--stage'])
+  if (!r.ok || !r.saida) return new Map()
+  const mapa = new Map()
+  for (const linha of r.saida.split('\n')) {
+    // "<modo> <sha> <estagio>\t<caminho>"
+    const tab = linha.indexOf('\t')
+    if (tab === -1) continue
+    mapa.set(linha.slice(tab + 1), linha.slice(0, linha.indexOf(' ')))
+  }
+  return mapa
+}
+
 function semFixtures(dir, todos) {
   const raizes = []
   const marcadoresRecusados = []
@@ -298,6 +364,30 @@ function semFixtures(dir, todos) {
     raizes.push(prefixo)
   }
 
+  // A árvore de MODELOS do gerador — ver RAIZES_DE_MODELO. Fechadura dupla:
+  // prefixo idêntico a uma raiz literal E marcador com schema.
+  const raizesDeModelo = []
+  const modelosRecusados = []
+  for (const a of todos.filter((x) => basename(x) === 'modelo.json')) {
+    // Marcador DENTRO de um caso de prova não é marcador deste repositório: é o
+    // conteúdo do caso, e o caso inteiro já saiu da avaliação um laço acima.
+    // Sem esta linha, os três `modelo.json` dos casos `typecheck__modelo-*`
+    // saíam como "3 modelo.json IGNORADO(S)" no placar do próprio rebar —
+    // aviso verdadeiro sobre um arquivo que ninguém ia ler como bypass.
+    if (raizes.some((p) => a.startsWith(p))) continue
+    const prefixo = a.slice(0, -'modelo.json'.length)
+    if (!RAIZES_DE_MODELO.includes(prefixo)) {
+      modelosRecusados.push(`${a} — não é uma das raízes de modelo`)
+      continue
+    }
+    const invalido = marcadorInvalido(dir, a, ['para', 'porque'])
+    if (invalido) {
+      modelosRecusados.push(`${a} — ${invalido}`)
+      continue
+    }
+    raizesDeModelo.push(prefixo)
+  }
+
   // Lido do GIT, não do disco. Um `.rebarignore` não rastreado — inclusive um
   // escondido atrás de `.git/info/exclude` — cegava o checker sem existir para
   // o git: não entra em diff, não entra em review, não aparece no `git status`.
@@ -314,10 +404,15 @@ function semFixtures(dir, todos) {
 
   const arquivos = []
   let provas = 0,
+    modelos = 0,
     ignorados = 0
   for (const a of todos) {
     if (raizes.some((p) => a.startsWith(p))) {
       provas++
+      continue
+    }
+    if (raizesDeModelo.some((p) => a.startsWith(p))) {
+      modelos++
       continue
     }
     if (prefixos.some((p) => a.startsWith(p))) {
@@ -332,6 +427,9 @@ function semFixtures(dir, todos) {
       provas,
       raizesDeProva: raizes,
       marcadoresRecusados,
+      modelos,
+      raizesDeModelo,
+      modelosRecusados,
       rebarignore: ignorados,
       rebarignoreClandestino: ignoreClandestino,
     },
@@ -785,34 +883,377 @@ function semComentarioNemImport(t) {
 }
 
 /**
- * Nós de texto de JSX que são frase, e não sobra de sintaxe.
+ * ── O DISCRIMINADOR: quem é o DONO do nó de texto ────────────────────────────
  *
- * O casamento é `>…<` sem chave e sem quebra de linha no começo, porque
- * `>{expressao}<` e `>\n  <` são as duas formas de JSX que NÃO carregam texto.
- * Depois vêm os cortes, e cada um existe contra um falso positivo concreto:
+ * A pergunta que separa CONTEÚDO de VOCABULÁRIO DE INTERFACE não é de tamanho.
+ * Medido nos 11 repositórios: "Imprimir ou salvar em PDF" tem 5 palavras e 24
+ * caracteres, "Nossa cozinha abre às 18h" tem 5 e 25 — nenhum limiar de
+ * comprimento passa entre os dois. O que passa é a SEMÂNTICA DO ELEMENTO que
+ * carrega o texto: aquele "Imprimir ou salvar em PDF" mora dentro de um
+ * `<button>` (`decima-edicoes/app/components/print-button.tsx:8`), e `<button>`
+ * não é elemento de prosa — é controle, e o texto de um controle é o NOME DELE.
  *
- *   PROIBIDO   mata o que atravessou o `>` de uma seta ou de uma comparação:
- *              `=> a.length < 3` tem `=`, `.` colada e `<`. Sinal de código
- *              numa frase é sinal de que não é frase.
- *   4 palavras e 25 caracteres separam frase de rótulo. "Salvar" e "Ver mais"
- *              são vocabulário de interface e vão continuar no componente;
- *              "Mesa de jantar em madeira maciça" é catálogo.
- *   90% de letras derruba tabela de números e caminho de arquivo que
- *              sobreviveram aos cortes acima.
+ * Daí a regra só afirmar sobre nó de texto cujo DONO é elemento de prosa
+ * (`PROSA` abaixo). Três consequências medidas, todas contra os 11:
+ *
+ *   · rótulo de ação sai por construção — `<button>`, `<a>` e `<label>` não
+ *     estão em `PROSA`, e não é preciso enumerar verbo nenhum para isso;
+ *   · a exclusão é pelo DONO, não pelo ancestral. Procurar `<a>` na cadeia
+ *     removeria ZERO acusações nesta amostra e removeria conteúdo real assim
+ *     que aparecesse um cartão-link (`<a><h3>título</h3></a>`), onde o título é
+ *     conteúdo e o `<a>` é só a área clicável;
+ *   · o portão custa 38 acusações das 300 e nenhuma delas é conteúdo: são
+ *     `<div>`, `<span>` e componente de terceiro, onde o checker NÃO SABE o que
+ *     o elemento significa. Mesma disciplina do `na()`: o que não dá para
+ *     decidir sai, e sai calado.
+ *
+ * ── O CASAMENTO: corrida de texto, não pedaço entre dois `<` ─────────────────
+ *
+ * O casamento anterior cortava no primeiro `<`, então frase atravessada por um
+ * `<strong>` virava dois ou três achados. Medido: 17 das 185 frases começavam
+ * com ponto, com travessão ou no meio da oração — eram FRAGMENTO, não literal.
+ * E o estrago era maior que o cosmético: a frase que se parte em pedaços de
+ * menos de 4 palavras SOME. `nosDeTexto()` monta a corrida atravessando os
+ * elementos inline e a fecha em fronteira de bloco. Fragmento medido depois
+ * disso: ZERO de 258.
+ *
+ * O `{…}` em posição de filho vira BARREIRA: o texto solto dele é código e
+ * some, o JSX aberto lá dentro continua sendo lido, e no lugar dele fica um
+ * marcador. É o que faz `<p>Faltam {n} dias para o milhão</p>` ser enxergado —
+ * o casamento antigo descartava a frase inteira por causa da chave.
+ *
+ * ── AS DUAS GUARDAS QUE MORRERAM, com o número que as matou ─────────────────
+ *
+ * São exatamente duas das mutações que a auditoria viu sobreviver, e elas
+ * sobreviveram porque as constantes não tinham serviço:
+ *
+ *   MÍNIMO DE 25 CARACTERES — morto. Medido: custava 13 acusações VERDADEIRAS
+ *     ("Este carro fala KW82.", "Esta edição não existe.", "Suas chaves de
+ *     API") e não comprava nenhuma. Quem faz esse serviço é o mínimo de
+ *     PALAVRAS, e esse tem número: baixado de 4 para 1 a definição salta de
+ *     262 para 481 achados, e os 219 a mais são rótulo de campo ("Forma de
+ *     pagamento", "Informe a rua"), nome de seção ("Cardápio") e nó feito só
+ *     de interpolação.
+ *   SINAL_DE_CODIGO como CLASSE DE CARACTERES — morto na forma antiga. Ele
+ *     existia para matar o que atravessava o `>` de uma seta ou de uma
+ *     comparação; com a corrida montada por `nosDeTexto()`, expressão é
+ *     barreira e isso não chega mais aqui. O que sobrava dele era dano: 51
+ *     acusações VERDADEIRAS caíam só porque a prosa tinha um `;` ou um `:`
+ *     ("Madeira real continua se movendo. Plano, umidade e integridade
+ *     precisam ser medidos no recebimento…"). O nome fica e o corpo muda: o
+ *     sinal de que não é prosa passou a ser a PROPORÇÃO de letras.
  */
-const TEXTO_JSX = /> *([^<>{}\n][^<>{}]{18,}?) *</g
-const SINAL_DE_CODIGO = /[=;()[\]$`|&/\\]|\.\w|:\s/
-const PALAVRA = /[\p{L}][\p{L}'’-]*/gu
+const PROSA = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'li',
+  'dd',
+  'dt',
+  'blockquote',
+  'figcaption',
+  'caption',
+  'td',
+  'th',
+  'legend',
+  'article',
+  'address',
+])
 
-function frasesRenderizadas(t) {
+/** Elementos inline: a corrida de texto os atravessa, eles não a interrompem. */
+const INLINE = new Set([
+  'strong',
+  'b',
+  'em',
+  'i',
+  'span',
+  'code',
+  'small',
+  'mark',
+  'u',
+  's',
+  'sub',
+  'sup',
+  'abbr',
+  'time',
+  'kbd',
+  'var',
+  'cite',
+  'q',
+  'dfn',
+  'bdi',
+  'bdo',
+  'wbr',
+  'br',
+])
+
+/** Elementos sem filho: `<br/>` vira espaço, o resto é fronteira de bloco. */
+const VAZIO = new Set([
+  'br',
+  'hr',
+  'img',
+  'input',
+  'meta',
+  'link',
+  'source',
+  'track',
+  'area',
+  'col',
+  'embed',
+  'param',
+])
+
+/**
+ * Nomes de elemento HTML que o leitor reconhece. É a FECHADURA do parser: sem
+ * ela, o `<b)` de um `if (a<b)` viraria tag. Com ela ainda é preciso que a tag
+ * feche num `>` sem `;` nem outro `<` no caminho.
+ */
+const HTML = new Set([
+  ...PROSA,
+  ...INLINE,
+  ...VAZIO,
+  'a',
+  'aside',
+  'audio',
+  'body',
+  'button',
+  'canvas',
+  'circle',
+  'colgroup',
+  'defs',
+  'details',
+  'dialog',
+  'div',
+  'dl',
+  'ellipse',
+  'fieldset',
+  'footer',
+  'form',
+  'g',
+  'head',
+  'header',
+  'html',
+  'iframe',
+  'label',
+  'line',
+  'main',
+  'nav',
+  'noscript',
+  'ol',
+  'optgroup',
+  'option',
+  'path',
+  'picture',
+  'polygon',
+  'polyline',
+  'pre',
+  'rect',
+  'script',
+  'section',
+  'select',
+  'slot',
+  'style',
+  'summary',
+  'svg',
+  'table',
+  'tbody',
+  'template',
+  'text',
+  'textarea',
+  'tfoot',
+  'thead',
+  'title',
+  'tr',
+  'tspan',
+  'ul',
+  'use',
+  'video',
+])
+
+const MARCA_EXPR = String.fromCharCode(0)
+const PALAVRA = /[\p{L}][\p{L}'’-]*/gu
+const LETRA_OU_PONTUACAO = /[\p{L} ,.;:!?'’…·—–-]/gu
+
+/**
+ * O mínimo que separa FRASE de RÓTULO, e o único limiar de tamanho que sobrou.
+ * O número está no bloco acima: baixada de 4 para 1, a definição vai de 262 para
+ * 481 achados nos 11 repositórios, e os 219 a mais são rótulo, não conteúdo.
+ */
+const MIN_PALAVRAS = 4
+
+/** Abaixo disto o nó é tabela de números, não prosa — ver `sinalDeCodigo`. */
+const MIN_LETRAS = 0.9
+
+/** Pula string ou template a partir da aspa em `i`. */
+function pularAspas(t, i) {
+  const aspa = t[i]
+  i++
+  while (i < t.length) {
+    if (t[i] === '\\') i += 2
+    else if (t[i] === aspa) return i + 1
+    else i++
+  }
+  return i
+}
+
+/**
+ * Monta as CORRIDAS de texto de um JSX: cada uma é o texto que um elemento
+ * carrega entre duas fronteiras de bloco, com os inline atravessados.
+ */
+function nosDeTexto(fonte) {
+  const saida = []
+  const pilha = []
+  let i = 0
+  const topo = () => pilha[pilha.length - 1]
+
+  function fecharCorrida(q) {
+    if (!q) return
+    // Expressão e inline não EMITEM: a primeira porque o texto solto dela é
+    // código, o segundo porque o texto dele pertence à corrida do pai.
+    if (q.expressao || q.inline) {
+      q.partes = []
+      return
+    }
+    const texto = q.partes.join('')
+    q.partes = []
+    if (texto.trim()) saida.push({ texto, dono: q.nome })
+  }
+
+  function fecharQuadro(q) {
+    const pai = topo()
+    if (q.inline && pai) {
+      pai.partes.push(q.partes.join(''))
+      return
+    }
+    fecharCorrida(q)
+  }
+
+  function fronteira() {
+    const pai = topo()
+    if (!pai) return
+    if (!pai.inline) return fecharCorrida(pai)
+    const avo = pilha[pilha.length - 2]
+    if (avo) {
+      avo.partes.push(pai.partes.join(''))
+      pai.partes = []
+    }
+  }
+
+  while (i < fonte.length) {
+    const c = fonte[i]
+
+    if (c === '<' && /[A-Za-z/]/.test(fonte[i + 1] || '')) {
+      let j = i + 1
+      const fechamento = fonte[j] === '/'
+      if (fechamento) j++
+      let nome = ''
+      while (j < fonte.length && /[\w.:-]/.test(fonte[j])) nome += fonte[j++]
+      // Componente (maiúscula) e `Namespace.Tag` valem; minúscula só se for HTML.
+      if (!nome || !(/^[A-Z]/.test(nome) || nome.includes('.') || HTML.has(nome))) {
+        i++
+        continue
+      }
+      let k = j
+      let chaves = 0
+      let fechou = false
+      while (k < fonte.length && k - i < 4000) {
+        const d = fonte[k]
+        if (d === '"' || d === "'" || d === '`') {
+          k = pularAspas(fonte, k)
+          continue
+        }
+        if (d === '{') {
+          chaves++
+          k++
+          continue
+        }
+        if (d === '}') {
+          chaves--
+          k++
+          continue
+        }
+        if (chaves === 0 && (d === '<' || d === ';')) break
+        if (chaves === 0 && d === '>') {
+          fechou = true
+          break
+        }
+        k++
+      }
+      if (!fechou) {
+        i++
+        continue
+      }
+      const autoFecha = fonte[k - 1] === '/'
+      i = k + 1
+
+      if (fechamento) {
+        const idx = pilha.map((x) => x.nome).lastIndexOf(nome)
+        if (idx === -1) continue
+        if (!INLINE.has(nome)) fronteira()
+        while (pilha.length > idx) fecharQuadro(pilha.pop())
+        if (!INLINE.has(nome)) fronteira()
+        continue
+      }
+      if (autoFecha || VAZIO.has(nome)) {
+        if (INLINE.has(nome)) {
+          if (topo()) topo().partes.push(' ')
+        } else fronteira()
+        continue
+      }
+      if (!INLINE.has(nome)) fronteira()
+      pilha.push({ nome, partes: [], inline: INLINE.has(nome), expressao: false })
+      continue
+    }
+
+    // `{…}` em posição de filho: barreira. Ver a nota do casamento lá em cima.
+    if (c === '{' && pilha.length) {
+      if (topo()) topo().partes.push(MARCA_EXPR)
+      pilha.push({ nome: '{}', partes: [], inline: false, expressao: true })
+      i++
+      continue
+    }
+    if (c === '}' && pilha.length) {
+      const idx = pilha.map((x) => x.expressao).lastIndexOf(true)
+      if (idx !== -1) {
+        while (pilha.length > idx) fecharQuadro(pilha.pop())
+      } else if (topo()) topo().partes.push(c)
+      i++
+      continue
+    }
+    // Dentro de expressão, string é código: pular inteira impede que um `<` ou
+    // um `{` escrito entre aspas desmonte a pilha.
+    if ((c === '"' || c === "'" || c === '`') && topo() && topo().expressao) {
+      i = pularAspas(fonte, i)
+      continue
+    }
+
+    if (topo()) topo().partes.push(c)
+    i++
+  }
+  while (pilha.length) fecharQuadro(pilha.pop())
+  return saida
+}
+
+/** O que faz um nó NÃO ser prosa: proporção de letras abaixo de MIN_LETRAS. */
+function sinalDeCodigo(frase) {
+  const letras = (frase.match(LETRA_OU_PONTUACAO) || []).length
+  return letras / frase.length < MIN_LETRAS
+}
+
+/** As frases de CONTEÚDO de um arquivo JSX, pela definição do bloco acima. */
+function frasesDeConteudo(t) {
   const achadas = []
-  for (const m of t.matchAll(TEXTO_JSX)) {
-    const frase = m[1].replace(/\s+/g, ' ').trim()
-    if (frase.length < 25 || SINAL_DE_CODIGO.test(frase)) continue
+  for (const no of nosDeTexto(t)) {
+    if (!PROSA.has(no.dono)) continue
+    const frase = no.texto.split(MARCA_EXPR).join('…').replace(/\s+/g, ' ').trim()
+    if (!frase) continue
     const palavras = frase.match(PALAVRA) || []
-    if (palavras.length < 4 || palavras.filter((p) => p.length >= 3).length < 3) continue
-    const letras = (frase.match(/[\p{L} ,.;:!?'’-]/gu) || []).length
-    if (letras / frase.length < 0.9) continue
+    if (palavras.length < MIN_PALAVRAS) continue
+    if (sinalDeCodigo(frase)) continue
     achadas.push(frase)
   }
   return achadas
@@ -990,6 +1431,33 @@ const REGRAS = [
   },
 
   {
+    id: 'hooks-executaveis',
+    classe: 'determinística',
+    nivel: 'N5',
+    titulo: 'hook de git commitado com bit de execução',
+    // ACHADO DE AUDITORIA, 31/08: o modo 100755 era garantido UMA VEZ, na
+    // criação, e nada o mantinha. Um `git update-index --chmod=-x` — ou um
+    // arquivo criado no Windows, onde o bit não existe — devolve o hook para
+    // 100644, e em Linux o git passa a IGNORÁ-LO em silêncio. O portão se
+    // declara ligado e não faz nada, que é o pior estado possível.
+    //
+    // O modo lido é o do ÍNDICE, não o do disco: `chmod` local não viaja no
+    // clone, e é o clone que chega na máquina de quem for usar.
+    checar: (r) => {
+      const nomes =
+        /(^|\/)(pre-commit|commit-msg|pre-push|prepare-commit-msg|post-checkout|pre-rebase)$/
+      const hooks = r.arquivos.filter((a) => nomes.test(a))
+      if (!hooks.length) return na('nenhum arquivo com nome de hook de git')
+      const modos = modosDoIndice(r.dir)
+      const mudos = hooks.filter((h) => modos.get(h) !== '100755')
+      return mudos.length
+        ? `sem bit de execução no índice, o git os ignora em Linux: ${mudos.join(', ')}` +
+            ` — conserte com: git update-index --chmod=+x ${mudos.join(' ')}`
+        : null
+    },
+  },
+
+  {
     id: 'coautoria-ia',
     classe: 'determinística',
     nivel: 'N5',
@@ -1127,37 +1595,61 @@ const REGRAS = [
 
   {
     id: 'conteudo-fora-do-codigo',
-    // NASCEU DETERMINÍSTICA E FOI REBAIXADA NO MESMO DIA, 31/08. Fica
-    // heurística até três coisas serem consertadas, e as três foram medidas por
-    // auditoria adversarial, não supostas:
+    // CONTINUA HEURÍSTICA — e agora com o número que RECUSA a promoção, não
+    // com uma lista de pendências. Três dos quatro defeitos apontados na
+    // auditoria de 31/08 estão consertados e medidos; o quarto não cedeu, e é
+    // ele que segura a regra aqui.
     //
-    // 1. AS PROVAS DELA SÃO DECORATIVAS. Das 32 mutações aplicadas ao index.mjs,
-    //    16 sobreviveram — e NOVE das 16 estão nesta regra. Apagar a exigência
-    //    de dígito do padrão de preço: 2 de 2 casos verdes. Baixar o mínimo da
-    //    frase de 25 caracteres para 1: 2 de 2 verdes. Desligar o filtro de
-    //    sinal de código: 2 de 2 verdes. O `aprovar/` nem contém `R$`, então a
-    //    discriminação que o caso.json diz exercitar não é exercitada.
+    // 1. FRAGMENTO — CONSERTADO. O casamento cortava no primeiro `<`, e 18 das
+    //    185 frases começavam com ponto, travessão ou no meio da oração.
+    //    `nosDeTexto()` remonta a corrida atravessando os elementos inline:
+    //    ZERO de 262 agora começam fora do começo da oração. As 6 que começam
+    //    em minúscula foram conferidas uma a uma na fonte: quatro são `<li>` de
+    //    uma lista "Nunca:", uma é legenda escrita assim, e a sexta é sobra de
+    //    depuração (`esperado 0x… · recebido 0x…`) — nenhuma é pedaço de frase.
     //
-    // 2. ELA ACUSA VOCABULÁRIO DE INTERFACE, que o comentário dela promete
-    //    deixar de fora. Das 185 frases, 27 (15%) são rótulo de ação ou estado
-    //    vazio/carregando/erro: "Imprimir ou salvar em PDF", "Carregando o
-    //    índice de preços…", "Não deu para abrir o cofre.". Mandar isso para
-    //    `conteudo/*.json` não é a §12.3, é ruído — e ruído que barra merge.
+    // 2. RÓTULO DE AÇÃO — CONSERTADO, e sem enumerar verbo. O discriminador é
+    //    o DONO do nó de texto: `<button>`, `<a>` e `<label>` não são elemento
+    //    de prosa, e o texto de um controle é o NOME dele. Ver o bloco de
+    //    `PROSA`. Dos rótulos que a auditoria nomeou, saíram quatro:
+    //    "Imprimir ou salvar em PDF" (`<button>`), "Arraste pela grade ou use
+    //    ‹ › para percorrer." (`<span>`), "Não deu para abrir o cofre."
+    //    (`<AlertTitle>`) e "Carregando o índice de preços…" (`<div>`).
     //
-    // 3. O CASAMENTO CORTA NO PRIMEIRO `<`, então frase atravessada por um
-    //    `<strong>` vira dois ou três achados. 17 das 185 começam com ponto ou
-    //    no meio da oração: não são literais, são fragmentos.
+    // 3. PROVA DECORATIVA — CONSERTADA. Das nove mutações que sobreviviam
+    //    nesta regra, as três nomeadas eram: apagar o dígito do padrão de
+    //    preço, baixar o mínimo da frase e desligar o filtro de sinal de
+    //    código. As três agora DIVERGEM, e o `aprovar/` do caso principal
+    //    existe para isso: ele contém `R$` SEM dígito, um rótulo de campo de
+    //    três palavras, uma linha de tabela com menos de 90% de letras, um
+    //    `<button>` com rótulo de quatro palavras e um estado em `<div>`. Cada
+    //    um deles fica vermelho se a guarda correspondente for afrouxada.
     //
-    // Heurística ela informa e não barra, que é o lugar certo de uma regra
-    // nessa maturidade. A §12.3 do plano NÃO está fechada enquanto ela não
-    // subir — e ela precisa subir antes de o gerador existir, porque é a saída
-    // do gerador que ela existe para vigiar.
+    // 4. VOCABULÁRIO DE INTERFACE EM `<p>` — NÃO CEDEU, e é o que recusa a
+    //    promoção. Medido antes: 27 de 185 (14,6%). Medido depois: 37 de 262
+    //    (14,1%). A estrutura não moveu o número porque os que restam moram em
+    //    elemento de prosa de verdade: "Nenhuma proposta salva ainda." é um
+    //    `<p>` sob `history.length === 0` e "Clique para enviar a logo da
+    //    empresa" é um `<p>` ao lado de um `<input type="file">`. Separá-los de
+    //    "Nossa cozinha abre às 18h" exigiria ENUMERAR verbo de instrução e
+    //    palavra de estado — e enumeração aqui falha para o lado errado: a
+    //    lista incompleta não deixa de excluir, ela ACUSA. É a inversão exata
+    //    do argumento do `coautoria-ia`: lá a enumeração prova presença e por
+    //    isso pode reprovar; aqui ela precisaria provar AUSÊNCIA de instrução
+    //    para não acusar, e não prova. Com 14% de ruído, determinística barra
+    //    merge por rótulo de campo — e regra que barra merge por rótulo de
+    //    campo ensina a desligar a saída inteira.
+    //
+    // A §12.3 do plano continua aberta por causa do item 4, e não por causa do
+    // 1, do 2 e do 3. O que falta não é engenharia de casamento: é um
+    // discriminador de VOZ — texto que fala do negócio contra texto que fala
+    // do programa — e ele não sai da árvore de elementos.
     classe: 'heurística',
     nivel: 'N1',
     titulo: 'conteúdo em conteudo/*.json, não dentro de src/ nem de app/',
-    // A definição de "literal de conteúdo", o número que ela deu nos 11
-    // repositórios e o motivo do portão de aplicabilidade estão no bloco de
-    // comentário acima de `RE_CONTEUDO_JSON`.
+    // O motivo do portão de aplicabilidade está no bloco de comentário acima de
+    // `RE_CONTEUDO_JSON`; a definição de "literal de conteúdo" e o número que
+    // ela dá nos 11 repositórios estão no bloco de `PROSA`, logo abaixo dele.
     checar: (r) => {
       // A base é o diretório que contém `conteudo/`: em monorepo,
       // `apps/site/conteudo/menu.json` tem base `apps/site/`. A asserção fica
@@ -1185,9 +1677,9 @@ const REGRAS = [
         const preco = PRECO_BRL.exec(t)
         if (preco) achados.push(`${a}: preço ${JSON.stringify(preco[0])}`)
         // Frase só em arquivo com JSX. Num `.ts` puro não existe nó de texto, e
-        // procurar `>…<` lá seria ler operador de comparação como prosa.
+        // procurar marcação lá seria ler operador de comparação como prosa.
         if (!RE_JSX.test(a)) continue
-        const frases = frasesRenderizadas(t)
+        const frases = frasesDeConteudo(t)
         if (frases.length) {
           achados.push(`${a}: frase ${JSON.stringify(frases[0].slice(0, 60))}`)
         }
@@ -1414,7 +1906,18 @@ const REGRAS = [
         enN = 0
       for (const [, t] of r.fontes) {
         const com = t.match(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g) || []
-        const txt = com.join('\n')
+        // Trecho entre crases é CÓDIGO CITADO, não prosa, e sai antes do teste
+        // de idioma. Identificador em inglês dentro de um comentário em
+        // português não é troca de idioma, é o nome da coisa — ninguém traduz
+        // `User-Agent`, `<input type="file">` ou `cat-file --batch`.
+        //
+        // Medido em 2026-08-31 no espelho do rebar com `novo/` rastreado: a
+        // contagem `en` caía de 3 para 0, e esses 3 eram exatamente estes três
+        // arquivos, todos com prosa em português — `index.mjs`,
+        // `varrer-segredo.mjs` e `novo/index.mjs`. Com min(pt,en) >= 3 sendo o
+        // piso, os três davam a acusação inteira. O caso de prova
+        // `idioma-unico` não tem uma crase e continua igual pelos dois lados.
+        const txt = com.join('\n').replace(/`[^`]*`/g, ' ')
         if (pt.test(txt)) ptN++
         if (en.test(txt)) enN++
       }
@@ -1598,6 +2101,12 @@ function imprimir(a) {
     )
     for (const m of ig.marcadoresRecusados) console.log(`      ${c.amarelo(m)}`)
   }
+  if (ig?.modelosRecusados?.length) {
+    console.log(
+      `  ${c.amarelo(`⚠ ${ig.modelosRecusados.length} modelo.json IGNORADO(S) como marcador de modelo:`)}`,
+    )
+    for (const m of ig.modelosRecusados) console.log(`      ${c.amarelo(m)}`)
+  }
   if (ig?.rebarignoreClandestino) {
     console.log(
       `  ${c.amarelo('⚠ .rebarignore existe no disco e NÃO está rastreado — ignorado por inteiro')}`,
@@ -1618,6 +2127,17 @@ function imprimir(a) {
       ),
     )
   }
+  if (ig?.modelos) {
+    // A contagem sai mesmo quando é benigna, e nomeia as raízes: exclusão que
+    // não se vê é exclusão que ninguém confere. É a mesma regra da linha das
+    // provas, logo acima.
+    console.log(
+      c.fraco(
+        `  ${ig.modelos} arquivo(s) de modelo do gerador, fora da avaliação` +
+          `  ·  ${(ig.raizesDeModelo || []).join(', ')}`,
+      ),
+    )
+  }
   if (ig?.testes) {
     const amostra = ig.amostraTestes?.length ? `: ${ig.amostraTestes.join(', ')}` : ''
     console.log(
@@ -1631,6 +2151,32 @@ function imprimir(a) {
 // ─────────────────────────────────────────────────────────────────── main
 
 const args = process.argv.slice(2)
+
+// ─── despacho do subcomando `novo`, ANTES de qualquer parse de opção
+//
+// Vem primeiro de propósito: o gerador tem a linha de comando dele (`<nome>
+// [dominio]`), e deixar o parser do checker olhar para ela produziria "opção
+// desconhecida" em bandeira que é do outro programa.
+//
+// O import é DINÂMICO e só acontece aqui. Assim `npx github:Navesz/rebar .`
+// — o caminho quente, o que roda em CI — não paga nada por o gerador existir,
+// e continua funcionando num checkout onde `novo/` não veio junto.
+if (args[0] === 'novo') {
+  const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const gerador = join(RAIZ, 'novo', 'index.mjs')
+  if (!existsSync(gerador)) {
+    console.error(`rebar: subcomando "novo" pede ${gerador}, que não está neste checkout.`)
+    console.error('       Para auditar uma pasta chamada "novo", escreva ./novo')
+    process.exit(2)
+  }
+  console.log(`rebar: subcomando "novo" → gerador (para auditar a pasta "novo", use ./novo)`)
+  // O gerador chama `process.exit` por conta própria no fim do main dele, então
+  // este import não retorna. Se um dia retornar, o exit 0 abaixo é o certo:
+  // significa que o módulo carregou e terminou sem reclamar.
+  await import(pathToFileURL(gerador).href)
+  process.exit(0)
+}
+
 const json = args.includes('--json')
 const heuristicasBarram = args.includes('--heuristicas')
 const regraArg = args.find((a) => a.startsWith('--regra='))

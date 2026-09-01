@@ -1,0 +1,4 @@
+{
+  "para": "o gerador — blocos copiados para dentro do projeto criado",
+  "porque": "Modelo nao e produto: o .tsx daqui e compilado no projeto gerado, nao neste repositorio."
+}

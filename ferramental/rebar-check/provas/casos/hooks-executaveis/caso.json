@@ -1,0 +1,6 @@
+{
+  "regra": "hooks-executaveis",
+  "porque": "Achado de auditoria em 31/08: o modo 100755 dos hooks era garantido uma vez, na criação, e nada o mantinha. Um `git update-index --chmod=-x` — ou um arquivo criado no Windows, onde o bit não existe — devolve o hook para 100644, e em Linux o git passa a IGNORÁ-LO em silêncio: o instalador imprime \"hooks instalados\" e nada roda. O portão se declara ligado e não faz nada, que é o pior estado possível. O modo conferido é o do ÍNDICE, porque `chmod` local não viaja no clone.",
+  "aprovar": { "modos": { "hooks/pre-commit": "100755", "hooks/commit-msg": "100755" } },
+  "reprovar": { "modos": { "hooks/pre-commit": "100644", "hooks/commit-msg": "100755" } }
+}

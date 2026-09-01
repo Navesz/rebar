@@ -7,7 +7,11 @@ export function Pagina() {
       <h1>{conteudo.titulo}</h1>
       <p>Mesa de jantar em madeira macica, feita sob encomenda.</p>
       <span>R$ 4.900,00</span>
-      <span>{formatarPreco(conteudo.precoEmCentavos)}</span>
+      <span>R$ {formatarPreco(conteudo.precoEmCentavos)}</span>
+      <p>Forma de pagamento</p>
+      <p>lote 7 · lote 9 · lote 12 · sem foto</p>
+      <button type="button">Ver o catalogo completo</button>
+      <div>Nenhuma peca nesta colecao por enquanto.</div>
     </section>
   )
 }

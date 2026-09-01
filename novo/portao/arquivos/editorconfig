@@ -1,0 +1,17 @@
+# O rebar cobra .editorconfig de todo repositório auditado (regra `editorconfig`,
+# N1). O projeto gerado nasce com ele porque nascer reprovado na própria régua é
+# o defeito que o gerador existe para não fabricar.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown usa dois espaços no fim da linha como quebra dura; aparar mataria a
+# quebra sem aviso.
+[*.md]
+trim_trailing_whitespace = false

@@ -1,0 +1,7 @@
+#!/bin/sh
+# Roda com o caminho do arquivo de mensagem em $1, antes de o commit existir.
+# É a metade que faltava: o pre-commit olha o que o commit ACRESCENTA em
+# conteúdo, este olha o que ele acrescenta em AUTORIA.
+set -e
+RAIZ=$(git rev-parse --show-toplevel)
+exec node "$RAIZ/.githooks/checar-mensagem.mjs" "$1"

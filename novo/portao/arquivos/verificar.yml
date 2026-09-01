@@ -1,0 +1,76 @@
+# O portão deste projeto. Dois passos, e os dois rodam igual na sua máquina:
+#   npm run verificar
+#   npx --yes github:Navesz/rebar .
+#
+# A MATRIZ EXISTE POR UM MOTIVO MEDIDO. O defeito de portabilidade que matou o
+# projeto anterior — um `execFileSync("npx")` que não existe como executável no
+# Windows — sobreviveu um ano porque o CI dele só rodava Linux. Aqui o mesmo
+# comando precisa passar nos dois sistemas ou não passa em nenhum.
+
+name: verificar
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: verificar (${{ matrix.so }})
+    runs-on: ${{ matrix.so }}
+    # Teto de tempo, porque o padrão do GitHub é SEIS HORAS.
+    #
+    # O número que motivou a linha, medido em 31/08 gerando este projeto: o
+    # `npm run verificar` inteiro leva 26 s com o cache quente, mas o `eslint`
+    # sozinho levou 93 s na PRIMEIRA execução, com o cache de módulos frio — e
+    # antes disso, três tentativas foram mortas em 200 s e em 280 s sem imprimir
+    # uma linha. Lint frio nesta pilha é indistinguível de lint travado enquanto
+    # se olha para ele. Um runner de CI está sempre frio.
+    #
+    # Sem o teto, uma regressão nesse caminho não vira erro: vira runner ocupado
+    # por seis horas e um PR "em execução" a manhã inteira. Com o teto, é um X
+    # vermelho em 20 minutos — quarenta vezes o pior tempo já medido, com folga
+    # para a instalação e para o build.
+    timeout-minutes: 20
+    strategy:
+      # Sem fail-fast: saber que quebrou só no Windows, ou nos dois, é metade do
+      # diagnóstico. Cancelar a outra plataforma esconde exatamente isso.
+      fail-fast: false
+      matrix:
+        so: [windows-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # O rebar-check tem duas regras que leem `git log` — coautoria-ia e
+          # identidade-git. Com o clone raso padrão (fetch-depth: 1) elas
+          # enxergariam um commit só e aprovariam qualquer histórico.
+          # Verificação que só vê o último commit não é verificação.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # `npm ci` e não `npm install`: o lockfile é a fonte, e o CI não decide
+      # versão.
+      - run: npm ci
+
+      # Um comando só. O corpo dele está no package.json, para que o que roda
+      # aqui seja literalmente o que se roda na máquina antes de abrir o PR.
+      - name: verificar
+        run: npm run verificar
+
+      # A régua do rebar, por cima do que este repositório verifica de si mesmo.
+      # Exit 0 é a única aprovação: 1 reprovou, 2 alvo inválido, 3 recorte
+      # parcial, 127 o ferramental quebrou — todos derrubam o job.
+      - name: régua do rebar
+        run: npx --yes github:Navesz/rebar .

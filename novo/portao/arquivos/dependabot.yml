@@ -1,0 +1,24 @@
+# Duas ecologias, e cada uma tem um motivo separado.
+#
+# `github-actions`: o que envelhece no CI são as versões fixadas das actions, e
+# action desatualizada é a que some sem aviso quando o runner muda.
+#
+# `npm`: este projeto NÃO é zero-dependência — ele é um Next com React, Tailwind
+# e shadcn, e o `npm ci` do CI instala tudo. A promessa de zero dependência é do
+# rebar-check, que roda por `npx github:Navesz/rebar` sem instalar nada.
+version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    # Agrupado para não abrir sete PRs por semana. PR de dependência que ninguém
+    # lê é ruído que ensina a fechar PR de dependência sem ler.
+    groups:
+      dependencias:
+        patterns: ['*']

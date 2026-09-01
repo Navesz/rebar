@@ -6,7 +6,11 @@ export function Pagina() {
     <section className="mx-auto flex max-w-3xl flex-col gap-6" aria-label="Apresentacao">
       <h1>{conteudo.titulo}</h1>
       <p>{conteudo.chamada}</p>
-      <span>{formatarPreco(conteudo.precoEmCentavos)}</span>
+      <span>R$ {formatarPreco(conteudo.precoEmCentavos)}</span>
+      <p>Forma de pagamento</p>
+      <p>lote 7 · lote 9 · lote 12 · sem foto</p>
+      <button type="button">Ver o catalogo completo</button>
+      <div>Nenhuma peca nesta colecao por enquanto.</div>
     </section>
   )
 }
