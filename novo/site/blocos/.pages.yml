@@ -1,0 +1,108 @@
+# Pages CMS (MIT) — EMITIDO E DESCONECTADO DE PROPÓSITO.
+#
+# Este arquivo descreve os campos de `conteudo/site.json` para um editor visual.
+# Ele NÃO liga o CMS a nada, e não deve ligar sozinho: conectar o Pages CMS
+# exige dar ACESSO DE ESCRITA neste repositório a um serviço de terceiro
+# hospedado, e isso é decisão do dono, não do gerador. Decisão de 31/08:
+# emitir sempre, conectar nunca.
+#
+# Para conectar, o dono vai a pagescms.org e autoriza o repositório — cinco
+# minutos. O ponto de emitir mesmo desconectado é que a alternativa seria uma
+# refatoração no dia em que ele quisesse, e aí não faria.
+#
+# Enquanto estiver desconectado, este arquivo é DOCUMENTAÇÃO legível do
+# contrato: quem for editar o JSON à mão lê aqui o que cada campo é. A verdade
+# executável continua sendo `conteudo/esquema.ts`, que reprova o build.
+
+media: public
+
+content:
+  - name: site
+    label: Site
+    type: file
+    path: conteudo/site.json
+    fields:
+      - name: identidade
+        label: Identidade do negócio
+        type: object
+        description: Telefone e endereço são CONTEÚDO validado, não variável de ambiente (§12.3).
+        fields:
+          - { name: nome, label: Nome, type: string, required: true }
+          - name: whatsapp
+            label: WhatsApp
+            type: object
+            fields:
+              - { name: e164, label: 'Número com DDI, só dígitos', type: string, required: true }
+              - { name: exibicao, label: Como aparece na tela, type: string, required: true }
+          - { name: email, label: E-mail, type: string, required: true }
+          - name: endereco
+            label: Endereço
+            type: object
+            fields:
+              - { name: logradouro, label: Logradouro e número, type: string, required: true }
+              - { name: bairro, label: Bairro, type: string, required: true }
+              - { name: cidade, label: Cidade, type: string, required: true }
+              - { name: uf, label: UF, type: string, required: true }
+              - { name: cep, label: CEP, type: string, required: true }
+
+      - name: meta
+        label: Metadados e compartilhamento
+        type: object
+        fields:
+          - { name: urlBase, label: 'URL do site, sem barra no fim', type: string, required: true }
+          - { name: idioma, label: Idioma, type: string, required: true }
+          - { name: titulo, label: Título, type: string, required: true }
+          - {
+              name: gabaritoDeTitulo,
+              label: 'Gabarito de título, com %s',
+              type: string,
+              required: true,
+            }
+          - {
+              name: descricao,
+              label: 'Descrição, de 50 a 160 caracteres',
+              type: text,
+              required: true,
+            }
+          - {
+              name: nomeCurto,
+              label: 'Nome curto, até 12 caracteres',
+              type: string,
+              required: true,
+            }
+          - { name: atualizadoEm, label: Atualizado em, type: date, required: true }
+          - name: cores
+            label: Cores
+            type: object
+            fields:
+              - { name: tema, label: Cor de tema, type: string, required: true }
+              - { name: fundo, label: Cor de fundo, type: string, required: true }
+          - name: og
+            label: Cartão de compartilhamento
+            type: object
+            fields:
+              - { name: caminho, label: Arquivo em public/, type: string, required: true }
+              - { name: largura, label: Largura, type: number, required: true }
+              - { name: altura, label: Altura, type: number, required: true }
+              - { name: alt, label: Texto alternativo, type: string, required: true }
+
+      - name: home
+        label: Página inicial
+        type: object
+        fields:
+          - { name: titulo, label: Título, type: string, required: true }
+          - { name: subtitulo, label: Subtítulo, type: text, required: true }
+          - { name: chamadaAcao, label: Texto do botão, type: string, required: true }
+          - {
+              name: mensagemWhatsapp,
+              label: Mensagem já escrita na conversa,
+              type: text,
+              required: true,
+            }
+          - name: destaques
+            label: Destaques
+            type: object
+            list: { min: 1, max: 6 }
+            fields:
+              - { name: titulo, label: Título, type: string, required: true }
+              - { name: texto, label: Texto, type: text, required: true }

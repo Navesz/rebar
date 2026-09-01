@@ -2,6 +2,10 @@
 
 > **Leia este arquivo primeiro.** É o ponto de entrada de qualquer sessão nova.
 > Medido e reescrito em **30/08/2026** · repo: `C:\Users\leona\OneDrive\Documents\rebar`
+>
+> **Revisão de 31/08/2026:** o gerador passou a existir e a rodar — §4.11. As seções 4.2,
+> 4.3 e 5.1 foram remedidas nesta data porque o gerador mudou o que elas contavam. O que
+> não foi remedido em 31/08 continua com a data e o número de 30/08, e está dito onde é.
 
 ---
 
@@ -187,23 +191,24 @@ Um terceiro documenta a fronteira que continua aberta:
 ✔ RLS · ACHADO CONHECIDO: o GUC de tenant é USERSET — app troca o próprio contexto
 ```
 
-### 4.2 PROVADO · `rebar-check` — 19 checagens, zero dependência
+### 4.2 PROVADO · `rebar-check` — 21 checagens, zero dependência
 
-`ferramental/rebar-check/index.mjs`. Roda em qualquer repositório, **nunca escreve**.
+_Remedido em 31/08/2026._ `ferramental/rebar-check/index.mjs`. Roda em qualquer
+repositório, **nunca escreve**.
 
 ```bash
-wc -l ferramental/rebar-check/index.mjs                                  # 1267
-grep -c "classe: *'determinística'" ferramental/rebar-check/index.mjs    # 15
+wc -l ferramental/rebar-check/index.mjs                                  # 2206
+grep -c "classe: *'determinística'" ferramental/rebar-check/index.mjs    # 17
 grep -c "classe: *'heurística'"     ferramental/rebar-check/index.mjs    # 5
 ```
 
-O grep de determinística devolve **15 e as regras são 14**: a linha 466 é o comentário que
-explica a distinção, não uma regra. **14 determinísticas + 5 heurísticas = 19.** Conferido
+O grep de determinística devolve **17 e as regras são 16**: a linha 626 é o comentário que
+explica a distinção, não uma regra. **16 determinísticas + 5 heurísticas = 21.** Conferido
 também em tempo de execução, que é o número que vale:
 
 ```bash
-node ferramental/rebar-check/index.mjs --json .   # e contar o array `resultados` por classe
-# 21 resultados · determinística 17 · heurística 4
+node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "determinística"'   # 16
+node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "heurística"'       # 5
 ```
 
 Determinísticas, e derrubam o exit code: `editorconfig`, `dependabot`, `ci`, `ci-gateia`,
@@ -222,34 +227,101 @@ A separação é medida, e o motivo está escrito em `index.mjs:466-470`: a regr
 literal ingênua deu 7 ocorrências e zero verdadeiros positivos no herz — cinco eram
 comentários documentando a própria regra.
 
-**O rebar na própria régua:**
+**O rebar na própria régua**, medido em 31/08/2026 com `novo/` ainda **não rastreado**:
 
 ```bash
 node ferramental/rebar-check/index.mjs .
-# 11 de 11 · 6 não se aplica · exit 0
-# 161 arquivo(s) de caso de prova, fora da avaliação
+# 11 de 11 · 5 não se aplica · exit 0
+# 227 arquivo(s) de caso de prova, fora da avaliação
 # 2 arquivo(s) de código fora das regras de conteúdo por serem teste
 ```
 
-Os 6 que não se aplicam: `ci-gateia` (o `package.json` não tem script de lint, typecheck
+Os 5 que não se aplicam: `ci-gateia` (o `package.json` não tem script de lint, typecheck
 nem test), `typecheck` (não tem TypeScript), `env-example` (não lê variável de ambiente do
-projeto — `NO_COLOR` e `CI` são do ambiente), `ui-falso` (não tem `components/ui/`),
-`schema-orfao` (nenhum `.schema.json`) e `conteudo-fora-do-codigo` (não adotou
-`conteudo/*.json`).
+projeto — `NO_COLOR` e `CI` são do ambiente), `ui-falso` (não tem `components/ui/`) e
+`schema-orfao` (nenhum `.schema.json`).
 
-**A nota conta só as determinísticas.** `11 de 11` é sobre as 17 determinísticas menos as 6
-que não se aplicam. As 4 heurísticas ficam fora do denominador e aparecem como aviso.
+**A nota conta só as determinísticas.** `11 de 11` é sobre as 16 determinísticas menos as 5
+que não se aplicam. As 5 heurísticas ficam fora do denominador e aparecem como aviso.
 
-### 4.3 PROVADO · As provas — 47 casos, 21 de 21 regras
+**Com `novo/` rastreado — o estado em que o dono vai commitar — a nota é OUTRA, e sobe.**
+A régua lê `git ls-files`: hoje ela não enxerga uma linha do gerador. Para medir o que vai
+acontecer sem tocar no `.git` deste repositório, montei um espelho da árvore de trabalho
+num `os.tmpdir()`, com `git init` próprio e tudo commitado:
+
+```bash
+# espelho: cpSync da árvore sem .git nem node_modules → git init → git add -A → commit
+node ferramental/rebar-check/index.mjs "$ESPELHO"
+# 318 arquivos rastreados · 24 em novo/
+# 12 de 12 · 4 não se aplica · exit 0
+# 20 arquivo(s) de modelo do gerador, fora da avaliação · novo/portao/arquivos/, novo/site/blocos/
+```
+
+`env-example` sai do N/A e passa a **PASSAR**: o gerador lê `GIT_AUTHOR_NAME` e
+`GIT_AUTHOR_EMAIL` como segunda fonte da identidade do dono, e as duas estão documentadas
+no `.env.example`. A régua ficou mais exercida, não menos.
+
+**O que o gerador quebrou no caminho, e o conserto.** Na primeira medição do espelho o
+resultado era **11 de 13, exit 1**:
+
+| regra | sem o conserto | por quê |
+| --- | --- | --- |
+| `typecheck` | ✗ nenhum `package.json` rastreado tem script typecheck | os 5 `.tsx`/`.ts` de `novo/site/blocos/` |
+| `env-example` | ✗ não documentadas: `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL` | `novo/index.mjs` |
+| `idioma-unico` | ⚠ comentários em pt (21) e en (3) | 3 comentários em português citando `User-Agent`, `<input type="file">`, `cat-file --batch` |
+
+É o **"material de prova não é produto"** de volta, um andar acima: `novo/site/blocos/` e
+`novo/portao/arquivos/` são arquivos que o gerador **copia** para dentro do projeto criado.
+Não são compilados aqui, não têm `tsconfig` aqui. A saída é a mesma que já existia para os
+casos de prova, com a mesma disciplina: fechadura dupla e contagem impressa.
+
+- **Fechadura 1** — o prefixo tem de ser **exatamente** uma das raízes literais
+  (`RAIZES_DE_MODELO`), não "começa com", não "qualquer pasta chamada blocos".
+- **Fechadura 2** — tem de existir um `modelo.json` rastreado, com `para` e `porque`.
+- **Contagem impressa** — a linha `20 arquivo(s) de modelo do gerador, fora da avaliação`
+  sai sempre, nomeando as raízes. Exclusão que não se vê é exclusão que ninguém confere.
+
+Nada foi afrouxado: o `env-example` virou documentação de verdade, e os modelos continuam
+sendo checados **onde caem** — o passo 5 do gerador roda esta mesma régua dentro do projeto
+gerado, com `tsconfig.json` e `package.json` do Next em volta. Os dois casos de prova novos
+travam as duas fechaduras (§4.3).
+
+O `idioma-unico` era falso positivo da própria heurística: ela testava o idioma em cima do
+texto do comentário **inteiro**, crases e tudo, então um comentário em português que cita
+um identificador em inglês contava como comentário em inglês. Passou a descartar o trecho
+entre crases antes do teste. Medido no espelho: `en` de **3 para 0**, e os três eram
+`index.mjs`, `varrer-segredo.mjs` e `novo/index.mjs`, todos com prosa em português. O caso
+de prova `idioma-unico` não tem uma crase e não muda por causa disto.
+
+### 4.3 PROVADO · As provas — 50 casos, 21 de 21 regras
+
+_Remedido em 31/08/2026._
 
 ```bash
 npm run provar
-# 47 de 47 caso(s) bateram
+# 50 de 50 caso(s) bateram
 # 21 de 21 regras com prova
 # exit 0
 
-ls ferramental/rebar-check/provas/casos | wc -l    # 47
+ls ferramental/rebar-check/provas/casos | wc -l    # 50
 ```
+
+Dos 50, **dois são de 31/08 e travam a exclusão de modelo** descrita na §4.2:
+
+```bash
+node ferramental/rebar-check/provas/provar.mjs typecheck
+# ✓ typecheck                      aprovar passou · reprovar reprovou
+# ✓ typecheck__modelo-do-gerador   aprovar na     · reprovar reprovou
+# ✓ typecheck__modelo-fora-da-raiz aprovar na     · reprovar reprovou
+# ✓ typecheck__nao-se-aplica       aprovar na     · reprovar na
+# ✓ typecheck__nome-em-portugues   aprovar passou · reprovar reprovou
+# 5 de 5 caso(s) bateram
+```
+
+`__modelo-do-gerador` prova o mecanismo: a mesma árvore com e sem o `modelo.json` na raiz.
+`__modelo-fora-da-raiz` prova a **fechadura**: o mesmo marcador um nível abaixo,
+em `novo/site/blocos/app/`, tem de ser recusado e a árvore continuar avaliada. Sem esse
+segundo caso, transformar a exclusão num bypass genérico passaria despercebido.
 
 O caminho é `ferramental/rebar-check/provas/casos/`, **não** `provas/casos/` na raiz.
 
@@ -268,15 +340,19 @@ ser esperado — crash é defeito do instrumento, não resultado dele.
 
 ```bash
 npm run verificar
-# VERIFICAR — APROVADO  8 de 8 passos · 51.9 s
+# VERIFICAR — APROVADO  8 de 8 passos · 15.7 s
 # ✓ higiene · hooks · sintaxe · formato · elos · segredo · provas · auto
 # exit 0
 
 grep -c "^\s*nome: '" verificar.config.mjs    # 8
 ```
 
-A duração varia de máquina e de cache; 51,9 s é o que deu nesta medição, não uma
-propriedade do repositório.
+A duração varia de máquina e de cache: em 31/08/2026, com 50 casos de prova, duas
+execuções deram **13,5 s** e **15,7 s**, contra **51,9 s com 47 casos** em 30/08. A causa
+provável é a paralelização das fixtures no passo `provas`, mas **eu não cronometrei o passo
+isolado** nesta sessão — o que medi foi o total, com o comando acima.
+
+_Remedido em 31/08/2026 — os dois parágrafos abaixo são de 30/08 e continuam valendo._
 
 Os dois primeiros passos são novos nesta sessão e conferem o **portão**, não o conteúdo:
 `higiene` (árvore limpa, índice sem `skip-worktree`) e `hooks` (`core.hooksPath` aponta
@@ -475,16 +551,162 @@ foram conferidas e não são quebra: a `§12.9` já virou auto-documentação, o
 REVISAO-AGENTES são ponteiro para linha e não para seção, e as `§9.27.2`/`§13.3.2` são
 citação da documentação do PostgreSQL.
 
+### 4.11 PROVADO · O gerador — `rebar novo`, rodado de ponta a ponta
+
+_Medido em 31/08/2026. Duas execuções completas, com rede, em `os.tmpdir()`._
+
+`novo/index.mjs` (405 linhas) · `novo/portao/aplicar.mjs` (391) · `novo/site/aplicar.mjs`
+(135) · `novo/site/og.mjs` (227) · 24 arquivos no total, dos quais 20 são modelo.
+
+```bash
+wc -l novo/index.mjs novo/portao/aplicar.mjs novo/site/aplicar.mjs novo/site/og.mjs
+# 1158 total
+find novo -type f | wc -l     # 24
+```
+
+#### Como o `npx` chega no gerador
+
+O `bin` do `package.json` tinha um só comando e o checker não conhecia subcomando: `npx
+github:Navesz/rebar novo meu-site` tratava `novo` como caminho a auditar e saía **2**.
+A correção é despacho dentro do `index.mjs`, e não um segundo `bin`, porque é assim que o
+npx resolve: ele executa o bin com o **nome do pacote** e entrega `novo` como `argv[0]`.
+O `bin` extra (`rebar-novo`) existe como forma inequívoca, mas só é alcançável por
+`npx -p github:Navesz/rebar rebar-novo …`, que ninguém digita.
+
+O despacho vem **antes** do parse de opções (senão a linha de comando do gerador viraria
+"opção desconhecida") e o `import` é **dinâmico** (senão o caminho quente, `npx
+github:Navesz/rebar .` em CI, pagaria por o gerador existir).
+
+Provado nos dois caminhos. O `github:` de verdade, contra o remoto público:
+
+```bash
+cd $(mktemp -d) && git init -q && git add -A && git commit -q -m t
+npx -y github:Navesz/rebar .     # placar impresso · exit 1 (repo vazio, é o esperado)
+```
+
+E o caminho do gerador, contra um clone git local da árvore desta sessão — mesmo
+instalador, mesma resolução de `bin`, sem depender de eu ter feito push:
+
+```bash
+npx -y "git+file:///$ESPELHO" .                              # o checker, exit 1
+npx -y "git+file:///$ESPELHO" novo padaria-do-ze padaria-do-ze.com.br
+# rebar: subcomando "novo" → gerador (para auditar a pasta "novo", use ./novo)
+```
+
+`npm pack` **não** serve como prova aqui: ele recusa este pacote com "Invalid package, must
+have name and version", porque o `package.json` não tem `version`. O instalador de git do
+npm não exige `version` — foi por isso que o `npx github:` sempre funcionou apesar disso.
+
+#### Execução 1 — `padaria-do-ze`, sem identidade de git na máquina
+
+```
+▸ 2/6  scaffold pelo shadcn (Next 16 · base-nova · @base-ui/react)
+  npx resolvido: C:\Program Files\nodejs\node_modules\npm\bin\npx-cli.js
+▸ 3/6  preset site: 13 arquivo(s) · domínio padaria-do-ze.com.br  + 17 do portão
+▸ 4/6  modo 100755 … .githooks/commit-msg · .githooks/pre-commit
+       Hooks instalados: core.hooksPath = .githooks
+       primeiro commit: NÃO FEITO
+▸ 5/6  12 de 12 · 4 não se aplica
+  AVISOS: git sem user.email nesta máquina — o primeiro commit NÃO foi feito.
+  régua: exit 0 — passou      gerador: exit 1
+```
+
+**Não é defeito do gerador, é a máquina** — e é a checagem funcionando:
+
+```bash
+git config --global -l
+# fatal: unable to read config file 'C:/Users/leona/.gitconfig': No such file or directory
+```
+
+Esta máquina não tem `.gitconfig` global; a identidade do rebar mora no `.git/config` do
+próprio repositório. O gerador **se recusa a inventar um autor**: avisa, não commita, e sai
+1 mesmo com a régua verde. `coautoria-ia` e `identidade-git` viram N/A por não haver
+commit, e a nota cai de 14 para 12 no denominador — 12 de 12, não 12 de 14.
+
+#### Execução 2 — `linhak-motos`, pela segunda fonte de identidade
+
+```bash
+GIT_AUTHOR_NAME="…" GIT_AUTHOR_EMAIL="…" npx -y "git+file:///$ESPELHO" novo linhak-motos linhak.com.br
+```
+
+```
+▸ 4/6  primeiro commit: feito
+▸ 5/6  rebar-check · linhak-motos
+  ✓ editorconfig ✓ dependabot ✓ ci ✓ ci-gateia ✓ testes ✓ typecheck ✓ formatter
+  – env-example  ✓ licenca ✓ readme ✓ notice ✓ coautoria-ia ✓ identidade-git
+  ✓ ui-falso     – schema-orfao ✓ telefone
+  14 de 14 · 2 não se aplica
+  régua: exit 0 — passou      gerador: exit 0 — projeto completo
+```
+
+Conferido também com o checker do checkout, fora do gerador:
+
+```bash
+node ferramental/rebar-check/index.mjs "$TMP/linhak-motos"    # 14 de 14 · exit 0
+```
+
+#### O projeto gerado passa no próprio portão
+
+```bash
+cd "$TMP/linhak-motos" && npm run verificar     # lint && typecheck && test && build
+# ℹ tests 6 · pass 6 · fail 0
+# ✓ Compiled successfully in 12.3s · Finished TypeScript in 2.8s
+# ○  (Static)  prerendered as static content   — 5 rotas
+# exit 0
+```
+
+#### O build estático e o `og:image`
+
+```bash
+cd "$TMP/padaria-do-ze" && npx next build       # exit 0
+# ┌ ○ /  ├ ○ /_not-found  ├ ○ /manifest.webmanifest  ├ ○ /robots.txt  └ ○ /sitemap.xml
+# ○  (Static)  prerendered as static content
+
+grep -o '<meta property="og:[^>]*>' out/index.html
+# og:title · og:description · og:url · og:site_name · og:locale
+# og:image  content="https://padaria-do-ze.com.br/og.png"
+# og:image:width 1200 · og:image:height 630 · og:image:alt · og:type
+```
+
+`out/index.html` tem 15.255 bytes; `out/og.png`, 5.720 — gerado só com `node:zlib`, sem
+dependência. O `wa.me` sai **com destinatário**:
+`https://wa.me/5500000000000?text=Ola!%20Vim%20pelo%20site…`
+
+#### Conteúdo quebrado de propósito — 5 mutações, 5 builds exit 1
+
+É a §12.3 do plano exercida: identidade do negócio é **conteúdo validado no build**, não
+variável de ambiente. Uma mutação por vez em `conteudo/site.json`, `next build` em cada:
+
+| mutação | exit | o que o build disse |
+| --- | --- | --- |
+| `barra-no-fim` | 1 | `"site.meta.urlBase": esperava texto no formato https://dominio.com.br (sem barra no fim)` |
+| `telefone-pontuado` | 1 | `"site.identidade.whatsapp.e164": esperava texto no formato só dígitos, com DDI` |
+| `apaga-alt` | 1 | `"site.meta.og.alt": esperava texto, veio nada (campo ausente)` |
+| `campo-desconhecido` | 1 | `"site.meta": campo(s) que o esquema não conhece — "corDeFundo"` |
+| `descricao-curta` | 1 | `"site.meta.descricao": esperava texto com ao menos 50 caractere(s)` |
+| _restaurado_ | **0** | — |
+
+`5 de 5 mutações reprovaram o build`. Com env var, cada uma dessas subiria calada — que é
+exatamente o que aconteceu no PR `Navesz/Galegos#1`, e por que ele foi estacionado.
+
+#### O que o gerador NÃO faz, de propósito
+
+Criar o repositório remoto, ligar o ruleset e ligar o Pages. As três mexem na conta de
+quem roda, e ele imprime as três no passo 6 em vez de fazê-las.
+
 ---
 
 ## 5. O que FALTA
 
 ### 5.1 Bloqueante para o rebar ser usável
 
+_Remedido em 31/08/2026: as duas primeiras linhas saíram de "não existe"._
+
 | Item                           | Estado                                               |
 | ------------------------------ | ------------------------------------------------------ |
-| `npm create rebar` — o gerador | Não existe. Nenhum arquivo                             |
-| Presets `site` / `app` / `api` | Nenhum                                                 |
+| O gerador — `rebar novo`       | **EXISTE e roda.** §4.11. Não é `npm create rebar`: é subcomando do mesmo `bin`, porque é o que o `npx` resolve |
+| Preset `site`                  | **EXISTE e roda.** Next 16 SSG, conteúdo validado no build |
+| Presets `app` / `api`          | Nenhum, e são **não-escopo** até o `site` rodar sem modificação em dois sites |
 | MCP                            | `mcp/src/index.mjs`, 182 linhas, **nunca rodou**       |
 | `perfil.esquema.json`          | Não existe. O pipeline painel→perfil→gerador é prosa   |
 
@@ -521,19 +743,22 @@ bloqueante da §5.1 acima. De fato não existe, mas contá-lo duas vezes inflava
 A fonte dos dois ausentes existe: `alicerce/ferramental/contexto/ai.mjs` e
 `alicerce/ferramental/fronteiras/`.
 
-### 5.3 As duas decisões 🔴 vermelhas em aberto
+### 5.3 As duas decisões 🔴 vermelhas — FECHADAS, e exercidas
 
-**1 · Estratégia de renderização.** Vite + TanStack Router é SPA, e SPA **não entrega
-`og:image`** — WhatsApp, LinkedIn, Slack e Discord não executam JS. Bloqueante para o
-preset `site`, que é justamente o preset que o dono constrói. TanStack Start é candidato
-forte e está em Release Candidate, não GA.
+_Atualizado em 31/08/2026. Estavam abertas em 30/08 e travavam o preset `site`; foram
+fechadas nas §12.2 e §12.3 do PLANO e agora estão RODANDO, não só decididas._
 
-**2 · Origem do conteúdo** — hardcode · MD/MDX · CMS · banco. É literalmente o
-_"hardcoded"_ da queixa original que abriu o projeto, e não existe uma linha sobre isso no
-painel de decisões.
+**1 · Estratégia de renderização — fechada em Next 16 App Router com `output: "export"`.**
+O argumento que decidiu continua valendo: SPA **não entrega `og:image`**, porque WhatsApp,
+LinkedIn, Slack e Discord não executam JS. Exercido: o `out/index.html` do projeto gerado
+traz `og:image` absoluto com `width`/`height`/`alt` e **sem uma linha de JS** — §4.11.
+O preset `app` (Vite + TanStack Router) não é escopo agora.
 
-Nenhuma das duas tem data. Enquanto estiverem abertas, o preset `site` não pode ser
-escrito.
+**2 · Origem do conteúdo — fechada em `conteudo/*.json` validado no build.** A identidade
+do negócio (telefone, CNPJ, endereço) é **conteúdo validado**, não variável de ambiente.
+Exercido: 5 mutações no `conteudo/site.json`, 5 builds exit 1 — §4.11. O custo de errar
+esta é conhecido e tem número: no PR `Navesz/Galegos#1`, com env var, o `wa.me` subia sem
+destinatário e o cardápio parava de entregar pedido **em silêncio**.
 
 ### 5.4 Outras fronteiras abertas
 
@@ -562,11 +787,18 @@ node ferramental/rebar-check/index.mjs --json /caminho/...   # JSON; aceita vár
 node ferramental/rebar-check/index.mjs .                     # o próprio rebar
 npm run check                                                # idêntico à linha acima
 
+# o gerador — ESCREVE. Cria a pasta <nome> DENTRO DO CWD, então rode de onde
+# você quer o projeto, nunca de dentro do rebar. Por isso NÃO existe script npm
+# para ele: `npm run` roda sempre na raiz do pacote, e criaria rebar/<nome>.
+cd /onde/o/projeto/vai/morar
+npx github:Navesz/rebar novo <nome> [dominio]                       # o caminho do dono
+node /caminho/do/rebar/novo/index.mjs <nome> [dominio]              # o mesmo, do checkout
+
 # a sequência inteira
 npm run verificar        # 8 passos · exit 0
 
 # as provas do checker
-npm run provar           # 33 casos · exit 0
+npm run provar           # 50 casos · exit 0
 
 # formato
 npm run formato          # prettier --check .  → "All matched files use Prettier code style!"

@@ -1,0 +1,29 @@
+#!/bin/sh
+# Hook antes do commit — SÓ O QUE É RÁPIDO.
+#
+# Hook lento é hook desligado, e hook desligado verifica zero. O alvo é menos de
+# 5 segundos. Nada de typecheck, nada de teste, nada de build: isso é trabalho
+# do CI, que pode demorar porque ninguém está esperando na frente dele.
+#
+# Aqui mora a única coisa que precisa ser barrada ANTES de existir, porque
+# depois já é tarde: segredo, uma vez no histórico, exige ROTAÇÃO da credencial,
+# e o commit seguinte não desfaz isso.
+#
+# A outra metade — trailer de coautoria de IA — é barrada pelo hook commit-msg,
+# que roda com a mensagem na mão e impede o trailer de ENTRAR. Num repositório
+# que nasce com os dois hooks instalados, impedir a entrada basta; varrer o
+# histórico inteiro a cada commit é o trabalho que a régua do rebar faz no CI.
+#
+# Instale com: node .githooks/instalar.mjs
+# Pule uma vez com: git commit --no-verify
+
+set -e
+
+RAIZ=$(git rev-parse --show-toplevel)
+cd "$RAIZ"
+
+# Só o que está em stage, não o repositório inteiro: é o que este commit está
+# prestes a acrescentar, e é o que cabe no orçamento de tempo.
+node .githooks/varrer-segredo.mjs --staged
+
+exit 0

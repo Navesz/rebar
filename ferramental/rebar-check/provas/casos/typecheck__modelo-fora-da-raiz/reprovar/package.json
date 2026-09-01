@@ -1,0 +1,7 @@
+{
+  "name": "gerador-com-modelo",
+  "private": true,
+  "scripts": {
+    "formatar": "prettier --write ."
+  }
+}

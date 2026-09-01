@@ -1,0 +1,7 @@
+{
+  "regra": "typecheck",
+  "porque": "MODELO NAO E PRODUTO, a mesma licao do caso.json um andar acima. Um repositorio que carrega o gerador carrega tambem os .tsx que o gerador COPIA para dentro do projeto criado — arquivos que nao sao compilados aqui, que nao tem tsconfig aqui, e que fizeram o proprio rebar cair de 11 de 11 para 11 de 13 assim que novo/ foi rastreado (medido em 2026-08-31 num espelho do repositorio em os.tmpdir()). O lado aprovar tem o marcador modelo.json na raiz de modelo e a regra sai do denominador; o lado reprovar e a MESMA arvore sem o marcador, e a regra acusa. Quem apagar a exclusao faz o aprovar ficar vermelho; quem transformar a exclusao em bypass incondicional faz o reprovar ficar verde.",
+  "aprovar": {
+    "estado": "na"
+  }
+}

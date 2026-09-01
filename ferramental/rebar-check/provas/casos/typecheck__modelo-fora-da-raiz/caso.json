@@ -1,0 +1,7 @@
+{
+  "regra": "typecheck",
+  "porque": "A FECHADURA da exclusao de modelo, que e o que separa uma porta de saida de um bypass. O marcador so vale quando o prefixo dele e EXATAMENTE uma raiz de modelo conhecida. No lado aprovar ele esta em novo/site/blocos/ e a arvore sai da avaliacao; no lado reprovar o mesmo arquivo esta um nivel abaixo, em novo/site/blocos/app/, e tem de ser RECUSADO — a arvore continua avaliada e a regra acusa. Sem essa travar, um modelo.json em qualquer pasta esconderia qualquer arvore, que foi exatamente o ataque de tres bytes que o caso.json ja aceitou uma vez.",
+  "aprovar": {
+    "estado": "na"
+  }
+}
