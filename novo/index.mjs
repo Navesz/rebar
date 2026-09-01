@@ -396,6 +396,13 @@ async function main(argv) {
   eco('   3. Settings › Pages › Source: GitHub Actions, se este site vai ao ar.')
   eco('   4. conferir .rebar-coautores: entrou a identidade do git desta máquina.')
   eco('')
+  // Declarado em vez de apagado: sao pastas de TERCEIRO e o padrao do nome pode
+  // mudar na proxima release deles. Apagar as cegas um `shadcn-*` no tmpdir e
+  // apagar o que a gente nao sabe o que e. Mas o dono vai ver o lixo e atribuir
+  // ao gerador, entao o honesto e dizer de quem e.
+  eco('  O `shadcn create` deixa 2 diretórios `shadcn-*` no seu Temp por execução.')
+  eco('  É lixo dele, não do rebar, e some com uma limpeza de temporários.')
+  eco('')
 
   if (avisos.length) {
     eco('  AVISOS:')

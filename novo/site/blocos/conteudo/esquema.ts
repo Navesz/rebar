@@ -291,12 +291,51 @@ const UM_DIGITO_SO = /^(\d)\1+$/
  * em dente — o aviso do gerador pedia para trocar, agora o build cobra.
  */
 function hostDeMentira(host: string): boolean {
-  const h = host.toLowerCase()
-  return (
-    /^(exemplo|example|dominio|domain|seudominio|meudominio|seusite|meusite)\./.test(h) ||
-    /\.(invalid|test|example|localhost)$/.test(h) ||
-    h === 'localhost'
-  )
+  const h = host.toLowerCase().replace(/\.$/, '')
+
+  // POR RÓTULO, NÃO POR PREFIXO. A versão anterior ancorava no INÍCIO do host,
+  // e a auditoria de 31/08 derrubou a defesa inteira com um subdomínio:
+  //
+  //   recusava  https://exemplo.com.br        · contato@exemplo.com.br
+  //   PASSAVA   https://www.exemplo.com.br    · contato@mail.exemplo.com.br
+  //   PASSAVA   https://seu-dominio.com.br    · seu@email.com
+  //
+  // Um `www.` na frente é o que qualquer pessoa escreve primeiro, então a
+  // defesa caía no caso mais comum. Agora o rótulo proibido conta em QUALQUER
+  // posição: `www.exemplo.com.br` tem "exemplo" entre os rótulos e é recusado.
+  const PROIBIDOS = new Set([
+    'exemplo',
+    'example',
+    'exemple',
+    'ejemplo',
+    'dominio',
+    'domain',
+    'seudominio',
+    'meudominio',
+    'seu-dominio',
+    'meu-dominio',
+    'seusite',
+    'meusite',
+    'seu-site',
+    'meu-site',
+    'email',
+    'e-mail',
+    'seuemail',
+    'seu-email',
+    'empresa',
+    'suaempresa',
+    'sua-empresa',
+    'teste',
+    'test',
+    'exemplo1',
+    'localhost',
+  ])
+  if (h.split('.').some((rotulo) => PROIBIDOS.has(rotulo))) return true
+
+  // Reservados pela RFC 2606: não resolvem nunca, em nenhum registrador.
+  if (/\.(invalid|test|example|localhost)$/.test(h)) return true
+
+  return false
 }
 
 // ── validadores de formato ────────────────────────────────────────────────
