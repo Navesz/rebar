@@ -408,6 +408,30 @@ const REGRAS = [
     },
   },
   {
+    // A MESMA COISA, SEM ASPAS — e este furo custou uma chave secreta da AWS
+    // atravessando o hook inteiro. A regra acima exige valor entre aspas, e
+    // `.env`, YAML, shell, Dockerfile e documentação escrevem sem. Medido:
+    // `AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` num .md
+    // em stage saía "nenhum achado", exit 0, e o commit entrava.
+    //
+    // Chave secreta da AWS é o pior caso possível: 40 caracteres base64 e
+    // NENHUM prefixo distintivo. O `AKIA` que a regra `aws-access-key-id` pega
+    // é o identificador PÚBLICO; o segredo que o acompanha não tem marca. Sem
+    // esta regra, a metade que importa passa.
+    //
+    // O que segura o falso positivo é o mesmo par de filtros da versão com
+    // aspas: o identificador tem de ser de classe de credencial, e o valor tem
+    // de parecer credencial. Mais 16 caracteres de mínimo, contra a versão com
+    // aspas que aceita 8 — sem as aspas não há delimitador, então o corte é
+    // mais caro e o piso sobe para compensar.
+    nome: 'credencial-atribuida-sem-aspas',
+    padrao: /([A-Za-z_$][A-Za-z0-9_$.-]{0,60})\s*[:=]\s*([A-Za-z0-9+/_=.~-]{16,})(?=[\s;,)\]}]|$)/g,
+    filtrar: (casamento) => {
+      const classe = classeDoIdentificador(casamento[1])
+      return classe !== null && valorDeCredencial(classe, casamento[2])
+    },
+  },
+  {
     nome: 'cabecalho-autorizacao',
     padrao:
       /\b(?:Authorization|Proxy-Authorization)\s*[:=]\s*["'`]?\s*(?:Bearer|Basic|Token)\s+[A-Za-z0-9+/=_.-]{12,}/gi,

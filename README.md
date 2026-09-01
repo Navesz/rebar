@@ -1,12 +1,14 @@
 # rebar
 
-**Faz código errado não passar.** Um checker que roda contra qualquer repositório, e um
-portão que barra o commit quando a regra é ignorada.
+**Faz código errado não passar.** Um checker que roda contra qualquer repositório, um
+portão que barra o commit quando a regra é ignorada, e um gerador que fabrica o próximo
+projeto já do lado certo da régua.
 
-Zero dependência em tempo de execução. Nunca escreve no repositório que audita.
+Zero dependência em tempo de execução. O checker nunca escreve no repositório que audita.
 
 ```bash
-npx github:Navesz/rebar .
+npx github:Navesz/rebar .                    # auditar o que já existe
+npx github:Navesz/rebar novo padaria-do-ze   # começar certo
 ```
 
 ---
@@ -45,7 +47,13 @@ npx github:Navesz/rebar <caminho>          # placar de um repositório
 npx github:Navesz/rebar <a> <b> <c>        # vários de uma vez, com resumo comparável
 npx github:Navesz/rebar --json <caminho>   # para CI
 npx github:Navesz/rebar --regra=ci <dir>   # uma regra só
+npx github:Navesz/rebar novo <nome> [dom]  # o gerador — ver "O gerador", abaixo
 ```
+
+`novo` é subcomando do mesmo `bin`, e não um segundo comando, porque é assim que o npx
+funciona: `npx github:Navesz/rebar novo meu-site` resolve o bin com o nome do pacote e
+entrega `novo` como primeiro argumento. Para auditar uma pasta que se chame literalmente
+`novo`, escreva `./novo`.
 
 Saída:
 
@@ -77,15 +85,19 @@ O `127` domina o `1`: não se acusa um repositório com uma régua que quebrou.
 
 ## O que ele checa
 
-**15 determinísticas** derrubam o exit code:
+**16 determinísticas** derrubam o exit code:
 
 `editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` ·
 `env-example` · `licenca` · `readme` · `notice` · `coautoria-ia` · `identidade-git` ·
-`ui-falso` · `schema-orfao`
+`ui-falso` · `schema-orfao` · `telefone`
 
 **5 heurísticas** só informam, e a separação é medida, não estética:
 
-`shadcn-completo` · `telefone` · `url-producao` · `hex-cru` · `idioma-unico`
+`conteudo-fora-do-codigo` · `shadcn-completo` · `url-producao` · `hex-cru` · `idioma-unico`
+
+```bash
+npx github:Navesz/rebar --json . | grep -c '"classe": "determinística"'   # 16
+```
 
 A regra ingênua de cor literal, medida num repositório real, deu **7 ocorrências e zero
 verdadeiros positivos** — cinco eram comentários documentando a própria regra. Regra
@@ -95,7 +107,7 @@ saída inteira.
 ### Toda regra nasce com dois casos
 
 ```bash
-npm run provar     # 47 casos · 21 de 21 regras com prova
+npm run provar     # 50 casos · 21 de 21 regras com prova
 ```
 
 Cada caso monta um repositório em miniatura num diretório temporário, com `git init`
@@ -126,6 +138,50 @@ npm run verificar        # os 8 passos, um comando
 npm run instalar-hooks   # aponta core.hooksPath para ferramental/hooks
 ```
 
+## O gerador
+
+```bash
+npx github:Navesz/rebar novo padaria-do-ze padaria-do-ze.com.br
+```
+
+Seis passos: valida o nome, chama `shadcn create` (Next 16 App Router, React 19.2.4,
+Tailwind 4, `@base-ui/react`, **zero Radix**), aplica o preset `site` por cima, aplica o
+portão por cima do preset, faz `git init` + hooks + primeiro commit, e **roda a régua no
+que acabou de criar, imprimindo o placar**. Um gerador que fabrica projeto reprovado é um
+gerador que fabrica dívida, então o placar sai na tela mesmo quando é ruim — e o exit do
+gerador é o exit da régua.
+
+Ele **não escreve aplicação**. O scaffold é do shadcn de propósito: manter uma cópia
+própria dele seria mantê-la em dia para sempre, e ela apodreceria na primeira release
+deles. O que o gerador põe é o que o shadcn não põe.
+
+Medido em 31/08/2026, rodando de ponta a ponta com rede, num `os.tmpdir()`:
+
+| | |
+|---|---|
+| régua sobre o projeto gerado | **14 de 14** · 2 n/a · exit 0 |
+| `npm run verificar` dentro dele | lint + typecheck + **6/6** testes + build · exit 0 |
+| `npx next build` | exit 0, **5 rotas** `prerendered as static content` |
+| `out/index.html` | 15.255 bytes, com `og:image` absoluto e **sem uma linha de JS** |
+| conteúdo quebrado de propósito | **5 mutações, 5 builds exit 1** |
+
+O preset `site` é Next com `output: "export"` publicado no GitHub Pages — SSG, porque SPA
+não entrega `og:image`: WhatsApp, LinkedIn, Slack e Discord não executam JS.
+
+**A identidade do negócio é conteúdo validado no build, não variável de ambiente.** Fica
+em `conteudo/site.json`, com esquema em TypeScript puro que roda no `next build`. A decisão
+tem preço conhecido: no PR `Navesz/Galegos#1`, com env var, o `wa.me` subia sem
+destinatário e o cardápio parava de entregar pedido **em silêncio**. Aqui ele não sobe:
+
+```
+ErroDeConteudo: conteudo/site.json inválido em "site.identidade.whatsapp.e164":
+  esperava texto no formato só dígitos, com DDI (ex.: 55 + DDD + número),
+  veio "(11) 98888-7777".
+```
+
+O que o gerador **não** faz, de propósito, porque mexe na conta de quem roda: criar o
+repositório remoto, ligar o ruleset e ligar o Pages. Ele imprime as três no fim.
+
 O `verificar` não tem campo `opcional` — a chave é recusada com exit 2. E `--passo=<nome>`
 imprime `PARCIAL`, lista o que não rodou e sai `3`, nunca `0`. Os dois são portas
 destrancadas que existiam no projeto anterior e que este se recusa a herdar.
@@ -136,14 +192,17 @@ Honesto, e medido:
 
 | | |
 |---|---|
-| O checker | **funciona** — 21 regras, 47 provas, rodado contra 19 repositórios |
+| O checker | **funciona** — 21 regras, 50 provas, rodado contra 19 repositórios |
 | O portão | **funciona** — CI verde nos dois sistemas, merge barrado com PR plantado |
 | Domínio de privilégio de banco | **provado** — 16 asserções contra PostgreSQL 17 real |
-| `npm create rebar` (o gerador) | **não existe** |
-| Presets `site` / `app` / `api` | **não existem** |
+| O gerador (`rebar novo`) | **funciona** — rodado de ponta a ponta, projeto 14 de 14 |
+| Preset `site` | **funciona** — Next 16 SSG, `og:image` no HTML, conteúdo validado no build |
+| Presets `app` / `api` | **não existem**, e são não-escopo até o `site` rodar em dois sites |
+| MCP (`mcp/src/index.mjs`) | **nunca rodou** |
 
-O rebar tira **11 de 11** na própria régua. Isso não é motivo de orgulho — é o mínimo para
-ter autoridade de exigir dos outros.
+O rebar tira **12 de 12** na própria régua — 11 de 11 enquanto `novo/` não estiver
+rastreado, porque a régua lê `git ls-files` e não enxerga arquivo fora do índice. Isso não
+é motivo de orgulho: é o mínimo para ter autoridade de exigir dos outros.
 
 Detalhe completo, com o comando que reproduz cada número, em **[ESTADO.md](ESTADO.md)**.
 
@@ -170,9 +229,28 @@ npm run instalar-hooks
 npm run verificar
 ```
 
-Node ≥ 22. O `index.mjs` importa só built-ins — é o que faz o `npx` funcionar sem instalar
-nada, e a fronteira é deliberada: zero dependência é propriedade do que **confere**, não do
-que se confere.
+O gerador **não** tem script npm, de propósito: ele cria a pasta dentro do diretório atual,
+e `npm run` roda sempre na raiz do pacote — criaria `rebar/meu-site`. Do checkout, chame o
+arquivo, de onde o projeto vai morar:
+
+```bash
+cd ~/projetos && node /caminho/do/rebar/novo/index.mjs meu-site meu-site.com.br
+```
+
+Node ≥ 22. O `index.mjs` e o `novo/index.mjs` importam só built-ins — é o que faz o `npx`
+funcionar sem instalar nada, e a fronteira é deliberada: zero dependência é propriedade do
+que **confere**, não do que se confere. O gerador não abre exceção: ele chama o `shadcn`
+resolvendo o `npx-cli.js` que mora ao lado do `process.execPath` e passando os argumentos
+como vetor, sem `shell: true` — `npx` no Windows é `npx.cmd`, e `execFileSync('npx', …)`
+falha lá com `ENOENT` sobre um arquivo que está no PATH. Foi o bug que quebrou o projeto
+anterior, e ele só não apareceu antes porque o CI de lá só rodava Linux.
+
+`novo/site/blocos/` e `novo/portao/arquivos/` são **modelo, não produto** — arquivos que o
+gerador copia para dentro do projeto criado. Cada uma das duas pastas tem um `modelo.json`
+que a tira da avaliação do rebar-check, e a contagem sai impressa no placar. Sem isso, os
+cinco `.tsx` de exemplo faziam a regra `typecheck` enxergar aqui um projeto TypeScript sem
+compilador. Eles continuam sendo checados onde caem: no passo 5 do gerador, dentro do
+projeto gerado, com `tsconfig.json` em volta.
 
 Coautoria de IA é barrada por allowlist de humanos em [`.rebar-coautores`](.rebar-coautores).
 Enumerar humanos é uma lista curta e estável; enumerar agentes de IA é uma corrida que se

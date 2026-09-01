@@ -1,0 +1,56 @@
+{
+  "identidade": {
+    "nome": "Sua Empresa",
+    "whatsapp": {
+      "e164": "5500000000000",
+      "exibicao": "(00) 00000-0000"
+    },
+    "email": "contato@exemplo.com.br",
+    "endereco": {
+      "logradouro": "Rua Exemplo, 100",
+      "bairro": "Centro",
+      "cidade": "Sao Paulo",
+      "uf": "SP",
+      "cep": "01000-000"
+    }
+  },
+  "meta": {
+    "urlBase": "https://exemplo.com.br",
+    "idioma": "pt-BR",
+    "titulo": "Sua Empresa",
+    "gabaritoDeTitulo": "%s · Sua Empresa",
+    "descricao": "Troque este texto pela descricao real do negocio: e ela que aparece no Google e no preview de link do WhatsApp.",
+    "nomeCurto": "Empresa",
+    "atualizadoEm": "2026-08-31",
+    "cores": {
+      "tema": "#0f172a",
+      "fundo": "#ffffff"
+    },
+    "og": {
+      "caminho": "/og.png",
+      "largura": 1200,
+      "altura": 630,
+      "alt": "Cartao de compartilhamento de Sua Empresa"
+    }
+  },
+  "home": {
+    "titulo": "Sua Empresa",
+    "subtitulo": "Troque este subtitulo pelo que o negocio faz, em uma frase que um desconhecido entenda.",
+    "chamadaAcao": "Falar no WhatsApp",
+    "mensagemWhatsapp": "Ola! Vim pelo site e gostaria de mais informacoes.",
+    "destaques": [
+      {
+        "titulo": "Primeiro destaque",
+        "texto": "Troque por um motivo real de fechar com voce. Um paragrafo curto, sem promessa que nao se cumpre."
+      },
+      {
+        "titulo": "Segundo destaque",
+        "texto": "Troque por outro motivo. Tres destaques cabem na primeira tela sem rolagem em celular."
+      },
+      {
+        "titulo": "Terceiro destaque",
+        "texto": "Troque por outro motivo. Se nao houver um terceiro honesto, apague este item: a lista aceita de 1 a 6."
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "para": "novo/portao/aplicar.mjs — arquivos do portao, copiados para dentro do projeto gerado",
+  "porque": "Hook, workflow e teste de exemplo que viram arquivo do projeto gerado. Rastreados aqui, o `portao.test.mjs` entrava na conta de teste do rebar sem que nenhuma suite do rebar o rodasse. Sao checados onde caem: o passo 5 do gerador roda a regua no projeto, e o proprio projeto gerado roda `node --test`."
+}

@@ -6,7 +6,8 @@
     "node": ">=22"
   },
   "bin": {
-    "rebar": "ferramental/rebar-check/index.mjs"
+    "rebar": "ferramental/rebar-check/index.mjs",
+    "rebar-novo": "novo/index.mjs"
   },
   "scripts": {
     "verificar": "node ferramental/verificar/verificar.mjs",
