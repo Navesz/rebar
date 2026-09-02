@@ -12,3 +12,13 @@ NOTICE
 ferramental/rebar-check/provas/casos/
 
 node_modules/
+
+# ARTEFATO GERADO: quem manda nos bytes é o gerador, não o prettier. O
+# `mcp/regras.gerado.json` sai de `node mcp/gerar.mjs` em JSON.stringify(…, 2),
+# e o prettier recolhe array curto para uma linha — 79 KB em que os dois nunca
+# concordam. Com os dois mandando, o ciclo que este módulo existe para fechar
+# não fecha em um passo: mudar uma regra e regenerar deixava o `formato`
+# vermelho (medido: 1 passo reprovado logo depois de `node mcp/gerar.mjs`), e a
+# dica do passo `mcp` mandava rodar só o gerador. Ninguém lê o diff de 79 KB de
+# saída de máquina; o que confere o conteúdo dele é o passo `mcp`, semântico.
+mcp/regras.gerado.json

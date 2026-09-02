@@ -186,19 +186,64 @@ O `verificar` não tem campo `opcional` — a chave é recusada com exit 2. E `-
 imprime `PARCIAL`, lista o que não rodou e sai `3`, nunca `0`. Os dois são portas
 destrancadas que existiam no projeto anterior e que este se recusa a herdar.
 
+## O MCP, e o portão que o mantém em dia
+
+As regras precisam estar na memória da IA que escreve o código, não só no portão que a
+reprova depois. É para isso que existe o servidor MCP — e o defeito que ele existe para
+**não** repetir é concreto: num projeto anterior o MCP guardava as regras e ninguém o
+reescrevia quando elas mudavam, então ele servia a versão velha e nada acusava.
+
+Aqui o MCP **não é escrito à mão**. Ele é artefato gerado, como o `tsconfig` e o lint:
+
+```bash
+node mcp/gerar.mjs              # deriva mcp/regras.gerado.json de ferramental/rebar-check/index.mjs
+node mcp/gerar.mjs --verificar  # regenera EM MEMÓRIA, compara com o disco, sai 1 se divergir
+```
+
+O segundo comando é o **passo `mcp` do portão** — 5 de 11, ~200 ms. Mudar uma regra e
+esquecer o MCP virou impossível, e isso é reproduzível em quatro comandos:
+
+```bash
+sed -i "s/titulo: 'tem README',/titulo: 'tem README na raiz',/" ferramental/rebar-check/index.mjs
+node ferramental/verificar/verificar.mjs   # REPROVADO no passo `mcp`, nomeando o título que mudou
+node mcp/gerar.mjs                         # um comando
+node ferramental/verificar/verificar.mjs   # APROVADO 11 de 11
+```
+
+O artefato é **derivado, nunca duplicado**: ele não guarda cópia da regra, deriva da
+fonte, e grava o `sha256` de cada fonte que leu. Não há duas fontes para divergir.
+
+| | |
+| --- | --- |
+| `mcp/gerar.mjs` | 902 linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
+| `mcp/regras.gerado.json` | 78 KB · 22 regras · 8 níveis · 11 passos · 52 provas · 36 parágrafos de porquê |
+| `mcp/src/` | o servidor, 937 linhas. Lê o artefato; **nunca** lê o `index.mjs` |
+
+Cinco ferramentas: `rebar_regras`, `rebar_porque`, `rebar_decidir`, `rebar_portao`,
+`rebar_verificar`. Para ligar e para a prova de ponta a ponta, ver **[mcp/README.md](mcp/README.md)**.
+
+```bash
+cd mcp && npm install           # uma vez: mcp/ é pacote separado, a raiz segue com zero dependência
+node mcp/src/prova-cliente.mjs  # handshake, tools/list, 7 chamadas, e o servidor sem artefato
+node ferramental/rebar-check/index.mjs --mcp   # é o que o .mcp.json de um projeto gerado executa
+```
+
+**O MCP nunca é a porta.** A porta é o `verificar`, o hook e o CI. Chamar uma ferramenta
+daqui é atalho para não errar; nenhuma resposta dela autoriza nada.
+
 ## Estado
 
 Honesto, e medido:
 
 | | |
 |---|---|
-| O checker | **funciona** — 21 regras, 50 provas, rodado contra 19 repositórios |
+| O checker | **funciona** — 22 regras, 52 provas, rodado contra 19 repositórios |
 | O portão | **funciona** — CI verde nos dois sistemas, merge barrado com PR plantado |
 | Domínio de privilégio de banco | **provado** — 16 asserções contra PostgreSQL 17 real |
 | O gerador (`rebar novo`) | **funciona** — rodado de ponta a ponta, projeto 14 de 14 |
 | Preset `site` | **funciona** — Next 16 SSG, `og:image` no HTML, conteúdo validado no build |
 | Presets `app` / `api` | **não existem**, e são não-escopo até o `site` rodar em dois sites |
-| MCP (`mcp/src/index.mjs`) | **nunca rodou** |
+| MCP (`mcp/`) | **funciona, e o portão o mantém em dia** — 5 ferramentas, artefato derivado das 22 regras |
 
 O rebar tira **12 de 12** na própria régua — 11 de 11 enquanto `novo/` não estiver
 rastreado, porque a régua lê `git ls-files` e não enxerga arquivo fora do índice. Isso não

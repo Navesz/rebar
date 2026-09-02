@@ -52,6 +52,10 @@ máquina lê"**.
 5. **Manter o MCP vivo** — regra mudou, MCP se regenera, e o portão reprova se estiver velho.
 6. **Navegável por agente novo** sem ler tudo.
 
+O **nº 5 fechou em 01/09/2026** (§4.12): o MCP virou artefato gerado, e o passo `mcp` do
+portão regenera em memória e reprova se o disco divergir. Com ele, o **nº 3 ganhou a
+segunda metade** — o portão já ia no projeto gerado, o MCP passou a ir junto por ponteiro.
+
 ---
 
 ## 2. Os três princípios
@@ -400,12 +404,10 @@ mais caros estão na §10, linhas 8 e 9.
 | Item                              | Estado                                                                                        |
 | --------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `.github/workflows/verificar.yml` | 2.163 bytes, matriz windows-latest + ubuntu-latest. **Nunca executou** — o remoto está vazio      |
-| `mcp/src/index.mjs`               | 182 linhas. **Nunca rodou.** Não há teste, não há invocação                                       |
 | `rebar-backup-20260825/`          | Existe, e **não é repositório git** — é cópia solta de arquivos, sem `.git`                       |
 
 ```bash
 ls -l .github/workflows/verificar.yml    # 2163 bytes
-wc -l mcp/src/index.mjs                  # 182
 ls -d ../rebar-backup-20260825/.git      # No such file or directory
 ```
 
@@ -694,6 +696,89 @@ exatamente o que aconteceu no PR `Navesz/Galegos#1`, e por que ele foi estaciona
 Criar o repositório remoto, ligar o ruleset e ligar o Pages. As três mexem na conta de
 quem roda, e ele imprime as três no passo 6 em vez de fazê-las.
 
+### 4.12 PROVADO · O MCP que se regenera — o objetivo nº 5, fechado
+
+_Medido em 01/09/2026. Antes desta data o `mcp/` tinha 1.412 linhas no disco e **nunca
+tinha rodado**: as dependências nunca foram instaladas, nenhum passo do `verificar` o
+tocava e nenhuma regra o cobria. Ele servia PROSA do plano por seção._
+
+O defeito que este módulo existe para não repetir, nas palavras do dono: _"no Herz e no
+BMB Compras eu elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na
+memória"_ — e _"o MCP não era reescrito quando as regras de projeto foram modificadas"_.
+
+**O desenho, e é o da §7.2 do PLANO:** o MCP não é escrito à mão, é artefato GERADO;
+o portão regenera em memória e reprova se o disco divergir; e o artefato é derivado da
+fonte, nunca cópia dela.
+
+| Peça                      | O que é                                                                 |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `ferramental/rebar-check/index.mjs` | **A fonte.** 2.350 linhas, 22 regras, com o porquê medido de cada uma |
+| `mcp/gerar.mjs`           | **O gerador.** 902 linhas, **zero dependência**                          |
+| `mcp/regras.gerado.json`  | **O artefato.** 78 KB · 22 regras · 8 níveis · 11 passos · 52 provas     |
+| `mcp/src/`                | **O servidor.** 937 linhas, 5 ferramentas. Lê o artefato, nunca a fonte  |
+
+```bash
+node mcp/gerar.mjs              # mcp/gerar: escrito … · 22 regras · 8 níveis · 11 passos · 52 provas
+node mcp/gerar.mjs --verificar  # mcp/gerar --verificar: em dia · 22 regras · 4 fonte(s) conferida(s)
+node mcp/src/prova-cliente.mjs  # handshake, tools/list, 7 chamadas de tool, e o servidor sem artefato
+```
+
+**O ciclo que define o objetivo nº 5, rodado de ponta a ponta.** Muda-se uma regra de
+verdade — o título de `readme`, linha 1404 do `index.mjs` — e o portão acusa:
+
+```
+✗ mcp        4 erros  167 ms
+    - regras.readme.titulo = tem README                    (disco, velho)
+    + regras.readme.titulo = tem README na raiz do repositorio   (fonte, hoje)
+```
+
+`node mcp/gerar.mjs` — **um comando** — e o `verificar` volta a **APROVADO 11 de 11**.
+
+**Zero dependência, conferido no pior caso.** O portão de frescor roda no `verificar` da
+raiz e não pode exigir `mcp/node_modules`. Provado num clone em `tmpdir` com a pasta
+apagada: `--verificar` respondeu `em dia` (exit 0) e, com a regra mutada, `DIVERGIU`
+(exit 1) — nos dois casos sem uma única dependência instalada. O `git clone` também não
+traz `mcp/node_modules`: o `node_modules/` do `.gitignore` já o cobre em qualquer nível.
+
+**Custo medido do passo:** 175–213 ms em 5 rodadas (mediana 206 ms), contra 1,0 s do
+prettier e os segundos de `provas` e `auto`. Ele é o 5º de 11, depois de `sintaxe` —
+com o arquivo sem compilar, "o artefato divergiu" seria acusação falsa.
+
+**O que foi consertado nesta rodada**, porque estava entregue e não funcionava:
+
+1. **O ciclo não fechava em um comando.** O gerador escreve `JSON.stringify(…, 2)` e o
+   prettier recolhe array curto para uma linha: depois de `node mcp/gerar.mjs` o passo
+   `formato` ficava **vermelho**, e a dica do passo `mcp` mandava rodar só o gerador.
+   Eram dois donos dos mesmos bytes. O artefato entrou no `.prettierignore` — é saída de
+   máquina, e quem confere o conteúdo dele é o passo `mcp`, que compara FATO, não espaço
+   em branco.
+2. **`rebar --mcp` não existia.** Todo projeto gerado por `rebar novo` escreve um
+   `.mcp.json` que roda `.rebar/mcp.mjs`, que chama `rebar --mcp` — e o parser respondia
+   `opção desconhecida: --mcp`, saída 2. O ponteiro existia dos dois lados e o alvo não
+   respondia. O despacho entrou no `index.mjs`, ao lado do subcomando `novo`, e entrega o
+   stdio ao servidor com `stdio: 'inherit'`. Conferido de ponta a ponta: o `.mcp.json` de
+   um projeto gerado sobe o servidor e responde `tools/call`.
+
+**O objetivo nº 3 — "continuar impondo depois do dia 1" — tem agora as duas metades.** O
+portão já ia junto no projeto gerado; o MCP passou a ir também, por ponteiro. O projeto
+gerado **não** ganha MCP próprio, e a razão é a §7.2: ele tem zero regra própria, então um
+MCP local serviria uma **cópia** das 22 regras do rebar — que é o defeito do Herz outra vez.
+
+**O que fica parcial, e é dito aqui em vez de escondido:**
+
+- **`porque` de cabeçalho em 5 de 22 regras.** As outras 17 têm o porquê extraído do corpo
+  do `checar` ou do caso de prova (`0` regras ficaram sem nenhuma razão), mas a
+  classificação é posicional, não semântica: comentário de implementação pura entra junto,
+  rotulado `onde: "implementacao"`. A forma melhor é um campo `porque:` dentro de cada
+  regra — zero parsing, conferido pelo prettier —, e custa 22 edições no `index.mjs`.
+- **`npx --yes github:Navesz/rebar --mcp` não sobe o servidor** numa máquina sem checkout:
+  o `npx` instala só as dependências da raiz, e `mcp/` é pacote separado. A falha é
+  barulhenta e nomeia o conserto (`cd mcp && npm install`) e a alternativa sem MCP
+  (`--json`). Fechar isso de vez pede um servidor de zero dependência — o cliente de prova
+  já mostra que o protocolo cabe nisso, o servidor é que ainda usa o SDK.
+- **`perfil.json` continua não existindo.** A §7.2 derivava o MCP dele; a fonte legível por
+  máquina que existe hoje é o `index.mjs`, e é dele que o gerador deriva.
+
 ---
 
 ## 5. O que FALTA
@@ -707,7 +792,7 @@ _Remedido em 31/08/2026: as duas primeiras linhas saíram de "não existe"._
 | O gerador — `rebar novo`       | **EXISTE e roda.** §4.11. Não é `npm create rebar`: é subcomando do mesmo `bin`, porque é o que o `npx` resolve |
 | Preset `site`                  | **EXISTE e roda.** Next 16 SSG, conteúdo validado no build |
 | Presets `app` / `api`          | Nenhum, e são **não-escopo** até o `site` rodar sem modificação em dois sites |
-| MCP                            | `mcp/src/index.mjs`, 182 linhas, **nunca rodou**       |
+| MCP                            | **EXISTE, roda, e o portão o mantém em dia.** §4.12    |
 | `perfil.esquema.json`          | Não existe. O pipeline painel→perfil→gerador é prosa   |
 
 ```bash
