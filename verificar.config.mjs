@@ -903,6 +903,57 @@ export default [
     limite: 12,
   },
   {
+    // ── O PORTÃO DE FRESCOR DOS DOCUMENTOS ────────────────────────────────
+    //
+    // O mesmo defeito do passo `mcp`, no segundo lugar onde ele mora: o número
+    // escrito à mão que a fonte deixou para trás. Medido nesta árvore antes
+    // deste passo existir, só no README: `16 determinísticas` quando são 17,
+    // `50 casos` quando são 52, `21 de 21 regras com prova` quando são 22 de
+    // 22, `os 8 passos` quando são 12. E o ESTADO.md carregava QUATRO contagens
+    // diferentes de casos de prova — 13, 33, 47 e 50 — no mesmo arquivo, que
+    // abre admitindo ter errado número três vezes.
+    //
+    // Documentação errada não é cosmética aqui: o ESTADO.md se declara "o ponto
+    // de entrada de qualquer sessão nova", e o agente que lê "8 passos" e
+    // encontra 12 gasta a sessão descobrindo em quem acreditar — que é a mesma
+    // conta do passo `elos`, onde link quebrado faz a IA reescrever do zero.
+    //
+    // POSIÇÃO NA LISTA — três restrições, na ordem em que pesam:
+    //
+    //   1. DEPOIS de `sintaxe`, obrigatoriamente. O medidor IMPORTA o
+    //      `index.mjs` e este próprio config para contar regras e passos. Com
+    //      um deles sem compilar, "o documento divergiu" seria acusação falsa:
+    //      o defeito está uma casa acima.
+    //   2. DEPOIS de `mcp`, e por um motivo concreto: um dos fatos sai de
+    //      `mcp/regras.gerado.json`. Com o artefato velho, este passo acusaria
+    //      o README de estar errado quando quem está atrasado é o artefato — a
+    //      acusação apontando para quem não errou. Com `mcp` antes, o portão
+    //      reporta o PRIMEIRO passo caído, e o primeiro é o certo.
+    //   3. ANTES de `formato`, por custo medido: 335–354 ms em 5 rodadas
+    //      (mediana 348 ms, Windows 11, Node 24.13) contra 1,0 s do prettier e
+    //      os segundos de `provas` e `auto`.
+    //
+    // `avisar` NÃO É ENFEITE AQUI, e é o que impede este passo de ser um
+    // portão de mentira. Documento sem marcador nenhum é N/A, não reprovação —
+    // o mesmo `na()` do rebar-check —, então enquanto a marcação não estiver
+    // aplicada o passo passa conferindo ZERO números. A linha ⚠ do medidor diz
+    // exatamente isso, com a contagem, e `avisar` a imprime MESMO QUANDO O
+    // PASSO PASSA. O buraco aparece em toda rodada do `verificar` até alguém
+    // fechá-lo, em vez de ficar mudo atrás de um ✓ verde.
+    //
+    // `exige` lista SÓ o medidor, e a omissão dos documentos é deliberada, pela
+    // mesma razão do passo `mcp`: README e ESTADO são o SUJEITO da checagem,
+    // não a ferramenta. Se sumirem, quem tem de falar é o medidor, com exit 1.
+    nome: 'numeros',
+    comando: node('ferramental/numeros.mjs', '--verificar'),
+    exige: ['ferramental/numeros.mjs'],
+    dica: 'Um número do README ou do ESTADO não é mais o que a fonte diz — regenere com `node ferramental/numeros.mjs` e commite o documento JUNTO com a mudança que o desatualizou. Se a queixa for de marcador malformado, o conserto é no documento: o medidor não inventa marcação.',
+    extrair: /^\s*(erro|error|✗|✘|[-+] )/i,
+    avisar: /^\s*⚠/,
+    tempoLimite: 1 * MINUTO,
+    limite: 12,
+  },
+  {
     nome: 'formato',
     // O prettier é a ÚNICA dependência do repositório, e a fronteira é
     // deliberada: o `index.mjs` continua importando só built-ins, então

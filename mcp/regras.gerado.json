@@ -10,7 +10,7 @@
     },
     {
       "arquivo": "verificar.config.mjs",
-      "sha256": "e6b38c403d1ac7c74088aabaf0356f2b387092ee475ecfdf9fef2abbd0436960",
+      "sha256": "9b7132df1ab8f1a1de6cc9662695c0569945ba22d2a933443952bfb38a8053be",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -996,6 +996,17 @@
       },
       {
         "ordem": 7,
+        "nome": "numeros",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "ferramental/numeros.mjs",
+          "--verificar"
+        ],
+        "dica": "Um número do README ou do ESTADO não é mais o que a fonte diz — regenere com `node ferramental/numeros.mjs` e commite o documento JUNTO com a mudança que o desatualizou. Se a queixa for de marcador malformado, o conserto é no documento: o medidor não inventa marcação."
+      },
+      {
+        "ordem": 8,
         "nome": "formato",
         "tipo": "comando",
         "comando": [
@@ -1007,7 +1018,7 @@
         "dica": "Formatação não se discute, se roda: `npm run formatar`. Se o prettier não estiver aí, `npm ci`."
       },
       {
-        "ordem": 8,
+        "ordem": 9,
         "nome": "elos",
         "tipo": "comando",
         "comando": [
@@ -1017,7 +1028,7 @@
         "dica": "Link quebrado na documentação: a IA segue a referência, não acha, e reescreve do zero."
       },
       {
-        "ordem": 9,
+        "ordem": 10,
         "nome": "segredo",
         "tipo": "comando",
         "comando": [
@@ -1027,7 +1038,7 @@
         "dica": "Segredo não se corrige com commit novo — precisa rotacionar a credencial."
       },
       {
-        "ordem": 10,
+        "ordem": 11,
         "nome": "passos",
         "tipo": "comando",
         "comando": [
@@ -1038,7 +1049,7 @@
         "dica": "Um passo do verificar parou de pegar o que devia. O portao nao se prova sozinho — esta suite e quem o prova."
       },
       {
-        "ordem": 11,
+        "ordem": 12,
         "nome": "provas",
         "tipo": "comando",
         "comando": [
@@ -1048,7 +1059,7 @@
         "dica": "Uma regra do rebar-check parou de reprovar o que devia, ou passou a reprovar o que é correto."
       },
       {
-        "ordem": 12,
+        "ordem": 13,
         "nome": "auto",
         "tipo": "comando",
         "comando": [
