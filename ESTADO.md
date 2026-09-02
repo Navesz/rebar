@@ -6,27 +6,93 @@
 > **Revisão de 31/08/2026:** o gerador passou a existir e a rodar — §4.11. As seções 4.2,
 > 4.3 e 5.1 foram remedidas nesta data porque o gerador mudou o que elas contavam. O que
 > não foi remedido em 31/08 continua com a data e o número de 30/08, e está dito onde é.
+>
+> **Revisão de 02/09/2026:** os números deste arquivo **deixaram de ser digitados** — leia
+> a §0, que mudou por inteiro. Todo número que é propriedade desta árvore agora vem de
+> `node ferramental/numeros.mjs` e é conferido pelo passo `numeros` do `verificar`. O que
+> não é derivável ficou com a data ao lado, dizendo que é histórico.
 
 ---
 
 ## 0. A regra deste arquivo
 
-**Todo número vem com o comando que o reproduz.** Se o comando não cabe na linha, ele vai
-logo abaixo dela. Se não há comando, o número não entra — escreve-se `não medido`.
+**Nenhum número que seja propriedade desta árvore é digitado aqui.** Ele é derivado da
+fonte por `ferramental/numeros.mjs`, gravado entre marcadores invisíveis, e conferido a
+cada `npm run verificar`:
 
-Isto não é estilo. É a regra 3 do `CLAUDE.md` do alicerce aplicada ao próprio ESTADO: o
-rebar acusa os outros de terem decisão que mora onde nenhuma máquina lê, e um ESTADO com
-número sem procedência é exatamente isso.
+```bash
+node ferramental/numeros.mjs              # reescreve os números do README e deste arquivo
+node ferramental/numeros.mjs --verificar   # o passo `numeros` do portão: sai 1 se divergiu
+node ferramental/numeros.mjs --fatos       # o catálogo: cada fato, seu valor e sua fonte
+```
 
-**Este arquivo errou número três vezes nesta semana.** Disse "20 checagens" quando eram
-19; publicou um placar tirado de uma régua descalibrada, em que uma pasta vazia empatava
-com o rebar; e manteve uma tabela que soma 56 enquanto o texto ao lado dizia 55. A causa é
-estrutural e não vai embora: o arquivo é escrito à mão, e os números envelhecem em horas —
-nesta sessão o `verificar` foi de 6 para 8 passos e as provas de 15 para 33 casos.
-Registrar o defeito vale mais que a aparência de precisão. **Remeça antes de citar.**
+No markdown cru o número aparece assim, e o comentário HTML é invisível no GitHub:
 
-Toda medição abaixo foi refeita nesta sessão, com o comando que está ao lado dela. Onde
-uma afirmação veio de relato e não de execução, ela está marcada como **não medido**.
+    **<!--n regras.deterministicas-->17<!--/n--> determinísticas** derrubam o exit code
+
+O marcador **nomeia o fato**, então quem abre o arquivo cru para editar o número lê
+`regras.deterministicas` antes de tocar nele — o aviso mora no lugar exato onde a tentação
+acontece. E o medidor recusa marcador dentro de cerca de código, porque lá o comentário
+seria impresso literalmente: **cerca mostra o comando, a prosa ao lado mostra o número.**
+
+### Por que isto substituiu a regra anterior
+
+A regra anterior era boa e falhou. Ela dizia: _"todo número vem com o comando que o
+reproduz"_ — e continua valendo para o que **não** é derivável, mais abaixo. O que ela não
+conseguia era impedir que o número envelhecesse entre o dia em que foi medido e o dia em
+que alguém lê.
+
+**Este arquivo e o README erraram número SEIS vezes.** A versão anterior desta seção
+admitia três e prometia mais cuidado; o cuidado durou dois dias e vieram outras três:
+
+| # | Quando | O que estava escrito | O que era verdade |
+| --- | --- | --- | --- |
+| 1 | 30/08 | "20 checagens" | 19 |
+| 2 | 30/08 | placar tirado de uma régua descalibrada, em que uma pasta vazia empatava com o rebar | o N/A não estava fora do denominador |
+| 3 | 30/08 | uma tabela que soma 56, com o texto ao lado dizendo 55 | 56 |
+| 4 | 02/09 | README: "16 determinísticas", e a lista omitindo `hooks-executaveis` | 17 |
+| 5 | 02/09 | README: "50 casos · 21 de 21 regras com prova" | 52 casos · 22 de 22 |
+| 6 | 02/09 | README: "os 8 passos" do `verificar` | eram 12 naquele momento, e são 13 agora |
+
+E, ao lado dos seis, o defeito que os torna todos previsíveis: **este arquivo carregava
+QUATRO contagens diferentes de casos de prova — 13, 33, 47 e 50 — espalhadas pelo mesmo
+texto.** Das quatro, no máximo uma podia estar certa.
+
+**A causa é estrutural, e escrever com mais cuidado é a resposta que já falhou seis vezes.**
+Os números eram escritos à mão e a verdade muda a cada commit. Este repositório inteiro
+existe para dizer que regra em markdown tem cumprimento próximo de zero e regra em portão
+tem 100%; manter os próprios números em markdown era a exceção que a régua se dava.
+
+**A resposta desta vez não foi recontar. Foi tirar o número da mão humana** — a mesma
+doutrina que o `mcp/gerar.mjs` já tinha aplicado ao MCP, no §4.12:
+
+1. o fato é **derivado** da fonte, nunca digitado;
+2. **um comando regenera** — `node ferramental/numeros.mjs`;
+3. **um comando `--verificar`** compara com o disco e **reprova** se divergir;
+4. um **passo do `verificar`** roda esse `--verificar`, então commitar com documento velho
+   deixou de ser possível.
+
+O sétimo erro não vai depender de alguém lembrar. Vai ser um passo vermelho.
+
+### O que continua sendo escrito à mão, e por quê
+
+Nem todo número de um documento é um fato desta árvore. Um número entra no catálogo
+derivado se, e só se, passa nos três testes de `ferramental/numeros.mjs`: **(1)** é
+propriedade desta árvore agora; **(2)** muda quando o código muda, e só então — não com o
+relógio, e não pelo próprio ato de ser registrado; **(3)** tem derivação de uma linha, sem
+rede e sem rodar o produto.
+
+O que não passa fica escrito à mão, **com a data ao lado e dito que é histórico**:
+
+| Fica à mão | Por quê |
+| --- | --- |
+| "161 commits em seis repositórios", "8 de 9 credenciais reais passaram", o placar dos 19 repositórios da §4.8 | medição de **outra árvore**, outra máquina, outro dia. Derivar é impossível; sobrescrever seria apagar história, e a história é o que dá autoridade à regra |
+| a contagem de commits | falha o teste 2: o commit que grava "36" faz a contagem virar 37, e o CI, que roda **depois** do commit, ficaria vermelho para sempre. Fato que muda por ser registrado é portão que nunca fecha |
+| "13 de 13 na própria régua" | falha o teste 3: sai de **rodar** o `rebar-check`, e quem já o trava é o passo `auto`. Derivá-lo aqui duplicaria o passo mais caro do portão dentro do mais barato |
+| tamanhos em bytes, contagens de linha de `docs/`, cronometragens | medição de conveniência, remedida quando alguém mexe na seção. Cada uma leva a data da medição |
+
+Para esses vale a regra antiga, sem mudança: **o comando que reproduz vem junto**, e onde
+uma afirmação veio de relato e não de execução ela está marcada como **não medido**.
 
 ---
 
@@ -108,10 +174,11 @@ e cada linha de `Assumptions` vira asserção no fitness test.
 
 ### As três decisões travadas em 30/08
 
-**Prettier é a única dependência do repositório.**
+**Prettier é a única dependência do repositório.** São
+<!--n pacote.dependencias-->0<!--/n--> dependências de runtime e, em desenvolvimento, só <!--n pacote.dev-dependencias-->`prettier` 3.9.6<!--/n-->.
 
 ```bash
-cat package.json    # devDependencies: { "prettier": "3.9.6" } — uma entrada
+cat package.json    # o campo dependencies não existe; devDependencies tem uma entrada
 ```
 
 A fronteira é deliberada: `ferramental/rebar-check/index.mjs` continua importando só
@@ -136,12 +203,18 @@ identidades **humanas** aceitas; qualquer trailer `Co-authored-by:` fora da list
 Fica na raiz e não em `ferramental/` porque o `rebar-check` roda contra repositório de
 terceiro, e terceiro não tem `ferramental/`. Mesma família do `.rebarignore`.
 
-**O repositório é público, em `https://github.com/Navesz/rebar`.** Criado, e **vazio**.
+**O repositório é público, em `https://github.com/Navesz/rebar`.** Criado, empurrado e
+gateado — **não mais vazio, como este arquivo dizia até 02/09/2026.**
 
 ```bash
 git remote -v         # origin  https://github.com/Navesz/rebar.git
-git ls-remote origin  # exit 0, e ZERO refs — nada foi empurrado
+git ls-remote origin  # exit 0
 ```
+
+Medido em 02/09/2026: `git ls-remote origin` devolve **15 refs** — `HEAD`, `refs/heads/main`
+e 13 `refs/pull/*/head`. A `main` aponta para o mesmo commit que o `HEAD` local. Este é um
+número de **rede**, não desta árvore, e por isso fica à mão com a data: ele muda quando
+alguém abre um PR, sem que uma linha deste repositório mude.
 
 ---
 
@@ -150,12 +223,13 @@ git ls-remote origin  # exit 0, e ZERO refs — nada foi empurrado
 Dividido em **PROVADO** — tem teste que roda, e que rodei agora — e **EXISTE** — está no
 disco, e ninguém o exercita.
 
-### 4.1 PROVADO · Domínio de privilégio de banco — 16 de 16
+### 4.1 PROVADO · Domínio de privilégio de banco
+
+A suíte tem <!--n dominio.privilegio.testes-->16<!--/n--> asserções, e em 30/08/2026 as <!--n dominio.privilegio.testes-->16<!--/n--> passaram, `fail 0`, exit 0. O `duration_ms`
+varia a cada execução; o que vale é o par contagem/exit.
 
 ```bash
 cd dominios/privilegio-de-banco && npm test
-# tests 16 · suites 0 · pass 16 · fail 0 · exit 0
-# (o duration_ms varia a cada execução — o que vale é 16/16 e o exit 0)
 ```
 
 Contra PostgreSQL 17.2 **real**, não mock. Três identidades: `db_owner` (migrations) ·
@@ -182,7 +256,8 @@ Aqui falha fechado. Num desenho com `session_user` privilegiado — **o estado a
 prumo** — falharia **aberto**.
 
 **Conserto medido:** `SET LOCAL ROLE app` como primeira instrução da transação, no
-`UnitOfWork`. Dois dos 16 testes são exatamente esse par, e saíram verdes nesta medição:
+`UnitOfWork`. Dois dos <!--n dominio.privilegio.testes-->16<!--/n--> testes são exatamente
+esse par, e saíram verdes nesta medição:
 
 ```
 ✔ ACHADO · onConnect é barreira por conexão FÍSICA — RESET ROLE sobrevive ao release
@@ -195,82 +270,93 @@ Um terceiro documenta a fronteira que continua aberta:
 ✔ RLS · ACHADO CONHECIDO: o GUC de tenant é USERSET — app troca o próprio contexto
 ```
 
-### 4.2 PROVADO · `rebar-check` — 21 checagens, zero dependência
+### 4.2 PROVADO · `rebar-check` — <!--n regras.total-->22<!--/n--> checagens, zero dependência
 
-_Remedido em 31/08/2026._ `ferramental/rebar-check/index.mjs`. Roda em qualquer
-repositório, **nunca escreve**.
+_Remedido em 31/08/2026 · números derivados desde 02/09/2026._
+`ferramental/rebar-check/index.mjs`, <!--n linhas.rebar-check-->2.350<!--/n--> linhas.
+Roda em qualquer repositório, **nunca escreve**.
+
+São <!--n regras.deterministicas-->17<!--/n--> determinísticas e <!--n regras.heuristicas-->5<!--/n--> heurísticas, e as duas listas saem do array `REGRAS`
+exportado pelo próprio `index.mjs` — a mesma fonte de que o MCP deriva.
+
+**Não conte por `grep`.** Este arquivo já publicou "16 determinísticas" por causa disso: o
+grep de `classe: 'determinística'` devolve <!--n regras.deterministicas-->17<!--/n--> + 1
+hoje, porque casa também o comentário que explica a distinção. A contagem que vale é a do
+array, e ela é a que o marcador acima carrega:
 
 ```bash
-wc -l ferramental/rebar-check/index.mjs                                  # 2206
-grep -c "classe: *'determinística'" ferramental/rebar-check/index.mjs    # 17
-grep -c "classe: *'heurística'"     ferramental/rebar-check/index.mjs    # 5
+node ferramental/numeros.mjs --fatos                                        # o catálogo
+node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "determinística"'
+node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "heurística"'
 ```
 
-O grep de determinística devolve **17 e as regras são 16**: a linha 626 é o comentário que
-explica a distinção, não uma regra. **16 determinísticas + 5 heurísticas = 21.** Conferido
-também em tempo de execução, que é o número que vale:
+Determinísticas, e derrubam o exit code:
+<!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` · `env-example` · `licenca` · `readme` · `notice` · `hooks-executaveis` · `coautoria-ia` · `identidade-git` · `ui-falso` · `schema-orfao` · `telefone`<!--/n-->
 
-```bash
-node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "determinística"'   # 16
-node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "heurística"'       # 5
-```
+Heurísticas, e só informam:
+<!--n regras.lista-heuristicas-->`conteudo-fora-do-codigo` · `shadcn-completo` · `url-producao` · `hex-cru` · `idioma-unico`<!--/n-->
 
-Determinísticas, e derrubam o exit code: `editorconfig`, `dependabot`, `ci`, `ci-gateia`,
-`testes`, `typecheck`, `formatter`, `env-example`, `licenca`, `readme`, `notice`,
-`coautoria-ia`, `identidade-git`, `ui-falso`, `schema-orfao`,
-`conteudo-fora-do-codigo`, `telefone`.
-
-Heurísticas, e só informam: `shadcn-completo`, `url-producao`, `hex-cru`, `idioma-unico`.
+A versão anterior desta seção trocava as duas listas de lugar num ponto: dava
+`conteudo-fora-do-codigo` como determinística, quando ela é heurística, e omitia
+`hooks-executaveis` inteira. As duas listas acima passaram a ser derivadas justamente
+porque errar a **composição** é mais silencioso do que errar o total.
 
 `telefone` subiu de heurística a determinística em 2026-08-30, com o número que a promoveu
 escrito na própria regra: 1 verdadeiro e 0 falsos em 417 arquivos de código medidos.
 `url-producao` NÃO subiu, e o porquê também está lá — 6 acusações verdadeiras, das quais só
 2 são o defeito que o nome da regra promete.
 
-A separação é medida, e o motivo está escrito em `index.mjs:466-470`: a regra de cor
-literal ingênua deu 7 ocorrências e zero verdadeiros positivos no herz — cinco eram
+A separação é medida, e o motivo está escrito no cabeçalho da seção `as regras` do
+`index.mjs` — `grep -n "SETE ocorrências"`: a regra de cor literal ingênua deu 7
+ocorrências e zero verdadeiros positivos no herz, medidos em 30/08/2026, e cinco eram
 comentários documentando a própria regra.
 
-**O rebar na própria régua**, medido em 31/08/2026 com `novo/` ainda **não rastreado**:
+**O rebar na própria régua.** Medido em **02/09/2026**, já com `novo/` rastreado:
 
 ```bash
-node ferramental/rebar-check/index.mjs .
-# 11 de 11 · 5 não se aplica · exit 0
-# 227 arquivo(s) de caso de prova, fora da avaliação
-# 2 arquivo(s) de código fora das regras de conteúdo por serem teste
+node ferramental/rebar-check/index.mjs .     # é o passo `auto` do verificar
 ```
 
-Os 5 que não se aplicam: `ci-gateia` (o `package.json` não tem script de lint, typecheck
-nem test), `typecheck` (não tem TypeScript), `env-example` (não lê variável de ambiente do
-projeto — `NO_COLOR` e `CI` são do ambiente), `ui-falso` (não tem `components/ui/`) e
+| | |
+| --- | --- |
+| nota | **13 de 13** · 4 não se aplica · exit 0 |
+| casos de prova fora da avaliação | 261 arquivos |
+| modelo do gerador fora da avaliação | 22 arquivos · `novo/portao/arquivos/`, `novo/site/blocos/` |
+| código fora das regras de conteúdo por ser teste | 3 arquivos |
+
+**Este par de números fica à mão de propósito, com a data acima.** Ele sai de RODAR a
+régua, não de ler a fonte, e quem já o trava é o passo `auto` do `verificar` — derivá-lo em
+`numeros.mjs` criaria a segunda fonte que a §7.2 do plano proíbe e duplicaria o passo mais
+caro do portão dentro do mais barato. Ver §0.
+
+Os 4 que não se aplicam: `ci-gateia` (o `package.json` não tem script de lint, typecheck
+nem test), `typecheck` (não tem TypeScript), `ui-falso` (não tem `components/ui/`) e
 `schema-orfao` (nenhum `.schema.json`).
 
-**A nota conta só as determinísticas.** `11 de 11` é sobre as 16 determinísticas menos as 5
-que não se aplicam. As 5 heurísticas ficam fora do denominador e aparecem como aviso.
+**A nota conta só as determinísticas.** `13 de 13` é sobre as
+<!--n regras.deterministicas-->17<!--/n--> determinísticas menos as 4 que não se aplicam.
+As <!--n regras.heuristicas-->5<!--/n--> heurísticas ficam fora do denominador e aparecem
+como aviso.
 
-**Com `novo/` rastreado — o estado em que o dono vai commitar — a nota é OUTRA, e sobe.**
-A régua lê `git ls-files`: hoje ela não enxerga uma linha do gerador. Para medir o que vai
-acontecer sem tocar no `.git` deste repositório, montei um espelho da árvore de trabalho
-num `os.tmpdir()`, com `git init` próprio e tudo commitado:
+**O que mudou desde 31/08, e a previsão que se confirmou.** Naquela data `novo/` ainda não
+estava rastreado, a régua lia `git ls-files` e não enxergava uma linha do gerador: a nota
+era **11 de 11 · 5 n/a**, com 227 arquivos de caso fora da avaliação. Para prever o efeito
+de rastreá-lo sem tocar no `.git`, foi montado um espelho da árvore num `os.tmpdir()`, com
+`git init` próprio e tudo commitado, e ele deu **12 de 12 · 4 n/a**, com 318 arquivos
+rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)* arquivos rastreados, dos quais <!--n novo.arquivos-->26<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
+`hooks-executaveis`, que entrou depois.
 
-```bash
-# espelho: cpSync da árvore sem .git nem node_modules → git init → git add -A → commit
-node ferramental/rebar-check/index.mjs "$ESPELHO"
-# 318 arquivos rastreados · 24 em novo/
-# 12 de 12 · 4 não se aplica · exit 0
-# 20 arquivo(s) de modelo do gerador, fora da avaliação · novo/portao/arquivos/, novo/site/blocos/
-```
-
-`env-example` sai do N/A e passa a **PASSAR**: o gerador lê `GIT_AUTHOR_NAME` e
+`env-example` saiu do N/A e passou a **PASSAR**: o gerador lê `GIT_AUTHOR_NAME` e
 `GIT_AUTHOR_EMAIL` como segunda fonte da identidade do dono, e as duas estão documentadas
 no `.env.example`. A régua ficou mais exercida, não menos.
 
-**O que o gerador quebrou no caminho, e o conserto.** Na primeira medição do espelho o
-resultado era **11 de 13, exit 1**:
+**O que o gerador quebrou no caminho, e o conserto.** Na primeira medição do espelho, em
+31/08/2026, o resultado era **11 de 13, exit 1** — os três números desta tabela são daquele
+dia e descrevem um estado que não existe mais:
 
 | regra | sem o conserto | por quê |
 | --- | --- | --- |
-| `typecheck` | ✗ nenhum `package.json` rastreado tem script typecheck | os 5 `.tsx`/`.ts` de `novo/site/blocos/` |
+| `typecheck` | ✗ nenhum `package.json` rastreado tem script typecheck | os `.tsx`/`.ts` de `novo/site/blocos/` |
 | `env-example` | ✗ não documentadas: `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL` | `novo/index.mjs` |
 | `idioma-unico` | ⚠ comentários em pt (21) e en (3) | 3 comentários em português citando `User-Agent`, `<input type="file">`, `cat-file --batch` |
 
@@ -282,8 +368,10 @@ casos de prova, com a mesma disciplina: fechadura dupla e contagem impressa.
 - **Fechadura 1** — o prefixo tem de ser **exatamente** uma das raízes literais
   (`RAIZES_DE_MODELO`), não "começa com", não "qualquer pasta chamada blocos".
 - **Fechadura 2** — tem de existir um `modelo.json` rastreado, com `para` e `porque`.
-- **Contagem impressa** — a linha `20 arquivo(s) de modelo do gerador, fora da avaliação`
-  sai sempre, nomeando as raízes. Exclusão que não se vê é exclusão que ninguém confere.
+- **Contagem impressa** — a linha `N arquivo(s) de modelo do gerador, fora da avaliação`
+  sai sempre, nomeando as raízes; hoje o `N` é
+  <!--n novo.arquivos-modelo-->22<!--/n-->. Exclusão que não se vê é exclusão que ninguém
+  confere.
 
 Nada foi afrouxado: o `env-example` virou documentação de verdade, e os modelos continuam
 sendo checados **onde caem** — o passo 5 do gerador roda esta mesma régua dentro do projeto
@@ -297,29 +385,29 @@ entre crases antes do teste. Medido no espelho: `en` de **3 para 0**, e os três
 `index.mjs`, `varrer-segredo.mjs` e `novo/index.mjs`, todos com prosa em português. O caso
 de prova `idioma-unico` não tem uma crase e não muda por causa disto.
 
-### 4.3 PROVADO · As provas — 50 casos, 21 de 21 regras
+### 4.3 PROVADO · As provas — <!--n provas.casos-->52<!--/n--> casos, <!--n provas.cobertura-->22 de 22<!--/n--> regras
 
-_Remedido em 31/08/2026._
+_Remedido em 31/08/2026 · números derivados desde 02/09/2026._
+
+São <!--n provas.casos-->52<!--/n--> casos e <!--n provas.regras-com-prova-->22<!--/n--> regras com prova — cobertura <!--n provas.cobertura-->22 de 22<!--/n-->, sem regra descoberta. O runner conta as pastas
+de `ferramental/rebar-check/provas/casos/`, que é exatamente o que o medidor de números lê:
 
 ```bash
 npm run provar
-# 50 de 50 caso(s) bateram
-# 21 de 21 regras com prova
-# exit 0
-
-ls ferramental/rebar-check/provas/casos | wc -l    # 50
+ls ferramental/rebar-check/provas/casos | wc -l
 ```
 
-Dos 50, **dois são de 31/08 e travam a exclusão de modelo** descrita na §4.2:
+**Este arquivo carregava QUATRO contagens diferentes de casos — 13, 33, 47 e 50 — em
+seções diferentes do mesmo texto.** Todas as quatro sumiram: o número agora é um só,
+derivado, e o passo `numeros` reprova se ele envelhecer. É o caso que justificou a §0.
+
+Dos <!--n provas.casos-->52<!--/n-->, **dois são de 31/08 e travam a exclusão de modelo**
+descrita na §4.2. Rodando só a regra `typecheck`, em 02/09/2026, saíram 5 de 5:
 
 ```bash
 node ferramental/rebar-check/provas/provar.mjs typecheck
-# ✓ typecheck                      aprovar passou · reprovar reprovou
-# ✓ typecheck__modelo-do-gerador   aprovar na     · reprovar reprovou
-# ✓ typecheck__modelo-fora-da-raiz aprovar na     · reprovar reprovou
-# ✓ typecheck__nao-se-aplica       aprovar na     · reprovar na
-# ✓ typecheck__nome-em-portugues   aprovar passou · reprovar reprovou
-# 5 de 5 caso(s) bateram
+# ✓ typecheck · ✓ typecheck__modelo-do-gerador · ✓ typecheck__modelo-fora-da-raiz
+# ✓ typecheck__nao-se-aplica · ✓ typecheck__nome-em-portugues
 ```
 
 `__modelo-do-gerador` prova o mecanismo: a mesma árvore com e sem o `modelo.json` na raiz.
@@ -335,40 +423,60 @@ regra nova `conteudo-fora-do-codigo` eram os quatro que faltavam.
 
 **O formato das provas mudou, e a mudança é o conserto de um furo.** O runner lê agora o
 `estado` que a regra emite no `--json`, e não o exit code. O motivo está em
-`ferramental/rebar-check/provas/provar.mjs:74-95`: o `index.mjs` colapsa `passou` e `na` no
+o comentário `O ESTADO que cada lado tem de produzir` em `provas/provar.mjs`: o `index.mjs` colapsa `passou` e `na` no
 mesmo exit 0, então nenhum ramo "não se aplica" podia ser travado. É por isso que existem
 casos com sufixo `__nao-se-aplica`. O mesmo comentário registra que `quebrou` nunca pode
 ser esperado — crash é defeito do instrumento, não resultado dele.
 
-### 4.4 PROVADO · `verificar` — 8 de 8 passos
+### 4.4 PROVADO · `verificar` — <!--n verificar.passos-->13<!--/n--> passos
+
+_Remedido em 02/09/2026. Este arquivo dizia "8 de 8" e o README dizia "os 8 passos"; eram
+12 quando a contagem foi refeita, e são <!--n verificar.passos-->13<!--/n--> agora. A
+contagem passou a ser derivada do `default export` de `verificar.config.mjs`._
+
+Na ordem em que rodam:
+<!--n verificar.lista-passos-->`higiene` · `hooks` · `sintaxe` · `blocos` · `mcp-servidor` · `mcp` · `numeros` · `formato` · `elos` · `segredo` · `passos` · `provas` · `auto`<!--/n-->
 
 ```bash
 npm run verificar
-# VERIFICAR — APROVADO  8 de 8 passos · 15.7 s
-# ✓ higiene · hooks · sintaxe · formato · elos · segredo · provas · auto
-# exit 0
-
-grep -c "^\s*nome: '" verificar.config.mjs    # 8
 ```
 
-A duração varia de máquina e de cache: em 31/08/2026, com 50 casos de prova, duas
-execuções deram **13,5 s** e **15,7 s**, contra **51,9 s com 47 casos** em 30/08. A causa
-provável é a paralelização das fixtures no passo `provas`, mas **eu não cronometrei o passo
-isolado** nesta sessão — o que medi foi o total, com o comando acima.
+Em 02/09/2026: **APROVADO <!--n verificar.passos-->13<!--/n--> de <!--n verificar.passos-->13<!--/n--> passos · 22,3 s · exit 0.** A duração varia de máquina
+e de cache — em 31/08/2026, com 50 casos de prova e 8 passos, duas execuções deram **13,5
+s** e **15,7 s**, contra **51,9 s com 47 casos** em 30/08. A causa provável é a
+paralelização das fixtures no passo `provas`, mas **o passo isolado nunca foi
+cronometrado**; o que se mede é o total. Cronometragem é medição de máquina e fica à mão,
+com a data — ver §0.
 
-_Remedido em 31/08/2026 — os dois parágrafos abaixo são de 30/08 e continuam valendo._
+**Os cinco passos que entraram depois de 31/08**, e o que cada um cobre:
 
-Os dois primeiros passos são novos nesta sessão e conferem o **portão**, não o conteúdo:
-`higiene` (árvore limpa, índice sem `skip-worktree`) e `hooks` (`core.hooksPath` aponta
-para o lugar certo e os dois hooks estão lá).
+| Passo | Posição | O que ele barra |
+| --- | --- | --- |
+| `blocos` | <!--n verificar.posicao.blocos-->4 de 13<!--/n--> | sintaxe e `modelo.json` dos arquivos que o gerador copia para dentro de todo projeto criado — defeito aqui nasce replicado em todos eles |
+| `mcp-servidor` | <!--n verificar.posicao.mcp-servidor-->5 de 13<!--/n--> | o servidor MCP **sobe e responde ao protocolo**. Sem `mcp/node_modules` o passo QUEBRA (127), não reprova: ferramental faltando não é o repositório errando |
+| `mcp` | <!--n verificar.posicao.mcp-->6 de 13<!--/n--> | o artefato do MCP divergir da fonte — §4.12 |
+| `numeros` | <!--n verificar.posicao.numeros-->7 de 13<!--/n--> | um número deste arquivo ou do README divergir da fonte — §0 |
+| `passos` | <!--n verificar.posicao.passos-->11 de 13<!--/n--> | os passos que são **função** do portão, provados por mutação. `checarBlocos` entrou com 410 linhas e zero teste, e trocar o corpo por `return { codigo: 0 }` mantinha o `verificar` APROVADO |
 
-O `higiene` avisa sem reprovar quando a árvore está suja, e avisou nesta medição:
-`⚠ árvore com 1 alteração(ões) não commitada(s) — APROVADO não quer dizer árvore limpa`.
-A alteração era este próprio arquivo.
+Os dois primeiros passos conferem o **portão**, não o conteúdo: `higiene` (árvore limpa,
+índice sem `skip-worktree`, hash dos arquivos do portão contra o HEAD) e `hooks`
+(`core.hooksPath` aponta para o lugar certo e os dois hooks estão lá).
 
-Deliberadamente sem as duas portas destrancadas do original do alicerce: não existe campo
-`opcional` — `verificar.mjs` recusa a chave com exit 2 — e `--passo=` imprime PARCIAL e
-sai 3, nunca 0.
+**Nenhum passo é opcional** — o campo não existe, e `verificar.mjs` recusa a chave com exit
+2; `--passo=` imprime PARCIAL e sai 3, nunca 0. As duas portas destrancadas do original do
+alicerce ficaram de fora de propósito. Onde há afrouxamento ele é **dentro** do passo, e
+está dito:
+
+- `higiene` **só avisa** com a árvore suja fora do CI; dentro do CI reprova. Divergência de
+  hash que não aparece no `git status` reprova sempre — é a assinatura do `skip-worktree`.
+  Avisou nesta medição: `⚠ árvore com 4 alteração(ões) não commitada(s)`.
+- `hooks` — `core.hooksPath` **só avisa** dentro do CI, porque o runner não commita.
+- `numeros` — grupo de fato que a árvore não sabe derivar **só avisa**, nomeando o que
+  faltou.
+- `auto` — heurística **não entra no denominador**, sai como aviso.
+
+Os avisos não somem por serem avisos: o campo `avisar` de cada passo os imprime **mesmo
+quando o passo passa**, em seção própria abaixo do placar.
 
 ### 4.5 PROVADO · Hooks — instalados e ativos
 
@@ -393,8 +501,10 @@ Isto era, até esta sessão, o "próximo passo" deste documento. Já foi feito.
 
 ```bash
 node ferramental/elos/verificar-elos.mjs
-# [elos] 45 arquivos, nenhum link relativo quebrado. · exit 0
 ```
+
+Em 02/09/2026: **56 arquivos, nenhum link relativo quebrado, exit 0** — eram 45 em 30/08.
+A contagem é do varredor e não está no catálogo derivado; fica à mão, com a data.
 
 O `varrer-segredo.mjs` recebeu sete consertos documentados no próprio cabeçalho; os dois
 mais caros estão na §10, linhas 8 e 9.
@@ -403,15 +513,24 @@ mais caros estão na §10, linhas 8 e 9.
 
 | Item                              | Estado                                                                                        |
 | --------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `.github/workflows/verificar.yml` | 2.163 bytes, matriz windows-latest + ubuntu-latest. **Nunca executou** — o remoto está vazio      |
 | `rebar-backup-20260825/`          | Existe, e **não é repositório git** — é cópia solta de arquivos, sem `.git`                       |
 
 ```bash
-ls -l .github/workflows/verificar.yml    # 2163 bytes
 ls -d ../rebar-backup-20260825/.git      # No such file or directory
 ```
 
+**Saiu desta lista em 02/09/2026:** `.github/workflows/verificar.yml`. Ele **executou** — o
+remoto deixou de estar vazio, a matriz `windows-latest` + `ubuntu-latest` ficou verde e o
+merge foi barrado com PR plantado (§9, D+30). O tamanho que este arquivo publicava, 2.163
+bytes, também estava velho: em 02/09/2026 são **2.506**. Tamanho em bytes é medição de
+conveniência e fica à mão com a data — ver §0.
+
 ### 4.8 O placar — 19 repositórios da máquina
+
+_**Medição histórica de 30/08/2026**, e não foi refeita desde então. Nenhum número desta
+seção é derivável: eles são propriedade de **outras** árvores, na máquina do dono, e o
+medidor de números não sai deste repositório (§0). Se forem remedidos, a data acima muda
+junto — e não subtraia um número novo de um velho, pela ressalva do fim da seção._
 
 São **19** repositórios git, não 12. O ESTADO anterior deixou 7 de fora.
 
@@ -488,7 +607,7 @@ no segundo grupo. 4 + 1 + 8 + 6 = 19.
 > ⚠️ **A régua foi recalibrada em 30/08 e número velho não é comparável com número novo.**
 > A tabela anterior saía de uma régua em que `null` queria dizer duas coisas ao mesmo
 > tempo — "passou" e "não havia o que checar". Consequência medida, e registrada em
-> `ferramental/rebar-check/index.mjs:45-51`: uma pasta vazia com um `.git/` vazio tirava 8
+> o comentário do helper `na()` no `index.mjs`: uma pasta vazia com um `.git/` vazio tirava 8
 > de 14 e empatava com o rebar. O nada não conforma. Três consertos entraram juntos: o N/A
 > saiu do **denominador** (por isso a nota é percentual e o denominador varia por
 > repositório), o crash do git virou erro explícito em vez de aprovação silenciosa, e a
@@ -496,35 +615,48 @@ no segundo grupo. 4 + 1 + 8 + 6 = 19.
 
 ### 4.9 Tamanho do repositório
 
-```bash
-git ls-files | grep -v '^ferramental/rebar-check/provas/casos/' | wc -l    # 44
-```
-
-| Medida                                                           | Valor                                             |
-| ---------------------------------------------------------------- | ------------------------------------------------- |
-| Arquivos rastreados, fora os casos de prova                      | 44                                                |
-| Linhas de código não vazias (.mjs .cjs .js .ts .json .yml .yaml) | 5.957                                             |
-| Linhas de prosa não vazias (.md .txt)                            | 3.071                                             |
-| Razão prosa/código                                               | 0,52 — ou 1,94 linha de código por linha de prosa |
-| Commits                                                          | 13                                                |
-| Commits com trailer `Co-Authored-By`                             | 0                                                 |
+| Medida                                                           | Valor                                                        | Origem |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ | --- |
+| Arquivos rastreados                                              | 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)*                  | derivado |
+| Arquivos rastreados, fora os casos de prova                      | 79 *(medido em 02/09)*               | derivado |
+| Commits com trailer `Co-Authored-By`                             | <!--n git.commits-com-coautoria-->0<!--/n-->                  | derivado |
+| Primeiro commit                                                  | <!--n git.primeiro-commit-->2026-08-25 23:35:43<!--/n-->      | derivado |
+| Linhas de código não vazias (.mjs .cjs .js .ts .json .yml .yaml) | 14.727                                                        | medido em 02/09/2026 |
+| Linhas de prosa não vazias (.md .txt)                            | 3.997                                                         | medido em 02/09/2026 |
+| Razão prosa/código                                               | 0,27 — ou 3,68 linhas de código por linha de prosa            | medido em 02/09/2026 |
+| Commits                                                          | 36                                                            | medido em 02/09/2026 · **não derivável**, ver abaixo |
 
 ```bash
 git ls-files | grep -v '^ferramental/rebar-check/provas/casos/' \
   | grep -E '\.(mjs|cjs|js|ts|json|yml|yaml)$' | xargs grep -chv '^[[:space:]]*$' \
-  | awk '{s+=$1}END{print s}'                                  # 5957
-# a mesma linha com  \.(md|txt)$  no lugar da lista de extensões:   3071
-git rev-list --all --count                                     # 13
-git log --all --format='%B' | grep -icE 'Co-Authored-By:'      # 0
+  | awk '{s+=$1}END{print s}'
+# a mesma linha com  \.(md|txt)$  no lugar da lista de extensões
+git rev-list --all --count
+git log --all --format='%B' | grep -icE 'Co-Authored-By:'
 ```
+
+**A contagem de commits é o caso que define a fronteira do que pode ser derivado**, e ela
+falha o teste 2 da §0: se este documento gravasse `36` automaticamente, o commit que grava
+`36` faria a contagem virar `37`, e o CI — que roda **depois** do commit — ficaria vermelho
+para sempre. Fato que muda pelo próprio ato de ser registrado é portão que nunca fecha.
+Fica à mão, com a data. No lugar dele entraram dois números que só mudam quando alguém mexe
+no repositório: **arquivos rastreados** (o índice já reflete o `git add` antes do commit) e
+**commits com trailer de coautoria**, que a allowlist mantém em zero e que só sai de zero
+quando o invariante for violado — aí ficar vermelho é o certo.
 
 O zero é mais forte do que a política exige: não há trailer `Co-Authored-By` nenhum no
 histórico, nem de IA nem de humano.
 
-**A contagem de prosa inclui este arquivo**, então ela muda a cada edição do ESTADO. O
-valor acima foi medido com a versão que você está lendo já no disco.
+**A contagem de prosa inclui este arquivo**, então ela muda a cada edição do ESTADO. Os
+valores medidos acima são da versão que você está lendo já no disco — e é por isso que eles
+carregam a data em vez de fingirem estar sempre em dia. Os números anteriores, de 30/08
+(44 arquivos, 5.957 linhas de código, 3.071 de prosa, 13 commits), ficam aqui como
+referência de quanto o repositório cresceu em uma semana.
 
 ### 4.10 Documentos
+
+_Contagens medidas em **02/09/2026**. Linha de documento não está no catálogo derivado — é
+medição de conveniência, remedida quando alguém mexe nesta seção (§0)._
 
 ```bash
 wc -l docs/*.md
@@ -532,13 +664,15 @@ wc -l docs/*.md
 
 | Arquivo                     | Linhas                     | O quê                                                        |
 | --------------------------- | -------------------------- | ------------------------------------------------------------ |
-| `docs/PLANO.md`             | 912                        | Painel de decisões, forense dos seis sites, taxonomia N0–N7   |
+| `docs/PLANO.md`             | 1.115 (eram 912 em 30/08)  | Painel de decisões, forense dos seis sites, taxonomia N0–N7   |
 | `docs/STACK.md`             | 899                        | v1.2, com histórico de 0.1 a 1.2 (não "~780 linhas")          |
 | `docs/REVISAO-AGENTES.md`   | 528                        | Revisão por 6 agentes                                         |
 | `docs/RESPOSTA-REVISAO*.md` | 1.235 no total, 8 arquivos | As 8 rodadas com o revisor externo                            |
 
-**Uma referência de seção interna continua quebrada:** `docs/PLANO.md:892` aponta para
-`§2.3`, e a série 2.x do documento vai de `2.1` direto para o `§3`.
+**Uma referência de seção interna continua quebrada:** `docs/PLANO.md:1095` aponta para
+`§2.3`, e a série 2.x do documento vai de `2.1` direto para o `§3`. (A linha era a 892 em
+30/08; o alvo não mudou, o número da linha sim — mais uma razão para citar por conteúdo e
+não por posição.)
 
 ```bash
 grep -n '§2\.3' docs/PLANO.md
@@ -555,15 +689,19 @@ citação da documentação do PostgreSQL.
 
 ### 4.11 PROVADO · O gerador — `rebar novo`, rodado de ponta a ponta
 
-_Medido em 31/08/2026. Duas execuções completas, com rede, em `os.tmpdir()`._
+_As duas execuções de ponta a ponta são de **31/08/2026**, com rede, em `os.tmpdir()`, e
+não foram refeitas: tudo que este bloco relata sobre elas é histórico. As contagens de
+arquivo abaixo, essas sim, são derivadas e estão em dia._
 
-`novo/index.mjs` (405 linhas) · `novo/portao/aplicar.mjs` (391) · `novo/site/aplicar.mjs`
-(135) · `novo/site/og.mjs` (227) · 24 arquivos no total, dos quais 20 são modelo.
+O gerador anuncia <!--n novo.passos-->6<!--/n--> passos e `novo/` tem <!--n novo.arquivos-->26<!--/n--> arquivos, dos quais <!--n novo.arquivos-modelo-->22<!--/n--> são **modelo** — o que ele copia para dentro do
+projeto criado, e que por isso não é avaliado aqui. Sobram 4 de código próprio:
+`novo/index.mjs` (433 linhas) · `novo/portao/aplicar.mjs` (829) · `novo/site/aplicar.mjs`
+(239) · `novo/site/og.mjs` (227), 1.728 no total — contagem de linha medida em 02/09/2026,
+à mão (§0); eram 405/391/135/227 em 31/08.
 
 ```bash
 wc -l novo/index.mjs novo/portao/aplicar.mjs novo/site/aplicar.mjs novo/site/og.mjs
-# 1158 total
-find novo -type f | wc -l     # 24
+find novo -type f | wc -l
 ```
 
 #### Como o `npx` chega no gerador
@@ -712,16 +850,26 @@ fonte, nunca cópia dela.
 
 | Peça                      | O que é                                                                 |
 | ------------------------- | ----------------------------------------------------------------------- |
-| `ferramental/rebar-check/index.mjs` | **A fonte.** 2.350 linhas, 22 regras, com o porquê medido de cada uma |
-| `mcp/gerar.mjs`           | **O gerador.** 902 linhas, **zero dependência**                          |
-| `mcp/regras.gerado.json`  | **O artefato.** 78 KB · 22 regras · 8 níveis · 11 passos · 52 provas     |
-| `mcp/src/`                | **O servidor.** 937 linhas, 5 ferramentas. Lê o artefato, nunca a fonte  |
+| `ferramental/rebar-check/index.mjs` | **A fonte.** <!--n linhas.rebar-check-->2.350<!--/n--> linhas, <!--n regras.total-->22<!--/n--> regras, com o porquê medido de cada uma |
+| `mcp/gerar.mjs`           | **O gerador.** <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** |
+| `mcp/regras.gerado.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->81 KB<!--/n--> · <!--n mcp.artefato.regras-->22<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->52<!--/n--> provas |
+| `mcp/src/`                | **O servidor.** <!--n linhas.mcp-servidor-->937<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
+
+Os cinco números do artefato são conferidos por **dois** portões independentes: o passo
+`mcp` compara o artefato com a fonte, e o passo `numeros` compara esta tabela com o
+artefato. Um artefato velho reprova antes de esta linha ser acusada — é a ordem `mcp` →
+`numeros` do `verificar.config.mjs`, e ela existe para a acusação não apontar para quem não
+errou.
 
 ```bash
-node mcp/gerar.mjs              # mcp/gerar: escrito … · 22 regras · 8 níveis · 11 passos · 52 provas
-node mcp/gerar.mjs --verificar  # mcp/gerar --verificar: em dia · 22 regras · 4 fonte(s) conferida(s)
-node mcp/src/prova-cliente.mjs  # handshake, tools/list, 7 chamadas de tool, e o servidor sem artefato
+node mcp/gerar.mjs              # escreve o artefato
+node mcp/gerar.mjs --verificar  # o passo `mcp`: regenera em memória e compara com o disco
+node mcp/src/prova-cliente.mjs  # o passo `mcp-servidor`: sobe o servidor e fala o protocolo
 ```
+
+O `prova-cliente.mjs` faz, em 6 blocos: handshake, `tools/list`, sete `tools/call`, o
+servidor **sem** artefato, o snippet de `.mcp.json` do README, e a fonte adulterada para
+provar que o aviso de frescor cola em toda resposta.
 
 **O ciclo que define o objetivo nº 5, rodado de ponta a ponta.** Muda-se uma regra de
 verdade — o título de `readme`, linha 1404 do `index.mjs` — e o portão acusa:
@@ -732,7 +880,7 @@ verdade — o título de `readme`, linha 1404 do `index.mjs` — e o portão acu
     + regras.readme.titulo = tem README na raiz do repositorio   (fonte, hoje)
 ```
 
-`node mcp/gerar.mjs` — **um comando** — e o `verificar` volta a **APROVADO 11 de 11**.
+`node mcp/gerar.mjs` — **um comando** — e o `verificar` volta a APROVAR os <!--n verificar.passos-->13<!--/n--> passos.
 
 **Zero dependência, conferido no pior caso.** O portão de frescor roda no `verificar` da
 raiz e não pode exigir `mcp/node_modules`. Provado num clone em `tmpdir` com a pasta
@@ -740,9 +888,11 @@ apagada: `--verificar` respondeu `em dia` (exit 0) e, com a regra mutada, `DIVER
 (exit 1) — nos dois casos sem uma única dependência instalada. O `git clone` também não
 traz `mcp/node_modules`: o `node_modules/` do `.gitignore` já o cobre em qualquer nível.
 
-**Custo medido do passo:** 175–213 ms em 5 rodadas (mediana 206 ms), contra 1,0 s do
-prettier e os segundos de `provas` e `auto`. Ele é o 5º de 11, depois de `sintaxe` —
-com o arquivo sem compilar, "o artefato divergiu" seria acusação falsa.
+**Custo medido do passo:** 175–213 ms em 5 rodadas (mediana 206 ms) em 01/09/2026, contra
+1,0 s do prettier e os segundos de `provas` e `auto` — cronometragem é medição de máquina e
+fica à mão, com a data (§0). Ele é o <!--n verificar.posicao.mcp-->6 de 13<!--/n--> da
+lista, depois de `sintaxe` — com o arquivo sem compilar, "o artefato divergiu" seria
+acusação falsa.
 
 **O que foi consertado nesta rodada**, porque estava entregue e não funcionava:
 
@@ -762,15 +912,17 @@ com o arquivo sem compilar, "o artefato divergiu" seria acusação falsa.
 **O objetivo nº 3 — "continuar impondo depois do dia 1" — tem agora as duas metades.** O
 portão já ia junto no projeto gerado; o MCP passou a ir também, por ponteiro. O projeto
 gerado **não** ganha MCP próprio, e a razão é a §7.2: ele tem zero regra própria, então um
-MCP local serviria uma **cópia** das 22 regras do rebar — que é o defeito do Herz outra vez.
+MCP local serviria uma **cópia** das <!--n regras.total-->22<!--/n--> regras do rebar — que
+é o defeito do Herz outra vez.
 
 **O que fica parcial, e é dito aqui em vez de escondido:**
 
-- **`porque` de cabeçalho em 5 de 22 regras.** As outras 17 têm o porquê extraído do corpo
-  do `checar` ou do caso de prova (`0` regras ficaram sem nenhuma razão), mas a
-  classificação é posicional, não semântica: comentário de implementação pura entra junto,
-  rotulado `onde: "implementacao"`. A forma melhor é um campo `porque:` dentro de cada
-  regra — zero parsing, conferido pelo prettier —, e custa 22 edições no `index.mjs`.
+- **`porque` de cabeçalho em 5 de <!--n regras.total-->22<!--/n--> regras** (medido em
+  01/09/2026). As outras têm o porquê extraído do corpo do `checar` ou do caso de prova —
+  `0` regras ficaram sem nenhuma razão —, mas a classificação é posicional, não semântica:
+  comentário de implementação pura entra junto, rotulado `onde: "implementacao"`. A forma
+  melhor é um campo `porque:` dentro de cada regra — zero parsing, conferido pelo prettier
+  —, e custa <!--n regras.total-->22<!--/n--> edições no `index.mjs`.
 - **`npx --yes github:Navesz/rebar --mcp` não sobe o servidor** numa máquina sem checkout:
   o `npx` instala só as dependências da raiz, e `mcp/` é pacote separado. A falha é
   barulhenta e nomeia o conserto (`cd mcp && npm install`) e a alternativa sem MCP
@@ -801,25 +953,31 @@ find . -name "*.schema.json" -not -path "*/node_modules/*"
 ```
 
 **Correção de um erro do ESTADO anterior:** ele dizia que o CI do próprio rebar "reprova a
-si mesmo em 5 checagens". Não reprova. `npm run check` sai 11 de 11, 6 n/a, exit 0.
+si mesmo em 5 checagens". Não reprova. Em 02/09/2026, `npm run check` sai **13 de 13 · 4
+n/a · exit 0** (§4.2); em 30/08 saía 11 de 11 · 6 n/a, que é o número que este parágrafo
+publicava.
 
 ### 5.2 Os sete itens da §8.1 do PLANO — o que era para vir do alicerce
 
-Estado verificado no disco em 30/08.
+Estado verificado no disco em **02/09/2026**. Os tamanhos em bytes são medição de
+conveniência e ficam à mão, com esta data (§0).
 
 | Item da §8.1                                          | Estado real                                                                  |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `verificar/verificar.mjs`                             | **PRESENTE.** 34.566 bytes, rastreado. Reescrito, não portado. 8 passos        |
-| `segredo/varrer-segredo.mjs`                          | **PRESENTE.** 34.483 bytes, rastreado. Roda no `verificar` e no `pre-commit`   |
+| `verificar/verificar.mjs`                             | **PRESENTE.** 34.566 bytes, rastreado. Reescrito, não portado. Hoje com <!--n verificar.passos-->13<!--/n--> passos |
+| `segredo/varrer-segredo.mjs`                          | **PRESENTE.** 35.855 bytes, rastreado (eram 34.483 em 30/08). Roda no `verificar` e no `pre-commit` |
 | `elos/verificar-elos.mjs`                             | **PRESENTE.** 2.191 bytes, rastreado. Execução limpa                           |
 | `hooks/`                                              | **PRESENTE, e instalado.** 4 arquivos rastreados, `core.hooksPath` ativo       |
-| `ci/verificar.yml` como template                      | **PRESENTE.** `.github/workflows/verificar.yml`. Nunca executou                |
+| `ci/verificar.yml` como template                      | **PRESENTE.** `.github/workflows/verificar.yml`, e **já executou** — §9, D+30   |
 | `contexto/ai.mjs`                                     | **AUSENTE.** `ferramental/contexto/` não existe                                |
 | 15 presets de fronteira (web 7 + api 8) + 29 fixtures | **AUSENTE.** `ferramental/fronteiras/` não existe                              |
 
 ```bash
-ls ferramental    # elos  hooks  rebar-check  segredo  verificar — só isso
+ls ferramental    # elos  hooks  numeros.mjs  rebar-check  segredo  verificar
 ```
+
+`numeros.mjs` entrou em 02/09/2026 e não é item da §8.1: ele não veio do alicerce, nasceu
+aqui, do defeito da §0.
 
 **Sobram DOIS dos sete**, não três nem quatro: `contexto/ai.mjs` e os presets de fronteira.
 O `perfil.esquema.json`, que o ESTADO anterior somava aqui, não é item da §8.1 — ele é
@@ -863,7 +1021,13 @@ exata: **não medida** nesta sessão.
 
 ## 6. Como rodar
 
-Todos os comandos abaixo foram executados nesta sessão e funcionam.
+Todos os comandos abaixo foram executados em 02/09/2026 e funcionam. **Os números que eles
+imprimem não ficam nos comentários da cerca**, e a razão é concreta: o GitHub mostra a
+cerca literalmente, então um `# 50 casos` copiado junto com o comando entrega à pessoa um
+número que já não é o que ela vai ver na tela. Cerca mostra comando; o número vai na prosa
+ao lado, onde o passo `numeros` alcança. Hoje: <!--n verificar.passos-->13<!--/n--> passos
+no `verificar`, <!--n provas.casos-->52<!--/n--> casos no `provar`, <!--n dominio.privilegio.testes-->16<!--/n--> asserções no domínio de privilégio, e 56
+arquivos varridos pelo `elos` (este último medido à mão, §0).
 
 ```bash
 # o checker contra qualquer repositório
@@ -880,21 +1044,30 @@ npx github:Navesz/rebar novo <nome> [dominio]                       # o caminho 
 node /caminho/do/rebar/novo/index.mjs <nome> [dominio]              # o mesmo, do checkout
 
 # a sequência inteira
-npm run verificar        # 8 passos · exit 0
+npm run verificar
 
 # as provas do checker
-npm run provar           # 50 casos · exit 0
+npm run provar
+
+# os números deste arquivo e do README — não tem script npm, é chamada direta
+node ferramental/numeros.mjs              # reescreve
+node ferramental/numeros.mjs --verificar  # o passo `numeros` do portão
+node ferramental/numeros.mjs --fatos      # o catálogo
 
 # formato
 npm run formato          # prettier --check .  → "All matched files use Prettier code style!"
 npm run formatar         # prettier --write .  — ESCREVE nos arquivos
 
 # elos
-node ferramental/elos/verificar-elos.mjs      # 45 arquivos · exit 0
+node ferramental/elos/verificar-elos.mjs
 
 # domínio de privilégio (precisa do Postgres de pé)
-cd dominios/privilegio-de-banco && npm test   # 16/16 · exit 0
+cd dominios/privilegio-de-banco && npm test
 ```
+
+O `.md` está no `.prettierignore`, então o `formato` não toca nestes documentos: quem manda
+nos bytes dos números é o `numeros.mjs`, e dois donos dos mesmos bytes é o defeito que o
+artefato do MCP já pagou uma vez (§4.12).
 
 **Sobre o exit code do checker, porque é fácil errar:** ele sai **1** sempre que alguma
 regra determinística reprova, e isso vale igualmente para `--json`. Medido nesta sessão:
@@ -911,6 +1084,9 @@ Dois scripts existem e **não foram executados nesta medição**, por escreverem
 ---
 
 ## 7. Ambiente
+
+_Conferido em 30/08/2026, e não remedido desde então. Nada aqui é propriedade desta
+árvore — é a máquina do dono, e por isso nenhum número desta seção é derivável (§0)._
 
 ### PostgreSQL 17.2 — de pé, conferido campo a campo
 
@@ -938,8 +1114,8 @@ db_owner      db_owner   / owner_dev_only        ← não testado isoladamente
 runtime       app_login  / app_dev_only          ← não testado isoladamente
 ```
 
-As duas últimas identidades são exercitadas pela suíte de 16 testes, que passa. Isso as
-valida indiretamente, não diretamente.
+As duas últimas identidades são exercitadas pela suíte de <!--n dominio.privilegio.testes-->16<!--/n--> testes, que passa. Isso as valida
+indiretamente, não diretamente.
 
 Reiniciar — **comando não executado**, o servidor já estava no ar:
 
@@ -981,7 +1157,8 @@ os diretórios preservados.
    aceitou como dada — placar, contagem de regras, casos de prova, `verificar`, hooks,
    remoto, Postgres e os trechos de código citados na §10 foram todos reexecutados aqui.
 5. **Backup antes de mexer.** Existe em `rebar-backup-20260825/` — que é cópia solta de
-   arquivos, **não** repositório git — e nos 13 commits.
+   arquivos, **não** repositório git — e no histórico do git, hoje com 36 commits (medido
+   em 02/09/2026; eram 13 em 30/08, e a contagem fica à mão pela razão da §4.9).
 6. **A matriz de invariantes vale se for gerada a partir do código, não escrita antes
    dele.** Domínio fechado = Claim + Assumptions + mecanismo + teste positivo + teste
    hostil + modo de falha + rollback, **com os testes existindo e passando**.
@@ -990,12 +1167,18 @@ os diretórios preservados.
 
 ## 9. Critério de abandono
 
-Do plano, §9.7. **Primeiro commit: 2026-08-25 23:35:43.** Hoje é 30/08 — **D+5**.
+Do plano, §9.7. **Primeiro commit:
+<!--n git.primeiro-commit-->2026-08-25 23:35:43<!--/n-->** — a data é derivada, e é ela que
+ancora todos os marcos abaixo. Em 02/09/2026 o projeto está em **D+8**.
 
 ```bash
 git log --reverse --format='%ad %s' --date=iso | head -1
-# 2026-08-25 23:35:43 -0300 Importa o plano, a stack e as oito rodadas de revisao
+# … Importa o plano, a stack e as oito rodadas de revisao
 ```
+
+O "hoje" desta seção **não** é derivado, e a razão é a mesma da contagem de commits (§0,
+teste 2): um D+N calculado a cada execução mudaria sozinho, com o relógio, sem que uma
+linha do repositório mudasse — e o portão ficaria vermelho todo dia às zero hora.
 
 | Marco | Vence      | Critério literal                                                                   | Se falhar                         |
 | ----- | ---------- | ------------------------------------------------------------------------------------ | --------------------------------- |
@@ -1009,11 +1192,12 @@ git log --reverse --format='%ad %s' --date=iso | head -1
 **Não-escopo:** nenhum preset `app` ou `api` antes de o `site` ter sido usado **sem
 modificação** em dois sites.
 
-### D+7 — CUMPRIDO, e o prazo ainda nem venceu
+### D+7 — CUMPRIDO em 30/08/2026, antes de o prazo vencer
 
-O checker rodou nesta sessão contra **18 repositórios que não são o rebar** — 19 menos ele
+O checker rodou em 30/08/2026 contra **18 repositórios que não são o rebar** — 19 menos ele
 mesmo. Seis vezes o mínimo de 3, não quatro vezes como este arquivo dizia. O número que ele
-publicava, 12, estava errado. A tabela da §4.8 é a saída.
+publicava, 12, estava errado. A tabela da §4.8 é a saída, e é medição histórica de outras
+árvores (§0).
 
 ### D+30 — 1 de 2. O primeiro repositório está gateado de verdade
 
@@ -1071,23 +1255,29 @@ for r in <os 18>; do [ -d "$r/ferramental" ] && echo "$r"; done
 No `prumo` o ferramental do alicerce **gateia de verdade**:
 `prumo/.github/workflows/ci.yml:113` roda `npm run verificar`, e `prumo/ferramental/` tem 8
 diretórios — `contexto`, `controle`, `elos`, `fronteiras`, `hooks`, `portao`, `segredo`,
-`verificar`. Ou seja, a premissa "o alicerce nunca encostou em projeto real" é **falsa**, e
-ela sobrevive no cabeçalho de `ferramental/rebar-check/index.mjs` (linhas 4-5, ainda
-dizem "o alicerce morreu porque a imposição nunca encostou num projeto"). Na
-`docs/PLANO.md` §9.1 ela **já foi corrigida** em 30/08 — o comentário do código é o que
-falta. Encostou, e no repositório de nota mais alta fora da ferramenta (85%). O que o
+`verificar`. Ou seja, a premissa "o alicerce nunca encostou em projeto real" é **falsa**.
+Ela sobrevivia no cabeçalho de `ferramental/rebar-check/index.mjs`, e **isso foi
+consertado**: o cabeçalho hoje registra a própria correção — _"a versão antiga deste
+comentário dizia que ele morreu porque a imposição nunca encostou num projeto, e isso foi
+MEDIDO e é FALSO"_. Na `docs/PLANO.md` §9.1 já estava corrigido desde 30/08; este parágrafo
+cobrava o comentário do código, e a cobrança está paga (conferido em 02/09/2026). Encostou,
+e no repositório de nota mais alta fora da ferramenta (85%, medição de 30/08). O que o
 alicerce não fez foi **escalar**: 2 de 19. Esse é o diagnóstico defensável.
 
 ### D+60 — NÃO MENSURÁVEL AINDA
 
 O mecanismo de disparo existe: os hooks estão instalados e barram commit de verdade. Mas os
-13 commits do rebar não deixam rastro de uma checagem que tenha disparado e sido obedecida,
-e o critério fala de repositório do dono em geral, não do rebar. Sem evidência no disco.
+commits do rebar não deixam rastro de uma checagem que tenha disparado e sido obedecida, e
+o critério fala de repositório do dono em geral, não do rebar. Sem evidência no disco em
+02/09/2026.
 
 ### D+90 — NÃO MENSURÁVEL, falta a linha de base
 
-Hoje são 19 checagens; o teto de ≤50% seria 28. O segundo termo — "nº de repositórios
-usando" — está em **1**. Medir 19 repositórios não é ser usado por 19 repositórios.
+A linha de base do critério é a de 30/08/2026: **19 checagens**, teto de ≤50% em **28**.
+Hoje são <!--n regras.total-->22<!--/n-->, ainda abaixo do teto, e o marco só vence em
+23/11/2026 — compare o marcador com o 28 e a conta está feita. O segundo termo — "nº de
+repositórios usando" — está em **1**. Medir 19 repositórios não é ser usado por 19
+repositórios.
 
 ---
 
@@ -1096,23 +1286,28 @@ usando" — está em **1**. Medir 19 repositórios não é ser usado por 19 repo
 Esta seção existe para duas pessoas: a próxima sessão, que não deve reabrir buraco já
 fechado, e o próximo auditor, que deve começar de onde este parou.
 
-Cada linha é um ataque que foi **reproduzido** e depois fechado. O conserto está no código,
-com o comentário que registra a medição — os caminhos citados são onde ler, e todos foram
-abertos e conferidos nesta sessão.
+Cada linha é um ataque que foi **reproduzido** e depois fechado, entre 30/08 e 31/08/2026.
+Os números dentro da tabela são daquela medição e ficam como estão: são história, e a
+história é o que dá autoridade ao conserto (§0).
+
+**Os ponteiros para o código deixaram de ser número de linha em 02/09/2026.** Eles citavam
+`arquivo:48-81`, e a conferência desta data achou **9 de 16** apontando para a linha errada
+— o mesmo defeito das contagens, na mesma causa: o alvo se move e o documento não.
+Agora cada um nomeia o **bloco** ou traz o `grep` que o encontra, que é o que não envelhece.
 
 | #   | Ataque                                                                                                                                                                                                                                                                                                                                    | O que foi feito                                                                                                                                                                                                                                                                                 |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Forja de `--config`.** Seis passos `() => ({ codigo: 0 })` num config em `$TEMP` e `--config=` apontando para lá: saída byte-indistinguível de uma aprovação real, exit 0                                                                                                                                                                | O caminho do config e a raiz resolvida são **sempre impressos**, aprovado ou não; config que não é arquivo rastreado na árvore do git vira CONFIG EXTERNO e nunca sai 0; `--config=` vazio é exit 2. `ferramental/verificar/verificar.mjs:48-81`                                                 |
-| 2   | **`skip-worktree`.** `git update-index --skip-worktree verificar.config.mjs` + reescrever o arquivo no disco ⇒ `git status`, `git diff` e `git diff HEAD` todos vazios, e APROVADO na tela                                                                                                                                                 | Roda `git ls-files -v`, o único comando que enxerga, e traduz cada letra anômala — inclusive a minúscula, que é `assume-unchanged`, o irmão silencioso. `verificar.config.mjs:63-67` e `verificar.mjs:239-254`                                                                                   |
-| 3   | **Árvore suja saindo APROVADO.** 4 arquivos não commitados ⇒ APROVADO 6 de 6                                                                                                                                                                                                                                                              | Passo `higiene`, novo. "APROVADO" e "árvore limpa" são duas alegações independentes, e o portão só fazia uma. `verificar.config.mjs:341`                                                                                                                                                         |
-| 4   | **Avisos mudos.** `extrairErros` só rodava quando o passo **não** passava, então a stdout de passo aprovado era descartada — inclusive o "⚠ N arquivo(s) escondidos por .rebarignore", que é o único canal que denuncia régua desligada                                                                                                    | Campo `avisar`: RegExp por passo, extraída e impressa **mesmo quando o passo passa**, em seção própria abaixo do placar. `verificar.config.mjs:417`                                                                                                                                              |
-| 5   | **`caso.json` como bypass.** Um `caso.json` na raiz do repositório produz prefixo vazio, e `''.startsWith` casa com tudo: o repositório inteiro sumiria da avaliação com um arquivo de três bytes                                                                                                                                          | Marcador só vale sob `provas/casos/<caso>/`, nunca na raiz, e só com o schema mínimo. Marcador recusado vira **aviso nomeando o arquivo**. `index.mjs:241-262`                                                                                                                                   |
-| 6   | **`.rebarignore` não rastreado.** Arquivo solto no disco — ou escondido atrás de `.git/info/exclude` — cegava o checker sem entrar em diff, em review ou no `git status`                                                                                                                                                                   | A lista é lida do **git**, não do disco. Não rastreado é ignorado por inteiro, e o fato vira aviso. `index.mjs:265-300`                                                                                                                                                                          |
-| 7   | **`ehTeste` como terceiro bypass.** Arquivo de teste sai das regras de conteúdo; renomear uma pasta para `provas/` tirou o conteúdo dela de cinco regras **e** ainda satisfez `testes` — "2 de 8 + 2 avisos" virou "3 de 7 + 0 avisos", sem uma linha dizendo o que sumiu                                                                   | A exclusão é **contada e impressa** no placar, com amostra dos caminhos. `index.mjs:1016-1023` — a linha "2 arquivo(s) … por serem teste" do `npm run check` é essa contagem                                                                                                                     |
-| 8   | **Segredo lendo o disco em vez do índice.** `--staged` pegava os NOMES do índice e o CONTEÚDO do disco: lia um arquivo e commitava outro. Não é só ataque — acontece sozinho quando se edita depois do `git add`                                                                                                                           | Em `--staged` o conteúdo vem do **blob do índice**. O disco só é lido no modo normal. `varrer-segredo.mjs:17-21`                                                                                                                                                                                 |
-| 9   | **PLACEHOLDER desligando a linha inteira.** Medido: 8 de 9 credenciais **reais** passaram. O caso pior era `{ host: "localhost", token: "ghp_…" }`, linha que qualquer projeto escreve                                                                                                                                                     | O placeholder é testado contra o **trecho casado**, nunca contra a linha. Desligar a linha inteira só pelo escape hatch explícito `rebar-segredo-ok:`. `varrer-segredo.mjs:23-30`                                                                                                                |
+| 1   | **Forja de `--config`.** Seis passos `() => ({ codigo: 0 })` num config em `$TEMP` e `--config=` apontando para lá: saída byte-indistinguível de uma aprovação real, exit 0                                                                                                                                                                | O caminho do config e a raiz resolvida são **sempre impressos**, aprovado ou não; config que não é arquivo rastreado na árvore do git vira CONFIG EXTERNO e nunca sai 0; `--config=` vazio é exit 2. o bloco `FURO 3 — a forja de config` do `verificar.mjs`                                                 |
+| 2   | **`skip-worktree`.** `git update-index --skip-worktree verificar.config.mjs` + reescrever o arquivo no disco ⇒ `git status`, `git diff` e `git diff HEAD` todos vazios, e APROVADO na tela                                                                                                                                                 | Roda `git ls-files -v`, o único comando que enxerga, e traduz cada letra anômala — inclusive a minúscula, que é `assume-unchanged`, o irmão silencioso. `LEGENDA_LS_FILES` no `verificar.config.mjs` e o bloco `ls-files -v` do `verificar.mjs`                                                                                   |
+| 3   | **Árvore suja saindo APROVADO.** 4 arquivos não commitados ⇒ APROVADO 6 de 6                                                                                                                                                                                                                                                              | Passo `higiene`, novo. "APROVADO" e "árvore limpa" são duas alegações independentes, e o portão só fazia uma. `checarHigiene` no `verificar.config.mjs`                                                                                                                                                         |
+| 4   | **Avisos mudos.** `extrairErros` só rodava quando o passo **não** passava, então a stdout de passo aprovado era descartada — inclusive o "⚠ N arquivo(s) escondidos por .rebarignore", que é o único canal que denuncia régua desligada                                                                                                    | Campo `avisar`: RegExp por passo, extraída e impressa **mesmo quando o passo passa**, em seção própria abaixo do placar. o campo `avisar` de cada passo, no `verificar.config.mjs`                                                                                                                                              |
+| 5   | **`caso.json` como bypass.** Um `caso.json` na raiz do repositório produz prefixo vazio, e `''.startsWith` casa com tudo: o repositório inteiro sumiria da avaliação com um arquivo de três bytes                                                                                                                                          | Marcador só vale sob `provas/casos/<caso>/`, nunca na raiz, e só com o schema mínimo. Marcador recusado vira **aviso nomeando o arquivo**. o bloco `Onde um caso.json tem significado de marcador` do `index.mjs`                                                                                                                                   |
+| 6   | **`.rebarignore` não rastreado.** Arquivo solto no disco — ou escondido atrás de `.git/info/exclude` — cegava o checker sem entrar em diff, em review ou no `git status`                                                                                                                                                                   | A lista é lida do **git**, não do disco. Não rastreado é ignorado por inteiro, e o fato vira aviso. o bloco `Lido do GIT, não do disco` do `index.mjs`                                                                                                                                                                          |
+| 7   | **`ehTeste` como terceiro bypass.** Arquivo de teste sai das regras de conteúdo; renomear uma pasta para `provas/` tirou o conteúdo dela de cinco regras **e** ainda satisfez `testes` — "2 de 8 + 2 avisos" virou "3 de 7 + 0 avisos", sem uma linha dizendo o que sumiu                                                                   | A exclusão é **contada e impressa** no placar, com amostra dos caminhos. a linha `arquivo(s) de código fora das regras de conteúdo por serem teste` do `index.mjs` — a linha "2 arquivo(s) … por serem teste" do `npm run check` é essa contagem                                                                                                                     |
+| 8   | **Segredo lendo o disco em vez do índice.** `--staged` pegava os NOMES do índice e o CONTEÚDO do disco: lia um arquivo e commitava outro. Não é só ataque — acontece sozinho quando se edita depois do `git add`                                                                                                                           | Em `--staged` o conteúdo vem do **blob do índice**. O disco só é lido no modo normal. o conserto 1 do cabeçalho do `varrer-segredo.mjs`                                                                                                                                                                                 |
+| 9   | **PLACEHOLDER desligando a linha inteira.** Medido: 8 de 9 credenciais **reais** passaram. O caso pior era `{ host: "localhost", token: "ghp_…" }`, linha que qualquer projeto escreve                                                                                                                                                     | O placeholder é testado contra o **trecho casado**, nunca contra a linha. Desligar a linha inteira só pelo escape hatch explícito `rebar-segredo-ok:`. o conserto 2 do cabeçalho do `varrer-segredo.mjs`                                                                                                                |
 | 10  | **Coautoria por enumeração.** A política era uma lista de 9 agentes de IA. Windsurf, ChatGPT, Cody, Codeium, Amazon Q e Tabnine entraram no histórico com trailer que o `git log --format=%(trailers)` reconhece: hook aprovando, exit 0 nos seis                                                                                          | Virou **allowlist de humanos** em `.rebar-coautores`, comparada por e-mail em caixa baixa, e o arquivo tem de estar rastreado. Enumerar agente é corrida que se perde toda semana                                                                                                                |
-| 11  | **Contrabando abaixo da tesoura.** Um `Co-authored-by:` escrito **depois** da linha de comentário `>8` que o git corta: o parser de trailer perdia, e o commit entrava                                                                                                                                                                     | `checar-mensagem.mjs` **não corta na tesoura** — usa `git stripspace --strip-comments` e depois `git interpret-trailers --parse`, nessa ordem. Medido nos dois lados: acha o trailer escondido e não gera falso positivo com o diff do `commit -v`. `ferramental/hooks/checar-mensagem.mjs:26-49` |
+| 11  | **Contrabando abaixo da tesoura.** Um `Co-authored-by:` escrito **depois** da linha de comentário `>8` que o git corta: o parser de trailer perdia, e o commit entrava                                                                                                                                                                     | `checar-mensagem.mjs` **não corta na tesoura** — usa `git stripspace --strip-comments` e depois `git interpret-trailers --parse`, nessa ordem. Medido nos dois lados: acha o trailer escondido e não gera falso positivo com o diff do `commit -v`. o bloco `SEGUNDO FURO: O CONTRABANDO ABAIXO DA TESOURA` do `checar-mensagem.mjs` |
 | 12  | **As provas liam exit code.** O `index.mjs` colapsa `passou` e `na` no mesmo exit 0, então nenhum ramo "não se aplica" podia ser travado. Medido: das **70 mutações** aplicadas ao `index.mjs`, **30 sobreviveram** com a suíte 15 de 15 verde — entre elas o helper `na()` e o `catch` do `git()`, os dois consertos mais caros do arquivo | Cada lado do caso declara um **estado** (`passou`/`reprovou`/`na`) e o runner o lê do `--json`. `quebrou` nunca pode ser esperado: crash é defeito do instrumento. `provas/provar.mjs:74-95`                                                                                                     |
 
 Três desses ataques têm o mesmo formato, e vale nomear o padrão: **portão aberto tem de ser
@@ -1121,7 +1316,7 @@ como saída legítima — o que mudou é que usá-los deixa marca impressa no pl
 
 Uma classe inteira de falso positivo também morreu nesta sessão: **"defeito procurado
 recursivamente, defesa procurada só na raiz"**. Está documentada em
-`ferramental/rebar-check/index.mjs:320-330`, que termina com "Cinco achados, cinco falsos":
+o comentário do `index.mjs` que termina com "Cinco achados, cinco falsos" (`grep -n "Cinco achados"`):
 `prumo`, `ducado` e `LinhaK` acusados de "components/ui/ sem components.json" tendo os três
 o arquivo rastreado, `openkartline` acusado de "sem prettier" com prettier declarado em
 `apps/web/package.json`, e `LinhaK` acusado também em `typecheck`. É parte do motivo de o placar novo não ser comparável com o velho.
@@ -1131,27 +1326,29 @@ o arquivo rastreado, `openkartline` acusado de "sem prettier" com prettier decla
 
 ## 11. Próximo passo
 
-Feito nesta sessão, e não é pouco: o rebar passa na própria régua (11 de 11), o `verificar`
-fechou 8 de 8, as provas foram de 15 para 47 casos com um formato que trava os ramos N/A,
-os hooks foram instalados, e doze ataques foram fechados.
+_Reescrito em 02/09/2026. A lista anterior tinha o push e o ruleset como item 1; os dois
+foram feitos, e mantê-los aqui seria o mesmo defeito de número velho, um andar acima._
 
-O que falta é o que transforma isso em imposição de verdade, e o primeiro item não é código:
+Onde o repositório está, em 02/09/2026: o rebar passa na própria régua com **13 de 13 · 4
+n/a** (§4.2), o `verificar` fecha <!--n verificar.passos-->13<!--/n--> de <!--n verificar.passos-->13<!--/n--> passos, as provas são <!--n provas.casos-->52<!--/n--> casos cobrindo <!--n provas.cobertura-->22 de 22<!--/n--> regras, os hooks estão instalados, doze ataques
+estão fechados, e o repositório está empurrado, com CI verde nos dois sistemas e ruleset
+sem `bypass_actors` (§9, D+30).
 
-**1 · Empurrar o repositório e ligar o branch protection.** O remoto existe e está vazio —
-`git ls-remote origin` devolve zero refs. O relato da sessão diz que o push está travado
-porque o token do `gh` não tem escopo `workflow` e o repositório tem
-`.github/workflows/verificar.yml`; **não medi o escopo do token** — confira com
-`gh auth status` antes de agir. Sem push não há execução, sem execução não há link, e sem
-link o D+30 fica em zero. Depois do push, o ruleset no GitHub exigindo o check **por nome**:
-enquanto ele não existir, um agente apaga o `.yml` e o PR fica verde. É o N4s da §9.3 — o
-nível que só existe no servidor.
+O que falta é o que transforma isso em imposição de verdade, e o primeiro item continua não
+sendo código:
 
-**2 · Instalar o `rebar-check` no CI de dois repositórios que não são o rebar.** É a
-literalidade do D+30. Os dois candidatos óbvios são `prumo` (85%, já tem CI que gateia) e
-`openkartline` (62%, idem). Vence em **24/09/2026**.
+**1 · Instalar o `rebar-check` no CI de dois repositórios que não são o rebar.** É a
+literalidade do D+30, e é o único marco que ainda pode matar o projeto: o placar é **1 de
+2**. Os dois candidatos óbvios são `prumo` (85%, já tem CI que gateia) e `openkartline`
+(62%, idem) — as duas notas são de 30/08 (§4.8). Vence em **24/09/2026**.
 
-**3 · Fechar o domínio de isolamento de tenant**, que é onde está a única falha conhecida e
-documentada em teste.
+**2 · Fechar o domínio de isolamento de tenant**, que é onde está a única falha conhecida e
+documentada em teste (§5.4).
 
-Os dois itens ausentes da §8.1 — `contexto/ai.mjs` e os presets de fronteira — e o gerador
-ficam **depois** disso. Ordem travada: consumidor antes do gerador.
+**3 · Os dois itens ausentes da §8.1** — `contexto/ai.mjs` e os presets de fronteira. Ficam
+**depois** dos dois acima. Ordem travada: consumidor antes do gerador, e imposição antes de
+ferramenta nova.
+
+**4 · O `porque:` como campo da regra**, em vez de comentário extraído por posição (§4.12).
+São <!--n regras.total-->22<!--/n--> edições no `index.mjs`, e tiram a última heurística de
+posição que sobrou no gerador do MCP.

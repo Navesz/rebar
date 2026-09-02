@@ -299,6 +299,176 @@ test('REPROVA · artefato apagado, e com exit 1, não 127', { skip: RAZAO_DO_SKI
   assert.notEqual(r.codigo, 0, 'sem artefato nenhum o gerador disse que está tudo em dia')
 })
 
+// ────────────────────────── o passo `numeros` — portão de frescor dos documentos
+//
+// O MESMO defeito do passo `mcp`, no segundo lugar onde ele mora. Medido no
+// README antes de o medidor existir: `16 determinísticas` quando são 17, `50
+// casos` quando são 52, `21 de 21 regras com prova` quando são 22 de 22, `os 8
+// passos` quando são 12 — e o ESTADO.md com QUATRO contagens diferentes de
+// casos de prova (13, 33, 47 e 50) no mesmo arquivo.
+//
+// A prova roda um PROCESSO pelas mesmas três razões escritas acima para o passo
+// `mcp`, e elas valem palavra por palavra: o contrato entre as frentes é a CLI,
+// um export de módulo seria a segunda fonte que a §7.2 proíbe, e rodar o
+// processo exercita exatamente os bytes que o portão executa.
+//
+// A MUTAÇÃO QUE ESTAS PROVAS TÊM DE MATAR é `--verificar` passar a sair 0
+// sempre. Cada teste abaixo planta UM defeito e exige exit ≠ 0; um medidor
+// esvaziado derruba os cinco de uma vez, que é o ponto.
+//
+// A RAIZ TEMPORÁRIA É PARCIAL DE PROPÓSITO: entram o medidor, a fonte das
+// regras e o config do portão; ficam de fora `mcp/`, `novo/`, `dominios/`, o
+// `.git` e os 262 fixtures de `provas/casos/`. Isso exercita o N/A por grupo —
+// o medidor tem de dizer ⚠ sobre o que esta árvore não tem, e nunca DIVERGIU.
+
+const MEDIDOR = 'ferramental/numeros.mjs'
+
+/**
+ * O documento semente. Os valores nascem ERRADOS de propósito (`0`): a primeira
+ * coisa que o helper faz é rodar o medidor sem argumento, e só há prova de que
+ * escrever e conferir concordam se o escrever tiver mesmo trabalho a fazer.
+ */
+const SEMENTE = [
+  '# raiz de prova',
+  '',
+  'Regras: <!--n regras.total-->0<!--/n--> · determinísticas',
+  '<!--n regras.deterministicas-->0<!--/n--> · heurísticas <!--n regras.heuristicas-->0<!--/n-->.',
+  '',
+  'O portão tem <!--n verificar.passos-->0<!--/n--> passos, e o `mcp` é o',
+  '<!--n verificar.posicao.mcp-->0 de 0<!--/n-->.',
+  '',
+].join('\n')
+
+/**
+ * Monta uma raiz temporária, escreve o documento, REGENERA (para o documento
+ * nascer em dia), aplica a mutação e roda `node ferramental/numeros.mjs` com o
+ * argv pedido.
+ */
+async function comNumeros(mutar, { documento = SEMENTE, argv = ['--verificar'] } = {}) {
+  const tmp = await mkdtemp(join(tmpdir(), 'rebar-numeros-'))
+  const rodar = (...args) => {
+    // Mesma forma que o passo usa: cwd na raiz, caminho relativo em argv, sem
+    // shell — e sem `.git`, para provar que o medidor sobrevive a árvore que
+    // não é repositório git em vez de estourar nela.
+    const r = spawnSync(process.execPath, [MEDIDOR, ...args], {
+      cwd: tmp,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    return { codigo: r.status, saida: `${r.stdout ?? ''}${r.stderr ?? ''}` }
+  }
+  try {
+    await cp(join(RAIZ, MEDIDOR), join(tmp, MEDIDOR), { recursive: true })
+    await cp(join(RAIZ, 'ferramental', 'rebar-check'), join(tmp, 'ferramental', 'rebar-check'), {
+      recursive: true,
+      filter: semPasta('provas'),
+    })
+    await cp(join(RAIZ, 'verificar.config.mjs'), join(tmp, 'verificar.config.mjs'))
+    await cp(join(RAIZ, 'package.json'), join(tmp, 'package.json'))
+    await writeFile(join(tmp, 'README.md'), documento, 'utf8')
+
+    const semeou = rodar()
+    assert.equal(semeou.codigo, 0, `o medidor não conseguiu escrever a semente:\n${semeou.saida}`)
+
+    await mutar({
+      ler: (rel) => readFile(join(tmp, rel), 'utf8'),
+      escrever: (rel, texto) => writeFile(join(tmp, rel), texto, 'utf8'),
+      rodar,
+    })
+    return rodar(...argv)
+  } finally {
+    await rm(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+}
+
+test('APROVA · documento recém-regenerado confere, e o grupo ausente sai como ⚠', async () => {
+  const r = await comNumeros(async () => {})
+  assert.equal(r.codigo, 0, `escrever e conferir discordaram na mesma árvore:\n${r.saida}`)
+  // O N/A por grupo tem de ser AUDÍVEL. Esta raiz não tem `mcp/`, `novo/`,
+  // `dominios/` nem `.git`; se o medidor ficasse mudo sobre isso, quem apagasse
+  // uma dessas pastas no repositório de verdade desligaria parte do portão sem
+  // que nada aparecesse na tela.
+  assert.match(r.saida, /⚠ grupo "git"/, 'grupo N/A tem de sair nomeado, não em silêncio')
+})
+
+test('REPROVA · número editado à mão no documento', async () => {
+  const r = await comNumeros(async ({ ler, escrever }) => {
+    const t = await ler('README.md')
+    const antes = /<!--n regras\.total-->(\d+)<!--\/n-->/.exec(t)
+    assert.ok(antes, 'a semente perdeu o marcador de regras.total')
+    await escrever('README.md', t.replace(antes[0], '<!--n regras.total-->999<!--/n-->'))
+  })
+  assert.notEqual(r.codigo, 0, `número inventado no documento passou limpo:\n${r.saida}`)
+  assert.match(
+    r.saida,
+    /regras\.total/,
+    'reprovar sem dizer QUAL número divergiu manda o dono reler o documento inteiro',
+  )
+  assert.match(r.saida, /README\.md:\d+/, 'a linha tem de dizer arquivo e linha, senão não é diff')
+})
+
+test('REPROVA · regra NOVA na fonte e o documento sem regenerar', async () => {
+  const r = await comNumeros(async ({ ler, escrever }) => {
+    const t = await ler(FONTE)
+    const ancora = 'const REGRAS = ['
+    assert.ok(t.includes(ancora), `a lista de regras mudou de forma em ${FONTE}`)
+    // Regra completa e inerte, igual à do passo `mcp`: qualquer contagem fiel
+    // da fonte ganha uma unidade.
+    const plantada =
+      `${ancora}\n  {\n    id: 'regra-plantada-pela-prova',\n` +
+      "    classe: 'determinística',\n    nivel: 'N0',\n" +
+      "    titulo: 'regra plantada pela prova do passo numeros',\n" +
+      '    checar: () => null,\n  },'
+    await escrever(FONTE, t.replace(ancora, plantada))
+  })
+  assert.notEqual(r.codigo, 0, `regra nova sem regenerar o documento passou limpo:\n${r.saida}`)
+  assert.match(
+    r.saida,
+    /regras\.(total|deterministicas)/,
+    'o diff tem de nomear o fato que mudou, senão não é diff, é reclamação',
+  )
+})
+
+test('REPROVA · marcador com id que não é fato nenhum', async () => {
+  const r = await comNumeros(async ({ ler, escrever }) => {
+    const t = await ler('README.md')
+    await escrever('README.md', `${t}\nfato inventado: <!--n nao.existe.mesmo-->1<!--/n-->\n`)
+  })
+  assert.notEqual(r.codigo, 0, 'marcador apontando para fato inexistente passou limpo')
+  assert.match(r.saida, /nao\.existe\.mesmo/)
+})
+
+test('REPROVA · marcador dentro de cerca de código', async () => {
+  // O marcador é comentário HTML: invisível no markdown renderizado, VISÍVEL
+  // dentro de cerca, porque o GitHub imprime a cerca literalmente. Sem esta
+  // checagem, quem marcasse `npm run provar   # 52 casos` publicaria a marcação
+  // crua na página — defeito de renderização que não aparece em teste nenhum.
+  const r = await comNumeros(async ({ ler, escrever }) => {
+    const t = await ler('README.md')
+    await escrever(
+      'README.md',
+      `${t}\n\`\`\`bash\nnpm run provar   # <!--n regras.total-->22<!--/n--> regras\n\`\`\`\n`,
+    )
+  })
+  assert.notEqual(r.codigo, 0, 'marcador dentro de cerca passou limpo, e ele aparece na página')
+  assert.match(r.saida, /cerca/i)
+})
+
+test('N/A · documento sem marcador nenhum não é reprovação, e não fica mudo', async () => {
+  // PINA A DECISÃO, e ela é a fresta conhecida deste passo: enquanto ninguém
+  // marcou nada, o medidor confere ZERO números e mesmo assim sai 0 — gritar
+  // DIVERGIU sobre um documento ainda não marcado é acusar quem não errou, e é
+  // o mesmo `na()` do rebar-check. O que impede o silêncio é a linha ⚠, que o
+  // passo imprime mesmo aprovado por causa do campo `avisar`.
+  const r = await comNumeros(async () => {}, { documento: '# sem marcador nenhum\n' })
+  assert.equal(r.codigo, 0, `documento sem marcador não pode reprovar:\n${r.saida}`)
+  assert.match(
+    r.saida,
+    /⚠ nenhum marcador/,
+    'sem marcador o passo passa; se ele passar CALADO, o portão vira enfeite',
+  )
+})
+
 // ─────────────────────────────────── o portão não pode encolher em silêncio
 //
 // ACHADO DA AUDITORIA DE 31/08, e é o mais irônico do módulo: removendo o
@@ -324,6 +494,7 @@ const PASSOS_ESPERADOS = [
   'blocos',
   'mcp-servidor',
   'mcp',
+  'numeros',
   'formato',
   'elos',
   'segredo',
