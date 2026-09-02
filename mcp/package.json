@@ -1,15 +1,17 @@
 {
   "name": "@rebar/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Servidor MCP do rebar: serve o plano por seção, lido do disco a cada chamada.",
+  "description": "Servidor MCP do rebar: serve as regras do artefato gerado, nunca prosa e nunca cópia.",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "rebar-mcp": "./src/index.mjs"
   },
   "scripts": {
-    "start": "node src/index.mjs"
+    "start": "node src/index.mjs",
+    "prova": "node src/prova-cliente.mjs",
+    "prova-curta": "node src/prova-cliente.mjs --curto"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.24.1",

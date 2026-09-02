@@ -828,6 +828,81 @@ export default [
     limite: 10,
   },
   {
+    // ── O PORTÃO DE FRESCOR DO MCP ────────────────────────────────────────
+    //
+    // O objetivo nº 5 do ESTADO.md, e o defeito concreto que o dono viveu:
+    // "No Herz e no BMB Compras eu elaborei um MCP com todas as regras de
+    // projeto (…) o MCP não era reescrito quando as regras de projeto foram
+    // modificadas". O MCP servia a versão velha e ninguém percebia — decisão
+    // que mora onde nenhuma máquina lê.
+    //
+    // A cura não é lembrar de regenerar: é tornar IMPOSSÍVEL esquecer.
+    // `mcp/gerar.mjs --verificar` regenera o artefato EM MEMÓRIA a partir de
+    // `ferramental/rebar-check/index.mjs` e compara com o
+    // `mcp/regras.gerado.json` que está no disco. Divergiu, sai 1. Mudar uma
+    // regra e não regenerar passa a ser uma reprovação do portão, não um
+    // silêncio de meses.
+    //
+    // POSIÇÃO NA LISTA, e o porquê — três restrições, nesta ordem:
+    //
+    //   1. DEPOIS de `sintaxe`, obrigatoriamente. O gerador lê o
+    //      `index.mjs` (2.292 linhas) como fonte da verdade. Com o arquivo
+    //      sem compilar, "o artefato divergiu" seria uma acusação falsa: o
+    //      defeito está uma casa acima, e o portão reporta o PRIMEIRO passo
+    //      caído como "conserte primeiro".
+    //   2. Ao lado de `blocos`, porque é a mesma pergunta. `blocos` cobra
+    //      código embarcado contra o conteúdo que ele lê; este cobra artefato
+    //      derivado contra a fonte de que ele deriva. Quem lê a lista de cima
+    //      para baixo encontra as duas juntas.
+    //   3. ANTES de `formato`, por custo medido: um processo, ~70 ms nesta
+    //      máquina (Windows 11, Node 24.13 — piso de spawn mais a leitura do
+    //      index.mjs inteiro), contra 1,0 s do prettier e os segundos de
+    //      `provas` e `auto`. A ordem barato-antes-de-caro do arquivo continua
+    //      valendo, e a mensagem que o dono precisa ver primeiro não fica
+    //      atrás de um segundo de formatação.
+    //
+    // `exige` lista SÓ o gerador, e a omissão do artefato é deliberada. O
+    // verificar.mjs trata `exige` ausente como QUEBROU (127): "script ausente
+    // não é o repositório reprovando, é o ferramental faltando". O
+    // `regras.gerado.json` é o SUJEITO da checagem, não a ferramenta — se ele
+    // sumiu, o repositório está velho da pior forma possível, e isso tem de
+    // ser exit 1 dito pelo gerador, não 127 dito pelo executor. Enquanto
+    // `mcp/gerar.mjs` não existir, este passo QUEBRA com
+    // `[verificar] arquivo exigido ausente: mcp/gerar.mjs` e a dica abaixo —
+    // uma linha útil, e não um rastro de pilha de módulo não encontrado.
+    //
+    // Sem `extrair` preciso de propósito: o formato do diff é do gerador, e
+    // chutá-lo aqui criaria uma segunda fonte para divergir. O padrão abaixo
+    // pega "erro …" e linha de diff unificado; quando não casa nada, o
+    // executor cai nas últimas linhas da saída, que é onde o resumo de um
+    // diff mora.
+    nome: 'mcp-servidor',
+    // O SERVIDOR PRECISA SUBIR, NAO SO EXISTIR. Achado da auditoria de 31/08:
+    // `mcp/src/prova-cliente.mjs` — 370 linhas, o UNICO teste de ponta a ponta
+    // do servidor de 937 linhas — nao era chamado por passo nenhum. Escrito e
+    // nunca executado e o estado em que este modulo passou semanas, e repetir
+    // isso na propria prova dele seria piada.
+    //
+    // O `exige` aponta para o node_modules do mcp porque o servidor tem
+    // dependencia propria (o SDK). Sem ele instalado o passo diz o que fazer em
+    // vez de estourar — e o CI instala, entao la o passo e duro.
+    comando: node('mcp/src/prova-cliente.mjs'),
+    exige: ['mcp/src/prova-cliente.mjs', 'mcp/node_modules'],
+    dica: 'O servidor MCP nao respondeu ao protocolo. Se a queixa for de dependencia ausente: cd mcp && npm ci.',
+    extrair: /^\s*(erro|error|✗|✘|falhou)/i,
+    tempoLimite: 2 * MINUTO,
+    limite: 8,
+  },
+  {
+    nome: 'mcp',
+    comando: node('mcp/gerar.mjs', '--verificar'),
+    exige: ['mcp/gerar.mjs'],
+    dica: 'Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/gerar.mjs` e commite o mcp/regras.gerado.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje.',
+    extrair: /^\s*(erro|error|✗|✘|[-+] )/i,
+    tempoLimite: 1 * MINUTO,
+    limite: 12,
+  },
+  {
     nome: 'formato',
     // O prettier é a ÚNICA dependência do repositório, e a fronteira é
     // deliberada: o `index.mjs` continua importando só built-ins, então

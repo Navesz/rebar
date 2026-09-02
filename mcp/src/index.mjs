@@ -1,182 +1,311 @@
 #!/usr/bin/env node
-// Servidor MCP do rebar.
+// Servidor MCP do rebar — as regras deste repositório, servidas do artefato gerado.
 //
-// Existe porque o dono identificou o defeito: "a gente não criou um MCP pra essa
-// sessão, então pode ser que você se perca". É o mesmo mecanismo que fez o
-// bmb-compras virar aplicação final funcional — regra na memória do agente desde
-// o começo.
+// POR QUE ELE EXISTE, nas palavras do dono: "No Herz e no BMB Compras eu não tive
+// esse problema porque elaborei um MCP com todas as regras de projeto, pra ele sempre
+// ficar na memória e forçar a ser usadas." E o defeito que sobrou: "O MCP não era
+// reescrito quando as regras de projeto foram modificadas."
 //
-// Duas regras de construção, e as duas vêm de defeitos medidos no Herz:
+// A correção está em duas peças, e SÓ UMA delas mora aqui:
 //
-//   1. NENHUMA PROSA MORA AQUI. Toda resposta é lida de docs/PLANO.md no momento
-//      da chamada. Não há cópia para divergir. O MCP do Herz serve 17 guias em
-//      arquivos próprios, e o perfil do Alicerce registra que isso virou "texto
-//      pago em token toda sessão".
+//   mcp/gerar.mjs           deriva mcp/regras.gerado.json da fonte, e o passo `mcp` do
+//                           `npm run verificar` regenera em memória e REPROVA se o
+//                           disco divergir. Esse é o portão de frescor.
+//   mcp/src/*  (este)       serve o artefato. Nunca lê ferramental/rebar-check/index.mjs.
 //
-//   2. RODA DO FONTE, NUNCA DE dist/. O CLAUDE.md do Herz diz que dist velho é a
-//      causa nº 1 de "o guia não mudou". Sem build, sem essa classe de bug.
+// O QUE ESTE SERVIDOR NÃO É — §7.2, literal: "O MCP nunca é a porta. A porta é N0–N5."
+// Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verificar`,
+// o hook e o CI. Nenhuma resposta abaixo autoriza nada.
+//
+// O QUE MUDOU EM RELAÇÃO À VERSÃO ANTERIOR DESTE ARQUIVO. Ele servia PROSA: cinco
+// ferramentas devolvendo trechos de docs/PLANO.md por seção. Isso contraria a §7.2
+// por dois motivos medidos — prosa é o formato que o Herz provou ignorável (17 guias,
+// 1.961 linhas, 80 KB, "o modelo decide se chama"), e o plano é o que o projeto
+// PRETENDE, enquanto o artefato é o que o portão REPROVA hoje. Quando os dois
+// divergem, quem manda é quem reprova. A prosa continua alcançável: as ferramentas
+// devolvem `arquivo:linha` do PLANO em vez de copiar o texto para cá.
 
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 
-// fileURLToPath, não .pathname: no Windows o pathname vem como "/C:/Users/..."
-// e todo readFileSync depois procura em C:\C:\Users\... É o bug que deixou o
-// instalador de hooks do Alicerce morto por semanas.
-const AQUI = dirname(fileURLToPath(import.meta.url))
-const PLANO = join(AQUI, '..', '..', 'docs', 'PLANO.md')
+import {
+  avisoDeFrescor,
+  carregar,
+  CAMINHO_ARTEFATO,
+  exibirCaminho,
+  FalhaDeArtefato,
+  frescor,
+  RAIZ,
+} from './artefato.mjs'
+import { catalogo, decidir, portao, porque } from './consultas.mjs'
 
-/** Lê o plano do disco a cada chamada. Sem cache: cache é a origem da deriva. */
-function lerPlano() {
-  return readFileSync(PLANO, 'utf8')
-}
+const executar = promisify(execFile)
 
-/**
- * Fatia o documento em seções de primeiro nível.
- * A chave é o número ("0".."13"); o valor traz título e corpo.
- */
-function seccionar(texto) {
-  const linhas = texto.split('\n')
-  const secoes = new Map()
-  let atual = null
-  let emCerca = false
-
-  for (const linha of linhas) {
-    // Um "# 5." dentro de bloco de código não é cabeçalho.
-    if (linha.startsWith('```')) emCerca = !emCerca
-    if (!emCerca) {
-      const m = /^# (\d+)\.\s+(.*)$/.exec(linha)
-      if (m) {
-        atual = { numero: m[1], titulo: m[2].trim(), linhas: [] }
-        secoes.set(m[1], atual)
-        continue
-      }
-    }
-    if (atual) atual.linhas.push(linha)
+// ─────────────────────────────────────────────────────────────────────────────
+// Boot: morrer alto se o artefato não existir.
+//
+// Um servidor MCP que sobe sem a fonte de dados responde "nenhuma regra encontrada"
+// para tudo, e o modelo conclui que o projeto não tem regra. Resposta vazia com cara
+// de resposta é pior que servidor morto: servidor morto o dono conserta hoje.
+// ─────────────────────────────────────────────────────────────────────────────
+try {
+  carregar()
+} catch (e) {
+  if (e instanceof FalhaDeArtefato) {
+    console.error(`rebar-mcp: ${e.message}`)
+    process.exit(1)
   }
-
-  for (const s of secoes.values()) s.corpo = s.linhas.join('\n').trim()
-  return secoes
+  throw e
 }
-
-const servidor = new McpServer({ name: 'rebar', version: '0.1.0' })
 
 const texto = (t) => ({ content: [{ type: 'text', text: t }] })
 const erro = (t) => ({ content: [{ type: 'text', text: t }], isError: true })
 
-servidor.registerTool(
-  'rebar_indice',
-  {
-    title: 'Índice do plano',
-    description:
-      'Lista as seções do plano do rebar, com número, título e tamanho. Chame antes de rebar_plano para saber o que existe sem ler o documento inteiro.',
-    inputSchema: {},
-  },
-  async () => {
-    const secoes = [...seccionar(lerPlano()).values()]
-    const linhas = secoes.map(
-      (s) => `${s.numero.padStart(2)} · ${s.titulo}  (${s.corpo.split('\n').length} linhas)`,
-    )
-    return texto(`Plano do rebar — ${secoes.length} seções\n\n${linhas.join('\n')}`)
-  },
-)
-
-servidor.registerTool(
-  'rebar_plano',
-  {
-    title: 'Ler uma seção do plano',
-    description:
-      'Devolve uma seção do plano pelo número. Use rebar_indice para descobrir os números. Nunca leia docs/PLANO.md inteiro: são 900+ linhas.',
-    inputSchema: { secao: z.string().describe('Número da seção, por exemplo "9" ou "12"') },
-  },
-  async ({ secao }) => {
-    const secoes = seccionar(lerPlano())
-    const s = secoes.get(String(secao).trim())
-    if (!s) {
-      const nums = [...secoes.keys()].join(', ')
-      return erro(`Seção "${secao}" não existe. Disponíveis: ${nums}`)
+/**
+ * Recarrega o artefato A CADA CHAMADA e cola o aviso de frescor na resposta.
+ *
+ * Sem cache de propósito: o módulo inteiro existe porque uma cópia velha continuou
+ * sendo servida sem ninguém perceber. Se `node mcp/gerar.mjs` rodar enquanto esta
+ * sessão está aberta, a próxima chamada já responde com a regra nova. Custo medido:
+ * 79 KB de JSON, ~1 ms.
+ */
+function comArtefato(fn) {
+  return async (args) => {
+    let artefato
+    try {
+      artefato = carregar()
+    } catch (e) {
+      return erro(`rebar-mcp: ${e.message}`)
     }
-    return texto(`# ${s.numero}. ${s.titulo}\n\n${s.corpo}`)
+    const aviso = avisoDeFrescor(frescor(artefato))
+    const corpo = await fn(artefato, args ?? {})
+    const conteudo = typeof corpo === 'string' ? texto(corpo) : corpo
+    if (!aviso) return conteudo
+    return {
+      ...conteudo,
+      content: [{ type: 'text', text: aviso }, ...conteudo.content],
+    }
+  }
+}
+
+const servidor = new McpServer({ name: 'rebar', version: '0.2.0' })
+
+// ─── 1. o catálogo ───────────────────────────────────────────────────────────
+servidor.registerTool(
+  'rebar_regras',
+  {
+    title: 'As regras que reprovam este repositório',
+    description:
+      'Lista as regras do rebar-check, agrupadas por nível N0–N7, com id, classe e título. ' +
+      'CHAME ANTES DE ESCREVER CÓDIGO neste repositório ou num projeto gerado por ele: é a lista ' +
+      'do que vai reprovar no commit e no CI. Filtre por nível, classe ou termo para não trazer tudo. ' +
+      'Derivado de mcp/regras.gerado.json; a razão de cada regra sai em rebar_porque.',
+    inputSchema: {
+      nivel: z.string().optional().describe('N0..N7 — só as regras desse nível'),
+      classe: z
+        .string()
+        .optional()
+        .describe('determinística (reprova) ou heurística (só avisa); aceita prefixo'),
+      busca: z.string().optional().describe('termo no id ou no título, sem acento serve'),
+    },
   },
+  comArtefato((artefato, args) => catalogo(artefato, args)),
 )
 
+// ─── 2. o porquê ─────────────────────────────────────────────────────────────
 servidor.registerTool(
-  'rebar_decidido',
+  'rebar_porque',
   {
-    title: 'O que já foi decidido',
+    title: 'Por que esta regra existe, com o número medido',
     description:
-      'Devolve o registro de decisões (§11) e as decisões travadas (§2.1). Chame ANTES de propor qualquer escolha de stack, banco, biblioteca ou processo — a decisão provavelmente já foi tomada e está datada aqui.',
-    inputSchema: {},
+      'Devolve a razão de uma regra (ou de uma decisão fechada) pelo id: os parágrafos de porquê ' +
+      'lidos da fonte com arquivo:linha, e os casos de prova que a travam. ' +
+      'CHAME QUANDO O PORTÃO REPROVAR e você for tentado a contornar a regra, e ANTES de propor ' +
+      'afrouxar, ignorar ou apagar qualquer verificação. Quase toda razão aqui traz o número que a ' +
+      'mediu; número medido não se negocia.',
+    inputSchema: {
+      id: z.string().describe('id da regra, ex. "hex-cru", ou de uma decisão fechada'),
+    },
   },
-  async () => {
-    const secoes = seccionar(lerPlano())
-    const registro = secoes.get('11')
-    const contexto = secoes.get('2')
-
-    const travadas = contexto
-      ? contexto.corpo.slice(contexto.corpo.indexOf('## 2.1'))
-      : '(seção 2 não encontrada)'
-
-    return texto(
-      [
-        '## Decisões travadas',
-        '',
-        travadas,
-        '',
-        '---',
-        '',
-        `## ${registro ? registro.titulo : 'Registro de decisões'}`,
-        '',
-        registro ? registro.corpo : '(seção 11 não encontrada)',
-      ].join('\n'),
-    )
-  },
+  comArtefato((artefato, { id }) => {
+    const r = porque(artefato, id)
+    return r.ok ? texto(r.texto) : erro(r.texto)
+  }),
 )
 
+// ─── 3. o que já foi decidido ────────────────────────────────────────────────
 servidor.registerTool(
-  'rebar_aberto',
+  'rebar_decidir',
   {
-    title: 'O que ainda está aberto',
+    title: 'O que este projeto já decidiu sobre X',
     description:
-      'Devolve o que ainda não foi decidido (§13) e os furos que a revisão adversarial encontrou (§12). Chame antes de afirmar que algo está resolvido.',
-    inputSchema: {},
+      'Procura um assunto no artefato e responde o que o rebar já decidiu sobre ele: decisão fechada ' +
+      'com o arquivo:linha que a prova, regra que a impõe, ou passo do portão. ' +
+      'CHAME ANTES DE PROPOR qualquer escolha de stack, biblioteca, formato ou processo — a decisão ' +
+      'provavelmente já existe e está provada em código. Quando nada casa, ela DIZ que nada impõe ' +
+      'isso, em vez de inventar: isso também é resposta.',
+    inputSchema: {
+      assunto: z.string().describe('o assunto, em palavras: "cor", "env", "tailwind", "commit"'),
+    },
   },
-  async () => {
-    const secoes = seccionar(lerPlano())
-    const aberto = secoes.get('13')
-    const revisao = secoes.get('12')
-    return texto(
-      [
-        `## ${aberto ? aberto.titulo : 'Aberto'}`,
-        '',
-        aberto ? aberto.corpo : '(seção 13 não encontrada)',
-        '',
-        '---',
-        '',
-        `## ${revisao ? revisao.titulo : 'Revisão'}`,
-        '',
-        revisao ? revisao.corpo : '(seção 12 não encontrada)',
-      ].join('\n'),
-    )
-  },
+  comArtefato((artefato, { assunto }) => decidir(artefato, assunto)),
 )
 
+// ─── 4. o portão ─────────────────────────────────────────────────────────────
 servidor.registerTool(
-  'rebar_passo',
+  'rebar_portao',
   {
-    title: 'O passo a passo de construção',
+    title: 'Os passos do portão, na ordem, e o que fazer quando um reprova',
     description:
-      'Devolve a ordem de construção com critério de pronto de cada passo (§9). Chame antes de começar a implementar qualquer coisa, para saber qual é o passo atual e o que precisa estar verdadeiro para ele fechar.',
-    inputSchema: {},
+      'Devolve os passos de `npm run verificar` na ordem, o comando de cada um e os códigos de saída; ' +
+      'com { passo } devolve a dica de conserto daquele passo. ' +
+      'CHAME QUANDO O VERIFICAR REPROVAR e a mensagem não bastar, e antes de dizer que algo "passou". ' +
+      'Este MCP não é a porta: a porta é o comando que esta ferramenta devolve.',
+    inputSchema: {
+      passo: z.string().optional().describe('nome ou número do passo, ex. "mcp" ou "5"'),
+    },
   },
-  async () => {
-    const s = seccionar(lerPlano()).get('9')
-    return s ? texto(`# 9. ${s.titulo}\n\n${s.corpo}`) : erro('Seção 9 não encontrada.')
+  comArtefato((artefato, { passo }) => portao(artefato, passo)),
+)
+
+// ─── 5. rodar a régua ────────────────────────────────────────────────────────
+//
+// A única ferramenta que EXECUTA. Ela roda o mesmo binário do hook e do CI
+// (`ferramental/rebar-check/index.mjs --json`), então não existe segundo veredito
+// para divergir do primeiro — é atalho para o mesmo comando, não uma opinião nova.
+//
+// Roda o CHECKER, não o `npm run verificar` inteiro: os 11 passos incluem suíte de
+// teste e prettier no repositório todo, que é caro demais para uma chamada de tool e
+// já é trabalho do portão. Aqui responde a pergunta rápida "as 22 regras passam neste
+// caminho?" — em ~1 s, medido.
+//
+// process.execPath e execFile, nunca `npx` nem shell: no Windows `npx` sem
+// shell:true não existe como executável, e é o defeito que sobreviveu no alicerce
+// porque o CI só rodava Linux.
+const CHECKER = join(RAIZ, 'ferramental', 'rebar-check', 'index.mjs')
+
+servidor.registerTool(
+  'rebar_verificar',
+  {
+    title: 'Rodar a régua num caminho e devolver o placar',
+    description:
+      'Executa o rebar-check (o mesmo do hook e do CI) num caminho e devolve, por regra, o que passou, ' +
+      'reprovou ou não se aplica, mais o código de saída. ' +
+      'CHAME DEPOIS DE MEXER no repositório, e antes de afirmar que terminou. ' +
+      'ATALHO, NÃO BARREIRA: quem barra é `npm run verificar` no hook e no CI; um verde aqui não ' +
+      'substitui o portão, que ainda roda formato, elos, segredo, provas e frescor do MCP.',
+    inputSchema: {
+      caminho: z
+        .string()
+        .optional()
+        .describe('pasta a auditar; precisa ser repositório git. Padrão: a raiz do rebar'),
+      regra: z.string().optional().describe('id de uma regra só, para iterar rápido'),
+    },
   },
+  comArtefato(async (artefato, { caminho, regra }) => {
+    if (!existsSync(CHECKER)) {
+      return erro(
+        [
+          `rebar-mcp: o checker não está neste checkout (esperado em ${exibirCaminho(CHECKER)}).`,
+          'As outras ferramentas continuam servindo o artefato; só a execução depende do repositório.',
+        ].join('\n'),
+      )
+    }
+    if (regra && !artefato.regras.some((r) => r.id === regra)) {
+      return erro(`"${regra}" não é regra. Veja a lista em rebar_regras.`)
+    }
+
+    const alvo = caminho?.trim() ? caminho.trim() : RAIZ
+    const args = [CHECKER, '--json']
+    if (regra) args.push(`--regra=${regra}`)
+    args.push(alvo)
+
+    let saida
+    let codigo = 0
+    try {
+      saida = await executar(process.execPath, args, {
+        cwd: RAIZ,
+        timeout: 120_000,
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      })
+    } catch (e) {
+      // O checker sai 1 quando reprova: isso é resultado, não falha da chamada.
+      if (typeof e.code !== 'number') {
+        return erro(`rebar-mcp: o checker não rodou: ${e.message}`)
+      }
+      codigo = e.code
+      saida = e
+    }
+
+    const significado = artefato.codigosDeSaida?.[String(codigo)] ?? '(código desconhecido)'
+
+    let avaliacoes
+    try {
+      avaliacoes = JSON.parse(saida.stdout)
+    } catch {
+      return erro(
+        [
+          `rebar-mcp: exit=${codigo} (${significado}) e a saída não é JSON.`,
+          (saida.stderr || saida.stdout || '').trim().slice(0, 1500),
+        ].join('\n'),
+      )
+    }
+
+    const blocos = avaliacoes.map((a) => {
+      if (a.erro) return `${a.nome}: ${a.erro}`
+      const reprovou = a.resultados.filter((x) => x.estado === 'reprovou')
+      const quebrou = a.resultados.filter((x) => x.estado === 'quebrou')
+      const na = a.resultados.filter((x) => x.estado === 'na')
+      // O `nota` do checker conta SÓ determinística — é o placar que decide o exit.
+      // Heurística sai numa linha à parte, senão "13/13" ao lado de sete n/a listados
+      // não fecha a conta e o leitor conclui que alguma coisa sumiu.
+      const heu = a.resultados.filter((x) => x.classe === 'heurística')
+      const heuAvisou = heu.filter((x) => x.estado === 'reprovou').length
+      const linhas = [
+        `alvo: ${a.nome}`,
+        `determinísticas (estas reprovam): ${a.nota.ok}/${a.nota.total} passaram · ${a.nota.na} não se aplicam · ${a.nota.quebrou} quebrou(aram)`,
+        `heurísticas (só avisam): ${heu.length - heuAvisou - heu.filter((x) => x.estado === 'na').length} passaram · ${heuAvisou} avisaram · ${heu.filter((x) => x.estado === 'na').length} não se aplicam`,
+      ]
+      if (quebrou.length) {
+        linhas.push('', 'QUEBROU (defeito do rebar-check, não do alvo):')
+        for (const x of quebrou) linhas.push(`  ${x.id}  ${x.motivo ?? ''}`)
+      }
+      if (reprovou.length) {
+        linhas.push('', 'REPROVOU:')
+        for (const x of reprovou) {
+          linhas.push(`  ${x.id} (${x.nivel} ${x.classe})  ${x.motivo ?? ''}`)
+        }
+        linhas.push(`  → a razão de cada uma: rebar_porque { id: "${reprovou[0].id}" }`)
+      }
+      if (!reprovou.length && !quebrou.length) linhas.push('', 'Nenhuma regra reprovou.')
+      if (na.length) {
+        linhas.push('', `não se aplicam: ${na.map((x) => x.id).join(', ')}`)
+      }
+      return linhas.join('\n')
+    })
+
+    return [
+      `exit=${codigo} — ${significado}`,
+      `comando: node ferramental/rebar-check/index.mjs --json${regra ? ` --regra=${regra}` : ''} ${exibirCaminho(alvo)}`,
+      '',
+      blocos.join('\n\n'),
+      '',
+      'Isto é a régua, não o portão. O portão é `npm run verificar` (rebar_portao mostra os passos).',
+    ].join('\n')
+  }),
+)
+
+// Log de boot vai para stderr, sempre: stdout é o canal JSON-RPC, e qualquer byte
+// solto ali quebra o handshake do cliente.
+console.error(
+  `rebar-mcp: 5 ferramentas, artefato em ${exibirCaminho(CAMINHO_ARTEFATO)}, ${carregar().regras.length} regras.`,
 )
 
 await servidor.connect(new StdioServerTransport())

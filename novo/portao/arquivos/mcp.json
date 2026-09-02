@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "rebar": {
+      "type": "stdio",
+      "command": "node",
+      "args": [".rebar/mcp.mjs"]
+    }
+  }
+}

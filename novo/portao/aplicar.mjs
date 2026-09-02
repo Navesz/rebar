@@ -47,6 +47,26 @@ const MOLDES = join(AQUI, 'arquivos')
 // misturaria hook de git com hook de React na mesma pasta e no mesmo alias.
 const PASTA_HOOKS = '.githooks'
 
+// O LANÇADOR DO MCP, e por que ele NÃO vai para `.githooks/`.
+//
+// `.githooks/` é o que o `core.hooksPath` aponta: tudo lá dentro é candidato a
+// ser executado pelo git num evento de commit. O lançador do MCP não é hook de
+// coisa nenhuma — quem o executa é o cliente de IA, e num momento que não tem
+// relação com git. Misturar os dois faria o `git` tropeçar num arquivo que não
+// é dele no dia em que ganhar um nome de evento novo.
+//
+// `.rebar/` começa com ponto pelo mesmo motivo que `.githooks/`: é ferramental
+// do repositório, não fonte do produto. Medido no scaffold do `shadcn create`:
+// o `tsconfig.json` só inclui .ts/.tsx/.mts, então este .mjs fica fora do
+// typecheck, e o `eslint.config.mjs` não o alcança — nenhum dos dois passa a ter
+// trabalho por causa dele.
+const PASTA_REBAR = '.rebar'
+
+// O CAMINHO DO LANÇADOR MORA AQUI, UMA VEZ. O `.mcp.json` repete este mesmo
+// caminho dentro dele, porque JSON não tem como importar constante — e é essa
+// repetição que `conferirPonteiroMcp` afere, logo depois de escrever os dois.
+const MCP_LANCADOR = `${PASTA_REBAR}/mcp.mjs`
+
 const ESTATICOS = [
   ['editorconfig', '.editorconfig'],
   ['gitattributes', '.gitattributes'],
@@ -56,6 +76,12 @@ const ESTATICOS = [
   ['commit-msg', `${PASTA_HOOKS}/commit-msg`],
   ['instalar.mjs', `${PASTA_HOOKS}/instalar.mjs`],
   ['portao.test.mjs', 'testes/portao.test.mjs'],
+  // O ponteiro para as regras. Ver o cabeçalho de `mcp-rebar.mjs` para a
+  // decisão inteira; o resumo é: este projeto NÃO ganha MCP próprio, porque um
+  // MCP próprio aqui serviria uma cópia das 22 regras do rebar, e cópia de
+  // regra que envelhece é exatamente o requisito nº 5 do plano.
+  ['mcp.json', '.mcp.json'],
+  ['mcp-rebar.mjs', MCP_LANCADOR],
 ]
 
 // Peças que o gerador COPIA do próprio rebar em vez de duplicar aqui.
@@ -433,6 +459,23 @@ Leia o \`README.md\` antes de escrever qualquer coisa: a pilha, os comandos e o
 motivo de cada escolha estão lá. Este arquivo é só o que muda o SEU
 comportamento.
 
+## As regras deste projeto não estão escritas aqui
+
+Elas são as do \`rebar\`, e se **derivam sob demanda**. Não há cópia delas neste
+repositório, de propósito: cópia envelhece calada, e regra velha servida com
+cara de regra atual vale menos que regra nenhuma. As duas linhas abaixo rodam
+sem instalar nada e são a mesma régua que o CI aplica.
+
+\`\`\`sh
+npx --yes github:Navesz/rebar .          # o placar: o que passa, o que reprova, e por quê
+npx --yes github:Navesz/rebar . --json   # o mesmo, estruturado, uma entrada por regra
+\`\`\`
+
+O \`.mcp.json\` daqui declara esse mesmo rebar como servidor MCP, por
+\`${MCP_LANCADOR}\`. É **atalho, não porta**: ferramenta de MCP é discricionária —
+quem decide chamá-la é você. Se ela não subir, as duas linhas acima continuam
+valendo, e são elas que barram o merge.
+
 ## O idioma é português do Brasil
 
 Código, comentário, nome de arquivo e mensagem de commit. O comentário explica o
@@ -556,6 +599,51 @@ function garantirExportEstatico(destino, avisos) {
   }
   escrever(destino, rel, atual.replace(vazio, `$1${corpo}`))
   return 'aplicado'
+}
+
+/**
+ * O `.mcp.json` e o lançador têm de apontar um para o outro.
+ *
+ * Isto é o portão de frescor do §7.2 no tamanho que este projeto pede. O de lá
+ * regenera o artefato e compara com o disco; aqui não há artefato para
+ * regenerar — de propósito, porque este projeto não guarda cópia de regra
+ * nenhuma. O que SOBRA para divergir é o caminho escrito duas vezes: uma em
+ * `MCP_LANCADOR`, outra dentro do JSON, que não tem como importar constante.
+ *
+ * Renomear a pasta num lugar e esquecer o outro produz um `.mcp.json` que
+ * aponta para o nada — e cliente de MCP com servidor que não sobe aparece como
+ * uma linha cinza que ninguém lê. É a mesma classe do defeito que o portão
+ * inteiro persegue: a decisão está no arquivo e nenhuma máquina a executa.
+ *
+ * Aqui a conferência é na hora da geração; o `testes/portao.test.mjs` repete a
+ * mesma pergunta dentro do projeto, no `npm run verificar` e no CI, para o dia
+ * em que alguém mexer no `.mcp.json` sem passar pelo gerador.
+ */
+function conferirPonteiroMcp(destino, avisos) {
+  const bruto = lerSe(destino, '.mcp.json')
+  if (bruto === null) {
+    avisos.push('.mcp.json não foi escrito — a IA que abrir este projeto não acha o rebar por MCP')
+    return 'ausente'
+  }
+  let alvo
+  try {
+    alvo = JSON.parse(bruto)?.mcpServers?.rebar?.args?.find((a) => a.endsWith('.mjs'))
+  } catch (erro) {
+    avisos.push(`.mcp.json não é JSON válido (${erro.message}) — nenhum cliente vai lê-lo`)
+    return 'ilegível'
+  }
+  if (alvo !== MCP_LANCADOR) {
+    avisos.push(
+      `.mcp.json aponta para ${JSON.stringify(alvo)} e o portão escreveu ${MCP_LANCADOR} — ` +
+        'o ponteiro caiu no vazio. Acerte o molde `mcp.json` em novo/portao/arquivos/',
+    )
+    return 'divergiu'
+  }
+  if (!existsSync(join(destino, ...MCP_LANCADOR.split('/')))) {
+    avisos.push(`.mcp.json aponta para ${MCP_LANCADOR}, que não está no disco`)
+    return 'sem lançador'
+  }
+  return 'confere'
 }
 
 /**
@@ -717,6 +805,10 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
   const elos = garantirScripts(destino, avisos)
   escritos.push('next.config.ts', 'package.json')
 
+  // Depois dos ESTATICOS, porque é justamente os dois arquivos que eles
+  // acabaram de escrever que esta função confronta um com o outro.
+  const mcp = conferirPonteiroMcp(destino, avisos)
+
   // POR ÚLTIMO, e por dois motivos. Primeiro: só faz sentido perguntar "sobrou
   // arquivo sem decisão?" depois de todas as decisões terem sido executadas.
   // Segundo: o oráculo é o índice do git, e o índice tem de continuar sendo o
@@ -724,7 +816,14 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
   // função, e depois dele `git ls-files` passaria a listar o nosso também.
   const scaffold = conferirScaffold(destino, avisos)
 
-  return { escritos, avisos, elos, exportEstatico, agents, scaffold }
+  return { escritos, avisos, elos, exportEstatico, agents, scaffold, mcp }
 }
 
-export { marcarExecutaveis, PASTA_HOOKS, EXECUTAVEIS, DESTINO_DO_SCAFFOLD, MARCADOR_AGENTES }
+export {
+  marcarExecutaveis,
+  PASTA_HOOKS,
+  EXECUTAVEIS,
+  DESTINO_DO_SCAFFOLD,
+  MARCADOR_AGENTES,
+  MCP_LANCADOR,
+}
