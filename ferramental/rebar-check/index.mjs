@@ -23,6 +23,7 @@
 //   node index.mjs --regra=<id> [dir]  uma regra só (é o que as provas usam)
 //   node index.mjs --heuristicas       heurísticas também derrubam o exit code
 //   node index.mjs novo <nome> [dom]   despacha para o GERADOR, novo/index.mjs
+//   node index.mjs --mcp               entrega o stdio ao SERVIDOR MCP, mcp/src/
 //
 // O subcomando `novo` mora aqui, e não num segundo `bin`, por uma razão de
 // mecânica do npx: `npx github:Navesz/rebar novo meu-site` resolve o bin que
@@ -44,7 +45,7 @@
 // distinguir reprovou de quebrou"). Sem ela o bug do verificador entra na
 // conta como se fosse defeito do repositório auditado.
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -1259,7 +1260,17 @@ export function frasesDeConteudo(t) {
   return achadas
 }
 
-const REGRAS = [
+// EXPORTADO para o gerador do MCP (`mcp/gerar.mjs`), e essa é a única razão do
+// `export` aqui: o artefato que o servidor MCP lê é DERIVADO desta lista, nunca
+// uma cópia dela. Sem o export, o gerador teria de adivinhar `id`, `classe`,
+// `nivel` e `titulo` por regex no texto do arquivo — e regex que erra some com a
+// regra em silêncio, que é exatamente o defeito que o MCP existe para não
+// repetir. Com o export, o gerador COMPARA o que leu no texto com o que o módulo
+// entrega, e diverge alto.
+//
+// O `EH_PROGRAMA` logo abaixo é o que torna isto seguro: importar este arquivo
+// não dispara o CLI, porque `process.argv[1]` é o outro programa.
+export const REGRAS = [
   // ── determinísticas ─────────────────────────────────────────────────────
 
   {
@@ -2212,6 +2223,53 @@ if (EH_PROGRAMA) {
     // significa que o módulo carregou e terminou sem reclamar.
     await import(pathToFileURL(gerador).href)
     process.exit(0)
+  }
+
+  // ─── despacho de `--mcp`, também ANTES do parse de opção
+  //
+  // Esta bandeira NÃO audita nada: ela entrega o processo ao servidor MCP, que
+  // fala JSON-RPC no stdio. Por isso vem antes, junto do `novo` — o parser
+  // abaixo recusaria `--mcp` como opção desconhecida, e era exatamente isso que
+  // acontecia até hoje: todo projeto gerado por `rebar novo` escreve um
+  // `.mcp.json` que roda `.rebar/mcp.mjs`, que chama `rebar --mcp`. O ponteiro
+  // existia dos dois lados e o alvo não respondia — `rebar-check: opção
+  // desconhecida: --mcp`, saída 2, em todo projeto gerado.
+  //
+  // É PROCESSO FILHO, e não import dinâmico como o `novo`, por causa do stdio.
+  // O transporte do MCP é JSON-RPC puro no stdout: uma única linha estranha ali
+  // derruba a sessão inteira. Com `stdio: 'inherit'` o filho fica dono dos três
+  // canais e nada que este arquivo já carregou tem como escrever no meio.
+  //
+  // Os dois erros abaixo são separados de propósito, porque o conserto é
+  // diferente: o primeiro é checkout sem o módulo, o segundo é o módulo sem as
+  // dependências dele. `mcp/` é pacote SEPARADO justamente para a raiz seguir
+  // com zero dependência — o preço é este `npm install`, e ele é dito por
+  // extenso em vez de aparecer como um ERR_MODULE_NOT_FOUND cru.
+  if (args.includes('--mcp')) {
+    const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+    const servidor = join(RAIZ, 'mcp', 'src', 'index.mjs')
+    const semMcp = (motivo, conserto) => {
+      console.error(`rebar: --mcp pede ${motivo}`)
+      console.error(`       ${conserto}`)
+      console.error('       Sem MCP as regras continuam alcançáveis pelo comando do CI:')
+      console.error('         npx --yes github:Navesz/rebar . --json')
+      process.exit(2)
+    }
+    if (!existsSync(servidor)) {
+      semMcp(`${servidor}, que não está neste checkout.`, 'Clone o rebar inteiro.')
+    }
+    if (!existsSync(join(RAIZ, 'mcp', 'node_modules'))) {
+      semMcp(
+        'as dependências do pacote mcp/, que não estão instaladas.',
+        'Instale uma vez: cd mcp && npm install',
+      )
+    }
+    // `process.execPath` e um .mjs: executável de verdade nos dois sistemas, sem
+    // shell. É a mesma razão pela qual o `.mcp.json` do projeto gerado chama
+    // `node` e não `npx` — no Windows o `npx` é `.cmd` e o CreateProcess não o
+    // executa sem interpretador.
+    const filho = spawnSync(process.execPath, [servidor], { stdio: 'inherit' })
+    process.exit(filho.status ?? 1)
   }
 
   const json = args.includes('--json')

@@ -53,6 +53,13 @@ jobs:
       # versão. Único pacote instalado é o prettier.
       - run: npm ci
 
+      # O `mcp/` e pacote separado, com dependencia propria (o SDK do MCP). Sem
+      # este install o passo `mcp-servidor` ficaria pulado no CI, e o unico
+      # teste de ponta a ponta do servidor nao rodaria em lugar nenhum — que e
+      # exatamente o estado de onde este modulo saiu.
+      - run: npm ci
+        working-directory: mcp
+
       - name: verificar
         # Um comando. Exit 0 é a única aprovação: 1 reprovou, 2 config errada,
         # 3 recorte parcial, 127 o ferramental quebrou — todos derrubam o job.

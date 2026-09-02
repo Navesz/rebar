@@ -1,0 +1,1170 @@
+{
+  "$aviso": "ARTEFATO GERADO por mcp/gerar.mjs. Não edite à mão: o passo de frescor regenera em memória e reprova se o disco divergir. Para mudar qualquer coisa aqui, mude a FONTE listada em `fontes` e rode `node mcp/gerar.mjs`.",
+  "gerador": "mcp/gerar.mjs",
+  "formato": 1,
+  "fontes": [
+    {
+      "arquivo": "ferramental/rebar-check/index.mjs",
+      "sha256": "6c596728cee274c184f022351fdc6c526e4a46c5ff91593f7f44e9944a184d02",
+      "daqui": "as regras, o porque de cada uma e os códigos de saída"
+    },
+    {
+      "arquivo": "verificar.config.mjs",
+      "sha256": "e6b38c403d1ac7c74088aabaf0356f2b387092ee475ecfdf9fef2abbd0436960",
+      "daqui": "os passos do portão, na ordem"
+    },
+    {
+      "arquivo": "docs/PLANO.md",
+      "sha256": "dabe4e2e5af3e9497bbfbc06480f5e597cbe4c37f62e5e050ae2c906e2563d14",
+      "daqui": "a taxonomia N0–N7 e os ponteiros de prosa"
+    },
+    {
+      "arquivo": "ferramental/rebar-check/provas/casos/",
+      "sha256": "7f3198dda136423e31c789f111a800f12a903598d0c30b03ed7aa6c9c441c808",
+      "daqui": "o porque de cada um dos 52 casos de prova"
+    }
+  ],
+  "codigosDeSaida": {
+    "0": "tudo que se aplica passou",
+    "1": "REPROVOU: violação real",
+    "2": "alvo inválido (não é repositório git) ou invocação errada",
+    "127": "QUEBROU: uma regra lançou exceção. Defeito do rebar-check, não do alvo."
+  },
+  "niveis": [
+    {
+      "nivel": "N0",
+      "oQueE": "Compilador — tipos, contrato tipado, exaustividade",
+      "falhaComo": "não compila",
+      "custoPorSessao": "zero",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 141
+      },
+      "regras": [
+        "typecheck"
+      ]
+    },
+    {
+      "nivel": "N1",
+      "oQueE": "Análise estática — lint, fronteiras, ciclos, cor literal",
+      "falhaComo": "não passa no lint",
+      "custoPorSessao": "zero",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 142
+      },
+      "regras": [
+        "editorconfig",
+        "formatter",
+        "ui-falso",
+        "schema-orfao",
+        "conteudo-fora-do-codigo",
+        "telefone",
+        "shadcn-completo",
+        "hex-cru",
+        "idioma-unico"
+      ]
+    },
+    {
+      "nivel": "N2",
+      "oQueE": "Contrato em runtime — Zod na borda, env no boot",
+      "falhaComo": "não passa na borda",
+      "custoPorSessao": "~zero",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 143
+      },
+      "regras": [
+        "env-example",
+        "url-producao"
+      ]
+    },
+    {
+      "nivel": "N3",
+      "oQueE": "Teste",
+      "falhaComo": "não passa na suíte",
+      "custoPorSessao": "zero",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 144
+      },
+      "regras": [
+        "testes"
+      ]
+    },
+    {
+      "nivel": "N4",
+      "oQueE": "CI — bloqueia merge",
+      "falhaComo": "não entra na principal",
+      "custoPorSessao": "zero",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 145
+      },
+      "regras": [
+        "dependabot",
+        "ci",
+        "ci-gateia",
+        "identidade-git"
+      ]
+    },
+    {
+      "nivel": "N5",
+      "oQueE": "Hook — impede antes de acontecer",
+      "falhaComo": "a ação não acontece",
+      "custoPorSessao": "~zero",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 146
+      },
+      "regras": [
+        "hooks-executaveis",
+        "coautoria-ia"
+      ]
+    },
+    {
+      "nivel": "N6",
+      "oQueE": "Regra de IA — CLAUDE.md, MCP",
+      "falhaComo": "depende de ler e obedecer",
+      "custoPorSessao": "alto e recorrente",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 147
+      },
+      "regras": []
+    },
+    {
+      "nivel": "N7",
+      "oQueE": "Porta humana",
+      "falhaComo": "depende de alguém prestar atenção",
+      "custoPorSessao": "alto",
+      "fonte": {
+        "arquivo": "docs/PLANO.md",
+        "linha": 148
+      },
+      "regras": [
+        "licenca",
+        "readme",
+        "notice"
+      ]
+    }
+  ],
+  "regras": [
+    {
+      "id": "editorconfig",
+      "titulo": "tem .editorconfig",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1277
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "editorconfig",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Sem .editorconfig cada editor reescreve indentação e fim de linha por conta própria, e num repositório Windows isso vira diff de CRLF em arquivo que ninguém tocou. As duas árvores são idênticas menos esse arquivo: se a regra parar de olhar para ele, o lado reprovar sai 0 e a prova acusa."
+        }
+      ]
+    },
+    {
+      "id": "dependabot",
+      "titulo": "atualização de dependência automatizada",
+      "classe": "determinística",
+      "nivel": "N4",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1285
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1290,
+          "texto": "Guarda de leitura só: a aplicabilidade continua sendo o package.json da RAIZ, porque dependabot e renovate são configuração de repositório e não de pacote. Sem a guarda, quebrar o package.json tirava esta regra do denominador junto com as outras três."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "dependabot",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Projeto npm sem dependabot nem renovate acumula CVE em dependência transitiva sem ninguém abrir um PR. As duas árvores têm package.json — sem ele a regra cai em não-se-aplica e a prova não provaria nada — e diferem só pelo .github/dependabot.yml."
+        },
+        {
+          "caso": "dependabot__nao-e-npm",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "O ramo N/A `não é projeto npm` sai do DENOMINADOR, e ramo que sai do denominador é o lugar por onde a nota sobe sem ninguém consertar nada — foi assim que o package.json quebrado transformava 9 de 10 em 6 de 6. Enquanto o runner lia exit code, este ramo era intravável: `na` e `passou` saem 0 os dois. O lado `aprovar` é uma árvore sem package.json nenhum e tem de sair N/A, não `passou`: dependabot e renovate são configuração de projeto npm, e cobrar isso de um repositório que não é npm seria inventar dívida. Com a mutação `na(...)` → `null`, este lado vira `passou` e o caso acusa."
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "titulo": "tem CI",
+      "classe": "determinística",
+      "nivel": "N4",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1307
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "ci",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Repositório sem workflow nenhum não tem portão: o que passa é o que o autor lembrou de rodar na máquina dele. A regra lê a lista rastreada pelo git, então o lado aprovar também prova que um workflow só vale depois de commitado — arquivo não rastreado não conta."
+        }
+      ]
+    },
+    {
+      "id": "ci-gateia",
+      "titulo": "o CI alcança a verificação que o repositório tem",
+      "classe": "determinística",
+      "nivel": "N4",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1315
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1320,
+          "texto": "Mesma guarda de leitura das outras: com o package.json quebrado, `r.pkg?.scripts` virava `{}`, `alvos` ficava vazio e a regra saía do denominador. Quatro regras sumindo é o que fazia 9 de 10 virar 6 de 6. Só cobra o que o repositório POSSUI. Exigir `lint` de um repo sem lint é exigir que ele adote uma ferramenta — decisão de outro nível."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "ci-gateia",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Esta prova trava o falso positivo já medido no alicerce: a versão anterior procurava as palavras lint/typecheck/test literais no YAML e reprovava todo repositório que agrega a verificação num comando só. O lado aprovar tem um workflow que não contém NENHUMA das três palavras — chama apenas `npm run verificar`, que encadeia `estatica` (lint + typecheck) e `test`, exercitando dois níveis da expansão — e tem de PASSAR. Os dois package.json são byte a byte iguais: a única variável é a linha `run:` do workflow, então o lado reprovar só pode reprovar por o CI de fato não alcançar a verificação que o repositório possui."
+        },
+        {
+          "caso": "ci-gateia__nao-se-aplica",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "Os DOIS ramos N/A desta regra num caso só, um por pasta — as pastas se chamam `aprovar` e `reprovar` por herança do formato, e aqui cada uma isola um ramo diferente. `aprovar/` tem os scripts lint e test e nenhum workflow: quem cobra a existência de CI é a regra `ci`, e cobrar duas vezes a mesma ausência mede a mesma coisa duas vezes e reprova o repositório em dobro. `reprovar/` tem workflow e um package.json cujo único script é `empacotar`: a regra só cobra o que o repositório POSSUI, porque exigir `lint` de quem não tem lint é exigir a adoção de uma ferramenta, decisão de outro nível. Qualquer um dos dois virando `passou` faz o caso acusar."
+        },
+        {
+          "caso": "ci-gateia__runner-em-arquivo",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A expansão seguia `npm run x` para o CORPO do script e parava no `node <arquivo>`. Medido em 2026-08-30: o `ducado` era acusado de \"o CI não alcança: lint\" com `.github/workflows/verificar.yml` rodando `npm run verificar`, o script `verificar` sendo `node ci/verificar.mjs`, e aquele arquivo rodando `npm run --silent lint` na linha 21. A cadeia real tem três elos e a expansão percorria dois — parar no `node` era declarar que o CI não alcança o lint que ele alcança em toda execução. Os dois lados têm o MESMO workflow, o MESMO package.json e o MESMO runner: só a lista de passos DENTRO do runner muda."
+        }
+      ]
+    },
+    {
+      "id": "testes",
+      "titulo": "tem teste",
+      "classe": "determinística",
+      "nivel": "N3",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1339
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "testes",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Trava um dos dois falsos positivos determinísticos já medidos: a regra era cega a teste nomeado em português — 43 arquivos rastreados com `prova` no nome no alicerce e a regra enxergava ZERO, num checker escrito em português. Esta variante isola o ramo de SEGMENTO DE CAMINHO: o único arquivo de teste do lado aprovar é `provas/soma.mjs`, e nenhum nome de arquivo casaria sozinho. Se o segmento `provas` sair do reconhecedor, o lado aprovar sai 1."
+        },
+        {
+          "caso": "testes__nome-em-portugues",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A outra metade do mesmo falso positivo. Esta variante isola o ramo de NOME DE ARQUIVO: o único teste do lado aprovar é `provar-soma.mjs`, na raiz, sem nenhuma pasta de teste no caminho. Existe separada porque a versão anterior desta prova tinha os dois ramos na mesma árvore — e, restaurando à mão a cegueira ao português, ela continuou VERDE, porque o outro ramo ainda casava. Prova que sobrevive à volta do defeito que ela trava não é prova."
+        },
+        {
+          "caso": "testes__nome-em-python",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "O padrão de nome conhecia só o ponto (`.test.`), e a convenção de Python e de Go escreve o separador com sublinhado. Medido em 2026-08-30: o `VectraB-Lab` era acusado de \"zero arquivo de teste\" tendo três scripts `*_test.py` rastreados, entre eles `02-obd-kline/vectra_kw82_test.py`. É a mesma cegueira de vocabulário que já custou um falso positivo a esta regra em português — 43 arquivos com \"prova\" no nome e zero enxergados. Os dois lados têm o MESMO módulo; só o arquivo de teste ao lado dele muda. O `TESTE-1-cabo-KKL.md` do mesmo repositório continua NÃO contando, e é por isso que o separador aceito é `_` e não `-`."
+        }
+      ]
+    },
+    {
+      "id": "typecheck",
+      "titulo": "tem script de typecheck",
+      "classe": "determinística",
+      "nivel": "N0",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1347
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "typecheck",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Projeto TypeScript cujo unico contato com o compilador e o build: o erro de tipo so aparece quando alguem tenta empacotar, ou em producao, nunca numa checagem que o CI possa chamar sozinha."
+        },
+        {
+          "caso": "typecheck__modelo-do-gerador",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "MODELO NAO E PRODUTO, a mesma licao do caso.json um andar acima. Um repositorio que carrega o gerador carrega tambem os .tsx que o gerador COPIA para dentro do projeto criado — arquivos que nao sao compilados aqui, que nao tem tsconfig aqui, e que fizeram o proprio rebar cair de 11 de 11 para 11 de 13 assim que novo/ foi rastreado (medido em 2026-08-31 num espelho do repositorio em os.tmpdir()). O lado aprovar tem o marcador modelo.json na raiz de modelo e a regra sai do denominador; o lado reprovar e a MESMA arvore sem o marcador, e a regra acusa. Quem apagar a exclusao faz o aprovar ficar vermelho; quem transformar a exclusao em bypass incondicional faz o reprovar ficar verde."
+        },
+        {
+          "caso": "typecheck__modelo-fora-da-raiz",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "A FECHADURA da exclusao de modelo, que e o que separa uma porta de saida de um bypass. O marcador so vale quando o prefixo dele e EXATAMENTE uma raiz de modelo conhecida. No lado aprovar ele esta em novo/site/blocos/ e a arvore sai da avaliacao; no lado reprovar o mesmo arquivo esta um nivel abaixo, em novo/site/blocos/app/, e tem de ser RECUSADO — a arvore continua avaliada e a regra acusa. Sem essa travar, um modelo.json em qualquer pasta esconderia qualquer arvore, que foi exatamente o ataque de tres bytes que o caso.json ja aceitou uma vez."
+        },
+        {
+          "caso": "typecheck__nao-se-aplica",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "Os dois ramos N/A da regra, um por pasta. `aprovar/` tem `src/app.ts` — TypeScript de verdade — e NENHUM package.json: sem manifesto não há script para invocar, e a regra pede um alvo que o CI consiga chamar. `reprovar/` tem o package.json e nenhum arquivo .ts ou .tsx: cobrar checagem de tipo de um projeto que não tem tipo é acusar por vocabulário. A presença do TypeScript no lado sem manifesto é deliberada, e é o que faz cada pasta isolar UM ramo: sem ela o lado `aprovar` seria N/A por dois motivos ao mesmo tempo, e a mutação de qualquer um dos dois continuaria achando o outro pela frente. Cada ramo tem de ser o único caminho do seu lado, ou a prova não diz qual deles travou."
+        },
+        {
+          "caso": "typecheck__nome-em-portugues",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Exigir o script chamado exatamente `typecheck` cobrava do repositório o VOCABULÁRIO e não a prática — o mesmo erro que a regra `testes` cometia com nome de arquivo em português, num checker escrito em português. Medido: prumo (`\"tipos\": \"tsc -b\"`) e ducado (`\"tipos\"` na raiz e `\"typecheck\"` em três pacotes) foram acusados de não ter typecheck tendo os dois o script. Esta variante isola o ramo do NOME: o lado `aprovar` tem `tipos` e nada mais. A lista aceita continua sendo de NOMES de script, e o lado `reprovar` mostra por quê — ele roda `tsc -b` DENTRO de `empacotar`, que é exatamente a falha que o caso base descreve (o único contato com o compilador é o build) e continua reprovando. Foi o que preservou a acusação verdadeira contra navesz.github.io, cujo `build` é `npm run data && tsc --noEmit && vite build`."
+        }
+      ]
+    },
+    {
+      "id": "formatter",
+      "titulo": "tem formatador",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1364
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "formatter",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Projeto npm que tem linter e nenhum formatador: cada maquina reindenta o arquivo do seu jeito e o diff da revisao vira ruido de espaco em branco em vez de mudanca de comportamento."
+        },
+        {
+          "caso": "formatter__manifesto-ilegivel",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Arquivo que EXISTE e não pode ser lido nunca pode virar N/A, porque N/A sai do denominador e a nota SOBE. O `lerJson` antigo fundia \"não existe\" com \"existe e está quebrado\" num `catch { return null }`, e `pkg === null` virava `na('não é projeto npm')`. Medido no ataque: um repositório de 9 de 10 (90%) com o package.json sintaticamente quebrado virava 6 de 6 (100%) — dependabot, ci-gateia, typecheck e formatter sumiam da conta e ele passava a tirar nota máxima. Quebrar o arquivo melhorava a nota. O lado `reprovar` TEM prettier, declarado em apps/web/package.json, e mesmo assim tem de reprovar: não se certifica o que não se conseguiu ler. É essa presença que faz a prova morder. Sem ela, a primeira versão deste caso continuava verde sob a mutação que devolvia a leniência — a união de dependências saía vazia e a regra reprovava pelo motivo errado, provando nada. Com ela, tanto o comportamento antigo (N/A, exit 0) quanto o conserto pela metade (pular o ilegível e aprovar pelo resto, exit 0) fazem este lado divergir. As duas árvores são idênticas menos pela vírgula sobrando e pela chave que não fecha na raiz."
+        },
+        {
+          "caso": "formatter__monorepo",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A mesma classe do `ui-falso__monorepo`, no eixo das dependências: a regra lia só `dependencies`/`devDependencies` da RAIZ. Medido, o openkartline foi acusado de \"sem prettier, biome ou dprint\" sendo um workspace pnpm com `\"prettier\": \"^3.4.2\"` em apps/web/package.json e dois scripts (`format`, `format:check`) que o chamam. A raiz de monorepo costuma não declarar dependência nenhuma — é só o mapa dos workspaces. Aqui a união crua de todos os manifestos é o casamento certo, e em `ui-falso` não é: o gerenciador de pacotes iça o formatador para o workspace inteiro, então declarar prettier num pacote formata o repositório todo, enquanto um `components.json` configura os aliases de um projeto só. As duas raízes são idênticas; só o manifesto do pacote muda."
+        },
+        {
+          "caso": "formatter__nao-e-npm",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "Prettier, biome e dprint são dependências npm: sem manifesto não há onde declará-los, e a regra não tem objeto para checar. O lado `aprovar` é uma árvore com código JavaScript e sem package.json, e tem de sair N/A e não `passou` — passar seria certificar como formatado um repositório sobre o qual não se olhou nada. O lado `reprovar` prova que a guarda não engoliu a regra: com o manifesto presente e só eslint declarado, a acusação continua saindo."
+        }
+      ]
+    },
+    {
+      "id": "env-example",
+      "titulo": "lê env e documenta em .env.example",
+      "classe": "determinística",
+      "nivel": "N2",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1378
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "env-example",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Variavel de ambiente que o codigo le e o .env.example nao lista: quem clona o repositorio so descobre que ela existe quando a aplicacao quebra em runtime, e o .env.example pela metade e pior que a ausencia porque parece completo."
+        },
+        {
+          "caso": "env-example__nao-le-env",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "A regra existe para o .env.example pela metade, que é pior que a ausência porque parece completo. Mas repositório que não lê variável nenhuma não deve um .env.example a ninguém: exigi-lo criaria um arquivo vazio de cerimônia em todo projeto. O lado `aprovar` tem código de verdade e zero `process.env`, e tem de sair N/A. O lado `reprovar` lê `API_TOKEN` e não tem o arquivo, então a guarda não pode ter virado uma saída para a regra inteira."
+        },
+        {
+          "caso": "env-example__so-em-comentario",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "`.env.example` documenta o que o programa LÊ EM EXECUÇÃO, e variável citada em comentário não é lida por ninguém. Isto não é hipótese: ao escrever a nota do conserto do `url-producao` neste repositório, a frase de exemplo com `process` `.env` fez o próprio rebar reprovar em `env-example` cobrando duas variáveis que não existem em lugar nenhum. É a mesma armadilha que já custou uma regra a este arquivo — das sete ocorrências que a regra de cor literal deu no herz, cinco eram comentários documentando a própria regra. Os dois lados têm o MESMO comentário citando a MESMA variável: no lado `reprovar` ela também é lida de verdade."
+        },
+        {
+          "caso": "env-example__variavel-do-ambiente",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "`.env.example` documenta o que a pessoa tem de PREENCHER, e ninguém preenche `NO_COLOR` num arquivo de exemplo: quem o define é o terminal, e quem define `CI` é o runner. Medido em 2026-08-30, dois dos seis acusados eram só isto — o `alicerce` virava \"lê 1 variável de ambiente e não tem .env.example\" tendo `NO_COLOR` como única variável do repositório, e o `prumo` era cobrado por `NO_COLOR` tendo `.env.example` com `PRUMO_KEK` e `DATABASE_URL` documentados. O lado `aprovar` lê SÓ variáveis do ambiente e tem de sair N/A; o lado `reprovar` lê as mesmas MAIS uma variável do projeto e continua reprovando, para que a peneira não vire uma saída para a regra inteira."
+        }
+      ]
+    },
+    {
+      "id": "licenca",
+      "titulo": "tem LICENSE",
+      "classe": "determinística",
+      "nivel": "N7",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1394
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "licenca",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "package.json declarando \"license\" sem o arquivo LICENSE no repositorio: o metadado promete uma concessao de uso que o repositorio nao entrega, e quem clona nao recebe direito nenhum por escrito."
+        }
+      ]
+    },
+    {
+      "id": "readme",
+      "titulo": "tem README",
+      "classe": "determinística",
+      "nivel": "N7",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1402
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 1406,
+          "texto": "ESTA REGRA PEGA ZERO HOJE, e isso fica escrito aqui de propósito."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1408,
+          "texto": "Medido em 31/08/2026 nos 12 repositórios da máquina: TODOS têm README, de 25 a 282 linhas úteis, e NENHUM é boilerplate de framework (procurei por \"bootstrapped with create-next-app\", \"npm create vite\", \"Getting Started with Create React App\" e afins — zero ocorrências)."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1413,
+          "texto": "Então por que existe. Primeiro: duas horas antes de esta linha ser escrita, o próprio rebar era o único repositório sem README, e foi a público assim — enquanto o docs/PLANO.md listava \"README como entregável\" DUAS VEZES como buraco que este projeto existe para tapar. A régua não enxergava o buraco que o plano dela nomeava. Segundo: o gerador vai produzir repositório novo, e repositório novo nasce sem README por padrão."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1421,
+          "texto": "Só PRESENÇA, sem piso de tamanho. Um limite de linhas reprovaria `navesz.github.io` (25 linhas) e `VectraB-Lab` (31), que são projetos pequenos com README proporcional — e regra automática errada custa mais que regra ausente."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "readme",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "O próprio rebar foi a público sem README, enquanto o docs/PLANO.md listava \"README como entregável\" duas vezes como buraco que ele existe para tapar. A régua não enxergava o buraco que o plano dela nomeava. Esta prova trava a volta disso — e trava também o gerador, que vai produzir repositório novo, e repositório novo nasce sem README."
+        }
+      ]
+    },
+    {
+      "id": "notice",
+      "titulo": "Apache-2.0 acompanhado de NOTICE",
+      "classe": "determinística",
+      "nivel": "N7",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1432
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "notice",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Distribuicao sob Apache-2.0 sem o arquivo NOTICE: a secao 4(d) da propria licenca obriga o repasse do NOTICE, entao o repositorio esta em desacordo com a licenca que ele mesmo declara."
+        },
+        {
+          "caso": "notice__nao-se-aplica",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "Os dois ramos N/A da regra, um por pasta. `aprovar/` não tem LICENSE: a ausência de licença é falha da regra `licenca`, e acusar aqui de novo contaria a mesma dívida duas vezes no denominador. `reprovar/` tem uma LICENSE MIT: a obrigação de repassar o NOTICE é da seção 4(d) da Apache-2.0 e de mais nenhuma licença, então exigi-la de um projeto MIT seria inventar uma cláusula que ele não assinou. Os dois lados saem N/A por motivos diferentes, e trocar qualquer um deles por `passou` faz o caso acusar."
+        }
+      ]
+    },
+    {
+      "id": "hooks-executaveis",
+      "titulo": "hook de git commitado com bit de execução",
+      "classe": "determinística",
+      "nivel": "N5",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1445
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 1449,
+          "texto": "ACHADO DE AUDITORIA, 31/08: o modo 100755 era garantido UMA VEZ, na criação, e nada o mantinha. Um `git update-index --chmod=-x` — ou um arquivo criado no Windows, onde o bit não existe — devolve o hook para 100644, e em Linux o git passa a IGNORÁ-LO em silêncio. O portão se declara ligado e não faz nada, que é o pior estado possível."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1455,
+          "texto": "O modo lido é o do ÍNDICE, não o do disco: `chmod` local não viaja no clone, e é o clone que chega na máquina de quem for usar."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "hooks-executaveis",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Achado de auditoria em 31/08: o modo 100755 dos hooks era garantido uma vez, na criação, e nada o mantinha. Um `git update-index --chmod=-x` — ou um arquivo criado no Windows, onde o bit não existe — devolve o hook para 100644, e em Linux o git passa a IGNORÁ-LO em silêncio: o instalador imprime \"hooks instalados\" e nada roda. O portão se declara ligado e não faz nada, que é o pior estado possível. O modo conferido é o do ÍNDICE, porque `chmod` local não viaja no clone."
+        }
+      ]
+    },
+    {
+      "id": "coautoria-ia",
+      "titulo": "coautoria só de humanos da allowlist",
+      "classe": "determinística",
+      "nivel": "N5",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1472
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1480,
+          "texto": "Automação de manutenção sai antes de qualquer contagem, para que ela não apareça nem no veredito nem no NÚMERO impresso — ver AUTOMACAO_NAO_IA. Zero trailer de coautoria é o único veredito que NÃO depende de saber quem é IA e quem é gente: não há coautor nenhum, logo não há coautor de IA. Vale com allowlist e sem, e é o caso dos 11 commits deste repositório. Sai antes de tudo para que o ramo N/A abaixo nunca engula um repositório que está genuinamente limpo. Sem allowlist só resta ENUMERAR, e enumeração é a forma que este conserto existe para abandonar: medido em 2026-08-30, a lista de 9 agentes deixou passar Windsurf, ChatGPT, Cody, Codeium, Amazon Q e Tabnine de uma só vez. Aqui ela sobrevive por um motivo estreito: o rebar-check roda contra repositório de TERCEIRO, que não tem a allowlist do rebar, e desligar a regra ali seria trocar um portão furado por portão nenhum."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1517,
+          "texto": "O que muda é o que a enumeração tem direito de AFIRMAR. Achou um agente conhecido, reprova — enumeração prova presença. Não achou, NÃO passa: vira N/A dizendo que há coautor que não dá para classificar. Enumeração não prova ausência, e um \"✓\" ali seria o checker afirmando o que não sabe. É a mesma disciplina do `na()` no alto deste arquivo: o que não dá para decidir sai do denominador, com o motivo impresso."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "coautoria-ia",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "As duas árvores têm o MESMO arquivo: só o histórico muda, então a prova mede exatamente o que a regra lê. O lado reprovar usa o trailer do Cursor em caixa baixa (`Co-authored-by:`) porque a regex ingênua procura só `Claude` com C maiúsculo e cobre 15% do problema medido; o lado aprovar tem um commit que CITA Claude e Copilot no corpo, que é o falso positivo que aparece assim que alguém tira o `^` ou o `/m` da regex e passa a casar a palavra solta no meio do texto."
+        },
+        {
+          "caso": "coautoria-ia__allowlist",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Trava a INVERSÃO DE POLÍTICA. Os dois lados têm a MESMA árvore, incluindo a mesma `.rebar-coautores` com um único humano — só o histórico muda. O lado `reprovar` usa `Co-authored-by: Windsurf <agent@windsurf.com>`, escolhido porque o Windsurf NÃO estava na lista de 9 agentes que a regra enumerava: medido em 2026-08-30, num repositório montado em tmpdir, Windsurf, ChatGPT, Cody, Codeium, Amazon Q e Tabnine entraram no histórico com trailer que o `git log --format=%(trailers)` reconheceu e a regra acusou 1 de 9 commits tendo 8 deles trailer. Quem reintroduzir a enumeração no lugar da allowlist faz este lado ficar verde, e a prova acusa. O lado `aprovar` usa o e-mail que ESTÁ na allowlist e prova a outra metade: allowlist que barra todo mundo não é allowlist, é veto."
+        },
+        {
+          "caso": "coautoria-ia__bot-de-dependencia",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A lista de agentes terminava num `\\[bot\\]` solto, e aquele curinga afirmava uma coisa falsa: que todo App do GitHub que assina um trailer é agente de IA. Medido em 2026-08-30: o `ducado` era acusado de \"1 de 25 commits com coautoria de IA\" e o ÚNICO trailer do histórico inteiro é `dependabot[bot]`; no `openkartline` o curinga inflava a acusação de 2 para 6, porque 4 dos 6 eram dependabot. Bumpador de dependência não escreve código a partir de um enunciado — é o mesmo julgamento que a regra `identidade-git` já faz com `EH_BOT`. Os dois lados têm o MESMO commit do dependabot; o lado `reprovar` acrescenta UM commit com coautoria de agente de IA, e a diferença é só essa. Quem devolver o curinga faz o lado `aprovar` ficar vermelho; quem tirar a enumeração inteira faz o `reprovar` ficar verde."
+        },
+        {
+          "caso": "coautoria-ia__enumeracao",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "O ramo de repositório de TERCEIRO, que não tem `.rebar-coautores` — nenhum dos dois lados tem o arquivo. Ali só resta enumerar agentes, e enumeração só prova PRESENÇA. O lado `reprovar` tem um agente da lista e continua reprovando, então a queda para o plano B não desarmou a regra. O lado `aprovar` tem um coautor que a lista não conhece e por isso declara `na`: um `✓` ali seria o checker afirmando \"não há IA\" sem ter como saber, que é exatamente a afirmação que os seis agentes do ataque de 2026-08-30 desmentiram. Repositório de terceiro SEM trailer nenhum passa por outro caminho — ausência de coautor é prova de ausência de coautor de IA — e é o caso `coautoria-ia` sem variante."
+        },
+        {
+          "caso": "coautoria-ia__sem-commit",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "Repositório recém-iniciado, com a árvore no índice e nenhum commit, é estado legítimo — e faz o `git log` sair 128. O ramo N/A existe porque a alternativa é o `catch` que engolia o erro e devolvia string vazia, e string vazia não tem trailer de coautoria: o repositório sem histórico APROVAVA numa regra sobre histórico. Crash virando aprovação é a mesma classe de defeito que o `git()` deste arquivo documenta. O lado `aprovar` declara `\"commits\": []` e tem de sair N/A; o lado `reprovar` tem o trailer e continua reprovando, então a guarda não desligou a regra."
+        }
+      ]
+    },
+    {
+      "id": "identidade-git",
+      "titulo": "identidade de autor consistente",
+      "classe": "determinística",
+      "nivel": "N4",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1540
+      },
+      "porque": [],
+      "provas": [
+        {
+          "caso": "identidade-git",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A falha real é a mesma pessoa commitando ora como `Leonardo Naves <...@users.noreply.github.com>`, ora como `leona <leonardo@empresa.com.br>`: o histórico público passa a carregar o e-mail pessoal e o `git shortlog` conta duas pessoas onde há uma. O lado aprovar tem DOIS commits com a identidade idêntica, então uma regra que contasse commits em vez de combinações distintas de nome/e-mail reprovaria ali e a prova acusaria."
+        },
+        {
+          "caso": "identidade-git__nao-se-aplica",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "Os dois ramos N/A da regra, um por pasta. `aprovar/` declara `\"commits\": []`: sem histórico não há identidade a comparar, e a versão que engolia o erro do `git log` fazia esse repositório APROVAR numa regra sobre autoria. `reprovar/` tem um commit só, do dependabot: bot commita, e commitar não faz dele uma identidade inconsistente do dono. Esse segundo ramo tem preço medido — sem a lista de bots, o merge commit que o GitHub cria em refs/pull/N/merge contava como segunda pessoa E como e-mail pessoal exposto, dois falsos positivos de uma vez, e TODO pull request nascia reprovado."
+        }
+      ]
+    },
+    {
+      "id": "ui-falso",
+      "titulo": "components/ui/ acompanhado de components.json",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1557
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1562,
+          "texto": "A BASE de uma pasta de UI é o diretório que contém `components/`: `apps/web/src/components/ui/botao.tsx` tem base `apps/web/src/`. É de lá que a busca pela defesa sobe."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "ui-falso",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A falha real é a pasta `components/ui/` criada à mão para PARECER shadcn sem nunca ter passado pelo CLI: sem `components.json`, `npx shadcn add` não sabe onde escrever, os aliases não existem e a próxima pessoa acha que pode atualizar um componente que ninguém gera. As duas árvores têm o mesmo `components/ui/botao.tsx`; só o `components.json` muda, então se a regra parar de olhar para ele o lado reprovar sai 0 e a prova acusa."
+        },
+        {
+          "caso": "ui-falso__monorepo",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A classe de falso positivo \"defeito procurado recursivamente, defesa procurada só na raiz\". A regra varria `components/ui/` em qualquer profundidade e conferia `components.json` só em `r.dir`: medido, prumo, ducado e LinhaK foram os três acusados de imitar a convenção tendo os três o arquivo rastreado numa subpasta (apps/web/, apps/web/, web/). Cinco dos doze repositórios auditados são monorepo, e a acusação caía justamente sobre eles. As duas árvores são idênticas menos por `apps/web/components.json`. O `apps/loja/components.json` está nos DOIS lados de propósito: ele torna a prova imune ao conserto preguiçoso — trocar \"só na raiz\" por \"existe em qualquer lugar\" faria o lado `reprovar` sair 0, porque um `components.json` de pacote irmão passaria a defender `apps/web/`. Só o casamento por proximidade, subindo a árvore a partir da pasta de UI, faz os dois lados baterem."
+        },
+        {
+          "caso": "ui-falso__sem-pasta-ui",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "A regra acusa a pasta `components/ui/` criada à mão para parecer shadcn. Repositório que não tem essa pasta não imitou convenção nenhuma, e o ramo N/A é o que impede a regra de virar \"todo projeto tem de usar shadcn\" — que é o oposto do que ela mede. O lado `aprovar` tem um `src/botao.tsx`, componente de verdade fora da convenção, para provar que o N/A é sobre a PASTA e não sobre a ausência de componente. O lado `reprovar` tem a pasta sem `components.json` e continua reprovando."
+        }
+      ]
+    },
+    {
+      "id": "schema-orfao",
+      "titulo": "nenhum JSON Schema órfão",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1584
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1591,
+          "texto": "Teste CONTA como leitor, e é o único lugar do arquivo onde ele conta."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1593,
+          "texto": "As outras regras de conteúdo perguntam o que o produto FAZ, e teste não é produto. Esta pergunta é outra: existe alguém que lê este schema? Um teste de contrato que o importa responde SIM da forma mais forte que existe — se o schema mudar, o teste quebra. Medido: o `openkartline` era acusado de dois schemas \"definidos e nunca lidos\" com `apps/web/src/services/schemaContract.test.ts` importando os dois nas linhas 2 e 3. Era a única acusação desta regra nos 11 repositórios, e era falsa."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "schema-orfao",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A falha real é o JSON Schema que alguém escreveu, versionou e nunca ligou a um validador: ele envelhece em silêncio, diverge do dado de verdade e a próxima pessoa o lê como se fosse o contrato vigente. As duas árvores têm o MESMO `esquemas/pessoa.schema.json` e as duas têm código de verdade em `src/` — no lado reprovar esse código valida outro arquivo. Assim a prova impede tanto a regra que reprova qualquer repositório sem código quanto a que aprova qualquer repositório com código."
+        },
+        {
+          "caso": "schema-orfao__lido-so-no-teste",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Teste que importa o schema é a prova mais forte que existe de que alguém o lê: se o schema mudar, o teste quebra. A regra procurava o leitor só no código de PRODUÇÃO, porque `fontes()` tira teste — e teste é o que quase toda outra regra deve mesmo ignorar. Medido em 2026-08-30: `openkartline` era acusado de dois schemas \"definidos e nunca lidos\" com `apps/web/src/services/schemaContract.test.ts` importando os dois nas linhas 2 e 3. Era a única acusação desta regra nos 11 repositórios, e era falsa. Os dois lados têm o MESMO schema e o MESMO teste; no lado `reprovar` o teste valida outra coisa, então o schema fica sem nenhum leitor."
+        },
+        {
+          "caso": "schema-orfao__sem-schema",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "Sem nenhum `.schema.json` rastreado não há contrato para envelhecer em silêncio, e a regra não tem objeto. O ramo importa porque o lado positivo dela é uma busca por SUBSTRING no texto de todas as fontes: sem a guarda, um repositório sem schema nenhum passaria por um caminho que nunca foi exercitado, e \"passou\" ali é uma afirmação sobre zero arquivos. O lado `aprovar` tem código de verdade e nenhum schema; o lado `reprovar` tem `esquemas/pessoa.schema.json` que ninguém cita e continua reprovando."
+        }
+      ]
+    },
+    {
+      "id": "conteudo-fora-do-codigo",
+      "titulo": "conteúdo em conteudo/*.json, não dentro de src/ nem de app/",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1608
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 1609,
+          "texto": "CONTINUA HEURÍSTICA — e agora com o número que RECUSA a promoção, não com uma lista de pendências. Três dos quatro defeitos apontados na auditoria de 31/08 estão consertados e medidos; o quarto não cedeu, e é ele que segura a regra aqui."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1614,
+          "texto": "1. FRAGMENTO — CONSERTADO. O casamento cortava no primeiro `<`, e 18 das 185 frases começavam com ponto, travessão ou no meio da oração. `nosDeTexto()` remonta a corrida atravessando os elementos inline: ZERO de 262 agora começam fora do começo da oração. As 6 que começam em minúscula foram conferidas uma a uma na fonte: quatro são `<li>` de uma lista \"Nunca:\", uma é legenda escrita assim, e a sexta é sobra de depuração (`esperado 0x… · recebido 0x…`) — nenhuma é pedaço de frase."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1622,
+          "texto": "2. RÓTULO DE AÇÃO — CONSERTADO, e sem enumerar verbo. O discriminador é o DONO do nó de texto: `<button>`, `<a>` e `<label>` não são elemento de prosa, e o texto de um controle é o NOME dele. Ver o bloco de `PROSA`. Dos rótulos que a auditoria nomeou, saíram quatro: \"Imprimir ou salvar em PDF\" (`<button>`), \"Arraste pela grade ou use ‹ › para percorrer.\" (`<span>`), \"Não deu para abrir o cofre.\" (`<AlertTitle>`) e \"Carregando o índice de preços…\" (`<div>`)."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1630,
+          "texto": "3. PROVA DECORATIVA — CONSERTADA. Das nove mutações que sobreviviam nesta regra, as três nomeadas eram: apagar o dígito do padrão de preço, baixar o mínimo da frase e desligar o filtro de sinal de código. As três agora DIVERGEM, e o `aprovar/` do caso principal existe para isso: ele contém `R$` SEM dígito, um rótulo de campo de três palavras, uma linha de tabela com menos de 90% de letras, um `<button>` com rótulo de quatro palavras e um estado em `<div>`. Cada um deles fica vermelho se a guarda correspondente for afrouxada."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1639,
+          "texto": "4. VOCABULÁRIO DE INTERFACE EM `<p>` — NÃO CEDEU, e é o que recusa a promoção. Medido antes: 27 de 185 (14,6%). Medido depois: 31 de 262 (11,8%), e este número é RECONTÁVEL — `node medir-conteudo.mjs <repos>` imprime a tabela e a classificação. O 14,1% que esta linha publicava até 31/08 vinha de contagem à mão e não se reproduzia; o instrumento foi escrito justamente porque este repositório já publicou número errado quatro vezes, e ele desmentiu o primeiro número que checou — o mais caro do arquivo, o que RECUSA a promoção desta regra. A estrutura não moveu o número porque os que restam moram em elemento de prosa de verdade: \"Nenhuma proposta salva ainda.\" é um `<p>` sob `history.length === 0` e \"Clique para enviar a logo da empresa\" é um `<p>` ao lado de um `<input type=\"file\">`. Separá-los de \"Nossa cozinha abre às 18h\" exigiria ENUMERAR verbo de instrução e palavra de estado — e enumeração aqui falha para o lado errado: a lista incompleta não deixa de excluir, ela ACUSA. É a inversão exata do argumento do `coautoria-ia`: lá a enumeração prova presença e por isso pode reprovar; aqui ela precisaria provar AUSÊNCIA de instrução para não acusar, e não prova. Com ~12% de ruído, determinística barra merge por rótulo de campo — e regra que barra merge por rótulo de campo ensina a desligar a saída inteira."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1660,
+          "texto": "A §12.3 do plano continua aberta por causa do item 4, e não por causa do 1, do 2 e do 3. O que falta não é engenharia de casamento: é um discriminador de VOZ — texto que fala do negócio contra texto que fala do programa — e ele não sai da árvore de elementos. O motivo do portão de aplicabilidade está no bloco de comentário acima de `RE_CONTEUDO_JSON`; a definição de \"literal de conteúdo\" e o número que ela dá nos 11 repositórios estão no bloco de `PROSA`, logo abaixo dele."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1671,
+          "texto": "A base é o diretório que contém `conteudo/`: em monorepo, `apps/site/conteudo/menu.json` tem base `apps/site/`. A asserção fica presa àquela base, e não ao repositório inteiro, pelo mesmo motivo que `ui-falso` casa por proximidade: um `apps/painel/` vizinho que nunca prometeu nada não pode ser acusado pela promessa do `apps/site/`. Frase só em arquivo com JSX. Num `.ts` puro não existe nó de texto, e procurar marcação lá seria ler operador de comparação como prosa."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "conteudo-fora-do-codigo",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A §12.3 do plano fechou que o conteúdo do preset `site` mora em `conteudo/*.json`, e o próprio plano registra que fechar no texto não fecha nada. Este caso cobra METADE do par que a §12.3 pede — a FRASE. O preço é o outro caso, `conteudo-fora-do-codigo__preco`, e a separação é o conserto de um defeito medido, não arrumação.\n\nPOR QUE SEPARADO: até 31/08 o `reprovar/` plantava os DOIS literais no MESMO `.tsx` — uma frase num `<p>` e um preço num `<span>`. Um achado só já faz o estado virar \"reprovou\", então a frase carregava o lado sozinha e a detecção de preço nunca era exercitada: mutando `if (preco) achados.push(...)` para `if (false && preco) achados.push(...)` — a detecção de preço INTEIRA apagada — as 51 provas ficavam verdes. Uma prova que confunde duas causas não trava nenhuma. Agora o `reprovar/` deste caso é o `aprovar/` com UM literal plantado, a frase de catálogo do `<p>`, e o motivo impresso é de um achado só: `app/pagina.tsx: frase \"Mesa de jantar em madeira macica, feita sob encomenda.\"`. Desligar a detecção de frase (`if (false && frases.length)`) faz ESTE lado divergir.\n\nO `aprovar/` trava as guardas que decidem o que É frase, e cada uma tem um espécime que fica vermelho se a guarda for afrouxada:\n\n· `<p>Forma de pagamento</p>` — rótulo de campo de TRÊS palavras, medido no Galegos com essas mesmas palavras. Baixar `MIN_PALAVRAS` de 4 faz este lado reprovar. É o limiar que substituiu o mínimo de 25 caracteres, removido por custar 13 acusações verdadeiras nos 11 repositórios e não comprar nenhuma.\n\n· `<p>lote 7 · lote 9 · lote 12 · sem foto</p>` — 88% de letras, abaixo de `MIN_LETRAS`. É linha de tabela renderizada como parágrafo, não prosa. Desligar `sinalDeCodigo` faz este lado reprovar.\n\n· `<button type=\"button\">Ver o catalogo completo</button>` e `<div>Nenhuma peca nesta colecao por enquanto.</div>` — quatro e seis palavras, os dois passariam por qualquer limiar de tamanho. O que os exclui é o DONO: `<button>` é controle e `<div>` não diz nada sobre o que carrega, e nenhum dos dois está em `PROSA`. Pôr `button` ou `div` em `PROSA` faz este lado reprovar. É o discriminador que tirou \"Imprimir ou salvar em PDF\" da acusação — ele mora num `<button>` em `decima-edicoes/app/components/print-button.tsx:8`.\n\nA guarda do DÍGITO no padrão de preço saiu daqui junto com o preço: o espécime `R$ {formatarPreco(...)}` que a trava mora no `aprovar/` de `conteudo-fora-do-codigo__preco`. Cada caso trava as guardas da causa que ele isola, e nenhuma guarda fica travada em dois lugares.\n\nOs dois lados têm o mesmo `conteudo/inicio.json` e o mesmo componente: a única diferença é de onde vem o texto do `<p>`, que é exatamente a asserção da §12.3."
+        },
+        {
+          "caso": "conteudo-fora-do-codigo__frase-atravessada",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Este caso existe para travar o CASAMENTO, e é o único dos três que o casamento antigo REPROVAVA. O `reprovar/` tem uma frase de catálogo atravessada por um `<strong>`: `Mesa de <strong>jantar em madeira</strong> macica`. Cortando no primeiro `<` — que é o que o padrão `/> *([^<>{}\\n][^<>{}]{18,}?) *</g` fazia — ela vira `Mesa de` e `macica`, dois e uma palavra, os dois abaixo do mínimo: a frase inteira SOME e o lado `reprovar` ficava verde com o literal em cima da mesa. Remontada como corrida de texto, ela é uma frase de seis palavras e a regra a vê.\n\nA travessia é o que o caso trava, e trava dos dois lados do erro: quem desligar a costura das corridas inline — `if (q.inline && pai)` em `nosDeTexto` — faz sobrar `Mesa de macica`, três palavras, e este lado volta a passar.\n\nÉ o mesmo defeito que produzia os 18 fragmentos medidos nos 11 repositórios em 31/08, os que começavam com ponto, com travessão ou no meio da oração — mas medido pelo lado que importa: fragmento não é só saída feia, é ACHADO PERDIDO.\n\nO lado `aprovar` é a mesma forma, com o mesmo `<strong>` atravessando, e sem um literal: os dois pedaços de texto vêm de `conteudo/inicio.json`. A diferença entre os lados é só de onde o texto vem — que é exatamente a asserção da §12.3."
+        },
+        {
+          "caso": "conteudo-fora-do-codigo__nao-adotou",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "Os dois lados alcançam ramos N/A DIFERENTES, e o primeiro é o que impede esta regra de queimar a ferramenta. Medido em 2026-08-30: ignorando o portão de aplicabilidade, a definição de literal de conteúdo acha 188 ocorrências nos 11 repositórios — 185 frases e 3 preços; e 17 delas são fragmento, não literal, porque o casamento corta no primeiro `<` — 147 só no `decima-edicoes`, em 15 dos 25 arquivos dele. Nenhum é falso, e é justamente esse o problema: TODO site escrito à mão viola a asserção, então ela só pode ser cobrada de quem prometeu cumpri-la. O lado `aprovar` tem preço E frase plantados no `.tsx` e NÃO tem `conteudo/`, e tem de sair N/A — quem tirar o portão faz este lado ficar vermelho e a regra passa a acusar meio mundo. O lado `reprovar` tem `conteudo/` e nenhum código em `src/` nem em `app/`: promessa sem objeto também não se avalia."
+        },
+        {
+          "caso": "conteudo-fora-do-codigo__preco",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A outra metade do par da §12.3, isolada: aqui a única causa possível de reprovação é o PREÇO literal. Este caso nasceu de uma prova que não existia — até 31/08 o preço só aparecia no `reprovar/` do caso principal, ao lado de uma frase, e como um achado só já vira \"reprovou\" a frase carregava o lado sozinha. Resultado medido: apagar a detecção de preço inteira (`if (preco)` → `if (false && preco)`) deixava as 51 provas verdes. Com este caso, essa mutação DIVERGE.\n\nO `reprovar/` é o `aprovar/` com UMA linha plantada, `<span>R$ 4.900,00</span>`, e o motivo impresso tem um achado só: `app/pagina.tsx: preço \"R$ 4.900,00\"`. Nenhum dos dois lados tem uma única frase que a regra possa enxergar — os textos ou moram em `<span>`, que não está em `PROSA`, ou são interpolação pura (`<h1>{conteudo.titulo}</h1>`). Se a detecção de frase for desligada, este caso continua verde: ele não mede frase, e é por isso que ele mede preço.\n\nO `aprovar/` existe para travar a guarda do DÍGITO, e sem o espécime dela o teste não existiria: `<span>R$ {formatarPreco(conteudo.precoEmCentavos)}</span>` é cifrão SEM dígito, que é a FORMA CERTA — o símbolo é código, o valor vem de `conteudo/inicio.json` em centavos e o `app/lib/preco.ts` só escreve a pontuação. Apagar a exigência de dígito do padrão (`/R\\$\\s?\\d[\\d.,]*/` → `/R\\$/`) pinta este lado de vermelho. Sem esse `R$` no lado que APROVA, afrouxar o padrão não custaria nada e a guarda seria decorativa — foi uma das nove mutações que sobreviveram nesta regra na auditoria de 31/08.\n\nOs dois lados são a mesma árvore — mesmo `conteudo/inicio.json` com `precoEmCentavos`, mesmo formatador, mesmo componente. A única diferença é o literal plantado."
+        }
+      ]
+    },
+    {
+      "id": "telefone",
+      "titulo": "sem telefone brasileiro no código",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1711
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 1712,
+          "texto": "SOBE DE HEURÍSTICA A DETERMINÍSTICA, e o número que decidiu está aqui."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1714,
+          "texto": "Medido em 2026-08-30 nos 11 repositórios + o rebar: 417 arquivos de código de produção varridos, UMA acusação — `Galegos/src/lib/whatsapp.ts` linha 7, um `const WHATSAPP_NUMBER` com o celular da pizzaria em treze dígitos —, e ela é verdadeira. Um verdadeiro, zero falsos, em 417 arquivos. (O número não é transcrito aqui de propósito: ver a nota do `semComentario`, onde está o que acontece quando ele é.)"
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1721,
+          "texto": "A §12.3 do plano fechou a decisão que dá o dente: telefone, CNPJ e endereço são CONTEÚDO validado, não código e não variável de ambiente. E o custo do erro está documentado no próprio Galegos: `Navesz/Galegos#1` tentou mover o número para env var e o dono parou o PR, porque o build passa e o `wa.me` sobe sem destinatário. Determinística é o que faz a decisão valer."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1728,
+          "texto": "O padrão foi APERTADO junto com a promoção, e essa é a metade cara. O antigo `\\(?\\d{2}\\)?\\s?9\\d{4}-?\\d{4}` aceitava ONZE DÍGITOS SEGUIDOS sem pontuação nenhuma, com um `9` na terceira casa: um EAN-13 de produto (`7891234599999`) casava. Aceitável numa heurística que só informa; inaceitável numa regra que reprova merge. Agora só conta o que traz MARCA de telefone brasileiro — link `wa.me`, código de país 55, ou a pontuação de DDD. O mesmo Galegos continua sendo pego (`55` + `24` + `9` + oito dígitos) e os outros 416 arquivos continuam limpos: o aperto não custou nem um verdadeiro positivo."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1743,
+          "texto": "Comentário fora: ver a nota do `semComentario`. O que a §12.3 proíbe é o número que o programa USA — o que sobe no `wa.me` e no `tel:` —, e esse mora em código executado, não em nota de rodapé. ONZE DÍGITOS CRUS contam SÓ quando o arquivo monta um `wa.me` ou um `tel:`. É o conserto de uma regressão que o aperto acima causou e que a auditoria pegou: o MESMO celular do Galegos escrito sem o DDI, no mesmo arquivo, montando o mesmo link, passava limpo. O contexto é o que separa telefone de código de barras: um EAN-13 não vira link de WhatsApp, e por isso o dígito cru só conta acompanhado."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "telefone",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A §12.3 do plano fechou que telefone é CONTEÚDO validado, não código e não variável de ambiente, e o custo do erro está documentado no próprio Galegos: o PR `Navesz/Galegos#1` tentou mover o número para env var e o dono parou o PR, porque o build passa, o deploy sobe e o `wa.me` gera link sem destinatário. A regra virou determinística com um verdadeiro e zero falsos em 417 arquivos de código medidos. Os dois lados têm o MESMO número escrito do MESMO jeito: no lado `aprovar` ele está num COMENTÁRIO e no `reprovar` numa constante que o programa usa. Comentário não sobe no `wa.me`, e a régua que acusasse comentário acusaria a própria nota que a explica — foi o que aconteceu neste repositório enquanto esta regra era escrita."
+        },
+        {
+          "caso": "telefone__digito-cru",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "O padrão antigo aceitava ONZE DÍGITOS SEGUIDOS sem pontuação nenhuma, desde que houvesse um `9` na terceira casa — e um código de barras EAN-13 de produto casa com isso. Aceitável numa heurística que só informa; inaceitável numa regra que reprova merge, e a regra acabou de virar determinística. Os dois lados têm o MESMO EAN-13: o lado `reprovar` acrescenta o mesmo número escrito COM marca de telefone brasileiro, o código de país 55. Quem afrouxar o padrão de volta faz o lado `aprovar` ficar vermelho acusando um código de barras de ser telefone."
+        }
+      ]
+    },
+    {
+      "id": "shadcn-completo",
+      "titulo": "shadcn com o aparato, não só a pasta",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1769
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1774,
+          "texto": "Mesmo conserto do `ui-falso` e do `formatter`: o `components.json` procurado em qualquer profundidade, o aparato procurado em todos os manifestos. Antes, monorepo nenhum chegava a ser avaliado por esta heurística — prumo, ducado e LinhaK saíam por `na('não usa shadcn')` tendo os três o arquivo rastreado numa subpasta. A guarda de leitura vem DEPOIS do N/A: quem não usa shadcn não deve ganhar aviso por causa de um package.json quebrado. Aqui isso é seguro porque heurística não entra no denominador — não há N/A a lavar. ATENÇÃO: @radix-ui sozinho reprova o único repo que acertou. O Galegos usa shadcn correto no estilo base-nova, com @base-ui/react e ZERO Radix."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1789,
+          "texto": "`radix-ui` sem barra é o pacote unificado que substituiu os `@radix-ui/react-*` avulsos, e a ausência dele aqui era um falso positivo latente que este passo destapou: passando a enxergar `apps/web/components.json`, a heurística acusou o ducado de \"components.json sem primitiva\" com `\"radix-ui\": \"^1.6.7\"` declarado e `import { Select as SelectPrimitive } from 'radix-ui'` em oito componentes. Defesa procurada com nome velho é a mesma classe de erro que defesa procurada só na raiz."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "shadcn-completo__nao-usa-shadcn",
+          "aprovar": "na",
+          "reprovar": "reprovou",
+          "porque": "Primeiro caso de uma heurística, e o lado N/A dele só é escrevível porque o runner passou a ler estado: `na` e `passou` saem os dois exit 0, então enquanto o veredito vinha do código de saída este lado não podia ser declarado. O ramo `não usa shadcn` é o que impede a heurística de cobrar cva e tailwind-merge de quem nunca escolheu shadcn. `aprovar/` é um projeto React sem `components.json`; `reprovar/` tem o `components.json` e um manifesto sem primitiva, sem cva e sem tailwind-merge, e continua avisando — a guarda de leitura desta regra vem DEPOIS do N/A de propósito, para que quem não usa shadcn não ganhe aviso por causa de manifesto quebrado."
+        }
+      ]
+    },
+    {
+      "id": "url-producao",
+      "titulo": "sem URL de produção fora de configuração",
+      "classe": "heurística",
+      "nivel": "N2",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1809
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 1811,
+          "texto": "POR QUE CONTINUA HEURÍSTICA, com o número na mão."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 1813,
+          "texto": "Depois dos dois consertos abaixo a regra passou de 12 arquivos acusados em 7 repositórios para 6 arquivos em 5, e os 6 são literalmente verdadeiros — nenhum é falso positivo. Mesmo assim ela NÃO sobe a determinística, e o motivo é o nome dela: 4 dos 6 são endereço de API PÚBLICA DE TERCEIRO (`viacep.com.br`, `api.bcb.gov.br`, `api.deepinfra.com`, `api.replicate.com`) e só 2 são a origem de produção do próprio site (`decima-edicoes/scripts/verify-static.mjs`, `navesz.github.io/scripts/fetch-data.mjs`). Fixar o endereço de uma API pública é engenharia normal, não defeito; o defeito é fixar PARA ONDE ESTE site sobe. Separar os dois exige saber a origem do deploy, e o checker não sabe. Barrar merge com 2 de 6 de precisão sobre o defeito que a regra nomeia é punir comportamento correto — e regra que pune comportamento correto ensina a desligar a saída inteira."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1829,
+          "texto": "CONSERTO 1 — o padrão env-fallback, que é o padrão CERTO."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1831,
+          "texto": "`process.env.X ?? 'https://…'` é exatamente o que se quer que a pessoa escreva: variável de ambiente com padrão sensato. Medido: `decima-edicoes/app/lib/site.ts:5` acusado por `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, e `hug-brasil-propostas` acusado DUAS vezes pela mesma forma (`scripts/check-access.js:3` e `src/lib/accessControl.ts:6`). Três das doze acusações eram a régua batendo em quem acertou."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1839,
+          "texto": "O fallback é apagado do texto ANTES da busca, e não o arquivo inteiro: um arquivo pode ter o padrão certo numa linha e o endereço cru na outra, e absolver o arquivo por causa da linha boa seria trocar este falso positivo por um falso negativo. CONSERTO 2 — endereço só conta quando é usado COMO endereço."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1848,
+          "texto": "O literal tem de ABRIR uma string e vir logo depois de uma chamada de requisição ou de um nome de endereço. Medido, três acusações caíram e as três não se sustentavam ao abrir o arquivo: openkartline/apps/web/src/App.tsx:521 — `href=\"https://github.com/…\"`, um link do rodapé para o próprio repositório. Link é link. prumo/…/migrations/20260825_0003_credentials.ts — vinte campos `doc: 'https://docs.fal.ai'`, catálogo de documentação semeado em tabela. É DADO, e dado é o lugar certo dele. prumo/…/collectors/index.ts:76 — o endereço dentro da string de `User-Agent`. Não abre string nenhuma, então nem chega a ser testado. Português na lista pela mesma razão de `NOMES_TYPECHECK` e de `NOME_TESTE`: régua escrita em português que só reconhece nome de variável em inglês é cega ao repositório que ela existe para medir. `origem`, `endereco` e `servidor` são o que um projeto daqui escreve onde o `decima-edicoes` escreveu `origin`. 60 caracteres bastam para o `const NOME_LONGO =` mais folgado e impedem que uma linha vizinha empreste o veredito à seguinte."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "url-producao__env-fallback",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Trava o falso positivo que abriu este passo, e ele foi medido: `decima-edicoes/app/lib/site.ts` linha 5 escreve `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'` — variável de ambiente com padrão sensato, que é EXATAMENTE o que se quer que a pessoa escreva — e a regra acusava. O mesmo padrão pegava o `hug-brasil-propostas` duas vezes, em `scripts/check-access.js` e em `src/lib/accessControl.ts`. Três das doze acusações eram a régua batendo em quem acertou, e regra que pune o comportamento correto ensina a desligar a saída inteira. Os dois lados têm o MESMO endereço na MESMA constante: só o fallback muda. Quem apagar a defesa faz o lado `aprovar` ficar vermelho."
+        },
+        {
+          "caso": "url-producao__link-nao-e-endereco",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Trava dois falsos positivos medidos em 2026-08-30. `openkartline/apps/web/src/App.tsx` linha 521 era acusado por `href=\"https://github.com/Navesz/openkartline\"`, um link do rodapé para o próprio repositório; e `prumo/apps/server/src/db/migrations/20260825_0003_credentials.ts` era acusado por vinte campos `doc: 'https://docs.fal.ai'`, catálogo de documentação semeado em tabela. Link é link e dado é dado: nenhum dos dois é endereço que o programa chama, e nenhum dos dois deixa de funcionar quando o deploy muda de lugar. O lado `reprovar` é o lado `aprovar` MAIS uma requisição para um endereço fixo — a única diferença é o defeito, então nenhuma parte da acusação pode vir do link nem do campo de documentação."
+        }
+      ]
+    },
+    {
+      "id": "hex-cru",
+      "titulo": "sem hex duplicando token do CSS",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1888
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1893,
+          "texto": "Só acusa hex que JÁ EXISTE como token no CSS. Hex solto tem contexto legítimo demais — material de three.js, véu de overlay — e a versão ingênua desta regra deu 100% de falso positivo quando medida."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "hex-cru__nao-se-aplica",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "Os dois ramos N/A da regra, um por pasta. A heurística só acusa hex que JÁ EXISTE como token no CSS, porque a versão ingênua dela deu 100% de falso positivo quando medida — hex solto tem contexto legítimo demais, material de three.js e véu de overlay. `aprovar/` não tem .css nenhum e `reprovar/` tem um .css escrito só com cores nomeadas: nos dois a tabela de tokens sai vazia, e sem tabela a comparação não existe. Trocar qualquer um dos dois `na` por `null` faz a heurística afirmar \"não há cor duplicada\" num repositório onde ela não olhou para cor nenhuma."
+        }
+      ]
+    },
+    {
+      "id": "idioma-unico",
+      "titulo": "um idioma só no repositório",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1915
+      },
+      "porque": [
+        {
+          "onde": "implementacao",
+          "linha": 1926,
+          "texto": "Trecho entre crases é CÓDIGO CITADO, não prosa, e sai antes do teste de idioma. Identificador em inglês dentro de um comentário em português não é troca de idioma, é o nome da coisa — ninguém traduz `User-Agent`, `<input type=\"file\">` ou `cat-file --batch`."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1931,
+          "texto": "Medido em 2026-08-31 no espelho do rebar com `novo/` rastreado: a contagem `en` caía de 3 para 0, e esses 3 eram exatamente estes três arquivos, todos com prosa em português — `index.mjs`, `varrer-segredo.mjs` e `novo/index.mjs`. Com min(pt,en) >= 3 sendo o piso, os três davam a acusação inteira. O caso de prova `idioma-unico` não tem uma crase e continua igual pelos dois lados."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "idioma-unico",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Era a última das 21 regras sem caso, e regra sem caso é regra que ninguém pode refatorar com segurança. A falha real é o repositório que troca de idioma no meio: o `prumo`, medido em 2026-08-30, tem 24 arquivos com comentário em português e 47 em inglês, e a próxima pessoa escreve no idioma do arquivo que abriu primeiro. O piso é `min(pt, en) >= 3` de propósito — uma linha solta em inglês num repositório em português é citação, não troca de idioma —, e os dois lados existem para travar esse piso pelos dois lados: o `aprovar` tem QUATRO arquivos em português e zero em inglês, o `reprovar` tem os mesmos quatro mais TRÊS em inglês, exatamente o piso. Quem baixar o piso para 1 faz o `aprovar` continuar verde e não é pego; quem subir para 4 faz o `reprovar` ficar verde e é."
+        }
+      ]
+    }
+  ],
+  "portao": {
+    "comando": "npm run verificar",
+    "passos": [
+      {
+        "ordem": 1,
+        "nome": "higiene",
+        "tipo": "funcao",
+        "comando": null,
+        "dica": "O estado do git contradiz o que o portão está prestes a afirmar. Nenhum veredito abaixo vale enquanto isto não estiver limpo."
+      },
+      {
+        "ordem": 2,
+        "nome": "hooks",
+        "tipo": "funcao",
+        "comando": null,
+        "dica": "node ferramental/hooks/instalar.mjs — sem isso, segredo e coautoria de IA passam direto no commit."
+      },
+      {
+        "ordem": 3,
+        "nome": "sintaxe",
+        "tipo": "funcao",
+        "comando": null,
+        "dica": "Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`."
+      },
+      {
+        "ordem": 4,
+        "nome": "blocos",
+        "tipo": "funcao",
+        "comando": null,
+        "dica": "Os .ts/.tsx de novo/site/blocos/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles."
+      },
+      {
+        "ordem": 5,
+        "nome": "mcp-servidor",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "mcp/src/prova-cliente.mjs"
+        ],
+        "dica": "O servidor MCP nao respondeu ao protocolo. Se a queixa for de dependencia ausente: cd mcp && npm ci."
+      },
+      {
+        "ordem": 6,
+        "nome": "mcp",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "mcp/gerar.mjs",
+          "--verificar"
+        ],
+        "dica": "Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/gerar.mjs` e commite o mcp/regras.gerado.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje."
+      },
+      {
+        "ordem": 7,
+        "nome": "formato",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "node_modules/prettier/bin/prettier.cjs",
+          "--check",
+          "."
+        ],
+        "dica": "Formatação não se discute, se roda: `npm run formatar`. Se o prettier não estiver aí, `npm ci`."
+      },
+      {
+        "ordem": 8,
+        "nome": "elos",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "ferramental/elos/verificar-elos.mjs"
+        ],
+        "dica": "Link quebrado na documentação: a IA segue a referência, não acha, e reescreve do zero."
+      },
+      {
+        "ordem": 9,
+        "nome": "segredo",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "ferramental/segredo/varrer-segredo.mjs"
+        ],
+        "dica": "Segredo não se corrige com commit novo — precisa rotacionar a credencial."
+      },
+      {
+        "ordem": 10,
+        "nome": "passos",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "ferramental/verificar/provar-passos.mjs"
+        ],
+        "dica": "Um passo do verificar parou de pegar o que devia. O portao nao se prova sozinho — esta suite e quem o prova."
+      },
+      {
+        "ordem": 11,
+        "nome": "provas",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "ferramental/rebar-check/provas/provar.mjs"
+        ],
+        "dica": "Uma regra do rebar-check parou de reprovar o que devia, ou passou a reprovar o que é correto."
+      },
+      {
+        "ordem": 12,
+        "nome": "auto",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "ferramental/rebar-check/index.mjs",
+          "."
+        ],
+        "dica": "O rebar reprovou na própria régua. Cada linha é <regra> <motivo>; heurística não conta."
+      }
+    ]
+  },
+  "decisoesFechadas": [
+    {
+      "id": "stack-do-preset-site",
+      "decisao": "O scaffold é delegado ao `shadcn create`; o rebar aplica o preset `site` por cima e roda a régua no resultado.",
+      "prova": {
+        "arquivo": "novo/index.mjs",
+        "linha": 128,
+        "trecho": "shadcn@latest create"
+      },
+      "porque": [
+        "O GERADOR. npx github:Navesz/rebar novo <nome>",
+        "ELE NÃO ESCREVE APLICAÇÃO, e essa é a decisão que governa o arquivo inteiro. O scaffold é delegado ao `shadcn create`, que já entrega exatamente a pilha decidida na §12.2 — Next 16 App Router, React 19.2.4, Tailwind 4, estilo base-nova sobre @base-ui/react, zero Radix. Escrever o nosso próprio scaffold seria manter uma cópia do trabalho do shadcn em dia para sempre, e ela começaria a apodrecer na primeira release deles.",
+        "O que este arquivo faz é o que o shadcn não faz: valida o nome, chama o scaffold de forma que funcione nos DOIS sistemas, aplica o portão por cima, faz o primeiro commit e RODA A RÉGUA no resultado, imprimindo o placar. Um projeto gerado que não passa na própria régua do rebar é um gerador que fabrica dívida, então o placar sai na tela, sempre, mesmo quando é ruim.",
+        "Zero dependência: só built-in do Node."
+      ],
+      "regraQueImpoe": null
+    },
+    {
+      "id": "saida-estatica",
+      "decisao": "O preset `site` é SSG puro: `output: \"export\"` e `images.unoptimized`. Sem servidor, e por isso a og:image existe para quem não executa JavaScript.",
+      "prova": {
+        "arquivo": "novo/site/blocos/next.config.ts",
+        "linha": 8,
+        "trecho": "output: 'export' · images.unoptimized: true"
+      },
+      "porque": [
+        "SSG puro. É o que faz og:image existir: WhatsApp, LinkedIn, Slack e Discord não executam JavaScript, então meta tag pintada no cliente não existe para eles. Medido no spike de 31/08 — todas as rotas \"prerendered as static content\", out/index.html com 12 KB e a meta absoluta lá dentro. NÃO É OPCIONAL, e não é preferência. O otimizador de imagem do Next é um serviço que roda em servidor; `output: \"export\"` não sobe servidor nenhum. Sem esta linha o build reprova assim que encontra um <Image>."
+      ],
+      "regraQueImpoe": null
+    },
+    {
+      "id": "conteudo-em-conteudo-json",
+      "decisao": "Conteúdo mora em `conteudo/*.json`, validado por esquema — não dentro de `src/` nem de `app/`.",
+      "prova": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 859,
+        "trecho": "RE_CONTEUDO_JSON"
+      },
+      "porque": null,
+      "regraQueImpoe": "conteudo-fora-do-codigo"
+    },
+    {
+      "id": "identidade-do-negocio-e-conteudo-nao-env",
+      "decisao": "Telefone, CNPJ e endereço são CONTEÚDO validado. Não são código e NÃO são variável de ambiente: com env var o build passa, o deploy sobe e o `wa.me` gera link sem destinatário.",
+      "prova": {
+        "arquivo": "ferramental/rebar-check/index.mjs",
+        "linha": 1711,
+        "trecho": "id: 'telefone'"
+      },
+      "porque": null,
+      "regraQueImpoe": "telefone"
+    },
+    {
+      "id": "zero-dependencia-no-que-confere",
+      "decisao": "A raiz não tem dependência de produção, e o que confere não depende do que se confere. É o que faz `npx github:Navesz/rebar` rodar sem instalar nada.",
+      "prova": {
+        "arquivo": "package.json",
+        "linha": 20,
+        "trecho": "dependencies: 0 · devDependencies: prettier"
+      },
+      "porque": null,
+      "regraQueImpoe": null
+    }
+  ],
+  "referencias": [
+    {
+      "assunto": "o-mcp-que-se-regenera",
+      "arquivo": "docs/PLANO.md",
+      "linha": 517,
+      "oQueEsta": "o desenho deste módulo"
+    },
+    {
+      "assunto": "taxonomia-n0-n7",
+      "arquivo": "docs/PLANO.md",
+      "linha": 135,
+      "oQueEsta": "o que cada nível significa e a regra-mãe"
+    },
+    {
+      "assunto": "as-tres-camadas-de-porta",
+      "arquivo": "docs/PLANO.md",
+      "linha": 543,
+      "oQueEsta": "verificar, hook, CI e branch protection"
+    },
+    {
+      "assunto": "o-perfil-e-o-compilador",
+      "arquivo": "docs/PLANO.md",
+      "linha": 496,
+      "oQueEsta": "de onde a ideia de artefato gerado vem"
+    },
+    {
+      "assunto": "objetivos-do-repositorio",
+      "arquivo": "docs/PLANO.md",
+      "linha": 12,
+      "oQueEsta": "os seis objetivos declarados"
+    },
+    {
+      "assunto": "stack-postgres",
+      "arquivo": "docs/STACK.md",
+      "linha": 34,
+      "oQueEsta": "o critério que derrubou Prisma e NestJS"
+    }
+  ],
+  "naoDerivado": [
+    "O texto das 120 decisões do painel (§5 do PLANO): é prosa, e prosa copiada volta a divergir. Está em `referencias`.",
+    "As decisões de banco e contrato do docs/STACK.md: nada no rebar as impõe hoje, e artefato que promete o que ninguém confere é a promessa falsa que este repositório persegue.",
+    "A implementação de cada regra: o artefato diz O QUE e POR QUE. O COMO é o `checar` no index.mjs, e ele muda sem que a decisão mude."
+  ]
+}
