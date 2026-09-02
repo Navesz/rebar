@@ -423,8 +423,20 @@ function grupoGit() {
   )
 
   return {
-    'git.arquivos-rastreados': `${pt(arquivos.length)}`,
-    'git.arquivos-fora-dos-casos': `${pt(arquivos.filter((f) => !f.startsWith(casos)).length)}`,
+    // `git.arquivos-rastreados` e `git.arquivos-fora-dos-casos` SAÍRAM daqui em
+    // 02/09, e a lição é a que este arquivo já tinha escrito e não aplicou.
+    //
+    // O §0 exige que fato derivado mude quando o código muda E SÓ ENTÃO — nunca
+    // pelo próprio ato de ser registrado. A contagem de commits foi excluída por
+    // esse teste, com o raciocínio certo escrito ao lado. Contagem de ARQUIVO
+    // falha pelo MESMO motivo e passou: o commit que gravou 340 acrescentou o
+    // `ferramental/numeros.mjs`, e a contagem virou 341. O CI reprovou no commit
+    // seguinte, nos dois sistemas, exatamente como a auditoria previu.
+    //
+    // Portão que reprova por causa do próprio commit que o alimenta é portão
+    // impossível de satisfazer, e portão que não fecha é portão que se aprende a
+    // contornar. O número voltou para o documento à mão, com data, do lado das
+    // outras medições históricas.
     // Só sai de 0 quando o `commit-msg` for burlado. Aí ficar vermelho é o
     // comportamento certo, e não o incômodo que a contagem total de commits seria.
     'git.commits-com-coautoria': `${(coautoria || '').split('\n').filter(Boolean).length}`,

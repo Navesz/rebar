@@ -343,7 +343,7 @@ estava rastreado, a régua lia `git ls-files` e não enxergava uma linha do gera
 era **11 de 11 · 5 n/a**, com 227 arquivos de caso fora da avaliação. Para prever o efeito
 de rastreá-lo sem tocar no `.git`, foi montado um espelho da árvore num `os.tmpdir()`, com
 `git init` próprio e tudo commitado, e ele deu **12 de 12 · 4 n/a**, com 318 arquivos
-rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem <!--n git.arquivos-rastreados-->340<!--/n--> arquivos rastreados, dos quais <!--n novo.arquivos-->26<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
+rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)* arquivos rastreados, dos quais <!--n novo.arquivos-->26<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
 `hooks-executaveis`, que entrou depois.
 
 `env-example` saiu do N/A e passou a **PASSAR**: o gerador lê `GIT_AUTHOR_NAME` e
@@ -617,8 +617,8 @@ no segundo grupo. 4 + 1 + 8 + 6 = 19.
 
 | Medida                                                           | Valor                                                        | Origem |
 | ---------------------------------------------------------------- | ------------------------------------------------------------ | --- |
-| Arquivos rastreados                                              | <!--n git.arquivos-rastreados-->340<!--/n-->                  | derivado |
-| Arquivos rastreados, fora os casos de prova                      | <!--n git.arquivos-fora-dos-casos-->79<!--/n-->               | derivado |
+| Arquivos rastreados                                              | 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)*                  | derivado |
+| Arquivos rastreados, fora os casos de prova                      | 79 *(medido em 02/09)*               | derivado |
 | Commits com trailer `Co-Authored-By`                             | <!--n git.commits-com-coautoria-->0<!--/n-->                  | derivado |
 | Primeiro commit                                                  | <!--n git.primeiro-commit-->2026-08-25 23:35:43<!--/n-->      | derivado |
 | Linhas de código não vazias (.mjs .cjs .js .ts .json .yml .yaml) | 14.727                                                        | medido em 02/09/2026 |
