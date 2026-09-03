@@ -45,7 +45,11 @@
 //
 // ─────────────────────────────────────────────────────────────── desempenho
 //
-// Esta suíte já foi SERIAL e era o passo mais caro do `verificar` — 47 casos ×
+// Esta suíte já foi SERIAL e era o passo mais caro do `verificar`. Os números
+// desta seção são de 31/08, quando eram 47 casos — ficam datados porque o que
+// eles ensinam é a ORDEM DE RETORNO das mudanças, não o relógio de hoje.
+//
+// 47 casos ×
 // 2 lados = 94 repositórios git montados um a um, ~660 processos em fila. Nesta
 // máquina (Windows, 20 núcleos) a versão serial levava 41,3 · 42,0 · 51,9 s em
 // três rodadas. Instrumentei cada spawn dela para saber ONDE ia o tempo — a
@@ -87,7 +91,7 @@
 // resumo de commit que a gente joga fora, nada de hook de terceiro) e `init
 // --quiet` no molde.
 //
-// RESULTADO, os mesmos 47 casos, máquina ociosa:
+// RESULTADO em 31/08, os mesmos 47 casos de então, máquina ociosa:
 //
 //   antes, em série                        41,3 · 42,0 · 51,9 s
 //   só cortando trabalho, ainda em série            29,9 s
@@ -127,10 +131,14 @@ const c = {
 /**
  * Quantos casos em voo ao mesmo tempo.
  *
- * Piscina de tamanho fixo, nunca `Promise.all` sobre os 47 casos: cada caso é
- * I/O de disco (montar dois repositórios) muito mais do que CPU, e no Windows
- * um enxame de gits briga pelo mesmo volume. Medido nesta máquina de 20
- * núcleos, os 47 casos, relógio de ponta a ponta:
+ * Piscina de tamanho fixo, nunca `Promise.all` sobre todos os casos: cada caso
+ * é I/O de disco (montar dois repositórios) muito mais do que CPU, e no Windows
+ * um enxame de gits briga pelo mesmo volume.
+ *
+ * A tabela abaixo é HISTÓRICA e está datada de propósito — medida em 31/08
+ * nesta máquina de 20 núcleos, com os 47 casos que existiam então (hoje são
+ * mais). O que ela decide é a FORMA da curva, não o valor absoluto, e a forma
+ * não muda com mais casos. Relógio de ponta a ponta:
  *
  *   1 (esta versão, em série)  29,9 s       10   6,7 s
  *   4                           9,3 s       12   6,3 s
@@ -880,7 +888,8 @@ function escoar() {
 
 // O molde é a única coisa que a rodada inteira depende antes de começar. Se
 // ele não sobe — git ausente do PATH, tmpdir sem permissão — isto tem de sair
-// 2, e não morrer com stack trace: a versão serial dava 47 casos "MAL FORMADA"
+// 2, e não morrer com stack trace: a versão serial dava um "MAL FORMADA"
+// por caso
 // e exit 2 nesse cenário, e o código de saída não pode mudar por causa da
 // piscina.
 try {
@@ -890,8 +899,9 @@ try {
 }
 
 // A piscina: TETO trabalhadores dividindo uma fila por índice. Nada de
-// `Promise.all` sobre os 47 casos — 94 gits simultâneos brigam pelo disco e a
-// rodada fica MAIS lenta, além de deixar 47 fixtures montadas de uma vez.
+// `Promise.all` sobre a lista inteira — um git por lado de cada caso brigando
+// pelo mesmo disco deixa a rodada MAIS lenta, além de manter todas as fixtures
+// montadas de uma vez.
 let proximo = 0
 await Promise.all(
   Array.from({ length: Math.min(TETO, trabalhos.length) }, async () => {
@@ -934,12 +944,39 @@ if (quebrados) {
 
 // Cobertura só informa. Fazer ela derrubar o exit code deixaria a suíte vermelha
 // até a 19ª regra ganhar caso, e suíte que nasce vermelha ninguém olha.
+//
+// ─── O QUE MUDOU EM 02/09, e por que a linha ganhou ⚠ ────────────────────────
+//
+// A frase acima continua valendo para o EXIT CODE. O que não valia era o canal:
+// a linha saía em `c.fraco` — cinza, sem marca nenhuma — e o passo `provas` do
+// `verificar.config.mjs` não declarava `avisar`. Encadeando as duas coisas, o
+// executor descarta a stdout de todo passo que PASSA (é o FURO 4, escrito no
+// topo do verificar.mjs), então "regra sem prova" era invisível no portão:
+// quem acrescentasse a 23ª regra sem caso via `APROVADO 13 de 13`, verde e
+// mudo, violando a regra-mãe do repositório — a que diz que regra nova nasce
+// com os dois casos — sem uma linha na tela.
+//
+// Hoje são 22 de 22, então isto não muda nada na saída de agora; muda no dia em
+// que alguém encostar. A linha só ganha ⚠ quando há buraco: marcar de amarelo
+// uma cobertura completa ensinaria a ignorar o amarelo.
+//
+// POR QUE AINDA NÃO BARRA. Barrar é uma linha (`sem.length` no exit), e ela é
+// defensável — mas seria um portão NOVO, e portão novo nasce com os dois casos.
+// Prová-lo exige rodar este arquivo contra uma árvore de casos controlada, e
+// `CASOS` é fixo em `join(AQUI, 'casos')`, sem como injetar. O caminho está
+// descrito no relatório da frente C: um `--casos=<dir>`, que também é o que
+// faria esta suíte servir os projetos que o gerador cria.
 if (regras && !soEste) {
   const sem = regras.filter((r) => !provadas.includes(r))
-  console.log(
-    c.fraco(`  ${regras.length - sem.length} de ${regras.length} regras com prova`) +
-      (sem.length ? c.fraco(`  ·  sem prova: ${sem.join(', ')}`) : ''),
-  )
+  const placar = `${regras.length - sem.length} de ${regras.length} regras com prova`
+  if (sem.length) {
+    console.log(
+      c.amarelo(`  ⚠ ${placar}  ·  sem prova: ${sem.join(', ')}`) +
+        c.amarelo('\n  ⚠ regra sem os dois casos é regra que ninguém provou que reprova.'),
+    )
+  } else {
+    console.log(c.fraco(`  ${placar}`))
+  }
 }
 
 console.log('')
