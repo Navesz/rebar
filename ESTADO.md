@@ -343,7 +343,7 @@ estava rastreado, a régua lia `git ls-files` e não enxergava uma linha do gera
 era **11 de 11 · 5 n/a**, com 227 arquivos de caso fora da avaliação. Para prever o efeito
 de rastreá-lo sem tocar no `.git`, foi montado um espelho da árvore num `os.tmpdir()`, com
 `git init` próprio e tudo commitado, e ele deu **12 de 12 · 4 n/a**, com 318 arquivos
-rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)* arquivos rastreados, dos quais <!--n novo.arquivos-->26<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
+rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)* arquivos rastreados, dos quais <!--n novo.arquivos-->27<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
 `hooks-executaveis`, que entrou depois.
 
 `env-example` saiu do N/A e passou a **PASSAR**: o gerador lê `GIT_AUTHOR_NAME` e
@@ -370,7 +370,7 @@ casos de prova, com a mesma disciplina: fechadura dupla e contagem impressa.
 - **Fechadura 2** — tem de existir um `modelo.json` rastreado, com `para` e `porque`.
 - **Contagem impressa** — a linha `N arquivo(s) de modelo do gerador, fora da avaliação`
   sai sempre, nomeando as raízes; hoje o `N` é
-  <!--n novo.arquivos-modelo-->22<!--/n-->. Exclusão que não se vê é exclusão que ninguém
+  <!--n novo.arquivos-modelo-->23<!--/n-->. Exclusão que não se vê é exclusão que ninguém
   confere.
 
 Nada foi afrouxado: o `env-example` virou documentação de verdade, e os modelos continuam
@@ -693,7 +693,7 @@ _As duas execuções de ponta a ponta são de **31/08/2026**, com rede, em `os.t
 não foram refeitas: tudo que este bloco relata sobre elas é histórico. As contagens de
 arquivo abaixo, essas sim, são derivadas e estão em dia._
 
-O gerador anuncia <!--n novo.passos-->6<!--/n--> passos e `novo/` tem <!--n novo.arquivos-->26<!--/n--> arquivos, dos quais <!--n novo.arquivos-modelo-->22<!--/n--> são **modelo** — o que ele copia para dentro do
+O gerador anuncia <!--n novo.passos-->6<!--/n--> passos e `novo/` tem <!--n novo.arquivos-->27<!--/n--> arquivos, dos quais <!--n novo.arquivos-modelo-->23<!--/n--> são **modelo** — o que ele copia para dentro do
 projeto criado, e que por isso não é avaliado aqui. Sobram 4 de código próprio:
 `novo/index.mjs` (433 linhas) · `novo/portao/aplicar.mjs` (829) · `novo/site/aplicar.mjs`
 (239) · `novo/site/og.mjs` (227), 1.728 no total — contagem de linha medida em 02/09/2026,

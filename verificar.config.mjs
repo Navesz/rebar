@@ -23,9 +23,10 @@
 //     de segredo e o de coautoria estavam inertes, e o verificar aprovou assim
 //     mesmo.
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
+import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -276,52 +277,127 @@ function listarMjs(raiz) {
 }
 
 /**
- * `node --check` em cada arquivo, um processo por arquivo — é o único modo que
- * o flag aceita. Medido nesta máquina (Windows 11, Node 24.13): 18 arquivos em
- * 1,1 s, ~63 ms cada. Continua sendo o passo mais barato da lista.
- * Se lançar (git ausente, por exemplo), o executor classifica como QUEBROU e
- * sai 127, não como o repositório reprovando.
+ * Quantos `node --check` em voo ao mesmo tempo.
+ *
+ * Mesma disciplina — e o mesmo teto — do TETO de `provas/provar.mjs`. O `min`
+ * com os núcleos existe pela mesma razão: runner de CI com 2 ou 4 vCPU pega 2
+ * ou 4, não 16. `availableParallelism` respeita o cgroup do contêiner, coisa
+ * que `cpus().length` não faz.
+ *
+ * Medido em 02/09 nesta máquina (Windows 11, 20 núcleos, Node 24.13), os 81
+ * arquivos .mjs que o git lista, relógio de ponta a ponta, em duas condições —
+ * a segunda com outro agente rodando a suíte no mesmo minuto:
+ *
+ *   piscina    1 (em série)      4        8       12       16       20
+ *   ociosa          6321 ms  2273 ms  1465 ms  1504 ms  1498 ms  1408 ms
+ *   em carga        7949 ms  2719 ms  2074 ms  1721 ms  1729 ms  1961 ms
+ *
+ * O ganho grosso acaba em 8, e de 8 em diante a curva é plana dentro do ruído:
+ * o piso passa a ser o custo de subir um processo node no Windows (~17 ms
+ * amortizados por arquivo), não a espera. Em 20 a máquina em carga volta a
+ * piorar, que é a briga por disco aparecendo — a mesma cotovelada que a tabela
+ * do `provar.mjs` registra. 16 é o único valor que fica no piso nas duas
+ * linhas.
  */
-function checarSintaxe({ raiz, prazo }) {
+const TETO_SINTAXE = Math.max(2, Math.min(16, availableParallelism()))
+
+/**
+ * `node --check` em cada arquivo, um processo por arquivo — é o único modo que
+ * o flag aceita. Se lançar (git ausente, por exemplo), o executor classifica
+ * como QUEBROU e sai 127, não como o repositório reprovando.
+ *
+ * POR QUE ISTO É UMA PISCINA, e não um laço. A versão anterior era
+ * `execFileSync` em série, e o comentário dela dizia "18 arquivos em 1,1 s,
+ * ~63 ms cada · continua sendo o passo mais barato da lista". As duas frases
+ * envelheceram juntas: a árvore chegou a 81 arquivos .mjs — 60 deles são
+ * fixtures de dez linhas em `provas/casos/`, onde o custo é subir o node, não
+ * ler o arquivo — e o passo virou 6,3 s, o TERCEIRO mais caro do portão.
+ *
+ * O que mudou aqui é SÓ o escalonamento. Continua sendo um `node --check` por
+ * arquivo, o mesmo binário, o mesmo flag, a mesma mensagem de erro lida da
+ * mesma stderr: nenhuma checagem foi trocada por uma mais barata. Medido:
+ * 6321 ms → 1498 ms com a máquina ociosa e 7949 ms → 1729 ms com ela em carga,
+ * ou seja 4,2× e 4,6× no relógio.
+ *
+ * A alternativa que seria 60× em vez de 4,3× — UM processo com
+ * `--experimental-vm-modules` construindo `new vm.SourceTextModule` por
+ * arquivo, que parseia sem executar — foi medida em 106 ms e NÃO foi adotada:
+ * ela troca o parser que o node usa para valer por um caminho atrás de flag
+ * experimental, e "acelerar removendo checagem" é justamente o que este
+ * repositório existe para não fazer.
+ *
+ * O PRAZO deixou de ser consultado a cada volta e passou a ser uma corrida: com
+ * `spawn` assíncrono o laço de eventos gira, então o relógio do executor vence
+ * sozinho. A consulta continua aqui mesmo assim, antes de despachar cada
+ * arquivo, para que a saída DIGA quantos ficaram sem checar em vez de o
+ * executor só anunciar "tempo limite estourado".
+ */
+export async function checarSintaxe({ raiz, prazo = Infinity }) {
   const arquivos = listarMjs(raiz)
   const erros = []
   const fantasmas = []
+  let semChecar = 0
 
-  for (let i = 0; i < arquivos.length; i++) {
-    // O relógio do executor não vence enquanto este laço bloqueia o loop de
-    // eventos, então o prazo é consultado aqui.
-    if (Date.now() > prazo) {
-      erros.push(`erro tempo limite: ${arquivos.length - i} arquivo(s) ficaram sem checar`)
-      break
-    }
-    const rel = arquivos[i]
-    try {
-      execFileSync(process.execPath, ['--check', join(raiz, rel)], {
+  // Um `node --check`, assíncrono. Nunca rejeita: o resultado do processo e a
+  // falha de spawn saem pelo MESMO canal, porque quem chama trata os dois como
+  // "este arquivo não foi dado por bom" e a diferença já está no texto.
+  const checar = (rel) =>
+    new Promise((resolver) => {
+      let bruto = ''
+      const filho = spawn(process.execPath, ['--check', join(raiz, rel)], {
         cwd: raiz,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['ignore', 'ignore', 'pipe'],
+        windowsHide: true,
       })
-    } catch (e) {
-      const bruto = String(e.stderr || e.message || '')
-      // Arquivo que o git lista e o disco não tem NÃO é erro de sintaxe: é
-      // índice fora de sincronia, quase sempre um `git rm` que faltou. Aconteceu
-      // de verdade ao dividir um caso de prova em dois — o passo gritou "Erro de
-      // sintaxe" apontando para um arquivo apagado, e a dica mandava procurar a
-      // linha errada num arquivo que não existe. É a mesma confusão entre
-      // REPROVOU e QUEBROU que o rebar-check acabou de tirar de si mesmo.
-      if (/Cannot find module|ENOENT/.test(bruto)) {
-        fantasmas.push(rel)
-        continue
+      filho.stderr.on('data', (d) => {
+        bruto += d
+      })
+      filho.on('error', (e) => resolver({ rel, ok: false, bruto: String(e.message) }))
+      filho.on('close', (codigo) => resolver({ rel, ok: codigo === 0, bruto }))
+    })
+
+  // A piscina: TETO_SINTAXE trabalhadores dividindo uma fila por índice. Os
+  // arquivos terminam fora de ordem, então cada um escreve num balde indexado e
+  // o relatório é montado depois, na ordem de `arquivos` — que já vem ordenada.
+  // Passo cujo diff entre duas execuções vira ruído é passo em que ninguém
+  // confia, e aqui o custo de manter a ordem é um array.
+  const baldes = new Array(arquivos.length).fill(null)
+  let proximo = 0
+  await Promise.all(
+    Array.from({ length: Math.min(TETO_SINTAXE, arquivos.length) }, async () => {
+      for (let i = proximo++; i < arquivos.length; i = proximo++) {
+        if (Date.now() > prazo) {
+          semChecar++
+          continue
+        }
+        baldes[i] = await checar(arquivos[i])
       }
-      const linhas = bruto
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-      const alvo =
-        linhas.find((l) => /SyntaxError|Error:/.test(l)) || linhas[0] || 'falhou sem mensagem'
-      erros.push(`erro ${rel}: ${alvo}`)
+    }),
+  )
+
+  for (const balde of baldes) {
+    if (balde === null || balde.ok) continue
+    const { rel, bruto } = balde
+    // Arquivo que o git lista e o disco não tem NÃO é erro de sintaxe: é
+    // índice fora de sincronia, quase sempre um `git rm` que faltou. Aconteceu
+    // de verdade ao dividir um caso de prova em dois — o passo gritou "Erro de
+    // sintaxe" apontando para um arquivo apagado, e a dica mandava procurar a
+    // linha errada num arquivo que não existe. É a mesma confusão entre
+    // REPROVOU e QUEBROU que o rebar-check acabou de tirar de si mesmo.
+    if (/Cannot find module|ENOENT/.test(bruto)) {
+      fantasmas.push(rel)
+      continue
     }
+    const linhas = bruto
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    const alvo =
+      linhas.find((l) => /SyntaxError|Error:/.test(l)) || linhas[0] || 'falhou sem mensagem'
+    erros.push(`erro ${rel}: ${alvo}`)
   }
+
+  if (semChecar) erros.push(`erro tempo limite: ${semChecar} arquivo(s) ficaram sem checar`)
 
   if (fantasmas.length) {
     // Código 2 = a configuração/estado do repositório está torta, não o código.
@@ -984,6 +1060,12 @@ export default [
     exige: ['ferramental/segredo/varrer-segredo.mjs'],
     dica: 'Segredo não se corrige com commit novo — precisa rotacionar a credencial.',
     extrair: /^\s*(erro|error|✗|✘)/i,
+    // FURO 4, terceira casa. Fora do `--staged` a varredura sai 0 mesmo quando
+    // pulou arquivo — truncado ou ilegível é rotina de quem edita, não
+    // reprovação. Mas "varri tudo" e "não li estes N" são alegações diferentes,
+    // e sem esta linha a segunda era impressa para ninguém: o executor descarta
+    // a stdout do passo que passa. O varredor marca essas linhas com ⚠.
+    avisar: /^\s*⚠/,
     tempoLimite: 3 * MINUTO,
   },
   {
@@ -1006,6 +1088,12 @@ export default [
     exige: ['ferramental/verificar/provar-passos.mjs'],
     dica: 'Um passo do verificar parou de pegar o que devia. O portao nao se prova sozinho — esta suite e quem o prova.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
+    // FURO 4, quarta casa. A prova `O PORTÃO NÃO ENCOLHE` avisa quando alguém
+    // acrescenta um passo sem pôr o nome em PASSOS_ESPERADOS — e esse aviso sai
+    // com a suíte VERDE, logo era descartado inteiro. Sem ele, o passo novo fica
+    // fora da lista, e apagá-lo depois volta a ser silencioso: a trava contra
+    // encolhimento se desliga sozinha, um passo de cada vez.
+    avisar: /^\s*⚠/,
     tempoLimite: 3 * MINUTO,
     limite: 8,
   },
@@ -1015,6 +1103,17 @@ export default [
     exige: ['ferramental/rebar-check/provas/provar.mjs'],
     dica: 'Uma regra do rebar-check parou de reprovar o que devia, ou passou a reprovar o que é correto.',
     extrair: /^\s*(✗|✘|erro|esperado)/i,
+    // FURO 4 de novo, na segunda casa onde ele estava aberto. A suíte tem duas
+    // linhas que saem com o passo APROVADO e que o executor jogava fora:
+    //   · "⚠ N de M regras com prova · sem prova: …" — regra que subiu sem os
+    //     dois casos, que é violação da regra-mãe do repositório;
+    //   · "⚠ o instrumento está torto: o index.mjs quebrou em N caso(s)" —
+    //     esta sai com exit 1, mas o `extrair` acima não a pega, então a
+    //     reprovação chegava sem a frase que diz que NENHUM veredito da rodada
+    //     vale.
+    // Sem esta linha, acrescentar a 23ª regra sem prova nenhuma imprimia
+    // APROVADO, verde e mudo.
+    avisar: /^\s*⚠/,
     tempoLimite: 5 * MINUTO,
     limite: 8,
   },
