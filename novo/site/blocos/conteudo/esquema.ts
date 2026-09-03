@@ -47,6 +47,45 @@
  *      que não existe. Mate a camada 1 e a 2 ainda reprova; mate a 2 e a 1
  *      ainda reprova o que sai do gerador.
  * ─────────────────────────────────────────────────────────────────────────
+ * O QUE FOI CONSERTADO EM 02/09: A EXIGÊNCIA SEGUE O USO.
+ *
+ * A §12.3 decidiu ONDE o telefone mora — dentro do projeto, versionado e
+ * validado, em vez de numa variável de ambiente que o deploy esquece. Este
+ * arquivo tinha lido aquilo como OUTRA COISA: que todo site TEM de ter
+ * telefone, e-mail e endereço completo. Eram nove campos obrigatórios de
+ * identidade, cinco deles só de endereço, cobrados de qualquer site que o
+ * gerador produzisse. "Se você tem telefone, ele mora aqui e é validado" não é
+ * "você tem de ter telefone": um site pode ter só e-mail, pode não ter endereço
+ * físico, pode ser a landing de uma ferramenta.
+ *
+ * A REGRA AGORA, e ela é mais simples que a anterior:
+ *
+ *   · OBRIGATÓRIO é o que TODA página renderiza sem perguntar — nome, título,
+ *     descrição, urlBase. Sem eles não há `<title>` nem `og:image`, e o
+ *     `og:image` é a razão de este preset existir. Nenhum deles é fato que o
+ *     negócio possa não ter, e o gerador preenche todos sozinho.
+ *   · CONDICIONAL é o contato: `whatsapp`, `email`, `endereco`. A DECLARAÇÃO É
+ *     A PRESENÇA DA CHAVE no JSON. Chave presente ⇒ o bloco inteiro é exigido e
+ *     validado. Chave ausente ⇒ o campo vale `null` e ninguém cobra nada.
+ *
+ * POR QUE A PRESENÇA, e não uma lista `home.blocos: [...]` dizendo o que a home
+ * renderiza: lista é uma SEGUNDA fonte da mesma verdade, e duas fontes da mesma
+ * verdade divergem. Esse é o defeito do Galegos em outra roupa — o
+ * `src/lib/whatsapp.ts` tinha o mesmo número em dois formatos, mantidos à mão,
+ * divergindo. Com a presença como declaração existe UMA fonte.
+ *
+ * E o desastre do Galegos — botão na tela, campo vazio — deixa de ser questão
+ * de validação e vira ERRO DE TIPO: o campo opcional é `T | null`, e
+ * `linkWhatsapp` recebe o bloco, não o site. Renderizar o botão sem estreitar o
+ * `null` NÃO COMPILA. O `next build` reprova antes de qualquer HTML sair.
+ *
+ * O CASO INVERSO — campo preenchido e nunca renderizado, que é o mais fácil de
+ * esquecer — é fechado do lado do molde, em `app/page.tsx`: o mapa `CONTATOS`
+ * é TOTAL sobre as chaves opcionais de `identidade`, cobrado por `satisfies`.
+ * Apagar o botão e deixar o número no JSON não compila; acrescentar um bloco ao
+ * esquema sem renderizador na home não compila. As duas direções são o mesmo
+ * dente, e quem o crava é o compilador — sem regra nova e sem heurística.
+ * ─────────────────────────────────────────────────────────────────────────
  */
 
 export class ErroDeConteudo extends Error {
@@ -70,22 +109,37 @@ export class ErroDeConteudo extends Error {
 export const SENTINELA = /\bTROQUE-[A-Z-]{3,}/
 
 /**
+ * A frase que acompanha todo campo de bloco OPCIONAL, e ela é metade da
+ * instrução: sem ela o dono que não tem WhatsApp fica preso, porque a mensagem
+ * só sabe mandar preencher. "Não tenho" se escreve APAGANDO a chave, nunca
+ * deixando em branco — string vazia é indistinguível de campo que alguém tentou
+ * preencher e desistiu, e é justamente esse o silêncio que o §12.3 persegue.
+ */
+const OU_APAGUE = (bloco: string) =>
+  `Se o negócio não tem, APAGUE a chave "${bloco}" inteira de conteudo/site.json — o molde deixa de renderizar o bloco e ninguém cobra nada. Vazio não é "não tenho".`
+
+/**
  * O que escrever em cada campo. Fica aqui, e não só no `.pages.yml`, porque
  * esta é a mensagem de ERRO que o dono lê às 23h com o build vermelho — o
  * `.pages.yml` é documentação, este mapa é o que aparece na hora do aperto.
+ *
+ * Campo de bloco condicional leva o `OU_APAGUE` junto: a mensagem que só sabe
+ * mandar preencher é a que faz quem não tem o campo inventar um valor.
  */
 const COMO_PREENCHER: Record<string, string> = {
   'identidade.nome': 'O nome do negócio como o cliente o chama. Ex.: "Padaria do Zé".',
-  'identidade.whatsapp.e164':
-    'Só dígitos, com DDI e DDD, do jeito que o wa.me aceita — sem +, sem espaço, sem parêntese. O molde é 55DD9NNNNNNNN — DDI, DDD e o número, colados.',
-  'identidade.whatsapp.exibicao':
-    'O MESMO número de cima, formatado para o visitante ler, no molde (DD) 9NNNN-NNNN.',
-  'identidade.email': 'O e-mail que alguém abre e responde. Ex.: "contato@padariadoze.com.br".',
-  'identidade.endereco.logradouro': 'Rua e número. Ex.: "Rua das Palmeiras, 512".',
-  'identidade.endereco.bairro': 'O bairro. Ex.: "Vila Mariana".',
-  'identidade.endereco.cidade': 'A cidade. Ex.: "São Paulo".',
-  'identidade.endereco.uf': 'A sigla do estado, duas maiúsculas. Ex.: "SP".',
-  'identidade.endereco.cep': 'O CEP com hífen. Ex.: "04101-300".',
+  'identidade.whatsapp.e164': `Só dígitos, com DDI e DDD, do jeito que o wa.me aceita — sem +, sem espaço, sem parêntese. O molde é 55DD9NNNNNNNN — DDI, DDD e o número, colados. ${OU_APAGUE('identidade.whatsapp')}`,
+  'identidade.whatsapp.exibicao': `O MESMO número de cima, formatado para o visitante ler, no molde (DD) 9NNNN-NNNN. ${OU_APAGUE('identidade.whatsapp')}`,
+  'identidade.whatsapp.chamadaAcao':
+    'O texto do botão que abre a conversa. Ex.: "Falar no WhatsApp".',
+  'identidade.whatsapp.mensagem':
+    'A frase que já vai escrita na conversa quando o visitante toca o botão.',
+  'identidade.email': `O e-mail que alguém abre e responde. Ex.: "contato@padariadoze.com.br". ${OU_APAGUE('identidade.email')}`,
+  'identidade.endereco.logradouro': `Rua e número. Ex.: "Rua das Palmeiras, 512". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.bairro': `O bairro. Ex.: "Vila Mariana". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.cidade': `A cidade. Ex.: "São Paulo". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.uf': `A sigla do estado, duas maiúsculas. Ex.: "SP". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.cep': `O CEP com hífen. Ex.: "04101-300". ${OU_APAGUE('identidade.endereco')}`,
   'meta.urlBase':
     'O endereço onde o site vai ficar, com https:// e SEM barra no fim. Ex.: "https://padariadoze.com.br".',
   'meta.titulo': 'O título da aba e do resultado no Google. Ex.: "Padaria do Zé".',
@@ -265,6 +319,68 @@ export const lista =
       falhar(caminho, `lista com ${min} a ${max} item(ns)`, valor)
     }
     return valor.map((item_, i) => item(item_, `${caminho}[${i}]`))
+  }
+
+/**
+ * A EXIGÊNCIA CONDICIONAL, e ela cabe num combinador porque a decisão é uma só:
+ * **a presença da chave no JSON é a declaração de que a página usa aquilo.**
+ *
+ * Chave ausente (ou `null`) ⇒ o valor é `null`, ninguém cobra nada, e o tipo
+ * que sai é `T | null` — é esse `| null` que faz o molde ter de estreitar antes
+ * de renderizar, e é por isso que "botão na tela e campo vazio" não compila.
+ *
+ * Chave presente ⇒ `dentro` roda INTEIRO. Para um bloco, isso significa que os
+ * campos dele viram obrigatórios JUNTOS: meio endereço — rua e cidade, sem CEP
+ * — é pior que nenhum, porque o visitante lê um endereço que não leva a lugar
+ * nenhum e ninguém do lado do dono fica sabendo.
+ *
+ * TRÊS RECUSAS QUE PARECEM UMA SÓ E NÃO SÃO:
+ *
+ *   · `"identidade.email": ""`  — string vazia
+ *   · `"identidade.endereco": {}` — bloco sem campo nenhum
+ *   · `"identidade.endereco": { "cidade": "São Paulo" }` — bloco pela metade
+ *
+ * As duas primeiras são a MESMA intenção mal escrita — "eu não tenho isto" — e
+ * merecem a mensagem que ensina a escrever "não tenho": apague a chave. Sem
+ * essa interceptação a mensagem sairia do validador de dentro ("esperava texto
+ * com ao menos 1 caractere"), que manda o dono INVENTAR um valor, que é como o
+ * `contato@exemplo.com.br` nasce. A terceira é outra coisa — alguém começou e
+ * parou — e leva a frase do bloco incompleto anexada ao erro de dentro, que já
+ * diz qual campo falta.
+ */
+const ehObjetoSimples = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+
+function falharVazio(caminho: string, oque: string): never {
+  const curto = caminho.replace(/^site\./, '')
+  throw new ErroDeConteudo(
+    `conteudo/site.json em "${curto}": ${oque} vazio não é "não tenho". ` +
+      `${COMO_PREENCHER[curto] ?? ''} ` +
+      `Este bloco é OPCIONAL: ou ele tem valor de verdade, ou a chave "${curto}" sai do arquivo. ` +
+      'Deixar vazio é a terceira opção que não existe — ela publica um contato em branco, que é ' +
+      'o mesmo silêncio do §12.3 com outra cara.',
+  )
+}
+
+export const opcional =
+  <T>(dentro: Validador<T>): Validador<T | null> =>
+  (valor, caminho) => {
+    if (valor === undefined || valor === null) return null
+    if (typeof valor === 'string' && valor.trim() === '') falharVazio(caminho, 'campo')
+    if (ehObjetoSimples(valor) && Object.keys(valor).length === 0) falharVazio(caminho, 'bloco')
+    try {
+      return dentro(valor, caminho)
+    } catch (erro) {
+      if (!(erro instanceof ErroDeConteudo)) throw erro
+      const curto = caminho.replace(/^site\./, '')
+      throw new ErroDeConteudo(
+        `${erro.message}\n\n` +
+          `"${curto}" é um bloco OPCIONAL e ele está PELA METADE. Ou complete o campo acima, ` +
+          `ou apague a chave "${curto}" inteira — o molde deixa de renderizar o bloco e ninguém ` +
+          'cobra nada. Meio bloco é pior que nenhum: a página mostra um contato que não leva a ' +
+          'lugar nenhum, e do lado do dono não chega erro nenhum.',
+      )
+    }
   }
 
 // ── o que é plausível e mesmo assim está morto ────────────────────────────
@@ -502,22 +618,48 @@ export const gabaritoDeTitulo: Validador<string> = (valor, caminho) => {
 
 const formaDoSite = objeto({
   // Identidade do negócio. §12.3: isto é CONTEÚDO VALIDADO, não env var.
+  //
+  // `nome` é o único obrigatório aqui, e é obrigatório porque TODA página o
+  // renderiza sem perguntar: ele é o `applicationName`, o `og:siteName` e o
+  // `name` do manifesto. Os três blocos abaixo dele são CONDICIONAIS — a
+  // presença da chave é a declaração de uso. Ver o cabeçalho, 02/09.
   identidade: objeto({
     nome: texto(2, 80),
-    whatsapp: objeto({
-      // O que entra no link. Sem pontuação, porque o `wa.me` a rejeita.
-      e164: telefoneE164,
-      // O que o visitante lê.
-      exibicao: telefoneExibicao,
-    }),
-    email,
-    endereco: objeto({
-      logradouro: texto(4, 120),
-      bairro: texto(2, 60),
-      cidade: texto(2, 60),
-      uf,
-      cep,
-    }),
+
+    // O BLOCO DO BOTÃO DE WHATSAPP, e ele carrega a própria cópia de propósito.
+    // `chamadaAcao` e `mensagem` moravam em `home`, e ali eram exatamente o
+    // caso inverso que o item (c) descreve: sem botão, dois campos que o dono
+    // escreve, revisa e publica, e que nada renderiza. Dentro do bloco eles só
+    // existem quando o botão existe, e somem junto com ele.
+    whatsapp: opcional(
+      objeto({
+        // O que entra no link. Sem pontuação, porque o `wa.me` a rejeita.
+        e164: telefoneE164,
+        // O que o visitante lê.
+        exibicao: telefoneExibicao,
+        // O rótulo do botão.
+        chamadaAcao: texto(4, 40),
+        // O texto que já vai escrito na conversa do WhatsApp. Está aqui, e não
+        // dentro do `page.tsx`, porque é frase que o dono reescreve — e a regra
+        // `conteudo-fora-do-codigo` acusaria a frase se ela morasse no
+        // componente.
+        mensagem: texto(10, 200),
+      }),
+    ),
+
+    // Um site pode ter só e-mail — é o caso da landing de ferramenta.
+    email: opcional(email),
+
+    // Endereço é tudo-ou-nada: os cinco campos juntos, ou a chave fora.
+    endereco: opcional(
+      objeto({
+        logradouro: texto(4, 120),
+        bairro: texto(2, 60),
+        cidade: texto(2, 60),
+        uf,
+        cep,
+      }),
+    ),
   }),
 
   meta: objeto({
@@ -553,11 +695,6 @@ const formaDoSite = objeto({
     // texto já se anuncia como exemplo. Reprovar o build por causa de copy é o
     // caminho rápido para o dono apagar a validação inteira.
     subtitulo: texto(20, 220),
-    chamadaAcao: texto(4, 40),
-    // O texto que já vai escrito na conversa do WhatsApp. Está aqui, e não
-    // dentro do `page.tsx`, porque é frase que o dono reescreve — e a regra
-    // `conteudo-fora-do-codigo` acusaria a frase se ela morasse no componente.
-    mensagemWhatsapp: texto(10, 200),
     destaques: lista(objeto({ titulo: texto(3, 60), texto: texto(20, 240) }), 1, 6),
   }),
 })
@@ -573,12 +710,16 @@ type FormaDoSite = Inferir<typeof formaDoSite>
  * "funcionam".
  */
 function conferirCoerencia(site: FormaDoSite): void {
-  const visivel = site.identidade.whatsapp.exibicao.replace(/\D/g, '')
-  if (!site.identidade.whatsapp.e164.endsWith(visivel)) {
+  // Só há coerência a cobrar se houver botão. Sem o bloco não há dois formatos
+  // do mesmo número para divergir — é a exigência seguindo o uso, aqui também.
+  const zap = site.identidade.whatsapp
+  if (zap === null) return
+  const visivel = zap.exibicao.replace(/\D/g, '')
+  if (!zap.e164.endsWith(visivel)) {
     throw new ErroDeConteudo(
       'conteudo/site.json: identidade.whatsapp.exibicao e identidade.whatsapp.e164 são telefones ' +
-        `DIFERENTES — o rodapé mostra ${JSON.stringify(site.identidade.whatsapp.exibicao)} ` +
-        `(dígitos ${visivel}) e o link abre ${site.identidade.whatsapp.e164}. ` +
+        `DIFERENTES — o rodapé mostra ${JSON.stringify(zap.exibicao)} ` +
+        `(dígitos ${visivel}) e o link abre ${zap.e164}. ` +
         'Os dois campos são o MESMO número em formatos diferentes: o e164 tem de terminar nos ' +
         'dígitos do exibicao — e164 no molde 55DD9NNNNNNNN, exibicao no molde (DD) 9NNNN-NNNN.',
     )
@@ -600,11 +741,32 @@ export const esquemaSite: Validador<FormaDoSite> = (valor, caminho) => {
 export type Site = FormaDoSite
 
 /**
+ * OS BLOCOS CONDICIONAIS, num tipo só — é `identidade` menos o `nome`.
+ *
+ * Ele não é conveniência: é o que torna a totalidade do mapa `CONTATOS` da home
+ * cobrável por `satisfies`. Acrescentar um quarto bloco condicional aqui embaixo
+ * (um Instagram, um horário de funcionamento) passa a REPROVAR o `next build`
+ * enquanto a home não souber renderizá-lo — que é o item (c) fechado na direção
+ * mais fácil de esquecer, e fechado pelo compilador, sem regra nova.
+ */
+export type Contato = Omit<Site['identidade'], 'nome'>
+
+/** O bloco do botão, já estreitado. É o que `linkWhatsapp` exige receber. */
+export type Whatsapp = NonNullable<Contato['whatsapp']>
+
+/**
  * O link do WhatsApp é MONTADO em código a partir do número que é conteúdo.
  * Essa divisão é o conserto do `Navesz/Galegos#1` feito do lado certo: o
  * formato do link é código (não muda por negócio), o destinatário é conteúdo
  * validado (muda, e falta dele reprova o build em vez de sumir em produção).
+ *
+ * O PARÂMETRO É O BLOCO, E NÃO O SITE, e essa troca é o dente do 02/09. Com
+ * `site` na assinatura, um site sem WhatsApp ainda COMPILAVA a chamada e o
+ * `wa.me` nascia sem destinatário em tempo de execução — o Galegos, de novo.
+ * Com `Whatsapp` na assinatura, `linkWhatsapp(site.identidade.whatsapp)` é erro
+ * de tipo enquanto ninguém estreitar o `null`: o desastre deixa de depender de
+ * validação e passa a depender de compilar.
  */
-export function linkWhatsapp(site: Site, mensagem: string): string {
-  return `https://wa.me/${site.identidade.whatsapp.e164}?text=${encodeURIComponent(mensagem)}`
+export function linkWhatsapp(whatsapp: Whatsapp): string {
+  return `https://wa.me/${whatsapp.e164}?text=${encodeURIComponent(whatsapp.mensagem)}`
 }

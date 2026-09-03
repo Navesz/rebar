@@ -309,7 +309,8 @@ async function main(argv) {
         if (pendentes.length) {
           avisosSite.push(
             `${pendentes.length} campo(s) de conteudo/site.json saíram com PLACEHOLDER — ` +
-              `o \`npm run build\` deste projeto REPROVA até você trocá-los ` +
+              `o \`npm run build\` deste projeto REPROVA até você trocá-los, ou até você ` +
+              `APAGAR a chave do contato que este negócio não tem ` +
               `(é de propósito: veja o bloco acima)`,
           )
         }

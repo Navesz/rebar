@@ -93,18 +93,18 @@ O `127` domina o `1`: não se acusa um repositório com uma régua que quebrou.
 
 ## O que ele checa
 
-São <!--n regras.total-->22<!--/n--> regras em duas classes.
+São <!--n regras.total-->23<!--/n--> regras em duas classes.
 
-**<!--n regras.deterministicas-->17<!--/n--> determinísticas** derrubam o exit code:
+**<!--n regras.deterministicas-->18<!--/n--> determinísticas** derrubam o exit code:
 
-São elas: <!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` · `env-example` · `licenca` · `readme` · `notice` · `hooks-executaveis` · `coautoria-ia` · `identidade-git` · `ui-falso` · `schema-orfao` · `telefone`<!--/n-->
+São elas: <!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` · `env-example` · `licenca` · `readme` · `notice` · `hooks-executaveis` · `portao-com-placeholder` · `coautoria-ia` · `identidade-git` · `ui-falso` · `schema-orfao` · `telefone`<!--/n-->
 
 **<!--n regras.heuristicas-->5<!--/n--> heurísticas** só informam, e a separação é medida,
 não estética:
 
 São elas: <!--n regras.lista-heuristicas-->`conteudo-fora-do-codigo` · `shadcn-completo` · `url-producao` · `hex-cru` · `idioma-unico`<!--/n-->
 
-Este comando imprime o número das determinísticas, e ele é o <!--n regras.deterministicas-->17<!--/n--> da linha acima:
+Este comando imprime o número das determinísticas, e ele é o <!--n regras.deterministicas-->18<!--/n--> da linha acima:
 
 ```bash
 npx github:Navesz/rebar --json . | grep -c '"classe": "determinística"'
@@ -118,7 +118,7 @@ heurística que barra ensina a desligar a saída inteira.
 
 ### Toda regra nasce com dois casos
 
-São <!--n provas.casos-->52<!--/n--> casos, cobrindo <!--n provas.cobertura-->22 de 22<!--/n--> regras — nenhuma regra sem prova:
+São <!--n provas.casos-->53<!--/n--> casos, cobrindo <!--n provas.cobertura-->23 de 23<!--/n--> regras — nenhuma regra sem prova:
 
 ```bash
 npm run provar
@@ -176,7 +176,7 @@ de baixo: <!--n verificar.lista-passos-->`higiene` · `hooks` · `sintaxe` · `b
 | <!--n verificar.posicao.elos-->9 de 13<!--/n--> | `elos` | link relativo quebrado na documentação |
 | <!--n verificar.posicao.segredo-->10 de 13<!--/n--> | `segredo` | credencial no repositório, com o conteúdo lido do **índice** quando é `--staged` |
 | <!--n verificar.posicao.passos-->11 de 13<!--/n--> | `passos` | os passos que são função do portão, provados **por mutação** — o portão provando o portão |
-| <!--n verificar.posicao.provas-->12 de 13<!--/n--> | `provas` | os <!--n provas.casos-->52<!--/n--> casos das regras |
+| <!--n verificar.posicao.provas-->12 de 13<!--/n--> | `provas` | os <!--n provas.casos-->53<!--/n--> casos das regras |
 | <!--n verificar.posicao.auto-->13 de 13<!--/n--> | `auto` | o `rebar-check` apontado para o próprio rebar |
 
 **Nenhum passo é opcional**: o campo não existe, e `verificar.mjs` recusa a chave com exit
@@ -282,7 +282,7 @@ fonte, e grava o `sha256` de cada fonte que leu. Não há duas fontes para diver
 | | |
 | --- | --- |
 | `mcp/gerar.mjs` | <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
-| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->81 KB<!--/n--> · <!--n mcp.artefato.regras-->22<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->52<!--/n--> provas |
+| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
 | `mcp/src/` | o servidor, <!--n linhas.mcp-servidor-->937<!--/n--> linhas. Lê o artefato; **nunca** lê o `index.mjs` |
 
 O servidor expõe <!--n mcp.ferramentas-->5<!--/n--> ferramentas: `rebar_regras`, `rebar_porque`,
@@ -308,13 +308,13 @@ Honesto, e medido:
 
 | | |
 |---|---|
-| O checker | **funciona** — <!--n regras.total-->22<!--/n--> regras, <!--n provas.casos-->52<!--/n--> provas, rodado contra 19 repositórios em 30/08/2026 |
+| O checker | **funciona** — <!--n regras.total-->23<!--/n--> regras, <!--n provas.casos-->53<!--/n--> provas, rodado contra 19 repositórios em 30/08/2026 |
 | O portão | **funciona** — <!--n verificar.passos-->13<!--/n--> passos, CI verde nos dois sistemas, merge barrado com PR plantado |
 | Domínio de privilégio de banco | **provado** — <!--n dominio.privilegio.testes-->16<!--/n--> asserções contra PostgreSQL 17 real |
 | O gerador (`rebar novo`) | **funciona** — rodado de ponta a ponta em 31/08/2026, projeto 14 de 14 |
 | Preset `site` | **funciona** — Next 16 SSG, `og:image` no HTML, conteúdo validado no build |
 | Presets `app` / `api` | **não existem**, e são não-escopo até o `site` rodar em dois sites |
-| MCP (`mcp/`) | **funciona, e o portão o mantém em dia** — <!--n mcp.ferramentas-->5<!--/n--> ferramentas, artefato derivado das <!--n regras.total-->22<!--/n--> regras |
+| MCP (`mcp/`) | **funciona, e o portão o mantém em dia** — <!--n mcp.ferramentas-->5<!--/n--> ferramentas, artefato derivado das <!--n regras.total-->23<!--/n--> regras |
 | Os números destes documentos | **derivados** — `node ferramental/numeros.mjs` os escreve, e o passo `numeros` reprova se envelhecerem |
 
 O rebar tira **13 de 13 · 4 não se aplica** na própria régua, com `novo/` já rastreado —
@@ -387,7 +387,7 @@ falha lá com `ENOENT` sobre um arquivo que está no PATH. Foi o bug que quebrou
 anterior, e ele só não apareceu antes porque o CI de lá só rodava Linux.
 
 `novo/site/blocos/` e `novo/portao/arquivos/` são **modelo, não produto** — arquivos que o
-gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->23<!--/n--> dos <!--n novo.arquivos-->27<!--/n--> arquivos de `novo/`. Cada uma das duas pastas tem um
+gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->24<!--/n--> dos <!--n novo.arquivos-->28<!--/n--> arquivos de `novo/`. Cada uma das duas pastas tem um
 `modelo.json` que a tira da avaliação do rebar-check, e a contagem sai impressa no placar.
 Sem isso, os `.ts`/`.tsx` de exemplo faziam a regra `typecheck` enxergar aqui um projeto
 TypeScript sem compilador. Eles continuam sendo checados em dois lugares: no passo `blocos`
