@@ -12,4 +12,9 @@ import { esquemaSite, type Site } from './esquema'
 
 export const site: Site = esquemaSite(bruto, 'site')
 export type { Site }
+// `Contato` e `Whatsapp` saem por aqui porque quem renderiza importa DESTE
+// arquivo, nunca do esquema: a porta é uma só. `Contato` é o que faz o mapa da
+// home ser cobrado como total; `Whatsapp` é o bloco já estreitado que
+// `linkWhatsapp` exige — sem ele o botão não compila sem tratar o `null`.
+export type { Contato, Whatsapp } from './esquema'
 export { linkWhatsapp } from './esquema'

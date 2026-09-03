@@ -3,7 +3,9 @@
     "nome": "TROQUE-PELO-NOME-DO-NEGOCIO",
     "whatsapp": {
       "e164": "TROQUE-PELO-NUMERO-COM-DDI",
-      "exibicao": "TROQUE-PELO-NUMERO-VISIVEL"
+      "exibicao": "TROQUE-PELO-NUMERO-VISIVEL",
+      "chamadaAcao": "Falar no WhatsApp",
+      "mensagem": "Ola! Vim pelo site e gostaria de mais informacoes."
     },
     "email": "TROQUE-PELO-EMAIL-REAL",
     "endereco": {
@@ -36,8 +38,6 @@
   "home": {
     "titulo": "TROQUE-PELO-NOME-DO-NEGOCIO",
     "subtitulo": "Troque este subtitulo pelo que o negocio faz, em uma frase que um desconhecido entenda.",
-    "chamadaAcao": "Falar no WhatsApp",
-    "mensagemWhatsapp": "Ola! Vim pelo site e gostaria de mais informacoes.",
     "destaques": [
       {
         "titulo": "Primeiro destaque",

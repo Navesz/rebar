@@ -130,6 +130,18 @@ function anunciarPendencias(pendentes) {
   eco()
   eco('Abra conteudo/site.json e escreva os valores reais. O build diz o')
   eco('formato exigido de cada um, todos de uma vez, numa mensagem só.')
+  eco()
+  // A OUTRA SAÍDA, e ela é METADE da instrução. O gerador não sabe se este
+  // negócio tem WhatsApp, e-mail ou endereço — então ele emite os três blocos
+  // com placeholder e diz como dizer "não tenho". Sem esta linha o dono só
+  // conhece uma saída, preencher, e quem não tem o campo inventa um valor para
+  // o build ficar verde — que é exatamente como `contato@exemplo.com.br` nasce.
+  eco('NÃO TEM ALGUM DELES? APAGUE A CHAVE INTEIRA, em vez de preencher:')
+  eco('  · sem WhatsApp  → apague "identidade.whatsapp"  (o botão some junto)')
+  eco('  · sem e-mail    → apague "identidade.email"')
+  eco('  · sem endereço  → apague "identidade.endereco" (os 5 campos, juntos)')
+  eco('Um site pode ter só e-mail, ou endereço e nenhum telefone. O que NÃO')
+  eco('pode é o campo ficar em branco: em branco publica contato vazio.')
   eco(risca)
 }
 
@@ -145,6 +157,15 @@ function anunciarPendencias(pendentes) {
  * A regra agora: placeholder é INERTE E BARULHENTO. `TROQUE-PELO-NUMERO-COM-DDI`
  * não vira link por acidente, e `conteudo/esquema.ts` reprova o build enquanto
  * ele estiver lá.
+ *
+ * OS TRÊS BLOCOS DE CONTATO SAEM DECLARADOS, e é escolha, não descuido. Desde
+ * 02/09 `whatsapp`, `email` e `endereco` são condicionais: a presença da chave
+ * é a declaração de que a home renderiza aquilo. O gerador não sabe quais deles
+ * este negócio tem, e as duas saídas erram para lados diferentes — emitir tudo
+ * faz o dono APAGAR o que não usa, emitir nada faz o site nascer sem contato
+ * nenhum e sem ninguém avisar. Emitir com placeholder é a única das duas que
+ * REPROVA o build enquanto a decisão não for tomada, então é ela; o bloco de
+ * `anunciarPendencias` ensina as duas saídas, preencher e apagar.
  */
 export function montarConteudo({ nome, dominio, agora }) {
   const base = JSON.parse(readFileSync(join(BLOCOS, 'conteudo', 'site.json'), 'utf8'))
@@ -195,6 +216,12 @@ export function aplicarSite({ destino, nome, dominio, agora, silencioso = false 
     'app/sitemap.ts',
     'app/robots.ts',
     'app/manifest.ts',
+    // A prova do contrato de conteúdo vai JUNTO, e não fica no rebar: os dois
+    // casos que ela exercita — o site sem WhatsApp e o site que declara o botão
+    // sem número — são sites que o build DESTE projeto nunca vai ver, porque um
+    // projeto só pode ser um deles. Ela roda no `npm test`, que o portão põe na
+    // cadeia do `npm run verificar`, que o CI roda.
+    'testes/conteudo.test.mjs',
   ]) {
     escritos.push(relativo)
   }
