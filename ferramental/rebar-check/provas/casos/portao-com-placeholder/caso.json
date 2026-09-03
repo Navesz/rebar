@@ -1,0 +1,4 @@
+{
+  "regra": "portao-com-placeholder",
+  "porque": "Achado usando o gerador de verdade em 02/09, pedido pelo dono. O placeholder do CONTEÚDO é inerte e barulhento: o build reprova enquanto sobrar TROQUE-. O placeholder do PORTÃO era inerte e MUDO — o gerador não achou a identidade do git, escreveu \"DONO NÃO CONFIGURADO\" em NOTICE, README e .rebar-coautores, e o rebar-check deu 13 de 13 exit 0 em cima disso. O pior é o .rebar-coautores: ele é a allowlist de quem pode assinar commit, e com um e-mail @exemplo.invalido dentro a regra de coautoria deixa de valer. Portão instalado com placeholder é portão que se aprende a desligar na primeira semana."
+}

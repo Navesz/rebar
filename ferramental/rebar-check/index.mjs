@@ -1469,6 +1469,39 @@ export const REGRAS = [
   },
 
   {
+    id: 'portao-com-placeholder',
+    classe: 'determinística',
+    nivel: 'N5',
+    titulo: 'o portão não ficou com placeholder de instalação',
+    // ACHADO USANDO O GERADOR DE VERDADE, 02/09. O dono pediu um site real, e
+    // gerar um expôs isto: o placeholder do CONTEÚDO é inerte e barulhento — o
+    // build reprova enquanto sobrar `TROQUE-…`. O placeholder do PORTÃO era
+    // inerte e MUDO.
+    //
+    // A identidade do git desta máquina é local do repositório do rebar, não
+    // global. O gerador não achou nenhuma, escreveu `DONO NÃO CONFIGURADO` em
+    // NOTICE, README e `.rebar-coautores`, e o rebar-check deu 13 de 13, exit 0
+    // em cima disso.
+    //
+    // O pior dos três é o `.rebar-coautores`: ele vira a allowlist de quem pode
+    // assinar commit, com um e-mail `@exemplo.invalido` dentro. Ninguém casa
+    // com aquele e-mail, então a regra `coautoria-ia` passa a reprovar todo
+    // commit — ou, dependendo de como for lida, nenhum. Portão instalado com
+    // placeholder é portão que se aprende a desligar na primeira semana.
+    checar: (r) => {
+      const MARCA = /(NÃO|NAO) CONFIGURADO|@exemplo\.invalido|TROQUE-[A-Z-]{3,}/
+      const ONDE = /^(NOTICE|README\.md|\.rebar-coautores|LICENSE)$/i
+      const alvos = r.arquivos.filter((a) => ONDE.test(a))
+      if (!alvos.length) return na('nenhum arquivo de identidade do portão')
+      const sujos = alvos.filter((a) => MARCA.test(ler(r.dir, a) || ''))
+      return sujos.length
+        ? `o gerador não achou a identidade e deixou marcador em ${sujos.join(', ')}` +
+            ` — configure o git e refaça, ou corrija à mão`
+        : null
+    },
+  },
+
+  {
     id: 'coautoria-ia',
     classe: 'determinística',
     nivel: 'N5',

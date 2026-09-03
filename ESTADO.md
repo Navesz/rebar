@@ -28,7 +28,7 @@ node ferramental/numeros.mjs --fatos       # o catálogo: cada fato, seu valor e
 
 No markdown cru o número aparece assim, e o comentário HTML é invisível no GitHub:
 
-    **<!--n regras.deterministicas-->17<!--/n--> determinísticas** derrubam o exit code
+    **<!--n regras.deterministicas-->18<!--/n--> determinísticas** derrubam o exit code
 
 O marcador **nomeia o fato**, então quem abre o arquivo cru para editar o número lê
 `regras.deterministicas` antes de tocar nele — o aviso mora no lugar exato onde a tentação
@@ -270,17 +270,17 @@ Um terceiro documenta a fronteira que continua aberta:
 ✔ RLS · ACHADO CONHECIDO: o GUC de tenant é USERSET — app troca o próprio contexto
 ```
 
-### 4.2 PROVADO · `rebar-check` — <!--n regras.total-->22<!--/n--> checagens, zero dependência
+### 4.2 PROVADO · `rebar-check` — <!--n regras.total-->23<!--/n--> checagens, zero dependência
 
 _Remedido em 31/08/2026 · números derivados desde 02/09/2026._
-`ferramental/rebar-check/index.mjs`, <!--n linhas.rebar-check-->2.350<!--/n--> linhas.
+`ferramental/rebar-check/index.mjs`, <!--n linhas.rebar-check-->2.383<!--/n--> linhas.
 Roda em qualquer repositório, **nunca escreve**.
 
-São <!--n regras.deterministicas-->17<!--/n--> determinísticas e <!--n regras.heuristicas-->5<!--/n--> heurísticas, e as duas listas saem do array `REGRAS`
+São <!--n regras.deterministicas-->18<!--/n--> determinísticas e <!--n regras.heuristicas-->5<!--/n--> heurísticas, e as duas listas saem do array `REGRAS`
 exportado pelo próprio `index.mjs` — a mesma fonte de que o MCP deriva.
 
 **Não conte por `grep`.** Este arquivo já publicou "16 determinísticas" por causa disso: o
-grep de `classe: 'determinística'` devolve <!--n regras.deterministicas-->17<!--/n--> + 1
+grep de `classe: 'determinística'` devolve <!--n regras.deterministicas-->18<!--/n--> + 1
 hoje, porque casa também o comentário que explica a distinção. A contagem que vale é a do
 array, e ela é a que o marcador acima carrega:
 
@@ -291,7 +291,7 @@ node ferramental/rebar-check/index.mjs --json . | grep -c '"classe": "heurístic
 ```
 
 Determinísticas, e derrubam o exit code:
-<!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` · `env-example` · `licenca` · `readme` · `notice` · `hooks-executaveis` · `coautoria-ia` · `identidade-git` · `ui-falso` · `schema-orfao` · `telefone`<!--/n-->
+<!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` · `env-example` · `licenca` · `readme` · `notice` · `hooks-executaveis` · `portao-com-placeholder` · `coautoria-ia` · `identidade-git` · `ui-falso` · `schema-orfao` · `telefone`<!--/n-->
 
 Heurísticas, e só informam:
 <!--n regras.lista-heuristicas-->`conteudo-fora-do-codigo` · `shadcn-completo` · `url-producao` · `hex-cru` · `idioma-unico`<!--/n-->
@@ -334,7 +334,7 @@ nem test), `typecheck` (não tem TypeScript), `ui-falso` (não tem `components/u
 `schema-orfao` (nenhum `.schema.json`).
 
 **A nota conta só as determinísticas.** `13 de 13` é sobre as
-<!--n regras.deterministicas-->17<!--/n--> determinísticas menos as 4 que não se aplicam.
+<!--n regras.deterministicas-->18<!--/n--> determinísticas menos as 4 que não se aplicam.
 As <!--n regras.heuristicas-->5<!--/n--> heurísticas ficam fora do denominador e aparecem
 como aviso.
 
@@ -343,7 +343,7 @@ estava rastreado, a régua lia `git ls-files` e não enxergava uma linha do gera
 era **11 de 11 · 5 n/a**, com 227 arquivos de caso fora da avaliação. Para prever o efeito
 de rastreá-lo sem tocar no `.git`, foi montado um espelho da árvore num `os.tmpdir()`, com
 `git init` próprio e tudo commitado, e ele deu **12 de 12 · 4 n/a**, com 318 arquivos
-rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)* arquivos rastreados, dos quais <!--n novo.arquivos-->27<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
+rastreados e 24 em `novo/`. Hoje o espelho não é mais necessário — a árvore real tem 340 *(medido em 02/09; não é derivado — muda pelo próprio commit que o registra)* arquivos rastreados, dos quais <!--n novo.arquivos-->28<!--/n--> em `novo/`, e a nota subiu mais um ponto com a regra
 `hooks-executaveis`, que entrou depois.
 
 `env-example` saiu do N/A e passou a **PASSAR**: o gerador lê `GIT_AUTHOR_NAME` e
@@ -370,7 +370,7 @@ casos de prova, com a mesma disciplina: fechadura dupla e contagem impressa.
 - **Fechadura 2** — tem de existir um `modelo.json` rastreado, com `para` e `porque`.
 - **Contagem impressa** — a linha `N arquivo(s) de modelo do gerador, fora da avaliação`
   sai sempre, nomeando as raízes; hoje o `N` é
-  <!--n novo.arquivos-modelo-->23<!--/n-->. Exclusão que não se vê é exclusão que ninguém
+  <!--n novo.arquivos-modelo-->24<!--/n-->. Exclusão que não se vê é exclusão que ninguém
   confere.
 
 Nada foi afrouxado: o `env-example` virou documentação de verdade, e os modelos continuam
@@ -385,11 +385,11 @@ entre crases antes do teste. Medido no espelho: `en` de **3 para 0**, e os três
 `index.mjs`, `varrer-segredo.mjs` e `novo/index.mjs`, todos com prosa em português. O caso
 de prova `idioma-unico` não tem uma crase e não muda por causa disto.
 
-### 4.3 PROVADO · As provas — <!--n provas.casos-->52<!--/n--> casos, <!--n provas.cobertura-->22 de 22<!--/n--> regras
+### 4.3 PROVADO · As provas — <!--n provas.casos-->53<!--/n--> casos, <!--n provas.cobertura-->23 de 23<!--/n--> regras
 
 _Remedido em 31/08/2026 · números derivados desde 02/09/2026._
 
-São <!--n provas.casos-->52<!--/n--> casos e <!--n provas.regras-com-prova-->22<!--/n--> regras com prova — cobertura <!--n provas.cobertura-->22 de 22<!--/n-->, sem regra descoberta. O runner conta as pastas
+São <!--n provas.casos-->53<!--/n--> casos e <!--n provas.regras-com-prova-->23<!--/n--> regras com prova — cobertura <!--n provas.cobertura-->23 de 23<!--/n-->, sem regra descoberta. O runner conta as pastas
 de `ferramental/rebar-check/provas/casos/`, que é exatamente o que o medidor de números lê:
 
 ```bash
@@ -401,7 +401,7 @@ ls ferramental/rebar-check/provas/casos | wc -l
 seções diferentes do mesmo texto.** Todas as quatro sumiram: o número agora é um só,
 derivado, e o passo `numeros` reprova se ele envelhecer. É o caso que justificou a §0.
 
-Dos <!--n provas.casos-->52<!--/n-->, **dois são de 31/08 e travam a exclusão de modelo**
+Dos <!--n provas.casos-->53<!--/n-->, **dois são de 31/08 e travam a exclusão de modelo**
 descrita na §4.2. Rodando só a regra `typecheck`, em 02/09/2026, saíram 5 de 5:
 
 ```bash
@@ -693,7 +693,7 @@ _As duas execuções de ponta a ponta são de **31/08/2026**, com rede, em `os.t
 não foram refeitas: tudo que este bloco relata sobre elas é histórico. As contagens de
 arquivo abaixo, essas sim, são derivadas e estão em dia._
 
-O gerador anuncia <!--n novo.passos-->6<!--/n--> passos e `novo/` tem <!--n novo.arquivos-->27<!--/n--> arquivos, dos quais <!--n novo.arquivos-modelo-->23<!--/n--> são **modelo** — o que ele copia para dentro do
+O gerador anuncia <!--n novo.passos-->6<!--/n--> passos e `novo/` tem <!--n novo.arquivos-->28<!--/n--> arquivos, dos quais <!--n novo.arquivos-modelo-->24<!--/n--> são **modelo** — o que ele copia para dentro do
 projeto criado, e que por isso não é avaliado aqui. Sobram 4 de código próprio:
 `novo/index.mjs` (433 linhas) · `novo/portao/aplicar.mjs` (829) · `novo/site/aplicar.mjs`
 (239) · `novo/site/og.mjs` (227), 1.728 no total — contagem de linha medida em 02/09/2026,
@@ -850,9 +850,9 @@ fonte, nunca cópia dela.
 
 | Peça                      | O que é                                                                 |
 | ------------------------- | ----------------------------------------------------------------------- |
-| `ferramental/rebar-check/index.mjs` | **A fonte.** <!--n linhas.rebar-check-->2.350<!--/n--> linhas, <!--n regras.total-->22<!--/n--> regras, com o porquê medido de cada uma |
+| `ferramental/rebar-check/index.mjs` | **A fonte.** <!--n linhas.rebar-check-->2.383<!--/n--> linhas, <!--n regras.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/gerar.mjs`           | **O gerador.** <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** |
-| `mcp/regras.gerado.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->81 KB<!--/n--> · <!--n mcp.artefato.regras-->22<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->52<!--/n--> provas |
+| `mcp/regras.gerado.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
 | `mcp/src/`                | **O servidor.** <!--n linhas.mcp-servidor-->937<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
 
 Os cinco números do artefato são conferidos por **dois** portões independentes: o passo
@@ -912,17 +912,17 @@ acusação falsa.
 **O objetivo nº 3 — "continuar impondo depois do dia 1" — tem agora as duas metades.** O
 portão já ia junto no projeto gerado; o MCP passou a ir também, por ponteiro. O projeto
 gerado **não** ganha MCP próprio, e a razão é a §7.2: ele tem zero regra própria, então um
-MCP local serviria uma **cópia** das <!--n regras.total-->22<!--/n--> regras do rebar — que
+MCP local serviria uma **cópia** das <!--n regras.total-->23<!--/n--> regras do rebar — que
 é o defeito do Herz outra vez.
 
 **O que fica parcial, e é dito aqui em vez de escondido:**
 
-- **`porque` de cabeçalho em 5 de <!--n regras.total-->22<!--/n--> regras** (medido em
+- **`porque` de cabeçalho em 5 de <!--n regras.total-->23<!--/n--> regras** (medido em
   01/09/2026). As outras têm o porquê extraído do corpo do `checar` ou do caso de prova —
   `0` regras ficaram sem nenhuma razão —, mas a classificação é posicional, não semântica:
   comentário de implementação pura entra junto, rotulado `onde: "implementacao"`. A forma
   melhor é um campo `porque:` dentro de cada regra — zero parsing, conferido pelo prettier
-  —, e custa <!--n regras.total-->22<!--/n--> edições no `index.mjs`.
+  —, e custa <!--n regras.total-->23<!--/n--> edições no `index.mjs`.
 - **`npx --yes github:Navesz/rebar --mcp` não sobe o servidor** numa máquina sem checkout:
   o `npx` instala só as dependências da raiz, e `mcp/` é pacote separado. A falha é
   barulhenta e nomeia o conserto (`cd mcp && npm install`) e a alternativa sem MCP
@@ -1026,7 +1026,7 @@ imprimem não ficam nos comentários da cerca**, e a razão é concreta: o GitHu
 cerca literalmente, então um `# 50 casos` copiado junto com o comando entrega à pessoa um
 número que já não é o que ela vai ver na tela. Cerca mostra comando; o número vai na prosa
 ao lado, onde o passo `numeros` alcança. Hoje: <!--n verificar.passos-->13<!--/n--> passos
-no `verificar`, <!--n provas.casos-->52<!--/n--> casos no `provar`, <!--n dominio.privilegio.testes-->16<!--/n--> asserções no domínio de privilégio, e 56
+no `verificar`, <!--n provas.casos-->53<!--/n--> casos no `provar`, <!--n dominio.privilegio.testes-->16<!--/n--> asserções no domínio de privilégio, e 56
 arquivos varridos pelo `elos` (este último medido à mão, §0).
 
 ```bash
@@ -1274,7 +1274,7 @@ o critério fala de repositório do dono em geral, não do rebar. Sem evidência
 ### D+90 — NÃO MENSURÁVEL, falta a linha de base
 
 A linha de base do critério é a de 30/08/2026: **19 checagens**, teto de ≤50% em **28**.
-Hoje são <!--n regras.total-->22<!--/n-->, ainda abaixo do teto, e o marco só vence em
+Hoje são <!--n regras.total-->23<!--/n-->, ainda abaixo do teto, e o marco só vence em
 23/11/2026 — compare o marcador com o 28 e a conta está feita. O segundo termo — "nº de
 repositórios usando" — está em **1**. Medir 19 repositórios não é ser usado por 19
 repositórios.
@@ -1330,7 +1330,7 @@ _Reescrito em 02/09/2026. A lista anterior tinha o push e o ruleset como item 1;
 foram feitos, e mantê-los aqui seria o mesmo defeito de número velho, um andar acima._
 
 Onde o repositório está, em 02/09/2026: o rebar passa na própria régua com **13 de 13 · 4
-n/a** (§4.2), o `verificar` fecha <!--n verificar.passos-->13<!--/n--> de <!--n verificar.passos-->13<!--/n--> passos, as provas são <!--n provas.casos-->52<!--/n--> casos cobrindo <!--n provas.cobertura-->22 de 22<!--/n--> regras, os hooks estão instalados, doze ataques
+n/a** (§4.2), o `verificar` fecha <!--n verificar.passos-->13<!--/n--> de <!--n verificar.passos-->13<!--/n--> passos, as provas são <!--n provas.casos-->53<!--/n--> casos cobrindo <!--n provas.cobertura-->23 de 23<!--/n--> regras, os hooks estão instalados, doze ataques
 estão fechados, e o repositório está empurrado, com CI verde nos dois sistemas e ruleset
 sem `bypass_actors` (§9, D+30).
 
@@ -1350,5 +1350,5 @@ documentada em teste (§5.4).
 ferramenta nova.
 
 **4 · O `porque:` como campo da regra**, em vez de comentário extraído por posição (§4.12).
-São <!--n regras.total-->22<!--/n--> edições no `index.mjs`, e tiram a última heurística de
+São <!--n regras.total-->23<!--/n--> edições no `index.mjs`, e tiram a última heurística de
 posição que sobrou no gerador do MCP.

@@ -22,22 +22,50 @@ content:
     type: file
     path: conteudo/site.json
     fields:
+      # A EXIGÊNCIA SEGUE O USO. Só `nome` é obrigatório: ele é o
+      # `applicationName`, o `og:siteName` e o `name` do manifesto, e toda
+      # página o renderiza sem perguntar. WhatsApp, e-mail e endereço são
+      # BLOCOS CONDICIONAIS — a presença da chave em `conteudo/site.json` é a
+      # declaração de que a home renderiza aquilo. Não tem WhatsApp? Apague a
+      # chave `whatsapp` inteira; o botão some junto e o build passa. Deixar
+      # vazio NÃO é "não tenho": o build reprova, de propósito.
       - name: identidade
         label: Identidade do negócio
         type: object
-        description: Telefone e endereço são CONTEÚDO validado, não variável de ambiente (§12.3).
+        description: Telefone e endereço são CONTEÚDO validado, não variável de ambiente (§12.3). Só o nome é obrigatório; os blocos de contato existem se forem usados.
         fields:
           - { name: nome, label: Nome, type: string, required: true }
+          # Bloco tudo-ou-nada: os quatro campos juntos, ou a chave fora do
+          # arquivo. Campo vazio aqui é o `wa.me` sem destinatário do
+          # `Navesz/Galegos#1`, e o esquema reprova o build antes disso subir.
           - name: whatsapp
-            label: WhatsApp
+            label: WhatsApp — o bloco inteiro é opcional
             type: object
+            description: Apague este bloco se o negócio não atende por WhatsApp. Se ele existir, os quatro campos são obrigatórios.
+            required: false
             fields:
               - { name: e164, label: 'Número com DDI, só dígitos', type: string, required: true }
               - { name: exibicao, label: Como aparece na tela, type: string, required: true }
-          - { name: email, label: E-mail, type: string, required: true }
+              - { name: chamadaAcao, label: Texto do botão, type: string, required: true }
+              - {
+                  name: mensagem,
+                  label: Mensagem já escrita na conversa,
+                  type: text,
+                  required: true,
+                }
+          - {
+              name: email,
+              label: 'E-mail — opcional, apague a chave se não houver',
+              type: string,
+              required: false,
+            }
+          # Meio endereço é pior que nenhum: o visitante lê um lugar que não
+          # existe. Os cinco campos vêm juntos, ou a chave sai do arquivo.
           - name: endereco
-            label: Endereço
+            label: Endereço — o bloco inteiro é opcional
             type: object
+            description: Apague este bloco se o negócio não tem endereço físico ao público. Se ele existir, os cinco campos são obrigatórios juntos.
+            required: false
             fields:
               - { name: logradouro, label: Logradouro e número, type: string, required: true }
               - { name: bairro, label: Bairro, type: string, required: true }
@@ -90,15 +118,13 @@ content:
         label: Página inicial
         type: object
         fields:
+          # `chamadaAcao` e `mensagemWhatsapp` moravam AQUI e mudaram para
+          # dentro do bloco `identidade.whatsapp`. Eram a cópia de um botão que
+          # pode não existir: sem WhatsApp, dois campos que o dono escreve,
+          # revisa, publica — e que nada renderiza. Dentro do bloco, eles somem
+          # junto com o botão.
           - { name: titulo, label: Título, type: string, required: true }
           - { name: subtitulo, label: Subtítulo, type: text, required: true }
-          - { name: chamadaAcao, label: Texto do botão, type: string, required: true }
-          - {
-              name: mensagemWhatsapp,
-              label: Mensagem já escrita na conversa,
-              type: text,
-              required: true,
-            }
           - name: destaques
             label: Destaques
             type: object
