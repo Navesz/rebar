@@ -773,12 +773,36 @@ if (comoJson) {
     ` · ${relatorio.binarios.length} binário(s) · ${relatorio.truncados.length} truncado(s)` +
     ` · ${relatorio.ilegiveis.length} não varrido(s)`
 
+  // ─── O ⚠, e por que ele existe (achado de 02/09) ────────────────────────────
+  //
+  // O comentário acima conta a mentira mais cara desta ferramenta: "nenhum
+  // achado" impresso depois de pular seis arquivos sem contar nenhum deles. O
+  // resumo consertou a mentira NA FERRAMENTA e não no portão: fora do
+  // `--staged`, `naoVerificados` é sempre 0, então arquivo TRUNCADO ou
+  // ILEGÍVEL sai com exit 0 — e o `verificar` descarta a stdout de todo passo
+  // que passa (o FURO 4, escrito no topo do verificar.mjs). Resultado medido:
+  // as duas listas eram impressas para ninguém.
+  //
+  // O ⚠ é o que as faz atravessar, porque o passo `segredo` do
+  // verificar.config.mjs declara `avisar: /^\s*⚠/`. Continua sendo AVISO e não
+  // reprovação: arquivo rastreado apagado do disco é rotina de quem edita, e
+  // reprovar nisso seria o portão que ninguém consegue satisfazer. Mas
+  // "varri tudo" e "não li estes N" são duas alegações diferentes, e o portão
+  // só estava fazendo a primeira.
+  const naoLidos = relatorio.truncados.length + relatorio.ilegiveis.length
+  const avisoDoNaoLido = () => {
+    if (naoLidos === 0) return
+    console.error(
+      `  ⚠ ${relatorio.truncados.length} arquivo(s) varrido(s) só em parte e ` +
+        `${relatorio.ilegiveis.length} não varrido(s) — este veredito não cobre ${naoLidos} arquivo(s)`,
+    )
+    imprimirLista('truncados — varridos só em parte', relatorio.truncados)
+    imprimirLista('não varridos', relatorio.ilegiveis)
+  }
+
   if (achados.length === 0 && naoVerificados === 0) {
     console.log(`${resumo} · nenhum achado.`)
-    if (relatorio.truncados.length > 0 || relatorio.ilegiveis.length > 0) {
-      imprimirLista('truncados — varridos só em parte', relatorio.truncados)
-      imprimirLista('não varridos', relatorio.ilegiveis)
-    }
+    avisoDoNaoLido()
   } else {
     console.error(resumo)
     if (achados.length > 0) {
@@ -788,8 +812,7 @@ if (comoJson) {
         console.error(`         ${a.trecho}`)
       }
     }
-    imprimirLista('truncados — varridos só em parte', relatorio.truncados)
-    imprimirLista('não varridos', relatorio.ilegiveis)
+    avisoDoNaoLido()
     console.error(
       '\n  Segredo que já entrou no histórico não se remove com commit novo:\n' +
         '  precisa ser ROTACIONADO. Reescrever histórico vem depois, não no lugar.\n' +

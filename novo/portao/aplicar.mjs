@@ -47,10 +47,10 @@ const MOLDES = join(AQUI, 'arquivos')
 // misturaria hook de git com hook de React na mesma pasta e no mesmo alias.
 const PASTA_HOOKS = '.githooks'
 
-// O LANÇADOR DO MCP, e por que ele NÃO vai para `.githooks/`.
+// O SERVIDOR MCP, e por que ele NÃO vai para `.githooks/`.
 //
 // `.githooks/` é o que o `core.hooksPath` aponta: tudo lá dentro é candidato a
-// ser executado pelo git num evento de commit. O lançador do MCP não é hook de
+// ser executado pelo git num evento de commit. O servidor MCP não é hook de
 // coisa nenhuma — quem o executa é o cliente de IA, e num momento que não tem
 // relação com git. Misturar os dois faria o `git` tropeçar num arquivo que não
 // é dele no dia em que ganhar um nome de evento novo.
@@ -62,9 +62,18 @@ const PASTA_HOOKS = '.githooks'
 // trabalho por causa dele.
 const PASTA_REBAR = '.rebar'
 
-// O CAMINHO DO LANÇADOR MORA AQUI, UMA VEZ. O `.mcp.json` repete este mesmo
+// O CAMINHO DO SERVIDOR MORA AQUI, UMA VEZ. O `.mcp.json` repete este mesmo
 // caminho dentro dele, porque JSON não tem como importar constante — e é essa
 // repetição que `conferirPonteiroMcp` afere, logo depois de escrever os dois.
+//
+// O nome da constante é histórico: até 2026-09-02 o arquivo apontado era um
+// LANÇADOR, que chamava `npx github:Navesz/rebar --mcp` e entregava o stdio.
+// Medido num projeto recém-gerado, essa cadeia saía 2 — o `npx` instala só o
+// pacote da RAIZ do rebar, e o SDK do MCP mora em `mcp/`, que é pacote
+// separado, então `mcp/node_modules` nunca existe no cache do npx. Hoje o
+// arquivo é o SERVIDOR, sem dependência nenhuma. O nome ficou porque
+// `{{lancador}}` é chave do molde `arquivos/agentes.md`, e renomear os dois em
+// commits diferentes é como ponteiro quebra calado.
 const MCP_LANCADOR = `${PASTA_REBAR}/mcp.mjs`
 
 const ESTATICOS = [
@@ -76,13 +85,20 @@ const ESTATICOS = [
   ['commit-msg', `${PASTA_HOOKS}/commit-msg`],
   ['instalar.mjs', `${PASTA_HOOKS}/instalar.mjs`],
   ['portao.test.mjs', 'testes/portao.test.mjs'],
-  // O ponteiro para as regras. Ver o cabeçalho de `mcp-rebar.mjs` para a
-  // decisão inteira; o resumo é: este projeto NÃO ganha MCP próprio, porque um
-  // MCP próprio aqui serviria uma cópia das 22 regras do rebar, e cópia de
-  // regra que envelhece é exatamente o requisito nº 5 do plano.
+  // O MCP DESTE PROJETO. Ver o cabeçalho de `mcp-rebar.mjs` para a decisão
+  // inteira e para os números que a mediram; o resumo é: o projeto serve as
+  // regras DELE, não uma cópia das 22 do rebar, e não há cópia nenhuma para
+  // envelhecer porque toda resposta é DERIVADA do disco na hora da chamada.
+  // Por isso este par entra em ESTATICOS e não precisa de portão de frescor: o
+  // que se copia é MECÂNICA, e mecânica não muda quando uma regra muda.
   ['mcp.json', '.mcp.json'],
   ['mcp-rebar.mjs', MCP_LANCADOR],
 ]
+
+// `arquivos/agentes.md` MORA AO LADO DESTES E NÃO ESTÁ NA LISTA, de propósito.
+// Ele é molde, não cópia: passa por `moldeAgents`, que troca o nome do projeto e
+// o caminho do lançador e recoloca o bloco do shadcn. Pô-lo aqui entregaria um
+// AGENTS.md com `{{nome}}` cru dentro. Ver a decisão inteira mais abaixo.
 
 // Peças que o gerador COPIA do próprio rebar em vez de duplicar aqui.
 //
@@ -435,10 +451,52 @@ Copyright ${ano} ${dono}.
 // e recolocado byte a byte, com uma única mudança declarada: o CRLF vira LF,
 // porque o `escrever()` normaliza o arquivo inteiro e o .gitattributes ia
 // normalizar de qualquer jeito no `git add`.
+//
+// ───────────────────────────────────── o que o arquivo TEM DE FAZER, e o tamanho
+//
+// O pedido do dono, literal: "a IA tem que entender que ela tem que ativar o
+// MCP, e ela tem que falar para o usuário que esse MCP tem que ser ativado, se
+// não estiver ativado". Então a PRIMEIRA seção não é sobre a pilha nem sobre o
+// idioma: é uma ordem — chame `rebar_regras` antes da primeira linha de código —
+// e, para o caso em que a ferramenta não existe na sessão, uma FRASE PRONTA que
+// o agente só copia para o usuário. Instrução que depende de o modelo redigir a
+// própria mensagem de erro é instrução que sai diferente a cada sessão.
+//
+// E ele é CURTO por medição, não por gosto: a §7.2 do docs/PLANO.md registra que
+// o MCP do herz tinha 17 guias e 1.961 linhas e é comprovadamente ignorável. O
+// alvo aqui é menos de 60 linhas. O que não couber vira ferramenta do MCP, não
+// parágrafo — que é exatamente por que a §1 nomeia as cinco ferramentas em vez
+// de explicar o que cada regra cobra.
+//
+// ─────────────────────────────── por que a prosa mora num .md, e não neste .mjs
+//
+// A prosa deste arquivo era um template literal aqui dentro. Saiu, e o motivo é
+// mecânico: markdown com cerca de código dentro de crase precisa de toda crase e
+// todo `${` escapados, e um escape esquecido não dá erro — fecha a string mais
+// cedo e o AGENTS.md sai truncado. Em `arquivos/agentes.md` os bytes que se lê
+// são os bytes que saem. De quebra o arquivo passa a ser um `.md` rastreado, e
+// o passo `elos` do verificar confere os links dele como confere os dos outros.
+//
+// NÃO ENTRA EM `ESTATICOS` porque não é cópia: tem dois valores que só existem
+// na hora da geração (o nome do projeto e o caminho do lançador, que é constante
+// deste arquivo) e o bloco de terceiro, que é extraído do que o shadcn escreveu.
+const MOLDE_AGENTES = 'agentes.md'
 const MARCADOR_AGENTES = '<!-- rebar:agentes -->'
 const RE_BLOCO_SHADCN =
   /<!--\s*BEGIN:nextjs-agent-rules\s*-->[\s\S]*?<!--\s*END:nextjs-agent-rules\s*-->/
 
+/**
+ * Monta o AGENTS.md a partir de `arquivos/agentes.md`.
+ *
+ * A substituição é `{{chave}}` literal, com `split`/`join` e não `replace` com
+ * regex: o valor substituído contém `$` em nenhum caso hoje, mas `$&` e `$'`
+ * dentro de um `replace` são substituições especiais que ninguém lembra na hora
+ * de acrescentar uma chave nova, e o defeito só aparece no arquivo gerado.
+ *
+ * O envoltório do bloco de terceiro fica AQUI, e não no molde, porque é
+ * condicional: sem bloco não há seção nenhuma, e um molde com seção vazia
+ * deixaria um cabeçalho órfão no arquivo do projeto que veio sem ele.
+ */
 function moldeAgents(nome, blocoTerceiro) {
   const terceiro = blocoTerceiro
     ? `## Aviso do scaffold, preservado como veio
@@ -451,65 +509,12 @@ ${blocoTerceiro}
 `
     : ''
 
-  return `${MARCADOR_AGENTES}
-
-# Instruções de agente — ${nome}
-
-Leia o \`README.md\` antes de escrever qualquer coisa: a pilha, os comandos e o
-motivo de cada escolha estão lá. Este arquivo é só o que muda o SEU
-comportamento.
-
-## As regras deste projeto não estão escritas aqui
-
-Elas são as do \`rebar\`, e se **derivam sob demanda**. Não há cópia delas neste
-repositório, de propósito: cópia envelhece calada, e regra velha servida com
-cara de regra atual vale menos que regra nenhuma. As duas linhas abaixo rodam
-sem instalar nada e são a mesma régua que o CI aplica.
-
-\`\`\`sh
-npx --yes github:Navesz/rebar .          # o placar: o que passa, o que reprova, e por quê
-npx --yes github:Navesz/rebar . --json   # o mesmo, estruturado, uma entrada por regra
-\`\`\`
-
-O \`.mcp.json\` daqui declara esse mesmo rebar como servidor MCP, por
-\`${MCP_LANCADOR}\`. É **atalho, não porta**: ferramenta de MCP é discricionária —
-quem decide chamá-la é você. Se ela não subir, as duas linhas acima continuam
-valendo, e são elas que barram o merge.
-
-## O idioma é português do Brasil
-
-Código, comentário, nome de arquivo e mensagem de commit. O comentário explica o
-PORQUÊ, com o número medido quando houver — não repete o que a linha abaixo dele
-já diz.
-
-## Conteúdo não mora no código
-
-Telefone, CNPJ, endereço, preço e URL de produção vão em \`conteudo/*.json\`,
-validados no build. Literal em \`.tsx\` ou em variável de ambiente faz o build
-passar e o site quebrar **em silêncio**, depois de publicado. As regras
-\`conteudo-fora-do-codigo\`, \`telefone\` e \`url-producao\` do rebar-check cobram isso.
-
-## Dependência nova precisa de motivo escrito
-
-Se um built-in do Node ou do próprio Next resolve, é ele.
-
-## Você não assina o commit
-
-A coautoria aceita aqui é uma **allowlist de humanos**, em \`.rebar-coautores\`.
-Não acrescente trailer \`Co-authored-by\` seu: o \`.githooks/commit-msg\` barra
-antes de o commit existir, e a regra \`coautoria-ia\` barra depois, no histórico.
-Para entrar na lista é preciso ser uma pessoa do projeto, e quem edita o arquivo
-é o dono.
-
-## Rode o portão antes de dizer pronto
-
-\`\`\`sh
-npm run verificar   # lint, typecheck, teste e build — o mesmo comando que o CI roda
-\`\`\`
-
-Verde comprado desligando regra é dívida, não conclusão.
-
-${terceiro}`
+  const molde = readFileSync(join(MOLDES, MOLDE_AGENTES), 'utf8')
+  return Object.entries({
+    nome,
+    lancador: MCP_LANCADOR,
+    'bloco-terceiro': terceiro,
+  }).reduce((texto, [chave, valor]) => texto.split(`{{${chave}}}`).join(valor), molde)
 }
 
 /**
@@ -622,7 +627,9 @@ function garantirExportEstatico(destino, avisos) {
 function conferirPonteiroMcp(destino, avisos) {
   const bruto = lerSe(destino, '.mcp.json')
   if (bruto === null) {
-    avisos.push('.mcp.json não foi escrito — a IA que abrir este projeto não acha o rebar por MCP')
+    avisos.push(
+      '.mcp.json não foi escrito — a IA que abrir este projeto não encontra as regras dele por MCP',
+    )
     return 'ausente'
   }
   let alvo

@@ -387,7 +387,7 @@ falha lá com `ENOENT` sobre um arquivo que está no PATH. Foi o bug que quebrou
 anterior, e ele só não apareceu antes porque o CI de lá só rodava Linux.
 
 `novo/site/blocos/` e `novo/portao/arquivos/` são **modelo, não produto** — arquivos que o
-gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->22<!--/n--> dos <!--n novo.arquivos-->26<!--/n--> arquivos de `novo/`. Cada uma das duas pastas tem um
+gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->23<!--/n--> dos <!--n novo.arquivos-->27<!--/n--> arquivos de `novo/`. Cada uma das duas pastas tem um
 `modelo.json` que a tira da avaliação do rebar-check, e a contagem sai impressa no placar.
 Sem isso, os `.ts`/`.tsx` de exemplo faziam a regra `typecheck` enxergar aqui um projeto
 TypeScript sem compilador. Eles continuam sendo checados em dois lugares: no passo `blocos`

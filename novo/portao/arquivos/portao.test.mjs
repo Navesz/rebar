@@ -47,24 +47,29 @@ test('os arquivos do portão estão no lugar', () => {
   }
 })
 
-// ────────────────────────────────────── o ponteiro para as regras, e o frescor dele
+// ─────────────────────────────────────── o MCP deste projeto, e o frescor dele
 //
 // ESTE PROJETO NÃO GUARDA CÓPIA DAS REGRAS, e isso é a decisão, não um
-// esquecimento. As regras são as do `rebar`; o que mora aqui é um PONTEIRO para
-// elas. A consequência boa é que nada aqui envelhece quando uma regra muda — não
-// há artefato para regenerar, então não há portão de frescor a construir.
+// esquecimento. Ele tem um SERVIDOR MCP próprio — `.rebar/mcp.mjs`, zero
+// dependência — e esse servidor não recita nada de dentro de si: cada resposta é
+// DERIVADA dos arquivos deste projeto no disco, na hora da chamada. Não há
+// artefato para regenerar, então não há portão de frescor a construir.
 //
-// A consequência ruim, e é a única, é que ponteiro quebra calado: um `.mcp.json`
+// A consequência ruim, e são duas, é que as duas quebram CALADAS. Um `.mcp.json`
 // que aponta para um arquivo inexistente aparece no cliente de IA como uma linha
-// cinza que ninguém lê, e o agente segue sem as regras SEM SABER DISSO. É a
-// mesma classe do defeito que este repositório inteiro existe para não repetir.
+// cinza que ninguém lê. E um servidor que recita a regra depois de o arquivo que
+// a impõe ter sumido soa exatamente igual a um portão em vigor. Nas duas o
+// agente segue SEM SABER, que é a classe de defeito que este repositório inteiro
+// existe para não repetir.
 //
-// Então o que estes três testes aferem é o ponteiro: que ele aponta para algo
-// que existe, que o que ele aponta não corrompe o protocolo, e que ele roda de
-// verdade. Rodam no `npm test`, dentro do `npm run verificar`, dentro do CI, nos
-// dois sistemas.
+// Então os quatro testes abaixo aferem, nesta ordem: que o `.mcp.json` aponta
+// para algo que existe; que o que ele aponta não corrompe o canal do protocolo;
+// que o servidor SOBE de verdade, faz o handshake e publica as cinco ferramentas
+// que o `AGENTS.md` manda chamar; e que ele responde DESARMADA em vez de recitar
+// regra sem guarda. Rodam no `npm test`, dentro do `npm run verificar`, dentro do
+// CI, nos dois sistemas, e SEM REDE.
 
-/** O caminho do lançador é LIDO do `.mcp.json`, nunca repetido aqui. */
+/** O caminho do servidor é LIDO do `.mcp.json`, nunca repetido aqui. */
 function lancadorDeclarado() {
   const conf = JSON.parse(ler('.mcp.json'))
   const servidor = conf?.mcpServers?.rebar
@@ -74,7 +79,7 @@ function lancadorDeclarado() {
   return alvo
 }
 
-test('o .mcp.json aponta para um lançador que existe', () => {
+test('o .mcp.json aponta para um servidor que existe', () => {
   const conf = JSON.parse(ler('.mcp.json'))
   // `node` e não `npx`: no Windows o `npx` é `npx.cmd`, um roteiro de lote, e o
   // cliente de MCP sobe o servidor SEM shell — daria ENOENT em toda máquina
@@ -85,51 +90,170 @@ test('o .mcp.json aponta para um lançador que existe', () => {
   assert.ok(tem(alvo), `.mcp.json aponta para ${alvo}, que não está no disco`)
 })
 
-test('o lançador não escreve no stdout, que é o canal do JSON-RPC', () => {
+test('o servidor escreve no stdout por UM caminho só, que é o do JSON-RPC', () => {
   // O transporte stdio do MCP é JSON-RPC puro no stdout. Uma linha de prosa lá
   // não vira aviso: vira mensagem malformada, e o cliente derruba a sessão sem
   // dizer por quê. Um `console.log` de depuração esquecido é o jeito mais fácil
   // de quebrar isso, e o mais difícil de diagnosticar depois.
+  //
+  // A régua NÃO é "zero escrita no stdout" — o servidor precisa escrever, é o
+  // canal dele. É "uma escrita só", concentrada na função de envio, para que
+  // não exista um segundo lugar de onde prosa possa sair.
   const fonte = ler(lancadorDeclarado())
-  // `assert.ok` sobre um booleano, e não `assert.doesNotMatch` sobre o texto: o
+  const escritas = (fonte.match(/process\.stdout\.write/g) || []).length
+  // `assert.equal` sobre o número, e não `assert.doesNotMatch` sobre o texto: o
   // segundo despeja o arquivo INTEIRO na saída quando reprova, e a mensagem que
   // interessa fica soterrada. A régua tem de ser legível na hora em que fecha.
-  const escreveNoStdout = /console\.log|process\.stdout\.write/.test(fonte)
-  assert.ok(!escreveNoStdout, 'o lançador escreve no stdout, e isso corrompe o JSON-RPC do MCP')
-  assert.ok(fonte.includes('github:Navesz/rebar'), 'o lançador não nomeia a fonte das regras')
+  assert.equal(
+    escritas,
+    1,
+    `o servidor tem ${escritas} escritas em stdout; tem de haver exatamente 1`,
+  )
+  assert.ok(!/console\.log/.test(fonte), 'há console.log no servidor, e isso corrompe o JSON-RPC')
+  assert.ok(fonte.includes('github:Navesz/rebar'), 'o servidor não nomeia a régua publicada')
 })
 
-test('o lançador repassa a bandeira --mcp e devolve o código de saída do rebar', () => {
-  // POR QUE ESTE TESTE EXECUTA, em vez de só ler o arquivo. Um lançador que
-  // nunca rodou é exatamente o que o requisito nº 5 do rebar reclama: código no
-  // disco que nenhuma máquina executou. A bandeira `--rebar` existe para isto —
-  // ela aponta para um checkout em disco, então a prova roda SEM REDE.
-  const base = mkdtempSync(join(tmpdir(), 'rebar-mcp-'))
-  const pasta = join(base, 'ferramental', 'rebar-check')
-  mkdirSync(pasta, { recursive: true })
-  // O dublê imita a única coisa que o contrato promete: o rebar responde à
-  // bandeira `--mcp`. Ele grita o que recebeu no stderr — nunca no stdout, que
-  // é o canal do JSON-RPC — e sai com um código que não é 0 nem 1, para que a
-  // asserção do código de saída não passe por acaso.
-  writeFileSync(
-    join(pasta, 'index.mjs'),
-    [
-      'process.stderr.write(`duble:${process.argv.slice(2).join(",")}\\n`)',
-      'process.exit(42)',
-      '',
-    ].join('\n'),
-    'utf8',
+/**
+ * Sobe o servidor MCP de um projeto, faz o handshake e chama ferramentas.
+ *
+ * SEM REDE e sem dependência: o servidor lê o disco e nada mais. É o que
+ * separa esta prova da anterior — a versão antiga deste arquivo era um lançador
+ * que chamava `npx github:Navesz/rebar --mcp`, e essa cadeia saía 2 em toda
+ * máquina, sempre, porque o SDK do MCP mora num pacote separado do rebar que o
+ * `npx` nunca instala. Prova que precisa de rede é prova que não roda no CI de
+ * um cliente.
+ */
+function conversarComOMcp(raizProjeto, chamadas) {
+  const conf = JSON.parse(readFileSync(join(raizProjeto, '.mcp.json'), 'utf8'))
+  const s = conf.mcpServers.rebar
+  const pedidos = [
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'portao', version: '0' },
+      },
+    },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    ...chamadas.map((c, i) => ({
+      jsonrpc: '2.0',
+      id: 10 + i,
+      method: 'tools/call',
+      params: { name: c.name, arguments: c.args || {} },
+    })),
+  ]
+  // Tudo de uma vez no stdin e o cano fecha: o servidor processa linha a linha e
+  // sai no `end`. Não há espera por relógio, então o teste não fica lento nem
+  // instável em máquina carregada.
+  const r = spawnSync(s.command, s.args, {
+    cwd: raizProjeto,
+    input: pedidos.map((p) => JSON.stringify(p)).join('\n') + '\n',
+    encoding: 'utf8',
+    timeout: 30_000,
+  })
+  const linhas = (r.stdout || '').split('\n').filter((l) => l.trim())
+  const respostas = linhas.map((l) => {
+    try {
+      return JSON.parse(l)
+    } catch {
+      // A prosa no canal do protocolo é O defeito que este servidor não pode
+      // ter. Ela vira falha nomeada, e não um JSON.parse estourando cru.
+      assert.fail(`o servidor escreveu prosa no stdout, que é o canal do JSON-RPC: ${l}`)
+    }
+  })
+  return { r, respostas }
+}
+
+test('o servidor MCP sobe do .mcp.json, faz o handshake e responde às ferramentas', () => {
+  // POR QUE ESTE TESTE EXECUTA, em vez de só ler o arquivo. Servidor que nunca
+  // rodou é exatamente o que o requisito nº 5 do rebar reclama: código no disco
+  // que nenhuma máquina executou — e um MCP que não sobe aparece no cliente
+  // como uma linha cinza que ninguém lê.
+  const { r, respostas } = conversarComOMcp(RAIZ, [
+    { name: 'rebar_regras' },
+    { name: 'rebar_verificar' },
+  ])
+
+  const ini = respostas.find((m) => m.id === 1)
+  assert.ok(ini?.result, `o handshake não voltou: ${r.stderr}`)
+  assert.equal(ini.result.serverInfo.name, 'rebar')
+  assert.ok(ini.result.capabilities?.tools, 'o servidor não anuncia a capacidade `tools`')
+  // As instruções são o único texto que chega ao agente sem ele chamar nada. Se
+  // elas não mandarem chamar a régua, o servidor sobe e não ensina ninguém — que
+  // é o defeito que este arquivo inteiro existe para não repetir.
+  assert.match(
+    ini.result.instructions,
+    /rebar_regras/,
+    'as instruções não mandam chamar rebar_regras',
   )
 
-  const r = spawnSync(process.execPath, [join(RAIZ, lancadorDeclarado()), '--rebar', base], {
-    encoding: 'utf8',
-  })
-  assert.match(r.stderr, /duble:--mcp/, `o lançador não repassou a bandeira \`--mcp\`: ${r.stderr}`)
-  assert.equal(r.status, 42, 'o lançador não devolveu o código de saída do rebar')
-  // Falha barulhenta: saída não-zero tem de nomear o comando tentado e a saída
-  // que não depende de MCP nenhum. Atalho que morre calado é pior que atalho
-  // nenhum.
-  assert.match(r.stderr, /--json/, 'a falha do lançador não nomeia a alternativa sem MCP')
+  const lista = respostas.find((m) => m.id === 2)
+  const nomes = (lista?.result?.tools || []).map((t) => t.name)
+  // Os nomes são contrato com o AGENTS.md: é ele que manda o agente chamá-los.
+  for (const esperado of [
+    'rebar_regras',
+    'rebar_porque',
+    'rebar_decidir',
+    'rebar_portao',
+    'rebar_verificar',
+  ]) {
+    assert.ok(
+      nomes.includes(esperado),
+      `o servidor não publica \`${esperado}\`, que o AGENTS.md manda chamar`,
+    )
+  }
+
+  const regras = respostas.find((m) => m.id === 10)
+  const texto = regras?.result?.content?.[0]?.text || ''
+  assert.ok(
+    texto.includes('conteudo-fora-do-codigo'),
+    'rebar_regras não fala de onde mora o conteúdo',
+  )
+  assert.ok(
+    texto.includes('placeholder-barra-o-build'),
+    'rebar_regras não fala do build que reprova no placeholder',
+  )
+  assert.ok(
+    texto.includes('segredo-nao-entra-no-commit'),
+    'rebar_regras não fala do segredo barrado no commit',
+  )
+  assert.ok(texto.includes('coautoria-e-de-humano'), 'rebar_regras não fala da coautoria de IA')
+  assert.ok(texto.includes('pilha-fechada'), 'rebar_regras não fala da pilha')
+
+  assert.ok(respostas.find((m) => m.id === 11)?.result, 'rebar_verificar não respondeu')
+})
+
+test('o servidor MCP responde DESARMADA em vez de recitar regra sem guarda', () => {
+  // O CASO INVERSO, e é o que dá valor ao de cima. Uma resposta que recita a
+  // regra sempre — inclusive quando o arquivo que a impõe foi apagado — é pior
+  // que silêncio: soa igual a regra em vigor, e o agente segue confiando num
+  // portão que não existe mais.
+  //
+  // A mutação é feita numa CÓPIA em tmpdir, nunca neste repositório.
+  const copia = mkdtempSync(join(tmpdir(), 'rebar-mcp-mutado-'))
+  mkdirSync(join(copia, '.rebar'), { recursive: true })
+  writeFileSync(join(copia, '.mcp.json'), ler('.mcp.json'), 'utf8')
+  writeFileSync(join(copia, '.rebar', 'mcp.mjs'), ler(lancadorDeclarado()), 'utf8')
+  // package.json mínimo: o projeto existe, e nenhum dos arquivos que impõem as
+  // regras foi copiado. É a mutação.
+  writeFileSync(join(copia, 'package.json'), '{"name":"mutado"}\n', 'utf8')
+
+  const { respostas } = conversarComOMcp(copia, [{ name: 'rebar_regras' }])
+  const texto = respostas.find((m) => m.id === 10)?.result?.content?.[0]?.text || ''
+  assert.match(
+    texto,
+    /DESARMADA/,
+    'o servidor recitou as regras num projeto sem nenhum arquivo que as imponha',
+  )
+  assert.match(
+    texto,
+    /Avise o usuário/,
+    'o servidor não manda avisar o usuário quando o portão está desarmado',
+  )
 })
 
 test('o AGENTS.md manda derivar as regras, e não repete nenhuma', () => {
