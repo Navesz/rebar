@@ -562,11 +562,11 @@ regras **determinísticas aplicáveis** naquele repositório.
 | Galegos                            | 27%      | 3/11       | 3   | 3      |
 | alicerce                           | 20%      | 2/10       | 4   | 0      |
 | navesz.github.io                   | 20%      | 2/10       | 4   | 2      |
-| cliente/hug-brasil-propostas         | 17%      | 2/12       | 2   | 2      |
+| hug-brasil-propostas (de cliente)   | 17%      | 2/12       | 2   | 2      |
 | Xthird/sites/navesz-profile        | 17%      | 1/6        | 8   | 0      |
 | Readme                             | 13%      | 1/8        | 6   | 2      |
-| Xthird/sites/climatic       | **0%**   | 0/6        | 8   | 1      |
-| cliente                              | **0%**   | 0/4        | 10  | 0      |
+| Xthird/sites/climatic              | **0%**   | 0/6        | 8   | 1      |
+| (pasta de cliente, sem commits)    | **0%**   | 0/4        | 10  | 0      |
 
 **Agregado: 74 de 177 checagens aplicáveis passam — 41,8%.** N/A somados: 89. Avisos
 somados: 18.
@@ -582,9 +582,9 @@ ao lado dizia 55.
 **Teto: 100%, o rebar, e ele é o único.** Fora da própria ferramenta o teto é **85% no
 prumo** — não 69%, como este arquivo publicava.
 
-**Piso: 0%, empate entre `cliente` e `Xthird/sites/climatic`.** Os dois estavam fora
+**Piso: 0%, empate entre a pasta de um cliente e `Xthird/sites/climatic`.** Os dois estavam fora
 da lista antiga, e por isso o piso publicado (17%, `hug-brasil-propostas`) estava errado.
-Ressalva honesta: o `cliente` tem 0 commits, então o 0% dele mede uma pasta praticamente
+Ressalva honesta: aquela pasta tem 0 commits, então o 0% dela mede uma pasta praticamente
 vazia — é o piso aritmético. O pior repositório de verdade é o `climatic`, que tem
 5 commits e mesmo assim não passa em nenhuma das 6 checagens aplicáveis.
 
@@ -598,7 +598,7 @@ de fora porque só se olhava 12 repositórios.
 ```
 
 Os 14 `na` se separam em dois motivos: **oito não têm CI nenhum** (`Galegos`, `LinhaK`,
-`cliente`, `cliente/hug-brasil-propostas`, `VectraB-Lab`, `Xthird/sites/climatic`,
+a pasta de cliente e o `hug-brasil-propostas` dentro dela, `VectraB-Lab`, `Xthird/sites/climatic`,
 `openkartline-notes`, `vectra-painel`) e **seis têm CI e não têm script de lint, typecheck
 ou teste para ele alcançar** (`rebar`, `Readme`, `alicerce`, `navesz.github.io`,
 `Xthird/sites/navesz-profile`, `Xthird/tools/obsidian-second-brain`). O próprio rebar está
