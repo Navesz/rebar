@@ -250,9 +250,7 @@ if (desconhecidas.length) {
 }
 if (!alvos.length) {
   console.error('medir-conteudo: informe pelo menos um repositório.')
-  console.error(
-    'uso: node tooling/rebar-check/measure-content.mjs <repo>... [--frases] [--json]',
-  )
+  console.error('uso: node tooling/rebar-check/measure-content.mjs <repo>... [--frases] [--json]')
   process.exit(2)
 }
 

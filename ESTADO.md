@@ -852,7 +852,7 @@ fonte, nunca cópia dela.
 | ------------------------- | ----------------------------------------------------------------------- |
 | `ferramental/rebar-check/index.mjs` | **A fonte.** <!--n linhas.rebar-check-->2.383<!--/n--> linhas, <!--n regras.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/gerar.mjs`           | **O gerador.** <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** |
-| `mcp/regras.gerado.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
+| `mcp/regras.gerado.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->0<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
 | `mcp/src/`                | **O servidor.** <!--n linhas.mcp-servidor-->937<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
 
 Os cinco números do artefato são conferidos por **dois** portões independentes: o passo

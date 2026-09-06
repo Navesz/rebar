@@ -282,7 +282,7 @@ fonte, e grava o `sha256` de cada fonte que leu. Não há duas fontes para diver
 | | |
 | --- | --- |
 | `mcp/gerar.mjs` | <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
-| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
+| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->0<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
 | `mcp/src/` | o servidor, <!--n linhas.mcp-servidor-->937<!--/n--> linhas. Lê o artefato; **nunca** lê o `index.mjs` |
 
 O servidor expõe <!--n mcp.ferramentas-->5<!--/n--> ferramentas: `rebar_regras`, `rebar_porque`,
@@ -394,7 +394,7 @@ TypeScript sem compilador. Eles continuam sendo checados em dois lugares: no pas
 do portão, aqui, e no passo 5 do gerador, dentro do projeto gerado, com `tsconfig.json` em
 volta.
 
-Coautoria de IA é barrada por allowlist de humanos em [`.rebar-coautores`](.rebar-coautores).
+Coautoria de IA é barrada por allowlist de humanos em [`.rebar-coauthors`](.rebar-coauthors).
 Enumerar humanos é uma lista curta e estável; enumerar agentes de IA é uma corrida que se
 perde toda semana.
 

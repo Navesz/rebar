@@ -4,4 +4,4 @@
 # sendo escrito agora.
 set -e
 RAIZ=$(git rev-parse --show-toplevel)
-exec node "$RAIZ/ferramental/hooks/checar-mensagem.mjs" "$1"
+exec node "$RAIZ/tooling/hooks/check-message.mjs" "$1"

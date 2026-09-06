@@ -317,7 +317,7 @@ export function decidir(artefato, assunto) {
     }
   }
 
-  for (const passo of artefato.portao?.passos ?? []) {
+  for (const passo of artefato.gate?.passos ?? []) {
     const p = pontuar(
       [
         [passo.nome, 8],
@@ -385,7 +385,7 @@ export function decidir(artefato, assunto) {
  * e o CI rodam — em vez de um veredito próprio.
  */
 export function portao(artefato, passoPedido) {
-  const passos = artefato.portao?.passos ?? []
+  const passos = artefato.gate?.passos ?? []
 
   if (passoPedido) {
     const alvo = normalizar(passoPedido)
@@ -411,7 +411,7 @@ export function portao(artefato, passoPedido) {
   const codigos = Object.entries(artefato.codigosDeSaida ?? {}).map(([k, v]) => `  ${k} = ${v}`)
 
   return [
-    `A PORTA É ESTE COMANDO, não este MCP: ${artefato.portao?.comando ?? 'npm run verificar'}`,
+    `A PORTA É ESTE COMANDO, não este MCP: ${artefato.gate?.comando ?? 'npm run verify'}`,
     `${passos.length} passos, na ordem, parando no primeiro que reprovar:`,
     ...linhas,
     '',

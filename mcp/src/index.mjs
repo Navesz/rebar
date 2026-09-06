@@ -9,12 +9,12 @@
 // A correção está em duas peças, e SÓ UMA delas mora aqui:
 //
 //   mcp/generate.mjs           deriva mcp/regras.gerado.json da fonte, e o passo `mcp` do
-//                           `npm run verificar` regenera em memória e REPROVA se o
+//                           `npm run verify` regenera em memória e REPROVA se o
 //                           disco divergir. Esse é o portão de frescor.
 //   mcp/src/*  (este)       serve o artefato. Nunca lê tooling/rebar-check/index.mjs.
 //
 // O QUE ESTE SERVIDOR NÃO É — §7.2, literal: "O MCP nunca é a porta. A porta é N0–N5."
-// Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verificar`,
+// Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verify`,
 // o hook e o CI. Nenhuma resposta abaixo autoriza nada.
 //
 // O QUE MUDOU EM RELAÇÃO À VERSÃO ANTERIOR DESTE ARQUIVO. Ele servia PROSA: cinco
@@ -163,7 +163,7 @@ servidor.registerTool(
   {
     title: 'Os passos do portão, na ordem, e o que fazer quando um reprova',
     description:
-      'Devolve os passos de `npm run verificar` na ordem, o comando de cada um e os códigos de saída; ' +
+      'Devolve os passos de `npm run verify` na ordem, o comando de cada um e os códigos de saída; ' +
       'com { passo } devolve a dica de conserto daquele passo. ' +
       'CHAME QUANDO O VERIFICAR REPROVAR e a mensagem não bastar, e antes de dizer que algo "passou". ' +
       'Este MCP não é a porta: a porta é o comando que esta ferramenta devolve.',
@@ -180,7 +180,7 @@ servidor.registerTool(
 // (`tooling/rebar-check/index.mjs --json`), então não existe segundo veredito
 // para divergir do primeiro — é atalho para o mesmo comando, não uma opinião nova.
 //
-// Roda o CHECKER, não o `npm run verificar` inteiro: os 11 passos incluem suíte de
+// Roda o CHECKER, não o `npm run verify` inteiro: os 11 passos incluem suíte de
 // teste e prettier no repositório todo, que é caro demais para uma chamada de tool e
 // já é trabalho do portão. Aqui responde a pergunta rápida "as 22 regras passam neste
 // caminho?" — em ~1 s, medido.
@@ -198,7 +198,7 @@ servidor.registerTool(
       'Executa o rebar-check (o mesmo do hook e do CI) num caminho e devolve, por regra, o que passou, ' +
       'reprovou ou não se aplica, mais o código de saída. ' +
       'CHAME DEPOIS DE MEXER no repositório, e antes de afirmar que terminou. ' +
-      'ATALHO, NÃO BARREIRA: quem barra é `npm run verificar` no hook e no CI; um verde aqui não ' +
+      'ATALHO, NÃO BARREIRA: quem barra é `npm run verify` no hook e no CI; um verde aqui não ' +
       'substitui o portão, que ainda roda formato, elos, segredo, provas e frescor do MCP.',
     inputSchema: {
       caminho: z
@@ -297,7 +297,7 @@ servidor.registerTool(
       '',
       blocos.join('\n\n'),
       '',
-      'Isto é a régua, não o portão. O portão é `npm run verificar` (rebar_portao mostra os passos).',
+      'Isto é a régua, não o portão. O portão é `npm run verify` (rebar_portao mostra os passos).',
     ].join('\n')
   }),
 )

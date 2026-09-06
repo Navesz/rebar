@@ -684,7 +684,7 @@ async function montar() {
     regras,
     ...(pulou('gate')
       ? {}
-      : { portao: { comando: 'npm run verificar', passos: await lerPortao(relConfig) } }),
+      : { gate: { comando: 'npm run verify', passos: await lerPortao(relConfig) } }),
     ...(pulou('decisoesFechadas') ? {} : { decisoesFechadas: lerDecisoes(fonteCheck, relCheck) }),
     ...(pulou('referencias') ? {} : { referencias: lerReferencias() }),
     // O que este artefato deliberadamente NÃO carrega. Existe para que o
@@ -787,7 +787,7 @@ function escrever(gerado, ausentes) {
   console.log(
     `mcp/gerar: escrito ${relative(RAIZ, ARTEFATO).replace(/\\/g, '/')} · ` +
       `${gerado.regras.length} regras · ${gerado.niveis?.length ?? '–'} níveis · ` +
-      `${gerado.portao?.passos.length ?? '–'} passos · ` +
+      `${gerado.gate?.passos.length ?? '–'} passos · ` +
       `${gerado.regras.reduce((n, r) => n + (r.provas?.length || 0), 0)} provas`,
   )
 }

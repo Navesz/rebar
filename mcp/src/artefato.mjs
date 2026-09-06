@@ -47,7 +47,7 @@ const CHAVES_OBRIGATORIAS = ['formato', 'fontes', 'codigosDeSaida', 'niveis', 'r
 
 const COMO_GERAR = [
   '  gere com:   node mcp/generate.mjs',
-  '  o portão:   node mcp/generate.mjs --verificar   (roda dentro de `npm run verificar`,',
+  '  o portão:   node mcp/generate.mjs --verificar   (roda dentro de `npm run verify`,',
   '              passo `mcp` — regenera em memória e reprova se o disco divergir)',
 ].join('\n')
 
@@ -193,7 +193,7 @@ export function avisoDeFrescor(f) {
   return [
     `AVISO DE FRESCOR: ${quais} mudou desde que o artefato foi gerado.`,
     'O que segue pode estar velho. Quem decide é o portão, não eu:',
-    '  node mcp/generate.mjs --verificar   (e `npm run verificar`, passo `mcp`)',
+    '  node mcp/generate.mjs --verificar   (e `npm run verify`, passo `mcp`)',
   ].join('\n')
 }
 

@@ -11,7 +11,7 @@
 #   · trailer de coautoria de IA, uma vez no histórico, só sai reescrevendo o
 #     histórico — que é operação de força, não de rotina.
 #
-# Instale com: node ferramental/hooks/instalar.mjs
+# Instale com: node tooling/hooks/install.mjs
 # Pule uma vez com: git commit --no-verify
 
 set -e
@@ -21,7 +21,7 @@ cd "$RAIZ"
 
 # 1. Segredo no que está em stage. Só o stage, não o repositório inteiro: é o
 #    que o commit está prestes a acrescentar, e é o que cabe no orçamento.
-node ferramental/segredo/varrer-segredo.mjs --staged
+node tooling/secret/scan-secret.mjs --staged
 
 # 2. Coautoria de IA no histórico. Uma regra só, e o motivo NÃO é tempo: medido
 #    contra este repositório, a regra sozinha leva 0,237 s e o placar completo
@@ -34,6 +34,6 @@ node ferramental/segredo/varrer-segredo.mjs --staged
 #    Divisão de trabalho com o hook commit-msg: o rebar-check lê `git log`, e o
 #    commit em curso ainda não está lá — este passo impede o trailer de FICAR.
 #    Impedir que ele ENTRE é do commit-msg, que roda com a mensagem na mão.
-node ferramental/rebar-check/index.mjs --regra=coautoria-ia
+node tooling/rebar-check/index.mjs --regra=coautoria-ia
 
 exit 0

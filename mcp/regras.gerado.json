@@ -20,7 +20,7 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases/",
-      "sha256": "52d790e9aed7bde01a2d0166de28cdb910b6dfa29bba89057de6f882d3dd6e6a",
+      "sha256": "8694194482146f169277e86bf020bee32abf7d862ad7c689fd86a71bfdbdad42",
       "daqui": "o porque de cada um dos 53 casos de prova"
     }
   ],
@@ -978,8 +978,8 @@
       ]
     }
   ],
-  "portao": {
-    "comando": "npm run verificar",
+  "gate": {
+    "comando": "npm run verify",
     "passos": [
       {
         "ordem": 1,
