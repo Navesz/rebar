@@ -14,9 +14,17 @@ import { dirname, join, normalize, resolve } from 'node:path'
 const raiz = resolve(process.argv[2] ?? process.cwd())
 
 // Só o que o Git rastreia: arquivo ignorado não faz parte do produto.
-const arquivos = execFileSync('git', ['ls-files', '*.md'], { cwd: raiz, encoding: 'utf8' })
-  .split('\n')
-  .map((l) => l.trim())
+// `-z` obrigatorio: sem ele um documento com acento no nome volta C-quoted,
+// a leitura falha, e o passo diz que conferiu os links de um arquivo que nunca
+// abriu. Ver o FURO 7 em tooling/secret/scan-secret.mjs.
+//
+// Sem `.trim()` tambem: com `-z` nao ha quebra de linha para aparar, e aparar
+// apagaria espaco que faz parte do nome.
+const arquivos = execFileSync('git', ['ls-files', '-z', '*.md'], {
+  cwd: raiz,
+  encoding: 'utf8',
+})
+  .split('\0')
   .filter(Boolean)
 
 // [texto](destino) — ignora imagem (![...]) e link absoluto.

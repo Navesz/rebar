@@ -115,8 +115,11 @@ function checarHigiene({ raiz }) {
 
   // 1 — bits de rastreio do índice. É o ÚNICO lugar onde skip-worktree e
   // assume-unchanged aparecem; status, diff e `diff HEAD` são todos cegos a eles.
-  const anomalas = git(raiz, ['ls-files', '-v'])
-    .split('\n')
+  // `-z` nao muda o veredito: a letra fica na posicao 0 e sobrevive a
+  // citacao. Muda o que se LE -- sem ele o caminho sai escapado e o dono
+  // nao reconhece o arquivo que ele mesmo marcou.
+  const anomalas = git(raiz, ['ls-files', '-v', '-z'])
+    .split('\0')
     .map((l) => l.replace(/\s+$/, ''))
     .filter((l) => l.length > 0 && !l.startsWith('H '))
   if (anomalas.length) {
@@ -260,20 +263,24 @@ function checarHooks({ raiz }) {
  * só roda Linux.
  */
 function listarMjs(raiz) {
-  const saida = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
-    cwd: raiz,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  return [
-    ...new Set(
-      saida
-        .split('\n')
-        .map((s) => s.trim())
-        .filter((a) => a.toLowerCase().endsWith('.mjs')),
-    ),
-  ].sort()
+  // `-z` obrigatorio. Sem ele um `.mjs` com acento no nome volta C-quoted, o
+  // `node --check` recebe um caminho que nao existe, e o passo `syntax`
+  // aprovaria um arquivo com erro de sintaxe por nunca te-lo alcancado.
+  //
+  // Este consumidor NAO estava no relatorio de auditoria que apontou os outros
+  // tres -- apareceu ao procurar a familia inteira em vez de so os locais
+  // citados.
+  const saida = execFileSync(
+    'git',
+    ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+    {
+      cwd: raiz,
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  return [...new Set(saida.split('\0').filter((a) => a.toLowerCase().endsWith('.mjs')))].sort()
 }
 
 /**

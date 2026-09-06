@@ -343,10 +343,13 @@ function marcadorInvalido(dir, rel, campos = ['rule', 'why']) {
  * imprime "hooks instalados" e nada roda.
  */
 function modosDoIndice(dir) {
-  const r = git(dir, ['ls-files', '--stage'])
+  // `-z` pelo mesmo motivo do `lerRepo`: com nome acentuado o caminho volta
+  // citado e o modo do arquivo se perde -- a regra `hooks-executable` deixaria
+  // de ver justamente o hook cujo nome tem acento.
+  const r = git(dir, ['ls-files', '--stage', '-z'])
   if (!r.ok || !r.saida) return new Map()
   const mapa = new Map()
-  for (const linha of r.saida.split('\n')) {
+  for (const linha of r.saida.split('\0')) {
     // "<modo> <sha> <estagio>\t<caminho>"
     const tab = linha.indexOf('\t')
     if (tab === -1) continue
@@ -2049,9 +2052,14 @@ export function lerRepo(dir) {
   const raiz = git(dir, ['rev-parse', '--git-dir'])
   if (!raiz.ok) return { erro: raiz.erro || 'git indisponível' }
 
-  const ls = git(dir, ['ls-files'])
+  // `-z` e obrigatorio: sem ele o git aplica `core.quotePath` e um nome
+  // acentuado volta C-quoted entre aspas. Toda regra abaixo receberia um
+  // caminho que nao existe, a leitura falharia calada, e o arquivo sairia do
+  // placar sem ter sido olhado. Ver o FURO 7 em tooling/secret/scan-secret.mjs,
+  // onde isto ja custou uma AWS key passando VERDE.
+  const ls = git(dir, ['ls-files', '-z'])
   if (!ls.ok) return { erro: ls.erro }
-  const todos = ls.saida ? ls.saida.split('\n').filter(Boolean) : []
+  const todos = ls.saida ? ls.saida.split('\0').filter(Boolean) : []
   const { arquivos, ignorados } = semFixtures(dir, todos)
 
   const manifestos = manifestosNpm(dir, arquivos)

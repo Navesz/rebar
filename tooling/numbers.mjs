@@ -408,9 +408,12 @@ function grupoNovo() {
 
 /** O que o git sabe. N/A inteiro quando esta árvore não é repositório git. */
 function grupoGit() {
-  const rastreados = git('ls-files')
+  // `-z` obrigatorio, e aqui e defeito de CORRECAO e nao de mensagem: este
+  // caminho e contado e casado por prefixo de pasta. Sem `-z` um nome
+  // acentuado volta C-quoted e conta como outro arquivo.
+  const rastreados = git('ls-files', '-z')
   exigir(rastreados !== null, 'git ls-files não respondeu numa árvore que tem .git')
-  const arquivos = rastreados.split('\n').filter(Boolean)
+  const arquivos = rastreados.split('\0').filter(Boolean)
   const casos = 'tooling/rebar-check/proofs/cases/'
 
   const coautoria = git('log', '--all', '-i', '--grep=Co-authored-by', '--format=%H')
