@@ -277,7 +277,7 @@ Um terceiro documenta a fronteira que continua aberta:
 ### 4.2 PROVADO · `rebar-check` — <!--n rules.total-->23<!--/n--> checagens, zero dependência
 
 _Remedido em 31/08/2026 · números derivados desde 02/09/2026._
-`tooling/rebar-check/index.mjs`, <!--n lines.rebar-check-->2.733<!--/n--> linhas.
+`tooling/rebar-check/index.mjs`, <!--n lines.rebar-check-->2.848<!--/n--> linhas.
 Roda em qualquer repositório, **nunca escreve**.
 
 São <!--n rules.deterministicas-->18<!--/n--> determinísticas e <!--n rules.heuristicas-->5<!--/n--> heurísticas, e as duas listas saem do array `REGRAS`
@@ -389,11 +389,11 @@ entre crases antes do teste. Medido no espelho: `en` de **3 para 0**, e os três
 `index.mjs`, `scan-secret.mjs` e `new/index.mjs`, todos com prosa em português. O caso
 de prova `idioma-unico` não tem uma crase e não muda por causa disto.
 
-### 4.3 PROVADO · As provas — <!--n proofs.casos-->56<!--/n--> casos, <!--n proofs.cobertura-->23 de 23<!--/n--> regras
+### 4.3 PROVADO · As provas — <!--n proofs.casos-->57<!--/n--> casos, <!--n proofs.cobertura-->23 de 23<!--/n--> regras
 
 _Remedido em 31/08/2026 · números derivados desde 02/09/2026._
 
-São <!--n proofs.casos-->56<!--/n--> casos e <!--n proofs.regras-com-prova-->23<!--/n--> regras com prova — cobertura <!--n proofs.cobertura-->23 de 23<!--/n-->, sem regra descoberta. O runner conta as pastas
+São <!--n proofs.casos-->57<!--/n--> casos e <!--n proofs.regras-com-prova-->23<!--/n--> regras com prova — cobertura <!--n proofs.cobertura-->23 de 23<!--/n-->, sem regra descoberta. O runner conta as pastas
 de `tooling/rebar-check/proofs/cases/`, que é exatamente o que o medidor de números lê:
 
 ```bash
@@ -405,7 +405,7 @@ ls tooling/rebar-check/proofs/cases | wc -l
 seções diferentes do mesmo texto.** Todas as quatro sumiram: o número agora é um só,
 derivado, e o passo `numeros` reprova se ele envelhecer. É o caso que justificou a §0.
 
-Dos <!--n proofs.casos-->56<!--/n-->, **dois são de 31/08 e travam a exclusão de modelo**
+Dos <!--n proofs.casos-->57<!--/n-->, **dois são de 31/08 e travam a exclusão de modelo**
 descrita na §4.2. Rodando só a regra `typecheck`, em 02/09/2026, saíram 5 de 5:
 
 ```bash
@@ -854,9 +854,9 @@ fonte, nunca cópia dela.
 
 | Peça                      | O que é                                                                 |
 | ------------------------- | ----------------------------------------------------------------------- |
-| `tooling/rebar-check/index.mjs` | **A fonte.** <!--n lines.rebar-check-->2.733<!--/n--> linhas, <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
+| `tooling/rebar-check/index.mjs` | **A fonte.** <!--n lines.rebar-check-->2.848<!--/n--> linhas, <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/generate.mjs`           | **O gerador.** <!--n lines.mcp-gerador-->960<!--/n--> linhas, **zero dependência** |
-| `mcp/rules.generated.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->95 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->19<!--/n--> passos · <!--n mcp.artefato.provas-->60<!--/n--> provas |
+| `mcp/rules.generated.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->98 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->19<!--/n--> passos · <!--n mcp.artefato.provas-->61<!--/n--> provas |
 | `mcp/src/`                | **O servidor.** <!--n lines.mcp-servidor-->1.084<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
 
 Os cinco números do artefato são conferidos por **dois** portões independentes: o passo
@@ -1030,7 +1030,7 @@ imprimem não ficam nos comentários da cerca**, e a razão é concreta: o GitHu
 cerca literalmente, então um `# 50 casos` copiado junto com o comando entrega à pessoa um
 número que já não é o que ela vai ver na tela. Cerca mostra comando; o número vai na prosa
 ao lado, onde o passo `numeros` alcança. Hoje: <!--n verify.passos-->19<!--/n--> passos
-no `verificar`, <!--n proofs.casos-->56<!--/n--> casos no `provar`, <!--n domain.privilegio.testes-->16<!--/n--> asserções no domínio de privilégio, e 56
+no `verificar`, <!--n proofs.casos-->57<!--/n--> casos no `provar`, <!--n domain.privilegio.testes-->16<!--/n--> asserções no domínio de privilégio, e 56
 arquivos varridos pelo `elos` (este último medido à mão, §0).
 
 ```bash
@@ -1334,7 +1334,7 @@ _Reescrito em 02/09/2026. A lista anterior tinha o push e o ruleset como item 1;
 foram feitos, e mantê-los aqui seria o mesmo defeito de número velho, um andar acima._
 
 Onde o repositório está, em 02/09/2026: o rebar passa na própria régua com **13 de 13 · 4
-n/a** (§4.2), o `verificar` fecha <!--n verify.passos-->19<!--/n--> de <!--n verify.passos-->19<!--/n--> passos, as provas são <!--n proofs.casos-->56<!--/n--> casos cobrindo <!--n proofs.cobertura-->23 de 23<!--/n--> regras, os hooks estão instalados, doze ataques
+n/a** (§4.2), o `verificar` fecha <!--n verify.passos-->19<!--/n--> de <!--n verify.passos-->19<!--/n--> passos, as provas são <!--n proofs.casos-->57<!--/n--> casos cobrindo <!--n proofs.cobertura-->23 de 23<!--/n--> regras, os hooks estão instalados, doze ataques
 estão fechados, e o repositório está empurrado, com CI verde nos dois sistemas e ruleset
 sem `bypass_actors` (§9, D+30).
 

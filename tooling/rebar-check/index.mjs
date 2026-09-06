@@ -1916,9 +1916,124 @@ export const REGRAS = [
       if (!humanos.length) return na('só há commit de bot')
       const ids = new Set(humanos)
       if (ids.size <= 1) return null
-      const pessoal = [...ids].filter((i) => !/@users\.noreply\.github\.com>/.test(i))
-      const extra = pessoal.length ? ` (e-mail pessoal exposto: ${pessoal.length})` : ''
-      return `${ids.size} combinações de nome/e-mail${extra}`
+
+      // CONTAR COMBINAÇÕES ERA O DEFEITO. Dois humanos num repositório são duas
+      // combinações, e a regra reprovava — falso positivo contra um time, que é
+      // a coisa que esta casa mais evita: regra automática errada custa mais que
+      // regra ausente. O que segue separa o que a régua PROVA do que ela só
+      // suspeita.
+      const partes = [...ids].map((i) => {
+        const m = /^(.*?)\s*<([^<>]*)>\s*$/.exec(i)
+        return {
+          id: i,
+          nome: (m ? m[1] : i).trim().toLowerCase(),
+          email: (m ? m[2] : '').trim().toLowerCase(),
+        }
+      })
+
+      const agrupar = (chave, valor) => {
+        const mapa = new Map()
+        for (const p of partes) {
+          if (!p[chave] || !p[valor]) continue
+          if (!mapa.has(p[chave])) mapa.set(p[chave], new Set())
+          mapa.get(p[chave]).add(p[valor])
+        }
+        return [...mapa].filter(([, s]) => s.size > 1)
+      }
+
+      // 1 · COLISÃO — o núcleo determinístico. Um nome com dois e-mails, ou um
+      //     e-mail com dois nomes, não é "duas pessoas": é uma identidade
+      //     inconsistente, que é o nome da regra. É o caso medido na forense —
+      //     a mesma pessoa ora como `Leonardo Naves <…noreply>`, ora como
+      //     `leona <leonardo@empresa.com.br>`, e o `git shortlog` contando dois.
+      const nomesComVariosEmails = agrupar('nome', 'email')
+      const emailsComVariosNomes = agrupar('email', 'nome')
+      if (nomesComVariosEmails.length || emailsComVariosNomes.length) {
+        const partesDoTexto = [
+          ...nomesComVariosEmails.map(
+            ([nome, emails]) => `"${nome}" commitou com ${emails.size} e-mails`,
+          ),
+          ...emailsComVariosNomes.map(
+            ([email, nomes]) => `<${email}> commitou com ${nomes.size} nomes`,
+          ),
+        ]
+        const pessoal = partes.filter(
+          (p) => p.email && !/@users\.noreply\.github\.com$/.test(p.email),
+        )
+        const extra = pessoal.length ? ` (e-mail pessoal exposto: ${pessoal.length})` : ''
+        return `${partesDoTexto.slice(0, 3).join('; ')}${extra}`
+      }
+
+      // 1b · O LOGIN DO GITHUB APARECENDO DUAS VEZES. Este é o caso que a
+      //      colisão não pega e que a forense mediu: `Leonardo Naves
+      //      <12345+leona@users.noreply.github.com>` e `leona
+      //      <leonardo@empresa.com.br>` são a mesma pessoa, e nome e e-mail
+      //      diferem nos dois.
+      //
+      //      O elo está escrito no endereço. O formato é
+      //      `<id>+<login>@users.noreply.github.com`, então o login é `leona` —
+      //      identificador da plataforma, não apelido inventado. Quando ele
+      //      reaparece como o NOME de outra identidade ou como a parte local do
+      //      e-mail dela, é a mesma pessoa com duas identidades, e o efeito é o
+      //      que a regra existe para impedir: o e-mail pessoal entra no
+      //      histórico público e o `git shortlog` conta duas pessoas onde há uma.
+      const logins = new Map()
+      for (const p of partes) {
+        const m = /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/.exec(p.email)
+        if (m) logins.set(m[1].toLowerCase(), p)
+      }
+      const mesmaPessoa = []
+      for (const p of partes) {
+        if (
+          logins.has(p.email.replace(/@.*$/, '')) &&
+          logins.get(p.email.replace(/@.*$/, '')) !== p
+        )
+          mesmaPessoa.push(p)
+        else if (logins.has(p.nome) && logins.get(p.nome) !== p) mesmaPessoa.push(p)
+      }
+      if (mesmaPessoa.length) {
+        return (
+          `o login do GitHub reaparece em outra identidade: ` +
+          `${mesmaPessoa
+            .slice(0, 3)
+            .map(
+              (p) =>
+                `${p.id} é o mesmo "${logins.get(logins.has(p.nome) ? p.nome : p.email.replace(/@.*$/, '')).id}"`,
+            )
+            .join('; ')} (e-mail pessoal no histórico público)`
+        )
+      }
+
+      // 2 · SEM COLISÃO, MAS O REPOSITÓRIO JÁ DECLAROU QUEM É HUMANO. A lista é
+      //     a MESMA da regra de coautoria, de propósito: a pergunta é a mesma —
+      //     "quem é humano deste projeto?" — e duas listas divergem. O cabeçalho
+      //     dela já diz que quem responde pelo commit é o dono do e-mail.
+      const lista = lerAllowlistCoautores(r)
+      if (lista.estado === 'ok') {
+        const forasteiros = partes.filter((p) => !p.email || !lista.emails.has(p.email))
+        return forasteiros.length
+          ? `${forasteiros.length} autor(es) fora de ${ALLOWLIST_COAUTORES}: ` +
+              `${forasteiros
+                .slice(0, 3)
+                .map((p) => p.id)
+                .join(', ')} — ` +
+              `se é gente do projeto, acrescente o e-mail lá`
+          : null
+      }
+
+      // 3 · SEM COLISÃO E SEM LISTA. A régua não tem como saber se são N pessoas
+      //     ou uma pessoa com N identidades, e inventar uma resposta é o que ela
+      //     fazia. `na` sai do denominador com o motivo na cara: não-medição
+      //     declarada vale mais que palpite, e o motivo aponta o conserto.
+      const pessoal = partes.filter(
+        (p) => p.email && !/@users\.noreply\.github\.com$/.test(p.email),
+      )
+      const extra = pessoal.length ? `; ${pessoal.length} com e-mail pessoal exposto` : ''
+      return na(
+        `${ids.size} identidades sem colisão de nome nem de e-mail${extra} — ` +
+          `ou são ${ids.size} pessoas, ou uma com ${ids.size} identidades, e sem ` +
+          `${ALLOWLIST_COAUTORES} rastreado não há como decidir`,
+      )
     },
   },
 

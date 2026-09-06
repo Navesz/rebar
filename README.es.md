@@ -104,7 +104,7 @@ apagar la salida entera.
 
 ### Toda regla nace con dos casos
 
-Son <!--n proofs.casos-->56<!--/n--> casos, un par por regla, y las <!--n rules.total-->23<!--/n--> reglas están cubiertas:
+Son <!--n proofs.casos-->57<!--/n--> casos, un par por regla, y las <!--n rules.total-->23<!--/n--> reglas están cubiertas:
 
 ```bash
 npm run prove
@@ -178,13 +178,13 @@ sea avisada antes de escribir, y no después.
 El artefacto es **derivado, nunca duplicado**: `npm run verify` lo regenera en memoria y falla
 si el disco diverge. Es imposible cambiar una regla y olvidar el MCP.
 
-Lleva <!--n mcp.artefato.regras-->26<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->19<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->60<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
+Lleva <!--n mcp.artefato.regras-->26<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->19<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->61<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
 
 ## Mapa del repositorio
 
 | Ruta | Qué |
 |---|---|
-| `tooling/rebar-check/` | la regla de formato y sus <!--n proofs.casos-->56<!--/n--> casos de prueba |
+| `tooling/rebar-check/` | la regla de formato y sus <!--n proofs.casos-->57<!--/n--> casos de prueba |
 | `tooling/security/` | la regla de seguridad |
 | `tooling/verify/` | el ejecutor de la compuerta y las pruebas por mutación de sus pasos |
 | `tooling/secret/` | el escáner de secretos, y las seis pruebas de detección |
