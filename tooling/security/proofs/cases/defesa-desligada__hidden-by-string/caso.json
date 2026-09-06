@@ -1,0 +1,4 @@
+{
+  "rule": "defesa-desligada",
+  "why": "P2 #4 da auditoria externa, e o unico caso deste modulo que nao e sobre a regra: e sobre o que a regra CONSEGUE VER. `semComentarioNemImport` era duas substituicoes de regex sem nocao de string, entao uma abertura de bloco DENTRO DE UMA STRING abria um comentario que so fechava no proximo fecha-bloco do arquivo -- e apagava tudo no meio. Medido nos 139 arquivos de codigo do rebar: 9 tinham codigo fora do exame, o pior com 1.181 tokens. Aqui o lado fail tem `rejectUnauthorized: false` entre uma string com abertura de bloco e o JSDoc que a fecha; com o removedor antigo esse lado fica VERDE, que e falso negativo, o pior desfecho de uma regua. O lado pass tem a MESMA string e o MESMO JSDoc, e nenhuma defesa desligada: e ele que garante que o conserto nao virou acusacao de string com barra e asterisco dentro."
+}

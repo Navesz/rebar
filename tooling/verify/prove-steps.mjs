@@ -879,6 +879,7 @@ const PASSOS_ESPERADOS = [
   'secret',
   'secret-proofs',
   'steps',
+  'strip',
   'proofs',
   'generator-map',
   'mcp-template',

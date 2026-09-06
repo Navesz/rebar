@@ -928,10 +928,18 @@ export const PRECO_BRL = /R\$\s?\d[\d.,]*/
 export const RE_JSX = /\.(tsx|jsx)$/i
 
 /**
- * Tira comentário. O `[^:]` antes do `//` é o que impede de comer o `//` de
- * `https://` e cortar o resto da linha junto.
+ * Um `/` abre expressão regular, ou divide? Decide o último caractere de código
+ * antes dele — e nas palavras-chave decide a palavra, porque `return /x/` é
+ * regex e `total / 2` é divisão com `total` terminando em letra igual a `return`.
+ */
+const ABRE_REGEX = /[(,=:[!&|?{};+\-*%~^<>]$/
+const PALAVRA_ANTES_DE_REGEX =
+  /\b(return|typeof|instanceof|in|of|case|do|else|yield|await|new|delete|void|throw)$/
+
+/**
+ * Tira comentário — e SÓ comentário.
  *
- * Existe fora da regra de conteúdo porque duas regras dependem dele pelo mesmo
+ * Existe fora da regra de conteúdo porque seis lugares dependem dele pelo mesmo
  * motivo, e o motivo está registrado neste arquivo desde a primeira medição:
  * das SETE ocorrências que a regra de cor literal deu no herz, CINCO eram
  * comentários documentando a própria regra. Comentário que aciona a regra que
@@ -940,9 +948,178 @@ export const RE_JSX = /\.(tsx|jsx)$/i
  * `telefone` fez o rebar acusar o próprio index.mjs, e escrever
  * `process` `.env.X` na nota do `url-producao` fez o `env-example` cobrar
  * `.env.example` para uma variável que não existe.
+ *
+ * ── POR QUE NÃO SÃO DUAS REGEX, que era o que estava aqui até 2026-09-06 ─────
+ *
+ *   t.replace(<bloco>, ' ').replace(<linha>, '$1 ')
+ *
+ * onde <bloco> casava de `/`+`*` ate o proximo `*`+`/`, sem parar em nada, e
+ * <linha> casava de `//` ate o fim da linha desde que o caractere anterior nao
+ * fosse `:`. (Escritos assim, e nao literais, porque um `*`+`/` literal aqui
+ * dentro fecharia este comentario -- que e a mesma cegueira que o texto abaixo
+ * descreve, acontecendo neste paragrafo.)
+ *
+ * Regex não sabe o que é string. Uma abertura de bloco DENTRO de uma string
+ * abria um comentário que só fechava no próximo fecha-bloco do arquivo, e tudo
+ * no meio era
+ * APAGADO — sem limite de linhas e sem deixar rastro. O `//` dentro de string
+ * comia o resto da linha.
+ *
+ * Apagar é o desfecho errado. A função existe para tirar do exame o que não
+ * roda; o que ela fazia era tirar do exame o que roda, e seis regras julgavam o
+ * que sobrou. Uma delas é a de SEGURANÇA: `rejectUnauthorized: false` escrito
+ * depois de uma string que contenha uma abertura de bloco saía da auditoria
+ * calado. Falso
+ * negativo não aparece em lugar nenhum — é a pior coisa que uma régua faz.
+ *
+ * ── A PROPRIEDADE QUE DECIDE O DESENHO ───────────────────────────────────────
+ *
+ * SÓ O RAMO DE COMENTÁRIO APAGA. String, template e expressão regular são
+ * COPIADOS caractere por caractere; eles existem aqui apenas para que o `//` e a
+ * abertura de bloco de dentro deles não sejam lidos como comentário. Então errar a detecção
+ * de string nunca apaga código — no máximo deixa um comentário passar, que é
+ * falso positivo, e falso positivo aparece na cara de quem roda. O jeito antigo
+ * errava para o outro lado.
+ *
+ * E string termina na quebra de linha, de propósito: aspa não fechada — ou
+ * apóstrofo de prosa, se um dia isto encostar em texto — contamina uma linha e
+ * nunca o arquivo inteiro. Mesma coisa para a expressão regular.
+ *
+ * O `:` antes de `//` continua protegido, que é o `https://` de sempre; agora
+ * dentro de string ele já estaria protegido, mas o corpo de script de shell que
+ * o `ci-gates` monta chega aqui sem aspas.
  */
-function semComentario(t) {
-  return t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+// Exportada para `prove-strip.mjs`: seis regras julgam o que esta funcao
+// devolve, e ate 2026-09-06 nada a exercitava sozinha.
+export function semComentario(t) {
+  let saida = ''
+  let anterior = '' // último caractere de código emitido, ignorando espaço
+  let palavra = '' // e a última palavra, para `return /x/`
+  // Um item por template aberto. `chaves` é a profundidade de `${...}` dentro
+  // dele: 0 significa que estamos no corpo do template, e não no código.
+  const templates = []
+  let i = 0
+
+  const codigo = (c) => {
+    saida += c
+    if (!/\s/.test(c)) {
+      anterior = c
+      palavra = /[\w$]/.test(c) ? palavra + c : ''
+    }
+  }
+
+  while (i < t.length) {
+    const topo = templates[templates.length - 1]
+    const c = t[i]
+    const d = t[i + 1] ?? ''
+
+    // ── corpo de template: só `\`, `${` e a crase encerram
+    if (topo && topo.chaves === 0) {
+      if (c === '\\') {
+        saida += t.slice(i, i + 2)
+        i += 2
+        continue
+      }
+      if (c === '`') {
+        templates.pop()
+        codigo(c)
+        i += 1
+        continue
+      }
+      if (c === '$' && d === '{') {
+        topo.chaves = 1
+        saida += '${'
+        i += 2
+        continue
+      }
+      saida += c
+      i += 1
+      continue
+    }
+
+    // ── comentário de linha. O `:` antes é o `https://`.
+    if (c === '/' && d === '/' && anterior !== ':') {
+      while (i < t.length && t[i] !== '\n') i += 1
+      saida += ' '
+      continue
+    }
+
+    // ── comentário de bloco. As quebras de linha ficam: sem elas o texto
+    //    encolhe e toda regra que conta linha passa a apontar para a errada.
+    if (c === '/' && d === '*') {
+      i += 2
+      while (i < t.length) {
+        if (t[i] === '*' && t[i + 1] === '/') {
+          i += 2
+          break
+        }
+        if (t[i] === '\n') saida += '\n'
+        i += 1
+      }
+      saida += ' '
+      continue
+    }
+
+    // ── string. Copiada inteira; termina na aspa ou na quebra de linha.
+    if (c === '"' || c === "'") {
+      codigo(c)
+      i += 1
+      while (i < t.length) {
+        if (t[i] === '\\') {
+          saida += t.slice(i, i + 2)
+          i += 2
+          continue
+        }
+        if (t[i] === '\n') break
+        const fechou = t[i] === c
+        saida += t[i]
+        i += 1
+        if (fechou) break
+      }
+      continue
+    }
+
+    if (c === '`') {
+      templates.push({ chaves: 0 })
+      codigo(c)
+      i += 1
+      continue
+    }
+
+    // ── expressão regular. Também copiada, e também presa a uma linha.
+    if (
+      c === '/' &&
+      (anterior === '' || ABRE_REGEX.test(anterior) || PALAVRA_ANTES_DE_REGEX.test(palavra))
+    ) {
+      codigo(c)
+      i += 1
+      let classe = false
+      while (i < t.length) {
+        if (t[i] === '\\') {
+          saida += t.slice(i, i + 2)
+          i += 2
+          continue
+        }
+        if (t[i] === '\n') break
+        if (t[i] === '[') classe = true
+        else if (t[i] === ']') classe = false
+        const fechou = t[i] === '/' && !classe
+        saida += t[i]
+        i += 1
+        if (fechou) break
+      }
+      continue
+    }
+
+    // ── chaves, que é o que devolve o template ao corpo dele
+    if (topo && c === '{') topo.chaves += 1
+    if (topo && c === '}' && topo.chaves > 0) topo.chaves -= 1
+
+    codigo(c)
+    i += 1
+  }
+
+  return saida
 }
 
 /** Sem comentário e sem linha de import: nenhum dos dois é renderizado. */

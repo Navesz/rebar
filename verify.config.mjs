@@ -1117,6 +1117,24 @@ export default [
     limite: 8,
   },
   {
+    // A FUNCAO DE QUE SEIS REGRAS DEPENDEM, provada sozinha pela primeira vez.
+    //
+    // Antes deste passo ela era provada de lado, pelos casos das regras que a
+    // usam -- e caso de regra nao tem string com abertura de bloco dentro,
+    // porque ninguem escreve fixture pensando no removedor de comentario. O
+    // resultado: ela apagava codigo real em 9 dos 139 arquivos deste
+    // repositorio, o pior com 1.181 tokens fora do exame, e o portao ficou
+    // verde o tempo todo.
+    //
+    // Vem ANTES de `proofs` de proposito: se os dois caem no mesmo commit, o
+    // primeiro nome que o executor imprime tem de ser a causa, nao o efeito.
+    nome: 'strip',
+    comando: node('--test', 'tooling/rebar-check/prove-strip.mjs'),
+    exige: ['tooling/rebar-check/prove-strip.mjs'],
+    dica: 'O removedor de comentario mudou de comportamento. Se ele passou a APAGAR mais, seis regras ficaram cegas e nao vao reclamar -- falso negativo nao aparece. Se passou a apagar menos, aparece como falso positivo nas regras.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
     nome: 'proofs',
     comando: node('tooling/rebar-check/proofs/prove.mjs'),
     exige: ['tooling/rebar-check/proofs/prove.mjs'],
