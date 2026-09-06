@@ -175,18 +175,41 @@ if (ferramentas.length) {
   falhou('tools/list veio vazio')
 }
 
-// Cada chamada abaixo é uma pergunta que uma IA de verdade faz neste repositório.
+// Cada chamada abaixo é uma pergunta que uma IA de verdade faz neste
+// repositório, e o QUARTO campo é o contrato: esta chamada deve devolver
+// `isError`, sim ou não?
+//
+// Antes ele não existia, e `isError` só escolhia um RÓTULO — o do único caso
+// que deveria errar ("esperado para id errado"), colado em qualquer erro de
+// qualquer uma das sete. Se o `rebar_verificar` passasse a estourar, a prova
+// imprimia um `ok` com aquele rótulo emprestado e o passo `mcp-server` ficava
+// verde sobre um servidor quebrado.
 const chamadas = [
-  ['rebar_regras', { nivel: 'N1' }, 'o que me reprova quando eu mexer no CSS/lint'],
-  ['rebar_porque', { id: 'raw-hex' }, 'reprovou hex-cru; por que isso é regra'],
-  ['rebar_decidir', { assunto: 'cor' }, 'posso escrever #fff no componente?'],
-  ['rebar_decidir', { assunto: 'mongodb' }, 'assunto que o rebar NÃO governa'],
-  ['rebar_portao', { passo: 'mcp' }, 'o passo do portão que guarda este módulo'],
-  ['rebar_verificar', {}, 'a régua no próprio rebar'],
-  ['rebar_porque', { id: 'hex-crus' }, 'id errado: precisa sugerir, não morrer'],
+  ['rebar_regras', { nivel: 'N1' }, 'o que me reprova quando eu mexer no CSS/lint', false],
+  ['rebar_porque', { id: 'raw-hex' }, 'reprovou hex-cru; por que isso é regra', false],
+  ['rebar_decidir', { assunto: 'cor' }, 'posso escrever #fff no componente?', false],
+  ['rebar_decidir', { assunto: 'mongodb' }, 'assunto que o rebar NÃO governa', false],
+  ['rebar_portao', { passo: 'mcp' }, 'o passo do portão que guarda este módulo', false],
+  ['rebar_verificar', {}, 'a régua no próprio rebar', false],
+  // Os dois que devem errar, um para cada lado do `sugestao.length ? ... : ''`
+  // em consultas.mjs — o ramo que sugere e o que não tem o que sugerir.
+  //
+  // A sonda daqui era `hex-crus`, com o rótulo "precisa sugerir". Medido: ela
+  // parou de sugerir quando os ids foram para o inglês, porque `hex-` deixou de
+  // ser prefixo de coisa alguma — a regra virou `raw-hex`. O rótulo continuou
+  // afirmando o contrário por seis commits, porque nada comparava. É o defeito
+  // que este contrato existe para não deixar acontecer de novo.
+  ['rebar_porque', { id: 'raw-hexx' }, 'typo de id real: erra sugerindo o certo', true, 'raw-hex'],
+  [
+    'rebar_porque',
+    { id: 'mongodb-driver' },
+    'id de outro mundo: erra sem inventar vizinho',
+    true,
+    null,
+  ],
 ]
 
-for (const [nome, args, pergunta] of chamadas) {
+for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
   titulo(`3 · tools/call ${nome} ${JSON.stringify(args)}   — "${pergunta}"`)
   const r = await cliente.pedir('tools/call', { name: nome, arguments: args })
   const t = textoDa(r)
@@ -195,9 +218,43 @@ for (const [nome, args, pergunta] of chamadas) {
     continue
   }
   console.log(`\n${trecho(t, nome === 'rebar_porque' ? 2200 : 1600)}\n`)
-  ok(
-    `${nome}${r.result.isError ? ' (isError: true, esperado para id errado)' : ''} — ${t.length} caracteres`,
-  )
+
+  // O CONTRATO, nas duas direções. Errar quando não devia é servidor quebrado;
+  // NÃO errar quando devia é contrato silenciosamente afrouxado — um `id`
+  // inexistente que passa a responder como se existisse é pior que o erro.
+  const erro = r.result.isError === true
+  if (erro !== erroEsperado) {
+    falhou(
+      erroEsperado
+        ? `${nome} devia ter devolvido isError e não devolveu — o contrato de id inexistente afrouxou`
+        : `${nome} devolveu isError e não devia:\n${trecho(t, 400)}`,
+    )
+    continue
+  }
+
+  // Quem erra tem contrato EXTRA: "não morrer" é metade dele. O quinto campo diz
+  // qual vizinho a mensagem deve oferecer — ou `null` quando o certo é não
+  // oferecer nenhum. As duas direções importam: sugerir nada quando havia um id
+  // parecido é o agente sem saída, e inventar um vizinho para um id de outro
+  // assunto é pior que o erro seco.
+  if (erroEsperado) {
+    const sugeriu = /^Perto disso: (.+)$/m.exec(t)
+    if (vizinho && sugeriu?.[1]?.split(', ').includes(vizinho) !== true) {
+      falhou(`${nome} devia apontar "${vizinho}" e não apontou:\n${trecho(t, 400)}`)
+      continue
+    }
+    if (!vizinho && sugeriu) {
+      falhou(`${nome} inventou vizinho para um id de outro assunto: ${sugeriu[0]}`)
+      continue
+    }
+    // A saída sempre existe, com vizinho ou sem.
+    if (!t.includes('rebar_regras')) {
+      falhou(`${nome} errou sem dizer onde está a lista completa`)
+      continue
+    }
+  }
+
+  ok(`${nome}${erro ? ' (isError, como o contrato exige)' : ''} — ${t.length} caracteres`)
 }
 
 cliente.fechar()
