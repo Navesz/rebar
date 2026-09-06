@@ -574,10 +574,23 @@ function podar(valor, ausentes) {
     if (c === 'proofs') for (const r of copia.regras || []) delete r.provas
     else delete copia[c]
   }
-  // `fontes` acompanha: entrada de fonte que não está nesta árvore sai dos dois
-  // lados, senão o sha256 de um arquivo ausente vira divergência sozinho.
+  // `fontes` acompanha, e por DUAS razões que não são a mesma.
+  //
+  // A primeira é a antiga: entrada cujo arquivo não está nesta árvore sai dos
+  // dois lados, senão o sha256 de um arquivo ausente vira divergência sozinho.
+  //
+  // A segunda apareceu quando `package.json` virou fonte de `decisoesFechadas`.
+  // Numa árvore sem `new/index.mjs` a seção inteira é pulada, e o lado gerado
+  // não emite fonte nenhuma dela — mas o `package.json` EXISTE, então ele
+  // sobrevivia ao filtro de existência e a comparação acusava "artefato velho"
+  // onde havia árvore parcial. É a confusão que esta função existe para evitar,
+  // e a correção é a mesma tabela: fonte de seção pulada sai também.
   if (Array.isArray(copia.fontes)) {
-    copia.fontes = copia.fontes.filter((f) => existe(f.arquivo.replace(/\/$/, '')))
+    const deSecaoPulada = new Set(SECOES.filter((s) => chaves.has(s.chave)).flatMap((s) => s.exige))
+    copia.fontes = copia.fontes.filter((f) => {
+      const partes = f.arquivo.split(' · ').map((a) => a.trim().replace(/\/$/, ''))
+      return partes.every((rel) => existe(rel) && !deSecaoPulada.has(rel))
+    })
   }
   return copia
 }
@@ -725,6 +738,37 @@ async function montar() {
             },
           ]
         : []),
+      // AS FONTES DAS DECISÕES, que faltavam aqui e é por isso que o servidor
+      // podia dizer "em dia" servindo decisão velha. `lerDecisoes` lê os três,
+      // e o que não está nesta lista não é conferido a cada resposta.
+      ...(pulou('decisoesFechadas')
+        ? []
+        : [
+            {
+              arquivo: 'new/index.mjs',
+              sha256: sha256(ler('new/index.mjs')),
+              daqui: 'a stack do preset `site`, extraída do cabeçalho',
+            },
+            {
+              arquivo: 'new/site/blocks/next.config.ts',
+              sha256: sha256(ler('new/site/blocks/next.config.ts')),
+              daqui: 'a decisão de export estático do preset',
+            },
+            {
+              arquivo: 'package.json',
+              sha256: sha256(ler('package.json')),
+              daqui: 'a decisão de zero dependência na raiz',
+            },
+          ]),
+      ...(pulou('referencias') || !existe('docs/STACK.md')
+        ? []
+        : [
+            {
+              arquivo: 'docs/STACK.md',
+              sha256: sha256(ler('docs/STACK.md')),
+              daqui: 'os ponteiros de prosa da stack',
+            },
+          ]),
     ],
     codigosDeSaida: lerCodigosDeSaida(fonteCheck, relCheck),
     ...(niveis
@@ -755,6 +799,37 @@ async function montar() {
       'A implementação de cada regra: o artefato diz O QUE e POR QUE. O COMO é o `checar` no index.mjs, e ele muda sem que a decisão mude.',
     ],
   }
+  // ── O QUE TORNA ISTO IRREPETÍVEL ───────────────────────────────────────────
+  //
+  // `SECOES` já declara o que cada seção derivada LÊ. `fontes` é o que o
+  // servidor CONFERE por sha256 a cada resposta. As duas listas eram
+  // independentes, e foi assim que três arquivos lidos por `lerDecisoes`
+  // ficaram fora da conferência: mudava-se uma decisão no `new/index.mjs`, o
+  // artefato ficava velho, e o servidor conferia os quatro que não tinham
+  // mudado e respondia "em dia" com a decisão velha colada na resposta.
+  //
+  // Acrescentar as três entradas conserta o caso de hoje. Esta conferência
+  // conserta o caso de amanhã: seção gerada com arquivo fora de `fontes` faz a
+  // GERAÇÃO parar, aqui, com o nome do arquivo. A próxima seção não nasce cega.
+  //
+  // O `split(' · ')` nao e capricho: a entrada dos casos de prova guarda DUAS
+  // raizes num campo so ("a/cases · b/cases/"), porque as duas viram um hash de
+  // arvore unico. Comparar sem separar diria que nenhuma das duas esta
+  // registrada, e a conferencia reprovaria a si mesma.
+  const registradas = new Set(
+    artefato.fontes.flatMap((f) => f.arquivo.split(' · ').map((a) => a.trim().replace(/\/$/, ''))),
+  )
+  for (const s of SECOES) {
+    if (ausentes.some((a) => a.chave === s.chave)) continue
+    const fora = s.exige.filter((rel) => !registradas.has(rel))
+    exigir(
+      fora.length === 0,
+      `a seção "${s.chave}" é derivada de ${fora.join(', ')}, e esse(s) arquivo(s) não estão em ` +
+        `\`fontes\`. O servidor confere frescor pelo sha256 do que está em \`fontes\`: fora de lá, ` +
+        `a mudança não é vista e ele responde "em dia" com conteúdo velho.`,
+    )
+  }
+
   return { artefato, ausentes }
 }
 

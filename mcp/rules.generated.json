@@ -27,6 +27,26 @@
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
       "sha256": "8b315b0e0d9a3603e2bcc27f4a027cb811b34164cddf2d58d830f508e3ec4afd",
       "daqui": "o porque de cada um dos 61 casos de prova"
+    },
+    {
+      "arquivo": "new/index.mjs",
+      "sha256": "58b6d5b553062ff59b636b664b8d6c8b01696641d42e7c198cf7b72cc82358fb",
+      "daqui": "a stack do preset `site`, extraída do cabeçalho"
+    },
+    {
+      "arquivo": "new/site/blocks/next.config.ts",
+      "sha256": "9a5d224e5ec3677f795eb32ecadc1775a565978592a8d0a0b5cb2f645984fe50",
+      "daqui": "a decisão de export estático do preset"
+    },
+    {
+      "arquivo": "package.json",
+      "sha256": "85e8839f89810271f47658256eecdace369af682dc184730afec865487cc6d87",
+      "daqui": "a decisão de zero dependência na raiz"
+    },
+    {
+      "arquivo": "docs/STACK.md",
+      "sha256": "45fad7abbe912f11f3bb5bc638addc3be50fb791d0fe43cd081c1fe8b56c1f53",
+      "daqui": "os ponteiros de prosa da stack"
     }
   ],
   "codigosDeSaida": {

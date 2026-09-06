@@ -855,9 +855,9 @@ fonte, nunca cópia dela.
 | Peça                      | O que é                                                                 |
 | ------------------------- | ----------------------------------------------------------------------- |
 | `tooling/rebar-check/index.mjs` | **A fonte.** <!--n lines.rebar-check-->2.848<!--/n--> linhas, <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
-| `mcp/generate.mjs`           | **O gerador.** <!--n lines.mcp-gerador-->960<!--/n--> linhas, **zero dependência** |
-| `mcp/rules.generated.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->98 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->20<!--/n--> passos · <!--n mcp.artefato.provas-->61<!--/n--> provas |
-| `mcp/src/`                | **O servidor.** <!--n lines.mcp-servidor-->1.084<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
+| `mcp/generate.mjs`           | **O gerador.** <!--n lines.mcp-gerador-->1.035<!--/n--> linhas, **zero dependência** |
+| `mcp/rules.generated.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->99 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->20<!--/n--> passos · <!--n mcp.artefato.provas-->61<!--/n--> provas |
+| `mcp/src/`                | **O servidor.** <!--n lines.mcp-servidor-->1.114<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
 
 Os cinco números do artefato são conferidos por **dois** portões independentes: o passo
 `mcp` compara o artefato com a fonte, e o passo `numeros` compara esta tabela com o

@@ -186,7 +186,10 @@ cliente.fechar()
  * Windows não pede admin e no Linux é symlink comum: o que se testa aqui é o JSON,
  * não a presença do SDK.
  */
-function montarCopia(prefixo, { comArtefato = true, fonteAdulterada = false } = {}) {
+function montarCopia(
+  prefixo,
+  { comArtefato = true, fonteAdulterada = false, semFonte = null } = {},
+) {
   const base = mkdtempSync(join(tmpdir(), prefixo))
   const src = join(base, 'mcp', 'src')
   mkdirSync(src, { recursive: true })
@@ -205,6 +208,19 @@ function montarCopia(prefixo, { comArtefato = true, fonteAdulterada = false } = 
     mkdirSync(dir, { recursive: true })
     // Conteúdo diferente do original: é isso, e só isso, que o sha256 enxerga.
     writeFileSync(join(dir, 'index.mjs'), '// uma regra nova entrou aqui e o MCP não sabe\n')
+  }
+  if (semFonte) {
+    // Todas as fontes de arquivo copiadas IDÊNTICAS, menos uma, que fica de
+    // fora. Idênticas de propósito: se alguma divergisse, o estado seria
+    // `suspeito` e a ausência ficaria escondida atrás dela.
+    const art = JSON.parse(readFileSync(join(AQUI, '..', 'rules.generated.json'), 'utf8'))
+    for (const f of art.fontes) {
+      if (f.arquivo.endsWith('/') || f.arquivo === semFonte) continue
+      const partes = f.arquivo.split('/')
+      const destino = join(base, ...partes)
+      mkdirSync(dirname(destino), { recursive: true })
+      copyFileSync(join(RAIZ, ...partes), destino)
+    }
   }
   return { base, servidor: join(src, 'index.mjs') }
 }
@@ -338,6 +354,41 @@ if (velho) {
   }
   c.fechar()
   desmontarCopia(velho.base)
+}
+
+titulo('7 · fonte AUSENTE: "em dia" não pode sair de árvore incompleta')
+{
+  // P2 #10. O estado era binário na prática: mudou (suspeito) ou não mudou (em
+  // dia), e "não achei o arquivo" caía no segundo. Enquanto as fontes eram só
+  // as quatro de formato isso ainda era defensável; depois que as decisões
+  // viraram fonte, deixou de ser — apagar o `new/index.mjs` faria o servidor
+  // colar uma decisão derivada de um arquivo que não está mais lá e afirmar que
+  // está em dia.
+  const semDecisao = montarCopia('rebar-mcp-parcial-', { semFonte: 'new/index.mjs' })
+  const c = new Cliente(semDecisao.servidor, { curto: CURTO })
+  try {
+    await c.apresentar('prova-de-fonte-ausente')
+    const r = await c.pedir('tools/call', {
+      name: 'rebar_regras',
+      arguments: { busca: 'readme' },
+    })
+    const texto = textoDa(r)
+    if (!/AVISO DE FRESCOR/.test(texto)) {
+      falhou('árvore sem uma das fontes respondeu sem aviso nenhum')
+    } else if (!/new\/index\.mjs/.test(texto)) {
+      falhou(`o aviso não nomeia a fonte que falta:\n${trecho(texto, 300)}`)
+    } else {
+      ok('o aviso veio, nomeando a fonte ausente')
+    }
+    // E o que É conferível continua sendo conferido: nada de divergência
+    // inventada só porque um arquivo faltou.
+    if (/mudou desde que o artefato foi gerado/.test(texto)) {
+      falhou('ausência foi relatada como divergência — são coisas diferentes')
+    }
+  } finally {
+    await c.fechar()
+    desmontarCopia(semDecisao.base)
+  }
 }
 
 titulo(falhas ? `${falhas} FALHA(S)` : 'tudo passou')

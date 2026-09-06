@@ -149,6 +149,10 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
 export function frescor(artefato, raiz = RAIZ) {
   const divergentes = []
   const naoConferidos = []
+  // Separado de `naoConferidos` porque não é a mesma coisa: entrada de árvore é
+  // limitação conhecida e constante; fonte ausente é o artefato afirmando
+  // derivar de um arquivo que não está aqui.
+  const ausentes = []
 
   for (const fonte of artefato.fontes ?? []) {
     // Entrada de diretório (termina em "/"): o gerador resume uma árvore inteira num
@@ -165,7 +169,14 @@ export function frescor(artefato, raiz = RAIZ) {
     } catch {
       // Fonte ausente não é divergência: o pacote mcp/ pode ter sido copiado para fora
       // do repositório, e aí o artefato é tudo que existe — e continua servível.
+      //
+      // Servível, mas NÃO "em dia", e essa diferença era a que faltava. Enquanto
+      // as fontes eram só as quatro de formato, dizer "em dia" com uma delas
+      // fora ainda era defensável. Depois que as decisões viraram fonte, deixou
+      // de ser: apagar o `new/index.mjs` faria o servidor colar uma decisão
+      // derivada de um arquivo que não está mais lá, e afirmar que está em dia.
       naoConferidos.push(fonte.arquivo)
+      ausentes.push(fonte.arquivo)
       continue
     }
     const hoje = createHash('sha256').update(bytes).digest('hex')
@@ -175,9 +186,13 @@ export function frescor(artefato, raiz = RAIZ) {
   }
 
   const conferidos = (artefato.fontes?.length ?? 0) - naoConferidos.length
-  if (divergentes.length) return { estado: 'suspeito', divergentes, naoConferidos, conferidos }
-  if (conferidos === 0) return { estado: 'desconhecido', divergentes, naoConferidos, conferidos }
-  return { estado: 'em dia', divergentes, naoConferidos, conferidos }
+  const comum = { divergentes, naoConferidos, ausentes, conferidos }
+  // Mudou é pior que sumiu, e sumiu é pior que não dá para conferir. A ordem
+  // aqui é essa, de propósito.
+  if (divergentes.length) return { estado: 'suspeito', ...comum }
+  if (conferidos === 0) return { estado: 'desconhecido', ...comum }
+  if (ausentes.length) return { estado: 'parcial', ...comum }
+  return { estado: 'em dia', ...comum }
 }
 
 /**
@@ -188,13 +203,28 @@ export function frescor(artefato, raiz = RAIZ) {
  * admite. Aviso que só aparece quando alguém pergunta é aviso que ninguém lê.
  */
 export function avisoDeFrescor(f) {
-  if (f.estado !== 'suspeito') return null
-  const quais = f.divergentes.map((d) => d.arquivo).join(', ')
-  return [
-    `AVISO DE FRESCOR: ${quais} mudou desde que o artefato foi gerado.`,
+  const rodape = [
     'O que segue pode estar velho. Quem decide é o portão, não eu:',
     '  node mcp/generate.mjs --verificar   (e `npm run verify`, passo `mcp`)',
-  ].join('\n')
+  ]
+  if (f.estado === 'suspeito') {
+    const quais = f.divergentes.map((d) => d.arquivo).join(', ')
+    return [`AVISO DE FRESCOR: ${quais} mudou desde que o artefato foi gerado.`, ...rodape].join(
+      '\n',
+    )
+  }
+  // `parcial` avisa igual, porque o efeito para quem lê é o mesmo: parte desta
+  // resposta é derivada de um arquivo que esta árvore não tem, e portanto não há
+  // como dizer se envelheceu. Aviso que só sai no caso pior é aviso que dá a
+  // impressão de que o resto foi conferido.
+  if (f.estado === 'parcial') {
+    return [
+      `AVISO DE FRESCOR: ${f.ausentes.join(', ')} não está nesta árvore.`,
+      'Não dá para saber se o que veio de lá envelheceu.',
+      ...rodape,
+    ].join('\n')
+  }
+  return null
 }
 
 /** Caminho de exibição, sempre com "/", para a resposta não mudar entre Windows e Linux. */
