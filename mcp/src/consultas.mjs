@@ -80,7 +80,7 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
     `${regras.length} regra(s) — ${det} determinística(s) reprovam, ${regras.length - det} heurística(s) só avisam.`,
     ...saida,
     '',
-    'det = reprova o commit e o CI. heu = aparece no placar, não barra (só com --heuristicas).',
+    'det = reprova o commit e o CI. heu = aparece no placar, não barra (só com --heuristics).',
     'Para a razão medida de uma delas e as provas que a travam: rebar_porque { id }.',
   ].join('\n')
 }
@@ -167,7 +167,7 @@ function formatarRegra(r, artefato) {
     linhas.push('', 'O artefato não trouxe razão escrita para esta regra. Leia a fonte acima.')
   }
 
-  linhas.push('', `Para conferir: node ferramental/rebar-check/index.mjs --regra=${r.id} .`)
+  linhas.push('', `Para conferir: node tooling/rebar-check/index.mjs --rule=${r.id} .`)
   return linhas.join('\n')
 }
 
@@ -317,7 +317,7 @@ export function decidir(artefato, assunto) {
     }
   }
 
-  for (const passo of artefato.portao?.passos ?? []) {
+  for (const passo of artefato.gate?.passos ?? []) {
     const p = pontuar(
       [
         [passo.nome, 8],
@@ -363,8 +363,8 @@ export function decidir(artefato, assunto) {
       ...(artefato.naoDerivado ?? []).map((s) => `  · ${s}`),
       '',
       'Se for decisão de projeto de verdade, ela ainda não existe legível por máquina.',
-      'O lugar de nascer é a regra em ferramental/rebar-check/index.mjs — e aí o artefato',
-      'a recebe de graça, no próximo `node mcp/gerar.mjs`.',
+      'O lugar de nascer é a regra em tooling/rebar-check/index.mjs — e aí o artefato',
+      'a recebe de graça, no próximo `node mcp/generate.mjs`.',
     ].join('\n')
   }
 
@@ -385,7 +385,7 @@ export function decidir(artefato, assunto) {
  * e o CI rodam — em vez de um veredito próprio.
  */
 export function portao(artefato, passoPedido) {
-  const passos = artefato.portao?.passos ?? []
+  const passos = artefato.gate?.passos ?? []
 
   if (passoPedido) {
     const alvo = normalizar(passoPedido)
@@ -411,7 +411,7 @@ export function portao(artefato, passoPedido) {
   const codigos = Object.entries(artefato.codigosDeSaida ?? {}).map(([k, v]) => `  ${k} = ${v}`)
 
   return [
-    `A PORTA É ESTE COMANDO, não este MCP: ${artefato.portao?.comando ?? 'npm run verificar'}`,
+    `A PORTA É ESTE COMANDO, não este MCP: ${artefato.gate?.comando ?? 'npm run verify'}`,
     `${passos.length} passos, na ordem, parando no primeiro que reprovar:`,
     ...linhas,
     '',

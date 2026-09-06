@@ -8,13 +8,13 @@
 //
 // A correção está em duas peças, e SÓ UMA delas mora aqui:
 //
-//   mcp/gerar.mjs           deriva mcp/regras.gerado.json da fonte, e o passo `mcp` do
-//                           `npm run verificar` regenera em memória e REPROVA se o
+//   mcp/generate.mjs           deriva mcp/rules.generated.json da fonte, e o passo `mcp` do
+//                           `npm run verify` regenera em memória e REPROVA se o
 //                           disco divergir. Esse é o portão de frescor.
-//   mcp/src/*  (este)       serve o artefato. Nunca lê ferramental/rebar-check/index.mjs.
+//   mcp/src/*  (este)       serve o artefato. Nunca lê tooling/rebar-check/index.mjs.
 //
 // O QUE ESTE SERVIDOR NÃO É — §7.2, literal: "O MCP nunca é a porta. A porta é N0–N5."
-// Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verificar`,
+// Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verify`,
 // o hook e o CI. Nenhuma resposta abaixo autoriza nada.
 //
 // O QUE MUDOU EM RELAÇÃO À VERSÃO ANTERIOR DESTE ARQUIVO. Ele servia PROSA: cinco
@@ -71,7 +71,7 @@ const erro = (t) => ({ content: [{ type: 'text', text: t }], isError: true })
  * Recarrega o artefato A CADA CHAMADA e cola o aviso de frescor na resposta.
  *
  * Sem cache de propósito: o módulo inteiro existe porque uma cópia velha continuou
- * sendo servida sem ninguém perceber. Se `node mcp/gerar.mjs` rodar enquanto esta
+ * sendo servida sem ninguém perceber. Se `node mcp/generate.mjs` rodar enquanto esta
  * sessão está aberta, a próxima chamada já responde com a regra nova. Custo medido:
  * 79 KB de JSON, ~1 ms.
  */
@@ -105,7 +105,7 @@ servidor.registerTool(
       'Lista as regras do rebar-check, agrupadas por nível N0–N7, com id, classe e título. ' +
       'CHAME ANTES DE ESCREVER CÓDIGO neste repositório ou num projeto gerado por ele: é a lista ' +
       'do que vai reprovar no commit e no CI. Filtre por nível, classe ou termo para não trazer tudo. ' +
-      'Derivado de mcp/regras.gerado.json; a razão de cada regra sai em rebar_porque.',
+      'Derivado de mcp/rules.generated.json; a razão de cada regra sai em rebar_porque.',
     inputSchema: {
       nivel: z.string().optional().describe('N0..N7 — só as regras desse nível'),
       classe: z
@@ -163,7 +163,7 @@ servidor.registerTool(
   {
     title: 'Os passos do portão, na ordem, e o que fazer quando um reprova',
     description:
-      'Devolve os passos de `npm run verificar` na ordem, o comando de cada um e os códigos de saída; ' +
+      'Devolve os passos de `npm run verify` na ordem, o comando de cada um e os códigos de saída; ' +
       'com { passo } devolve a dica de conserto daquele passo. ' +
       'CHAME QUANDO O VERIFICAR REPROVAR e a mensagem não bastar, e antes de dizer que algo "passou". ' +
       'Este MCP não é a porta: a porta é o comando que esta ferramenta devolve.',
@@ -177,10 +177,10 @@ servidor.registerTool(
 // ─── 5. rodar a régua ────────────────────────────────────────────────────────
 //
 // A única ferramenta que EXECUTA. Ela roda o mesmo binário do hook e do CI
-// (`ferramental/rebar-check/index.mjs --json`), então não existe segundo veredito
+// (`tooling/rebar-check/index.mjs --json`), então não existe segundo veredito
 // para divergir do primeiro — é atalho para o mesmo comando, não uma opinião nova.
 //
-// Roda o CHECKER, não o `npm run verificar` inteiro: os 11 passos incluem suíte de
+// Roda o CHECKER, não o `npm run verify` inteiro: os 11 passos incluem suíte de
 // teste e prettier no repositório todo, que é caro demais para uma chamada de tool e
 // já é trabalho do portão. Aqui responde a pergunta rápida "as 22 regras passam neste
 // caminho?" — em ~1 s, medido.
@@ -188,7 +188,7 @@ servidor.registerTool(
 // process.execPath e execFile, nunca `npx` nem shell: no Windows `npx` sem
 // shell:true não existe como executável, e é o defeito que sobreviveu no alicerce
 // porque o CI só rodava Linux.
-const CHECKER = join(RAIZ, 'ferramental', 'rebar-check', 'index.mjs')
+const CHECKER = join(RAIZ, 'tooling', 'rebar-check', 'index.mjs')
 
 servidor.registerTool(
   'rebar_verificar',
@@ -198,7 +198,7 @@ servidor.registerTool(
       'Executa o rebar-check (o mesmo do hook e do CI) num caminho e devolve, por regra, o que passou, ' +
       'reprovou ou não se aplica, mais o código de saída. ' +
       'CHAME DEPOIS DE MEXER no repositório, e antes de afirmar que terminou. ' +
-      'ATALHO, NÃO BARREIRA: quem barra é `npm run verificar` no hook e no CI; um verde aqui não ' +
+      'ATALHO, NÃO BARREIRA: quem barra é `npm run verify` no hook e no CI; um verde aqui não ' +
       'substitui o portão, que ainda roda formato, elos, segredo, provas e frescor do MCP.',
     inputSchema: {
       caminho: z
@@ -223,7 +223,7 @@ servidor.registerTool(
 
     const alvo = caminho?.trim() ? caminho.trim() : RAIZ
     const args = [CHECKER, '--json']
-    if (regra) args.push(`--regra=${regra}`)
+    if (regra) args.push(`--rule=${regra}`)
     args.push(alvo)
 
     let saida
@@ -293,11 +293,11 @@ servidor.registerTool(
 
     return [
       `exit=${codigo} — ${significado}`,
-      `comando: node ferramental/rebar-check/index.mjs --json${regra ? ` --regra=${regra}` : ''} ${exibirCaminho(alvo)}`,
+      `comando: node tooling/rebar-check/index.mjs --json${regra ? ` --rule=${regra}` : ''} ${exibirCaminho(alvo)}`,
       '',
       blocos.join('\n\n'),
       '',
-      'Isto é a régua, não o portão. O portão é `npm run verificar` (rebar_portao mostra os passos).',
+      'Isto é a régua, não o portão. O portão é `npm run verify` (rebar_portao mostra os passos).',
     ].join('\n')
   }),
 )

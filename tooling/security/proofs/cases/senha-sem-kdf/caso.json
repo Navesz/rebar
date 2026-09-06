@@ -1,0 +1,4 @@
+{
+  "rule": "senha-sem-kdf",
+  "why": "Terceira classe mais comum, 4 dos 16 videos, e escolhida antes do mass assignment (que aparece em 5) por custo: mass assignment so decide a severidade lendo a coluna privilegiada do schema, e isso exige parser. Esta aqui e textual inteira. O lado fail compara com `===`, o que prova que nao houve KDF -- bcrypt e argon2 devolvem hash com sal e exigem `compare`. O lado pass carrega o falso positivo que importa: PRE-HASH LEGITIMO. bcrypt trunca em 72 bytes calado, e a defesa recomendada e passar um sha256 da senha para ele. Quem faz isso esta CERTO, e acusa-lo seria punir quem conhece o problema -- por isso o sinal de hash rapido so vale onde nao ha primitiva lenta no mesmo arquivo. O vocabulario e bilingue nos dois lados: as duas arvores usam `senha`, nao `password`, porque este modulo audita repositorio brasileiro."
+}

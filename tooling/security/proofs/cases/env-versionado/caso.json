@@ -1,0 +1,4 @@
+{
+  "rule": "env-versionado",
+  "why": "Segredo versionado e a classe mais comum do inventario: 7 dos 16 videos. Esta e a fatia mais barata dela, um `git ls-files`. O lado fail tem um `.env` rastreado; o lado pass tem `.env.example` E `.env.sample` rastreados, que sao o CONSERTO da falha e nao a falha -- documentar as variaveis sem os valores e exatamente o que se pede. Quem tirar a exclusao de exemplo faz o lado pass ficar vermelho; quem trocar a checagem por \"existe .env no disco\" faz o lado fail ficar verde, porque `.env` ignorado pelo git nao e achado nenhum."
+}

@@ -6,16 +6,19 @@
     "node": ">=22"
   },
   "bin": {
-    "rebar": "ferramental/rebar-check/index.mjs",
-    "rebar-novo": "novo/index.mjs"
+    "rebar": "tooling/rebar-check/index.mjs",
+    "rebar-new": "new/index.mjs",
+    "rebar-security": "tooling/security/index.mjs"
   },
   "scripts": {
-    "verificar": "node ferramental/verificar/verificar.mjs",
-    "provar": "node ferramental/rebar-check/provas/provar.mjs",
-    "check": "node ferramental/rebar-check/index.mjs .",
-    "instalar-hooks": "node ferramental/hooks/instalar.mjs",
-    "formato": "node node_modules/prettier/bin/prettier.cjs --check .",
-    "formatar": "node node_modules/prettier/bin/prettier.cjs --write ."
+    "verify": "node tooling/verify/verify.mjs",
+    "prove": "node tooling/rebar-check/proofs/prove.mjs",
+    "check": "node tooling/rebar-check/index.mjs .",
+    "install-hooks": "node tooling/hooks/install.mjs",
+    "format-check": "node node_modules/prettier/bin/prettier.cjs --check .",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write .",
+    "security": "node tooling/security/index.mjs .",
+    "prove-security": "node tooling/rebar-check/proofs/prove.mjs --checker=tooling/security/index.mjs --cases=tooling/security/proofs/cases"
   },
   "devDependencies": {
     "prettier": "3.9.6"
