@@ -1,5 +1,5 @@
 # O portão do rebar. Um comando só, o mesmo que se roda na máquina:
-#   node ferramental/verificar/verificar.mjs
+#   node tooling/verify/verify.mjs
 #
 # A MATRIZ EXISTE POR UM MOTIVO MEDIDO. O config do alicerce checa sintaxe com
 # `find ferramental -name "*.mjs" -print0 | xargs -0 -n1 node --check`, que não
@@ -63,4 +63,4 @@ jobs:
       - name: verificar
         # Um comando. Exit 0 é a única aprovação: 1 reprovou, 2 config errada,
         # 3 recorte parcial, 127 o ferramental quebrou — todos derrubam o job.
-        run: node ferramental/verificar/verificar.mjs
+        run: node tooling/verify/verify.mjs

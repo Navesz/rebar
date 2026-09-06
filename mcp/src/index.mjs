@@ -8,10 +8,10 @@
 //
 // A correção está em duas peças, e SÓ UMA delas mora aqui:
 //
-//   mcp/gerar.mjs           deriva mcp/regras.gerado.json da fonte, e o passo `mcp` do
+//   mcp/generate.mjs           deriva mcp/regras.gerado.json da fonte, e o passo `mcp` do
 //                           `npm run verificar` regenera em memória e REPROVA se o
 //                           disco divergir. Esse é o portão de frescor.
-//   mcp/src/*  (este)       serve o artefato. Nunca lê ferramental/rebar-check/index.mjs.
+//   mcp/src/*  (este)       serve o artefato. Nunca lê tooling/rebar-check/index.mjs.
 //
 // O QUE ESTE SERVIDOR NÃO É — §7.2, literal: "O MCP nunca é a porta. A porta é N0–N5."
 // Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verificar`,
@@ -71,7 +71,7 @@ const erro = (t) => ({ content: [{ type: 'text', text: t }], isError: true })
  * Recarrega o artefato A CADA CHAMADA e cola o aviso de frescor na resposta.
  *
  * Sem cache de propósito: o módulo inteiro existe porque uma cópia velha continuou
- * sendo servida sem ninguém perceber. Se `node mcp/gerar.mjs` rodar enquanto esta
+ * sendo servida sem ninguém perceber. Se `node mcp/generate.mjs` rodar enquanto esta
  * sessão está aberta, a próxima chamada já responde com a regra nova. Custo medido:
  * 79 KB de JSON, ~1 ms.
  */
@@ -177,7 +177,7 @@ servidor.registerTool(
 // ─── 5. rodar a régua ────────────────────────────────────────────────────────
 //
 // A única ferramenta que EXECUTA. Ela roda o mesmo binário do hook e do CI
-// (`ferramental/rebar-check/index.mjs --json`), então não existe segundo veredito
+// (`tooling/rebar-check/index.mjs --json`), então não existe segundo veredito
 // para divergir do primeiro — é atalho para o mesmo comando, não uma opinião nova.
 //
 // Roda o CHECKER, não o `npm run verificar` inteiro: os 11 passos incluem suíte de
@@ -188,7 +188,7 @@ servidor.registerTool(
 // process.execPath e execFile, nunca `npx` nem shell: no Windows `npx` sem
 // shell:true não existe como executável, e é o defeito que sobreviveu no alicerce
 // porque o CI só rodava Linux.
-const CHECKER = join(RAIZ, 'ferramental', 'rebar-check', 'index.mjs')
+const CHECKER = join(RAIZ, 'tooling', 'rebar-check', 'index.mjs')
 
 servidor.registerTool(
   'rebar_verificar',
@@ -293,7 +293,7 @@ servidor.registerTool(
 
     return [
       `exit=${codigo} — ${significado}`,
-      `comando: node ferramental/rebar-check/index.mjs --json${regra ? ` --regra=${regra}` : ''} ${exibirCaminho(alvo)}`,
+      `comando: node tooling/rebar-check/index.mjs --json${regra ? ` --regra=${regra}` : ''} ${exibirCaminho(alvo)}`,
       '',
       blocos.join('\n\n'),
       '',

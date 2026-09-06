@@ -7,10 +7,10 @@
 //
 // Daí a divisão de trabalho, que é o contrato entre as duas frentes deste módulo:
 //
-//   ferramental/rebar-check/index.mjs   a FONTE. 22 regras, o porquê de cada uma.
-//   mcp/gerar.mjs                       o GERADOR. Deriva o artefato da fonte.
+//   tooling/rebar-check/index.mjs   a FONTE. 22 regras, o porquê de cada uma.
+//   mcp/generate.mjs                       o GERADOR. Deriva o artefato da fonte.
 //   mcp/regras.gerado.json              o ARTEFATO. É o que este arquivo lê.
-//   node mcp/gerar.mjs --verificar      o PORTÃO DE FRESCOR. Regenera em memória,
+//   node mcp/generate.mjs --verificar      o PORTÃO DE FRESCOR. Regenera em memória,
 //                                       compara com o disco, reprova se divergir.
 //
 // ESTE SERVIDOR NUNCA LÊ O index.mjs PARA SABER A REGRA. Se lesse, existiriam duas
@@ -43,11 +43,11 @@ const FORMATO_SUPORTADO = 1
 
 // As chaves sem as quais nenhuma ferramenta funciona. Verificar aqui, uma vez, no boot,
 // vale mais que um `?.` em cada uso: o modelo não vê exceção de tool, vê resposta vazia.
-const CHAVES_OBRIGATORIAS = ['formato', 'fontes', 'codigosDeSaida', 'niveis', 'regras', 'portao']
+const CHAVES_OBRIGATORIAS = ['formato', 'fontes', 'codigosDeSaida', 'niveis', 'regras', 'gate']
 
 const COMO_GERAR = [
-  '  gere com:   node mcp/gerar.mjs',
-  '  o portão:   node mcp/gerar.mjs --verificar   (roda dentro de `npm run verificar`,',
+  '  gere com:   node mcp/generate.mjs',
+  '  o portão:   node mcp/generate.mjs --verificar   (roda dentro de `npm run verificar`,',
   '              passo `mcp` — regenera em memória e reprova se o disco divergir)',
 ].join('\n')
 
@@ -69,7 +69,7 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
           'o artefato das regras não está no disco.',
           `  esperado:   ${caminho}`,
           '',
-          '  Este servidor serve o ARTEFATO GERADO; ele não lê ferramental/rebar-check/index.mjs.',
+          '  Este servidor serve o ARTEFATO GERADO; ele não lê tooling/rebar-check/index.mjs.',
           '  Sem o artefato a única resposta honesta é morrer — servir vazio ensinaria o modelo',
           '  que o projeto não tem regra nenhuma.',
           '',
@@ -129,7 +129,7 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
 /**
  * O sinal de frescor que o SERVIDOR consegue dar — e o que ele não consegue.
  *
- * A autoridade sobre frescor é o portão (`node mcp/gerar.mjs --verificar`), que
+ * A autoridade sobre frescor é o portão (`node mcp/generate.mjs --verificar`), que
  * regenera o artefato inteiro em memória e compara byte a byte. Isso é caro e é o
  * trabalho dele, não meu: o MCP nunca é a porta.
  *
@@ -193,7 +193,7 @@ export function avisoDeFrescor(f) {
   return [
     `AVISO DE FRESCOR: ${quais} mudou desde que o artefato foi gerado.`,
     'O que segue pode estar velho. Quem decide é o portão, não eu:',
-    '  node mcp/gerar.mjs --verificar   (e `npm run verificar`, passo `mcp`)',
+    '  node mcp/generate.mjs --verificar   (e `npm run verificar`, passo `mcp`)',
   ].join('\n')
 }
 

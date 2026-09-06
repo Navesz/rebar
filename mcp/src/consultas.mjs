@@ -167,7 +167,7 @@ function formatarRegra(r, artefato) {
     linhas.push('', 'O artefato não trouxe razão escrita para esta regra. Leia a fonte acima.')
   }
 
-  linhas.push('', `Para conferir: node ferramental/rebar-check/index.mjs --regra=${r.id} .`)
+  linhas.push('', `Para conferir: node tooling/rebar-check/index.mjs --regra=${r.id} .`)
   return linhas.join('\n')
 }
 
@@ -363,8 +363,8 @@ export function decidir(artefato, assunto) {
       ...(artefato.naoDerivado ?? []).map((s) => `  · ${s}`),
       '',
       'Se for decisão de projeto de verdade, ela ainda não existe legível por máquina.',
-      'O lugar de nascer é a regra em ferramental/rebar-check/index.mjs — e aí o artefato',
-      'a recebe de graça, no próximo `node mcp/gerar.mjs`.',
+      'O lugar de nascer é a regra em tooling/rebar-check/index.mjs — e aí o artefato',
+      'a recebe de graça, no próximo `node mcp/generate.mjs`.',
     ].join('\n')
   }
 
