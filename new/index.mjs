@@ -22,6 +22,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { aplicarPortao, marcarExecutaveis, PASTA_HOOKS } from './gate/aplicar.mjs'
+import { ambienteDeIdentidade } from './identidade.mjs'
 
 // fileURLToPath, não .pathname: no Windows o pathname vem "/C:/Users/...", com
 // barra antes da letra do drive, e todo join a partir dele aponta para o nada.
@@ -157,8 +158,8 @@ function rodarShadcn(nome, pasta) {
 
 // ──────────────────────────────────────────────────────────────────── git
 
-function git(cwd, args) {
-  return spawnSync('git', args, { cwd, encoding: 'utf8' })
+function git(cwd, args, env) {
+  return spawnSync('git', args, { cwd, encoding: 'utf8', ...(env ? { env } : {}) })
 }
 
 function configGit(cwd, chave) {
@@ -359,21 +360,29 @@ async function main(argv) {
         'Configure e rode: git commit -m "primeiro commit"',
     )
   } else {
-    // `-c user.*` na chamada, e não `git config`: o commit sai com EXATAMENTE a
-    // identidade que foi escrita na allowlist e no NOTICE, venha ela do config
-    // ou do ambiente. Sem isto, uma máquina com config global e GIT_AUTHOR_*
-    // divergentes escreveria um nome no arquivo e outro no histórico — e a
-    // divergência só apareceria meses depois, na regra `identidade-git`.
-    const c = git(destino, [
-      '-c',
-      `user.name=${dono}`,
-      '-c',
-      `user.email=${email}`,
-      'commit',
-      '-q',
-      '-m',
-      `${nome}: scaffold shadcn + portão do rebar`,
-    ])
+    // A IDENTIDADE VAI PELO AMBIENTE, e o `-c` fica junto como cinto e
+    // suspensório. A ordem importa e estava invertida aqui: no git,
+    // `GIT_AUTHOR_*` GANHA de `user.*`, e `-c user.email=` é config. Então numa
+    // máquina com `git config user.email = a@x` e `GIT_AUTHOR_EMAIL = b@y` no
+    // ambiente, este bloco escrevia `a@x` na allowlist e no NOTICE — o config
+    // vem primeiro no `||` lá em cima — e assinava o commit com `b@y`. O
+    // comentário que estava aqui afirmava justamente o contrário.
+    //
+    // Ver new/identidade.mjs para a precedência e para a prova.
+    const c = git(
+      destino,
+      [
+        '-c',
+        `user.name=${dono}`,
+        '-c',
+        `user.email=${email}`,
+        'commit',
+        '-q',
+        '-m',
+        `${nome}: scaffold shadcn + portão do rebar`,
+      ],
+      ambienteDeIdentidade(dono, email),
+    )
     commitou = c.status === 0
     if (!commitou) {
       avisos.push(`o primeiro commit falhou (${c.status}): ${(c.stderr || '').trim()}`)

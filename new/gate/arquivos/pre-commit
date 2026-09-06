@@ -28,7 +28,7 @@ node .githooks/scan-secret.mjs --staged
 
 # ARQUIVO DE AMBIENTE RASTREADO e achado por si so, sem olhar o conteudo: um
 # `.env` vazio hoje recebe a chave amanha, e ai ja passou pela revisao. E a
-# regra `env-versionado` do rebar-security, e ela e N5 -- depois do commit o
+# regra `env-committed` do rebar-security, e ela e N5 -- depois do commit o
 # conserto nao e apagar o arquivo, e rotacionar a credencial.
 #
 # Escrita aqui em vez de `npx rebar-security` porque hook nao pode depender de

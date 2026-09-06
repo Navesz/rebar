@@ -87,7 +87,7 @@ const EXEMPLO = /\.(example|exemplo|sample|template|dist|modelo)(\.|$)/i
  * Custou o primeiro par de provas vermelho: eu tratei como lista de caminhos,
  * o `filter` comparou regex contra um array (que vira string com o arquivo
  * inteiro dentro), e a leitura recebeu o par como se fosse caminho. Toda regra
- * ficou cega em silêncio — `defesa-desligada` disse "passou" sobre uma árvore
+ * ficou cega em silêncio — `disabled-defense` disse "passou" sobre uma árvore
  * com `rejectUnauthorized: false`, que é o pior desfecho possível para uma
  * régua de segurança.
  *
@@ -110,7 +110,7 @@ const corpo = (dir, rel) => {
 export const REGRAS = [
   // ──────────────────────────────────────────────────────────────────── S1
   {
-    id: 'env-versionado',
+    id: 'env-committed',
     classe: 'determinística',
     nivel: 'N5',
     titulo: 'nenhum .env rastreado pelo git',
@@ -147,7 +147,7 @@ export const REGRAS = [
 
   // ──────────────────────────────────────────────────────────────────── S2
   {
-    id: 'defesa-desligada',
+    id: 'disabled-defense',
     classe: 'determinística',
     nivel: 'N1',
     titulo: 'nenhuma proteção de framework desligada por literal',
@@ -225,7 +225,7 @@ export const REGRAS = [
 
   // ──────────────────────────────────────────────────────────────────── S3
   {
-    id: 'senha-sem-kdf',
+    id: 'password-without-kdf',
     classe: 'determinística',
     nivel: 'N1',
     titulo: 'senha nunca comparada em texto puro nem por hash rápido',

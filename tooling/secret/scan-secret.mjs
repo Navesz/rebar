@@ -761,7 +761,7 @@ for (const caminho of caminhos) {
     !/\.(example|exemplo|sample|template|dist|modelo)$/.test(caminho) &&
     !ehMaterialDeProva(caminho)
   ) {
-    achados.push({ caminho, linha: 0, coluna: 0, regra: 'env-versionado', trecho: caminho })
+    achados.push({ caminho, linha: 0, coluna: 0, regra: 'env-committed', trecho: caminho })
     continue
   }
 

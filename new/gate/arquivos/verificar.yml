@@ -83,3 +83,64 @@ jobs:
       # que não podia esperar pelo CI está no hook, escrito em shell.
       - name: régua de segurança
         run: npx --yes -p github:Navesz/rebar rebar-security .
+
+  # ─────────────────────────────────────────────────────────────── publicação
+  #
+  # `needs: verificar` é a linha inteira do desenho: o deploy NÃO é um caminho
+  # paralelo ao portão, é o que vem depois dele. Um workflow de publicação
+  # separado subiria a página com o lint quebrado, e o portão viraria o que
+  # este projeto existe para não ser — relatório que ninguém lê.
+  #
+  # A matriz roda nos dois sistemas; `needs` espera as DUAS pernas. Vermelho no
+  # Windows não publica.
+  #
+  # SE ESTE PROJETO NÃO VAI PARA O GITHUB PAGES, apague este job inteiro. Ele
+  # nasce aqui porque o preset `site` já vem com `output: "export"` e com o
+  # `.pages.yml`: sem o job, o projeto tem tudo para publicar e nada que
+  # publique, que foi o estado em que ele nasceu até 2026-09-06.
+  #
+  # Do lado do GitHub ainda falta um passo humano, e ele não é arquivo:
+  # Settings › Pages › Source = "GitHub Actions". Sem isso o job roda e o
+  # `deploy-pages` falha dizendo que a origem é outra.
+  publicar:
+    name: publicar no GitHub Pages
+    needs: verificar
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Só este job recebe a permissão de escrever no Pages. O `contents: read`
+    # do topo continua valendo para os outros.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    # Um deploy por vez, e o mais novo espera em vez de cancelar o que já está
+    # subindo: `cancel-in-progress` aqui deixaria a página no meio do caminho.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacao.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+
+      # O mesmo `next build` que a régua já rodou. O `out/` não é versionado —
+      # artefato de build no repositório é uma das coisas que o rebar acusa.
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: out
+      - id: publicacao
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,32 @@
+{
+  "rule": "git-identity",
+  "why": "P2 #5 da auditoria externa. A regra contava combinacoes distintas de nome/e-mail entre autores nao-bot e reprovava com mais de uma -- entao duas pessoas num repositorio reprovavam, o que e falso positivo contra um time, e regra automatica errada custa mais que regra ausente. O lado aprovar tem DOIS humanos de verdade: nomes diferentes, e-mails diferentes, nenhum login se repetindo, e os dois declarados em `.rebar-coauthors`. Nada ali e inconsistencia de identidade. O lado reprovar tem as MESMAS duas pessoas mais uma terceira identidade que ninguem declarou -- que e o que a lista existe para pegar, e o conserto e uma linha. Os dois lados carregam a allowlist rastreada, senao o veredito seria `na` nos dois e o caso nao provaria nada.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "cria o leiame",
+        "autor": "Ana Ribeiro <8001+anaribeiro@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "descreve o proposito",
+        "autor": "Bruno Castro <8002+brunocastro@users.noreply.github.com>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "cria o leiame",
+        "autor": "Ana Ribeiro <8001+anaribeiro@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "descreve o proposito",
+        "autor": "Bruno Castro <8002+brunocastro@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "ajusta o titulo",
+        "autor": "Carla Souza <9003+carlasouza@users.noreply.github.com>"
+      }
+    ]
+  }
+}

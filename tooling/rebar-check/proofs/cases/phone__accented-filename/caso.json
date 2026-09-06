@@ -1,0 +1,4 @@
+{
+  "rule": "phone",
+  "why": "P2 de auditoria externa, e o conserto ja existia em outro modulo sem ter sido propagado. `core.quotePath` e true por padrao em TODO sistema, entao `git ls-files` sem `-z` devolve `configuração.mjs` como `\"configura\\\\303\\\\247\\\\303\\\\243o.mjs\"` -- citado e escapado. O `lerRepo` passava essa citacao adiante como se fosse nome de arquivo, o `readFileSync` falhava, e a falha era engolida: o arquivo saia do placar sem ter sido lido. Medido no varredor de segredo, onde o mesmo defeito deixou uma AWS key passar VERDE. A regra `phone` foi escolhida porque LE o conteudo: uma regra que so olha nome nao exporia a leitura falhando. Os dois lados tem o arquivo com acento no nome; so o lado fail tem o telefone dentro. Quem tirar o `-z` do `lerRepo` faz o lado fail ficar VERDE, que e o falso negativo original."
+}

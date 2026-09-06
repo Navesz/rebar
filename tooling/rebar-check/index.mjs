@@ -217,7 +217,99 @@ const PASTA_TESTE = new Set([
 ])
 const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar)[-.]|^test_/i
 
+/**
+ * O que NÃO PODE ser teste, por extensão.
+ *
+ * É uma NEGATIVA, e a escolha importa. A tentação é listar as extensões que
+ * VALEM como teste — `.mjs .ts .py .go` — e essa lista reprovaria `.dart`,
+ * `.R`, `.jl`, `.hs` e `.bats`: linguagens cujo arquivo de teste tem nome de
+ * teste e extensão que ninguém lembra de acrescentar. Falso positivo em regra
+ * automática custa mais que regra ausente, e aqui o falso positivo seria dizer
+ * "zero arquivo de teste" para quem escreveu testes.
+ *
+ * Então a lista é do que é prosa, planilha, imagem, mídia ou pacote. Extensão
+ * desconhecida continua contando como teste, que é o lado seguro desta escolha.
+ */
+const EXTENSAO_DE_DOCUMENTO = new Set([
+  // prosa
+  'md',
+  'markdown',
+  'mdx',
+  'txt',
+  'rst',
+  'adoc',
+  'asciidoc',
+  'org',
+  'tex',
+  'pdf',
+  'doc',
+  'docx',
+  'odt',
+  'rtf',
+  'epub',
+  // planilha e apresentação
+  'xls',
+  'xlsx',
+  'ods',
+  'ppt',
+  'pptx',
+  'odp',
+  // imagem, mídia, fonte
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'avif',
+  'bmp',
+  'ico',
+  'svg',
+  'mp3',
+  'wav',
+  'ogg',
+  'mp4',
+  'mov',
+  'webm',
+  'woff',
+  'woff2',
+  'ttf',
+  'otf',
+  'eot',
+  // pacote e registro
+  'zip',
+  'tar',
+  'gz',
+  'tgz',
+  'bz2',
+  'xz',
+  '7z',
+  'rar',
+  'log',
+])
+
+/**
+ * Documento é documento mesmo com nome de teste.
+ *
+ * Sem isto, `provas/PLANO.md` satisfazia a regra `tests` — a pasta está em
+ * `PASTA_TESTE` —, e `docs/PLANO.teste.md` também, por `NOME_TESTE`. Um
+ * repositório com zero teste e um documento de planejamento saía APROVADO, que
+ * é a direção errada de errar.
+ *
+ * O caso `tests__python-name` já tinha registrado que `TESTE-1-cabo-KKL.md` não
+ * conta, mas atribuiu isso ao separador `-` em vez da extensão: bastava
+ * renomear para `TESTE.1.cabo.md` e o buraco voltava.
+ */
+function ehDocumento(rel) {
+  const nome = rel.split('/').pop() ?? ''
+  const ponto = nome.lastIndexOf('.')
+  // Sem extensão não é documento: hook e script de shell moram assim, e um
+  // `tests/rodar` é teste.
+  if (ponto <= 0) return false
+  return EXTENSAO_DE_DOCUMENTO.has(nome.slice(ponto + 1).toLowerCase())
+}
+
 function ehTeste(rel) {
+  if (ehDocumento(rel)) return false
   const partes = rel.split('/')
   if (partes.slice(0, -1).some((p) => PASTA_TESTE.has(p.toLowerCase()))) return true
   return NOME_TESTE.test(partes[partes.length - 1])
@@ -343,10 +435,13 @@ function marcadorInvalido(dir, rel, campos = ['rule', 'why']) {
  * imprime "hooks instalados" e nada roda.
  */
 function modosDoIndice(dir) {
-  const r = git(dir, ['ls-files', '--stage'])
+  // `-z` pelo mesmo motivo do `lerRepo`: com nome acentuado o caminho volta
+  // citado e o modo do arquivo se perde -- a regra `hooks-executable` deixaria
+  // de ver justamente o hook cujo nome tem acento.
+  const r = git(dir, ['ls-files', '--stage', '-z'])
   if (!r.ok || !r.saida) return new Map()
   const mapa = new Map()
-  for (const linha of r.saida.split('\n')) {
+  for (const linha of r.saida.split('\0')) {
     // "<modo> <sha> <estagio>\t<caminho>"
     const tab = linha.indexOf('\t')
     if (tab === -1) continue
@@ -925,10 +1020,18 @@ export const PRECO_BRL = /R\$\s?\d[\d.,]*/
 export const RE_JSX = /\.(tsx|jsx)$/i
 
 /**
- * Tira comentário. O `[^:]` antes do `//` é o que impede de comer o `//` de
- * `https://` e cortar o resto da linha junto.
+ * Um `/` abre expressão regular, ou divide? Decide o último caractere de código
+ * antes dele — e nas palavras-chave decide a palavra, porque `return /x/` é
+ * regex e `total / 2` é divisão com `total` terminando em letra igual a `return`.
+ */
+const ABRE_REGEX = /[(,=:[!&|?{};+\-*%~^<>]$/
+const PALAVRA_ANTES_DE_REGEX =
+  /\b(return|typeof|instanceof|in|of|case|do|else|yield|await|new|delete|void|throw)$/
+
+/**
+ * Tira comentário — e SÓ comentário.
  *
- * Existe fora da regra de conteúdo porque duas regras dependem dele pelo mesmo
+ * Existe fora da regra de conteúdo porque seis lugares dependem dele pelo mesmo
  * motivo, e o motivo está registrado neste arquivo desde a primeira medição:
  * das SETE ocorrências que a regra de cor literal deu no herz, CINCO eram
  * comentários documentando a própria regra. Comentário que aciona a regra que
@@ -937,9 +1040,178 @@ export const RE_JSX = /\.(tsx|jsx)$/i
  * `telefone` fez o rebar acusar o próprio index.mjs, e escrever
  * `process` `.env.X` na nota do `url-producao` fez o `env-example` cobrar
  * `.env.example` para uma variável que não existe.
+ *
+ * ── POR QUE NÃO SÃO DUAS REGEX, que era o que estava aqui até 2026-09-06 ─────
+ *
+ *   t.replace(<bloco>, ' ').replace(<linha>, '$1 ')
+ *
+ * onde <bloco> casava de `/`+`*` ate o proximo `*`+`/`, sem parar em nada, e
+ * <linha> casava de `//` ate o fim da linha desde que o caractere anterior nao
+ * fosse `:`. (Escritos assim, e nao literais, porque um `*`+`/` literal aqui
+ * dentro fecharia este comentario -- que e a mesma cegueira que o texto abaixo
+ * descreve, acontecendo neste paragrafo.)
+ *
+ * Regex não sabe o que é string. Uma abertura de bloco DENTRO de uma string
+ * abria um comentário que só fechava no próximo fecha-bloco do arquivo, e tudo
+ * no meio era
+ * APAGADO — sem limite de linhas e sem deixar rastro. O `//` dentro de string
+ * comia o resto da linha.
+ *
+ * Apagar é o desfecho errado. A função existe para tirar do exame o que não
+ * roda; o que ela fazia era tirar do exame o que roda, e seis regras julgavam o
+ * que sobrou. Uma delas é a de SEGURANÇA: `rejectUnauthorized: false` escrito
+ * depois de uma string que contenha uma abertura de bloco saía da auditoria
+ * calado. Falso
+ * negativo não aparece em lugar nenhum — é a pior coisa que uma régua faz.
+ *
+ * ── A PROPRIEDADE QUE DECIDE O DESENHO ───────────────────────────────────────
+ *
+ * SÓ O RAMO DE COMENTÁRIO APAGA. String, template e expressão regular são
+ * COPIADOS caractere por caractere; eles existem aqui apenas para que o `//` e a
+ * abertura de bloco de dentro deles não sejam lidos como comentário. Então errar a detecção
+ * de string nunca apaga código — no máximo deixa um comentário passar, que é
+ * falso positivo, e falso positivo aparece na cara de quem roda. O jeito antigo
+ * errava para o outro lado.
+ *
+ * E string termina na quebra de linha, de propósito: aspa não fechada — ou
+ * apóstrofo de prosa, se um dia isto encostar em texto — contamina uma linha e
+ * nunca o arquivo inteiro. Mesma coisa para a expressão regular.
+ *
+ * O `:` antes de `//` continua protegido, que é o `https://` de sempre; agora
+ * dentro de string ele já estaria protegido, mas o corpo de script de shell que
+ * o `ci-gates` monta chega aqui sem aspas.
  */
-function semComentario(t) {
-  return t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+// Exportada para `prove-strip.mjs`: seis regras julgam o que esta funcao
+// devolve, e ate 2026-09-06 nada a exercitava sozinha.
+export function semComentario(t) {
+  let saida = ''
+  let anterior = '' // último caractere de código emitido, ignorando espaço
+  let palavra = '' // e a última palavra, para `return /x/`
+  // Um item por template aberto. `chaves` é a profundidade de `${...}` dentro
+  // dele: 0 significa que estamos no corpo do template, e não no código.
+  const templates = []
+  let i = 0
+
+  const codigo = (c) => {
+    saida += c
+    if (!/\s/.test(c)) {
+      anterior = c
+      palavra = /[\w$]/.test(c) ? palavra + c : ''
+    }
+  }
+
+  while (i < t.length) {
+    const topo = templates[templates.length - 1]
+    const c = t[i]
+    const d = t[i + 1] ?? ''
+
+    // ── corpo de template: só `\`, `${` e a crase encerram
+    if (topo && topo.chaves === 0) {
+      if (c === '\\') {
+        saida += t.slice(i, i + 2)
+        i += 2
+        continue
+      }
+      if (c === '`') {
+        templates.pop()
+        codigo(c)
+        i += 1
+        continue
+      }
+      if (c === '$' && d === '{') {
+        topo.chaves = 1
+        saida += '${'
+        i += 2
+        continue
+      }
+      saida += c
+      i += 1
+      continue
+    }
+
+    // ── comentário de linha. O `:` antes é o `https://`.
+    if (c === '/' && d === '/' && anterior !== ':') {
+      while (i < t.length && t[i] !== '\n') i += 1
+      saida += ' '
+      continue
+    }
+
+    // ── comentário de bloco. As quebras de linha ficam: sem elas o texto
+    //    encolhe e toda regra que conta linha passa a apontar para a errada.
+    if (c === '/' && d === '*') {
+      i += 2
+      while (i < t.length) {
+        if (t[i] === '*' && t[i + 1] === '/') {
+          i += 2
+          break
+        }
+        if (t[i] === '\n') saida += '\n'
+        i += 1
+      }
+      saida += ' '
+      continue
+    }
+
+    // ── string. Copiada inteira; termina na aspa ou na quebra de linha.
+    if (c === '"' || c === "'") {
+      codigo(c)
+      i += 1
+      while (i < t.length) {
+        if (t[i] === '\\') {
+          saida += t.slice(i, i + 2)
+          i += 2
+          continue
+        }
+        if (t[i] === '\n') break
+        const fechou = t[i] === c
+        saida += t[i]
+        i += 1
+        if (fechou) break
+      }
+      continue
+    }
+
+    if (c === '`') {
+      templates.push({ chaves: 0 })
+      codigo(c)
+      i += 1
+      continue
+    }
+
+    // ── expressão regular. Também copiada, e também presa a uma linha.
+    if (
+      c === '/' &&
+      (anterior === '' || ABRE_REGEX.test(anterior) || PALAVRA_ANTES_DE_REGEX.test(palavra))
+    ) {
+      codigo(c)
+      i += 1
+      let classe = false
+      while (i < t.length) {
+        if (t[i] === '\\') {
+          saida += t.slice(i, i + 2)
+          i += 2
+          continue
+        }
+        if (t[i] === '\n') break
+        if (t[i] === '[') classe = true
+        else if (t[i] === ']') classe = false
+        const fechou = t[i] === '/' && !classe
+        saida += t[i]
+        i += 1
+        if (fechou) break
+      }
+      continue
+    }
+
+    // ── chaves, que é o que devolve o template ao corpo dele
+    if (topo && c === '{') topo.chaves += 1
+    if (topo && c === '}' && topo.chaves > 0) topo.chaves -= 1
+
+    codigo(c)
+    i += 1
+  }
+
+  return saida
 }
 
 /** Sem comentário e sem linha de import: nenhum dos dois é renderizado. */
@@ -1644,9 +1916,124 @@ export const REGRAS = [
       if (!humanos.length) return na('só há commit de bot')
       const ids = new Set(humanos)
       if (ids.size <= 1) return null
-      const pessoal = [...ids].filter((i) => !/@users\.noreply\.github\.com>/.test(i))
-      const extra = pessoal.length ? ` (e-mail pessoal exposto: ${pessoal.length})` : ''
-      return `${ids.size} combinações de nome/e-mail${extra}`
+
+      // CONTAR COMBINAÇÕES ERA O DEFEITO. Dois humanos num repositório são duas
+      // combinações, e a regra reprovava — falso positivo contra um time, que é
+      // a coisa que esta casa mais evita: regra automática errada custa mais que
+      // regra ausente. O que segue separa o que a régua PROVA do que ela só
+      // suspeita.
+      const partes = [...ids].map((i) => {
+        const m = /^(.*?)\s*<([^<>]*)>\s*$/.exec(i)
+        return {
+          id: i,
+          nome: (m ? m[1] : i).trim().toLowerCase(),
+          email: (m ? m[2] : '').trim().toLowerCase(),
+        }
+      })
+
+      const agrupar = (chave, valor) => {
+        const mapa = new Map()
+        for (const p of partes) {
+          if (!p[chave] || !p[valor]) continue
+          if (!mapa.has(p[chave])) mapa.set(p[chave], new Set())
+          mapa.get(p[chave]).add(p[valor])
+        }
+        return [...mapa].filter(([, s]) => s.size > 1)
+      }
+
+      // 1 · COLISÃO — o núcleo determinístico. Um nome com dois e-mails, ou um
+      //     e-mail com dois nomes, não é "duas pessoas": é uma identidade
+      //     inconsistente, que é o nome da regra. É o caso medido na forense —
+      //     a mesma pessoa ora como `Leonardo Naves <…noreply>`, ora como
+      //     `leona <leonardo@empresa.com.br>`, e o `git shortlog` contando dois.
+      const nomesComVariosEmails = agrupar('nome', 'email')
+      const emailsComVariosNomes = agrupar('email', 'nome')
+      if (nomesComVariosEmails.length || emailsComVariosNomes.length) {
+        const partesDoTexto = [
+          ...nomesComVariosEmails.map(
+            ([nome, emails]) => `"${nome}" commitou com ${emails.size} e-mails`,
+          ),
+          ...emailsComVariosNomes.map(
+            ([email, nomes]) => `<${email}> commitou com ${nomes.size} nomes`,
+          ),
+        ]
+        const pessoal = partes.filter(
+          (p) => p.email && !/@users\.noreply\.github\.com$/.test(p.email),
+        )
+        const extra = pessoal.length ? ` (e-mail pessoal exposto: ${pessoal.length})` : ''
+        return `${partesDoTexto.slice(0, 3).join('; ')}${extra}`
+      }
+
+      // 1b · O LOGIN DO GITHUB APARECENDO DUAS VEZES. Este é o caso que a
+      //      colisão não pega e que a forense mediu: `Leonardo Naves
+      //      <12345+leona@users.noreply.github.com>` e `leona
+      //      <leonardo@empresa.com.br>` são a mesma pessoa, e nome e e-mail
+      //      diferem nos dois.
+      //
+      //      O elo está escrito no endereço. O formato é
+      //      `<id>+<login>@users.noreply.github.com`, então o login é `leona` —
+      //      identificador da plataforma, não apelido inventado. Quando ele
+      //      reaparece como o NOME de outra identidade ou como a parte local do
+      //      e-mail dela, é a mesma pessoa com duas identidades, e o efeito é o
+      //      que a regra existe para impedir: o e-mail pessoal entra no
+      //      histórico público e o `git shortlog` conta duas pessoas onde há uma.
+      const logins = new Map()
+      for (const p of partes) {
+        const m = /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/.exec(p.email)
+        if (m) logins.set(m[1].toLowerCase(), p)
+      }
+      const mesmaPessoa = []
+      for (const p of partes) {
+        if (
+          logins.has(p.email.replace(/@.*$/, '')) &&
+          logins.get(p.email.replace(/@.*$/, '')) !== p
+        )
+          mesmaPessoa.push(p)
+        else if (logins.has(p.nome) && logins.get(p.nome) !== p) mesmaPessoa.push(p)
+      }
+      if (mesmaPessoa.length) {
+        return (
+          `o login do GitHub reaparece em outra identidade: ` +
+          `${mesmaPessoa
+            .slice(0, 3)
+            .map(
+              (p) =>
+                `${p.id} é o mesmo "${logins.get(logins.has(p.nome) ? p.nome : p.email.replace(/@.*$/, '')).id}"`,
+            )
+            .join('; ')} (e-mail pessoal no histórico público)`
+        )
+      }
+
+      // 2 · SEM COLISÃO, MAS O REPOSITÓRIO JÁ DECLAROU QUEM É HUMANO. A lista é
+      //     a MESMA da regra de coautoria, de propósito: a pergunta é a mesma —
+      //     "quem é humano deste projeto?" — e duas listas divergem. O cabeçalho
+      //     dela já diz que quem responde pelo commit é o dono do e-mail.
+      const lista = lerAllowlistCoautores(r)
+      if (lista.estado === 'ok') {
+        const forasteiros = partes.filter((p) => !p.email || !lista.emails.has(p.email))
+        return forasteiros.length
+          ? `${forasteiros.length} autor(es) fora de ${ALLOWLIST_COAUTORES}: ` +
+              `${forasteiros
+                .slice(0, 3)
+                .map((p) => p.id)
+                .join(', ')} — ` +
+              `se é gente do projeto, acrescente o e-mail lá`
+          : null
+      }
+
+      // 3 · SEM COLISÃO E SEM LISTA. A régua não tem como saber se são N pessoas
+      //     ou uma pessoa com N identidades, e inventar uma resposta é o que ela
+      //     fazia. `na` sai do denominador com o motivo na cara: não-medição
+      //     declarada vale mais que palpite, e o motivo aponta o conserto.
+      const pessoal = partes.filter(
+        (p) => p.email && !/@users\.noreply\.github\.com$/.test(p.email),
+      )
+      const extra = pessoal.length ? `; ${pessoal.length} com e-mail pessoal exposto` : ''
+      return na(
+        `${ids.size} identidades sem colisão de nome nem de e-mail${extra} — ` +
+          `ou são ${ids.size} pessoas, ou uma com ${ids.size} identidades, e sem ` +
+          `${ALLOWLIST_COAUTORES} rastreado não há como decidir`,
+      )
     },
   },
 
@@ -2049,9 +2436,14 @@ export function lerRepo(dir) {
   const raiz = git(dir, ['rev-parse', '--git-dir'])
   if (!raiz.ok) return { erro: raiz.erro || 'git indisponível' }
 
-  const ls = git(dir, ['ls-files'])
+  // `-z` e obrigatorio: sem ele o git aplica `core.quotePath` e um nome
+  // acentuado volta C-quoted entre aspas. Toda regra abaixo receberia um
+  // caminho que nao existe, a leitura falharia calada, e o arquivo sairia do
+  // placar sem ter sido olhado. Ver o FURO 7 em tooling/secret/scan-secret.mjs,
+  // onde isto ja custou uma AWS key passando VERDE.
+  const ls = git(dir, ['ls-files', '-z'])
   if (!ls.ok) return { erro: ls.erro }
-  const todos = ls.saida ? ls.saida.split('\n').filter(Boolean) : []
+  const todos = ls.saida ? ls.saida.split('\0').filter(Boolean) : []
   const { arquivos, ignorados } = semFixtures(dir, todos)
 
   const manifestos = manifestosNpm(dir, arquivos)

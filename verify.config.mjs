@@ -115,8 +115,11 @@ function checarHigiene({ raiz }) {
 
   // 1 — bits de rastreio do índice. É o ÚNICO lugar onde skip-worktree e
   // assume-unchanged aparecem; status, diff e `diff HEAD` são todos cegos a eles.
-  const anomalas = git(raiz, ['ls-files', '-v'])
-    .split('\n')
+  // `-z` nao muda o veredito: a letra fica na posicao 0 e sobrevive a
+  // citacao. Muda o que se LE -- sem ele o caminho sai escapado e o dono
+  // nao reconhece o arquivo que ele mesmo marcou.
+  const anomalas = git(raiz, ['ls-files', '-v', '-z'])
+    .split('\0')
     .map((l) => l.replace(/\s+$/, ''))
     .filter((l) => l.length > 0 && !l.startsWith('H '))
   if (anomalas.length) {
@@ -260,20 +263,24 @@ function checarHooks({ raiz }) {
  * só roda Linux.
  */
 function listarMjs(raiz) {
-  const saida = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
-    cwd: raiz,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  return [
-    ...new Set(
-      saida
-        .split('\n')
-        .map((s) => s.trim())
-        .filter((a) => a.toLowerCase().endsWith('.mjs')),
-    ),
-  ].sort()
+  // `-z` obrigatorio. Sem ele um `.mjs` com acento no nome volta C-quoted, o
+  // `node --check` recebe um caminho que nao existe, e o passo `syntax`
+  // aprovaria um arquivo com erro de sintaxe por nunca te-lo alcancado.
+  //
+  // Este consumidor NAO estava no relatorio de auditoria que apontou os outros
+  // tres -- apareceu ao procurar a familia inteira em vez de so os locais
+  // citados.
+  const saida = execFileSync(
+    'git',
+    ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+    {
+      cwd: raiz,
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  return [...new Set(saida.split('\0').filter((a) => a.toLowerCase().endsWith('.mjs')))].sort()
 }
 
 /**
@@ -887,6 +894,22 @@ export default [
     tempoLimite: 1 * MINUTO,
   },
   {
+    // O PASSO ACIMA CONFERE QUE OS HOOKS EXISTEM. Este confere o que eles fazem.
+    //
+    // O `check-message.mjs` e a unica barreira que impede o trailer de coautoria
+    // de EXISTIR -- as outras auditam depois, e depois e tarde: trailer no
+    // historico nao se conserta com commit novo. Nada o executava, e por isso
+    // passou meses lendo a allowlist do DISCO em vez do indice, o que autorizava
+    // coautor por arquivo nunca rastreado e por linha acrescentada, usada e
+    // desfeita.
+    nome: 'commit-msg',
+    comando: node('--test', 'tooling/hooks/prove-message.mjs'),
+    exige: ['tooling/hooks/prove-message.mjs', 'tooling/hooks/check-message.mjs'],
+    dica: 'A porta N5 da coautoria mudou de comportamento. Se ela afrouxou, o trailer volta a entrar no historico -- e de la nao sai.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 2 * MINUTO,
+  },
+  {
     nome: 'syntax',
     funcao: checarSintaxe,
     dica: 'Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`.',
@@ -1110,6 +1133,24 @@ export default [
     limite: 8,
   },
   {
+    // A FUNCAO DE QUE SEIS REGRAS DEPENDEM, provada sozinha pela primeira vez.
+    //
+    // Antes deste passo ela era provada de lado, pelos casos das regras que a
+    // usam -- e caso de regra nao tem string com abertura de bloco dentro,
+    // porque ninguem escreve fixture pensando no removedor de comentario. O
+    // resultado: ela apagava codigo real em 9 dos 139 arquivos deste
+    // repositorio, o pior com 1.181 tokens fora do exame, e o portao ficou
+    // verde o tempo todo.
+    //
+    // Vem ANTES de `proofs` de proposito: se os dois caem no mesmo commit, o
+    // primeiro nome que o executor imprime tem de ser a causa, nao o efeito.
+    nome: 'strip',
+    comando: node('--test', 'tooling/rebar-check/prove-strip.mjs'),
+    exige: ['tooling/rebar-check/prove-strip.mjs'],
+    dica: 'O removedor de comentario mudou de comportamento. Se ele passou a APAGAR mais, seis regras ficaram cegas e nao vao reclamar -- falso negativo nao aparece. Se passou a apagar menos, aparece como falso positivo nas regras.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
     nome: 'proofs',
     comando: node('tooling/rebar-check/proofs/prove.mjs'),
     exige: ['tooling/rebar-check/proofs/prove.mjs'],
@@ -1130,19 +1171,7 @@ export default [
     limite: 8,
   },
   {
-    // O modulo de seguranca se prova pelo MESMO executor do rebar-check, com o
-    // checker e a pasta de casos passados por argumento. Duplicar mil linhas de
-    // runner seria a segunda fonte que diverge -- o defeito que este
-    // repositorio inteiro persegue.
-    //
-    nome: 'generator-map',
-    comando: node('--test', 'new/gate/prove-map.mjs'),
-    exige: ['new/gate/prove-map.mjs', 'new/gate/aplicar.mjs'],
-    dica: 'O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto.',
-    extrair: /^\s*(✖|not ok|AssertionError)/i,
-  },
-  {
-    // O PASSO ACIMA E O QUE FALTAVA, e a ausencia dele custou o produto.
+    // ESTE PASSO E O QUE FALTAVA, e a ausencia dele custou o produto.
     //
     // Na traducao dos nomes o `aplicar.mjs` passou a ler `verify.yml` de uma
     // pasta onde o arquivo se chama `verificar.yml`. `rebar novo` morreu com
@@ -1153,7 +1182,54 @@ export default [
     // Ele confere o MAPA, nao gera projeto: geracao de verdade e `npm create
     // vite` mais `shadcn` mais `npm install`, minutos e rede, e passo que
     // ninguem espera e passo que alguem desliga.
-
+    nome: 'generator-map',
+    comando: node('--test', 'new/gate/prove-map.mjs'),
+    exige: ['new/gate/prove-map.mjs', 'new/gate/aplicar.mjs'],
+    dica: 'O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
+    // O PRIMEIRO COMMIT DO PROJETO GERADO tem de sair com a MESMA identidade
+    // que foi escrita no NOTICE e na allowlist. O gerador usava `-c user.*`
+    // achando que isso fixava o autor; no git a variavel de ambiente GANHA da
+    // config, e `-c` e config. Numa maquina com `git config user.email` e
+    // `GIT_AUTHOR_EMAIL` divergentes -- runner de CI, container -- o projeto
+    // nascia com a allowlist dizendo uma pessoa e o historico tendo outra.
+    //
+    // A primeira assercao da prova mede a PRECEDENCIA no git puro, sem passar
+    // pelo conserto: se ela cair, o conserto virou desnecessario em vez de
+    // errado em silencio.
+    nome: 'generator-identity',
+    comando: node('--test', 'new/prove-identidade.mjs'),
+    exige: ['new/prove-identidade.mjs', 'new/identidade.mjs', 'new/index.mjs'],
+    dica: 'A identidade do primeiro commit do projeto gerado deixou de bater com a que vai no NOTICE e na allowlist. O projeto nasce com a lista dizendo uma pessoa e o historico tendo outra, e isso so aparece meses depois.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 2 * MINUTO,
+  },
+  {
+    // E O MAPA AINDA NAO E O PRODUTO. O passo acima confere que o modelo do MCP
+    // e EMITIDO; o `syntax` confere que ele PARSEIA. Nenhum dos dois confere que
+    // ele RESPONDE -- e sao 800 linhas que vao para dentro de todo projeto
+    // gerado.
+    //
+    // Este passo fala MCP de verdade com uma copia do modelo, num projeto
+    // montado num tmpdir, e pergunta a coisa mais cara que ele responde: o
+    // portao esta armado? `core.hooksPath` e string livre, o git grava sem
+    // conferir nada, e quem le so o valor anuncia portao fechado sobre portao
+    // escancarado. Cinco estados, cinco casos.
+    nome: 'mcp-template',
+    comando: node('new/gate/prove-mcp-template.mjs', '--curto'),
+    exige: ['new/gate/prove-mcp-template.mjs', 'new/gate/arquivos/mcp-rebar.mjs'],
+    dica: 'O MCP que o gerador escreve parou de responder, ou passou a mentir sobre o estado do portao. Rode `node new/gate/prove-mcp-template.mjs` sem --curto para ver a troca JSON-RPC inteira.',
+    extrair: /^\s*FALHA/,
+    tempoLimite: 2 * MINUTO,
+  },
+  {
+    // O modulo de seguranca se prova pelo MESMO executor do rebar-check, com o
+    // checker e a pasta de casos passados por argumento. Duplicar mil linhas de
+    // runner seria a segunda fonte que diverge -- o defeito que este
+    // repositorio inteiro persegue.
+    //
     // Passo proprio, e nao um `&&` dentro de `proofs`, porque os dois falham
     // por motivos diferentes e a dica precisa dizer qual dos dois caiu.
     nome: 'security',

@@ -1,0 +1,4 @@
+{
+  "rule": "tests",
+  "why": "P2 #6 da auditoria externa. `ehTeste` olhava so o nome, e nome de documento cai nos DOIS reconhecedores: `provas/PLANO.md` entra pela pasta, que esta em PASTA_TESTE, e `PLANO.teste.md` entra pelo NOME_TESTE. O resultado e um falso APROVADO -- repositorio com zero teste e um documento de planejamento passava na regra. O caso `tests__python-name` ja tinha registrado que `TESTE-1-cabo-KKL.md` nao conta, mas atribuiu isso ao separador `-` em vez da extensao; bastava renomear para `TESTE.1.cabo.md` e o buraco voltava. O conserto e uma NEGATIVA de extensoes de documento, e nao uma lista de extensoes que valem: lista de permissao reprovaria `.dart`, `.R`, `.jl`, `.hs` e `.bats`, e dizer \"zero arquivo de teste\" para quem escreveu teste custa mais que a regra ausente. Por isso o lado pass tem um `.bats` -- ele fica vermelho se alguem trocar a negativa por permissao."
+}

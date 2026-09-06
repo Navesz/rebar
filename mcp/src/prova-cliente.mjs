@@ -31,16 +31,15 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// O cliente mora fora deste arquivo desde que apareceu a segunda prova que
+// precisa dele — a do MCP que o gerador escreve, em new/gate/prove-mcp-template.mjs.
+import { Cliente, PROTOCOLO, textoDa, trecho } from './cliente-jsonrpc.mjs'
+
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const SERVIDOR = join(AQUI, 'index.mjs')
 const RAIZ = join(AQUI, '..', '..')
 const LEIAME = join(AQUI, '..', 'README.md')
 const CURTO = process.argv.includes('--curto')
-
-// A versão do protocolo que este cliente fala. O servidor responde com a dele; se
-// negociar para outra, a resposta do initialize mostra qual — e isso é informação,
-// não erro.
-const PROTOCOLO = '2025-06-18'
 
 let falhas = 0
 
@@ -57,95 +56,10 @@ function falhou(t) {
   console.log(`  FALHA ${t}`)
 }
 
-/** Corta resposta longa: a prova é que a resposta veio certa, não o texto inteiro. */
-function trecho(t, limite = 900) {
-  const s = String(t)
-  return s.length <= limite ? s : `${s.slice(0, limite)}\n   … (+${s.length - limite} caracteres)`
-}
-
-class Cliente {
-  /**
-   * Por padrão sobe o servidor com `process.execPath`, o node que está rodando este
-   * cliente. Com `comando` explícito, sobe do jeito que o `.mcp.json` do README manda
-   * — que é o que o passo 5 usa para provar o snippet em vez de prometê-lo.
-   */
-  constructor(caminhoDoServidor, comando = null) {
-    const [exe, args, opcoes] = comando
-      ? [comando.command, comando.args, { cwd: RAIZ }]
-      : [process.execPath, [caminhoDoServidor], {}]
-    this.proc = spawn(exe, args, {
-      ...opcoes,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-    this.proximoId = 1
-    this.pendentes = new Map()
-    this.stderr = ''
-    this.resto = ''
-
-    this.proc.stdout.setEncoding('utf8')
-    this.proc.stdout.on('data', (pedaco) => {
-      this.resto += pedaco
-      let quebra
-      while ((quebra = this.resto.indexOf('\n')) >= 0) {
-        const linha = this.resto.slice(0, quebra).trim()
-        this.resto = this.resto.slice(quebra + 1)
-        if (!linha) continue
-        const msg = JSON.parse(linha)
-        if (msg.id !== undefined && this.pendentes.has(msg.id)) {
-          this.pendentes.get(msg.id)(msg)
-          this.pendentes.delete(msg.id)
-        }
-      }
-    })
-    this.proc.stderr.setEncoding('utf8')
-    this.proc.stderr.on('data', (d) => {
-      this.stderr += d
-    })
-  }
-
-  enviar(objeto) {
-    if (!CURTO) console.log(`  → ${JSON.stringify(objeto)}`)
-    this.proc.stdin.write(`${JSON.stringify(objeto)}\n`)
-  }
-
-  /** Requisição com id: devolve a resposta correspondente. 15 s é folga generosa. */
-  pedir(metodo, params) {
-    const id = this.proximoId++
-    const req = { jsonrpc: '2.0', id, method: metodo, params }
-    return new Promise((resolve, reject) => {
-      const relogio = setTimeout(
-        () => reject(new Error(`sem resposta para ${metodo} em 15 s`)),
-        15_000,
-      )
-      this.pendentes.set(id, (msg) => {
-        clearTimeout(relogio)
-        if (!CURTO) console.log(`  ← ${trecho(JSON.stringify(msg), 700)}`)
-        resolve(msg)
-      })
-      this.enviar(req)
-    })
-  }
-
-  /** Notificação: sem id, sem resposta. O `initialized` é obrigatório no MCP. */
-  notificar(metodo, params) {
-    this.enviar({ jsonrpc: '2.0', method: metodo, params })
-  }
-
-  fechar() {
-    this.proc.stdin.end()
-    this.proc.kill()
-  }
-}
-
-function textoDa(resposta) {
-  return (resposta.result?.content ?? []).map((c) => c.text).join('\n')
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 titulo('1 · handshake: initialize + notifications/initialized')
-const cliente = new Cliente(SERVIDOR)
+const cliente = new Cliente(SERVIDOR, { curto: CURTO })
 
 const ini = await cliente.pedir('initialize', {
   protocolVersion: PROTOCOLO,
@@ -175,18 +89,41 @@ if (ferramentas.length) {
   falhou('tools/list veio vazio')
 }
 
-// Cada chamada abaixo é uma pergunta que uma IA de verdade faz neste repositório.
+// Cada chamada abaixo é uma pergunta que uma IA de verdade faz neste
+// repositório, e o QUARTO campo é o contrato: esta chamada deve devolver
+// `isError`, sim ou não?
+//
+// Antes ele não existia, e `isError` só escolhia um RÓTULO — o do único caso
+// que deveria errar ("esperado para id errado"), colado em qualquer erro de
+// qualquer uma das sete. Se o `rebar_verificar` passasse a estourar, a prova
+// imprimia um `ok` com aquele rótulo emprestado e o passo `mcp-server` ficava
+// verde sobre um servidor quebrado.
 const chamadas = [
-  ['rebar_regras', { nivel: 'N1' }, 'o que me reprova quando eu mexer no CSS/lint'],
-  ['rebar_porque', { id: 'raw-hex' }, 'reprovou hex-cru; por que isso é regra'],
-  ['rebar_decidir', { assunto: 'cor' }, 'posso escrever #fff no componente?'],
-  ['rebar_decidir', { assunto: 'mongodb' }, 'assunto que o rebar NÃO governa'],
-  ['rebar_portao', { passo: 'mcp' }, 'o passo do portão que guarda este módulo'],
-  ['rebar_verificar', {}, 'a régua no próprio rebar'],
-  ['rebar_porque', { id: 'hex-crus' }, 'id errado: precisa sugerir, não morrer'],
+  ['rebar_regras', { nivel: 'N1' }, 'o que me reprova quando eu mexer no CSS/lint', false],
+  ['rebar_porque', { id: 'raw-hex' }, 'reprovou hex-cru; por que isso é regra', false],
+  ['rebar_decidir', { assunto: 'cor' }, 'posso escrever #fff no componente?', false],
+  ['rebar_decidir', { assunto: 'mongodb' }, 'assunto que o rebar NÃO governa', false],
+  ['rebar_portao', { passo: 'mcp' }, 'o passo do portão que guarda este módulo', false],
+  ['rebar_verificar', {}, 'a régua no próprio rebar', false],
+  // Os dois que devem errar, um para cada lado do `sugestao.length ? ... : ''`
+  // em consultas.mjs — o ramo que sugere e o que não tem o que sugerir.
+  //
+  // A sonda daqui era `hex-crus`, com o rótulo "precisa sugerir". Medido: ela
+  // parou de sugerir quando os ids foram para o inglês, porque `hex-` deixou de
+  // ser prefixo de coisa alguma — a regra virou `raw-hex`. O rótulo continuou
+  // afirmando o contrário por seis commits, porque nada comparava. É o defeito
+  // que este contrato existe para não deixar acontecer de novo.
+  ['rebar_porque', { id: 'raw-hexx' }, 'typo de id real: erra sugerindo o certo', true, 'raw-hex'],
+  [
+    'rebar_porque',
+    { id: 'mongodb-driver' },
+    'id de outro mundo: erra sem inventar vizinho',
+    true,
+    null,
+  ],
 ]
 
-for (const [nome, args, pergunta] of chamadas) {
+for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
   titulo(`3 · tools/call ${nome} ${JSON.stringify(args)}   — "${pergunta}"`)
   const r = await cliente.pedir('tools/call', { name: nome, arguments: args })
   const t = textoDa(r)
@@ -195,9 +132,43 @@ for (const [nome, args, pergunta] of chamadas) {
     continue
   }
   console.log(`\n${trecho(t, nome === 'rebar_porque' ? 2200 : 1600)}\n`)
-  ok(
-    `${nome}${r.result.isError ? ' (isError: true, esperado para id errado)' : ''} — ${t.length} caracteres`,
-  )
+
+  // O CONTRATO, nas duas direções. Errar quando não devia é servidor quebrado;
+  // NÃO errar quando devia é contrato silenciosamente afrouxado — um `id`
+  // inexistente que passa a responder como se existisse é pior que o erro.
+  const erro = r.result.isError === true
+  if (erro !== erroEsperado) {
+    falhou(
+      erroEsperado
+        ? `${nome} devia ter devolvido isError e não devolveu — o contrato de id inexistente afrouxou`
+        : `${nome} devolveu isError e não devia:\n${trecho(t, 400)}`,
+    )
+    continue
+  }
+
+  // Quem erra tem contrato EXTRA: "não morrer" é metade dele. O quinto campo diz
+  // qual vizinho a mensagem deve oferecer — ou `null` quando o certo é não
+  // oferecer nenhum. As duas direções importam: sugerir nada quando havia um id
+  // parecido é o agente sem saída, e inventar um vizinho para um id de outro
+  // assunto é pior que o erro seco.
+  if (erroEsperado) {
+    const sugeriu = /^Perto disso: (.+)$/m.exec(t)
+    if (vizinho && sugeriu?.[1]?.split(', ').includes(vizinho) !== true) {
+      falhou(`${nome} devia apontar "${vizinho}" e não apontou:\n${trecho(t, 400)}`)
+      continue
+    }
+    if (!vizinho && sugeriu) {
+      falhou(`${nome} inventou vizinho para um id de outro assunto: ${sugeriu[0]}`)
+      continue
+    }
+    // A saída sempre existe, com vizinho ou sem.
+    if (!t.includes('rebar_regras')) {
+      falhou(`${nome} errou sem dizer onde está a lista completa`)
+      continue
+    }
+  }
+
+  ok(`${nome}${erro ? ' (isError, como o contrato exige)' : ''} — ${t.length} caracteres`)
 }
 
 cliente.fechar()
@@ -215,7 +186,10 @@ cliente.fechar()
  * Windows não pede admin e no Linux é symlink comum: o que se testa aqui é o JSON,
  * não a presença do SDK.
  */
-function montarCopia(prefixo, { comArtefato = true, fonteAdulterada = false } = {}) {
+function montarCopia(
+  prefixo,
+  { comArtefato = true, fonteAdulterada = false, semFonte = null } = {},
+) {
   const base = mkdtempSync(join(tmpdir(), prefixo))
   const src = join(base, 'mcp', 'src')
   mkdirSync(src, { recursive: true })
@@ -234,6 +208,19 @@ function montarCopia(prefixo, { comArtefato = true, fonteAdulterada = false } = 
     mkdirSync(dir, { recursive: true })
     // Conteúdo diferente do original: é isso, e só isso, que o sha256 enxerga.
     writeFileSync(join(dir, 'index.mjs'), '// uma regra nova entrou aqui e o MCP não sabe\n')
+  }
+  if (semFonte) {
+    // Todas as fontes de arquivo copiadas IDÊNTICAS, menos uma, que fica de
+    // fora. Idênticas de propósito: se alguma divergisse, o estado seria
+    // `suspeito` e a ausência ficaria escondida atrás dela.
+    const art = JSON.parse(readFileSync(join(AQUI, '..', 'rules.generated.json'), 'utf8'))
+    for (const f of art.fontes) {
+      if (f.arquivo.endsWith('/') || f.arquivo === semFonte) continue
+      const partes = f.arquivo.split('/')
+      const destino = join(base, ...partes)
+      mkdirSync(dirname(destino), { recursive: true })
+      copyFileSync(join(RAIZ, ...partes), destino)
+    }
   }
   return { base, servidor: join(src, 'index.mjs') }
 }
@@ -303,7 +290,7 @@ if (!fence) {
   if (entrada?.command !== 'node') {
     falhou(`o snippet chama "${entrada?.command}"; tem de ser "node" (npx no Windows dá ENOENT)`)
   }
-  const doSnippet = new Cliente(null, entrada)
+  const doSnippet = new Cliente(null, { comando: entrada, cwd: RAIZ, curto: CURTO })
   try {
     const r = await doSnippet.pedir('initialize', {
       protocolVersion: PROTOCOLO,
@@ -343,7 +330,7 @@ try {
 }
 
 if (velho) {
-  const c = new Cliente(velho.servidor)
+  const c = new Cliente(velho.servidor, { curto: CURTO })
   try {
     await c.pedir('initialize', {
       protocolVersion: PROTOCOLO,
@@ -367,6 +354,41 @@ if (velho) {
   }
   c.fechar()
   desmontarCopia(velho.base)
+}
+
+titulo('7 · fonte AUSENTE: "em dia" não pode sair de árvore incompleta')
+{
+  // P2 #10. O estado era binário na prática: mudou (suspeito) ou não mudou (em
+  // dia), e "não achei o arquivo" caía no segundo. Enquanto as fontes eram só
+  // as quatro de formato isso ainda era defensável; depois que as decisões
+  // viraram fonte, deixou de ser — apagar o `new/index.mjs` faria o servidor
+  // colar uma decisão derivada de um arquivo que não está mais lá e afirmar que
+  // está em dia.
+  const semDecisao = montarCopia('rebar-mcp-parcial-', { semFonte: 'new/index.mjs' })
+  const c = new Cliente(semDecisao.servidor, { curto: CURTO })
+  try {
+    await c.apresentar('prova-de-fonte-ausente')
+    const r = await c.pedir('tools/call', {
+      name: 'rebar_regras',
+      arguments: { busca: 'readme' },
+    })
+    const texto = textoDa(r)
+    if (!/AVISO DE FRESCOR/.test(texto)) {
+      falhou('árvore sem uma das fontes respondeu sem aviso nenhum')
+    } else if (!/new\/index\.mjs/.test(texto)) {
+      falhou(`o aviso não nomeia a fonte que falta:\n${trecho(texto, 300)}`)
+    } else {
+      ok('o aviso veio, nomeando a fonte ausente')
+    }
+    // E o que É conferível continua sendo conferido: nada de divergência
+    // inventada só porque um arquivo faltou.
+    if (/mudou desde que o artefato foi gerado/.test(texto)) {
+      falhou('ausência foi relatada como divergência — são coisas diferentes')
+    }
+  } finally {
+    await c.fechar()
+    desmontarCopia(semDecisao.base)
+  }
 }
 
 titulo(falhas ? `${falhas} FALHA(S)` : 'tudo passou')

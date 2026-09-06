@@ -729,11 +729,15 @@ function marcarExecutaveis(destino, avisos) {
     return null
   }
   // Conferir, e não confiar. O modo é o ponto inteiro desta função.
-  const saida = execFileSync('git', ['ls-files', '-s', ...EXECUTAVEIS], {
+  // `-z` aqui NAO conserta a checagem: o modo fica no inicio da linha e
+  // `startsWith('100755')` acerta mesmo com o caminho citado. Conserta a
+  // MENSAGEM -- sem ele o aviso mostra a sequencia escapada no lugar do
+  // nome, e quem le nao reconhece o proprio arquivo.
+  const saida = execFileSync('git', ['ls-files', '-s', '-z', ...EXECUTAVEIS], {
     cwd: destino,
     encoding: 'utf8',
   })
-  const linhas = saida.split('\n').filter(Boolean)
+  const linhas = saida.split('\0').filter(Boolean)
   const errados = linhas.filter((l) => !l.startsWith('100755'))
   if (errados.length) {
     avisos.push(`hook sem modo 100755 no índice: ${errados.join(' | ')}`)
