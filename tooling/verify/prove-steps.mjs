@@ -917,3 +917,100 @@ test('O PORTÃO NÃO ENCOLHE · todos os passos esperados continuam na lista', a
     )
   }
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O VEREDITO DE CADA PASSO — quebrou não é reprovou, e mudo não é aprovado
+//
+// O cabeçalho do `verify.mjs` declara isto nas linhas 17-25 desde que ele
+// existe: 127 é a régua quebrando, 1 é o repositório dizendo não, e "sem a
+// distinção, o bug do verificador entra na conta como se fosse defeito do
+// repositório auditado". Os dois executores dele — subprocesso e função — liam
+// "diferente de zero" como reprovou, e nenhum teste olhava.
+//
+// Pior: `Number(r?.codigo ?? 0)`. Função que devolvia `undefined`, `null`, `{}`
+// ou esquecia o campo saía com código 0 e o passo PASSAVA. Passo mudo virando
+// passo aprovado é a forma mais barata de portão falso, e a mais difícil de
+// notar, porque o placar fica verde.
+//
+// A forja roda o executor DE VERDADE, com um config em tmpdir. Ele reclama que
+// o config é externo à árvore de trabalho, e é o que se quer: externo sai 3, e
+// tanto `quebrou` (127) quanto `reprovou` (1) DOMINAM esse 3 — a última asserção
+// aqui embaixo é essa dominância.
+
+/** Roda o executor sobre um config forjado e devolve o JSON dele. */
+async function comForja(passos) {
+  const dir = await mkdtemp(join(tmpdir(), 'rebar-forja-'))
+  try {
+    const config = join(dir, 'forja.config.mjs')
+    await writeFile(config, `export default [\n${passos.join(',\n')},\n]\n`, 'utf8')
+    const r = spawnSync(
+      process.execPath,
+      [join(RAIZ, 'tooling', 'verify', 'verify.mjs'), `--config=${config}`, '--json'],
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
+    )
+    return { json: JSON.parse(r.stdout), status: r.status }
+  } finally {
+    await rm(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
+  }
+}
+
+const estadoDoPasso = (json, nome) => json.passos.find((p) => p.nome === nome)?.estado
+
+test('VEREDITO AUSENTE É QUEBRA · função que não devolve nada não aprova', async () => {
+  const { json } = await comForja([
+    '{ nome: "mudo", funcao: () => undefined }',
+    '{ nome: "vazio", funcao: () => ({}) }',
+    '{ nome: "nulo", funcao: () => null }',
+    '{ nome: "texto", funcao: () => ({ codigo: "zero" }) }',
+  ])
+  for (const nome of ['mudo', 'vazio', 'nulo', 'texto']) {
+    assert.equal(
+      estadoDoPasso(json, nome),
+      'quebrou',
+      `o passo "${nome}" não devolveu veredito e o executor não pode chamar isso de aprovado`,
+    )
+  }
+  assert.equal(json.resultado, 'quebrou')
+})
+
+test('CÓDIGO 127 É A RÉGUA QUEBRANDO · não é o repositório reprovando', async () => {
+  // Nos dois executores, porque são dois caminhos de código diferentes.
+  const { json } = await comForja([
+    '{ nome: "funcao-127", funcao: () => ({ codigo: 127, saida: "comando ausente" }) }',
+    `{ nome: "processo-127", comando: [process.execPath, "-e", "process.exit(127)"] }`,
+  ])
+  assert.equal(estadoDoPasso(json, 'funcao-127'), 'quebrou')
+  assert.equal(estadoDoPasso(json, 'processo-127'), 'quebrou')
+})
+
+test('CÓDIGO 2 É ESTADO TORTO · e o `checarSintaxe` já dizia isso por escrito', async () => {
+  // `verify.config.mjs` devolve 2 quando o índice do git lista arquivo que não
+  // está no disco, com o comentário "O executor não trata isso como reprovação
+  // de conteúdo". O executor tratava, e o comentário mentia havia meses.
+  const { json } = await comForja([
+    '{ nome: "indice-torto", funcao: () => ({ codigo: 2, saida: "git lista fantasma" }) }',
+  ])
+  assert.equal(estadoDoPasso(json, 'indice-torto'), 'quebrou')
+})
+
+test('E O RESTO CONTINUA REPROVANDO · o conserto não afrouxou o portão', async () => {
+  const { json } = await comForja([
+    '{ nome: "passa", funcao: () => ({ codigo: 0, saida: "ok" }) }',
+    '{ nome: "reprova", funcao: () => ({ codigo: 1, saida: "achei coisa errada" }) }',
+    `{ nome: "processo-reprova", comando: [process.execPath, "-e", "process.exit(1)"] }`,
+  ])
+  assert.equal(estadoDoPasso(json, 'passa'), 'passou')
+  assert.equal(estadoDoPasso(json, 'reprova'), 'reprovou')
+  assert.equal(estadoDoPasso(json, 'processo-reprova'), 'reprovou')
+  assert.equal(json.resultado, 'reprovado')
+})
+
+test('127 DOMINA 1 · não se acusa um repositório com uma régua que quebrou', async () => {
+  const { json, status } = await comForja([
+    '{ nome: "reprova", funcao: () => ({ codigo: 1, saida: "achei coisa errada" }) }',
+    '{ nome: "quebra", funcao: () => ({ codigo: 127, saida: "não consegui rodar" }) }',
+  ])
+  assert.equal(json.resultado, 'quebrou')
+  assert.equal(json.codigoSaida, 127)
+  assert.equal(status, 127)
+})

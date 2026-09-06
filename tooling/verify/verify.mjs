@@ -481,18 +481,57 @@ function executarComando(passo, raiz) {
       })
     })
 
-    filho.on('close', (codigo) => {
+    filho.on('close', (codigo, sinal) => {
       if (encerrado) return
       encerrado = true
       clearTimeout(relogio)
+
+      // Morto por sinal nao tem veredito: `codigo` vem null e antes virava 1,
+      // ou seja, "o repositorio reprovou". Um passo derrubado por falta de
+      // memoria nao e o repositorio dizendo nao.
+      if (codigo === null) {
+        resolvePromessa({
+          estado: 'quebrou',
+          saida: `${saida}\n[verificar] passo morto pelo sinal ${sinal} — sem veredito`,
+          duracaoMs: Date.now() - inicio,
+        })
+        return
+      }
+
       resolvePromessa({
-        estado: (codigo ?? 1) === 0 ? 'passou' : 'reprovou',
-        codigo: codigo ?? 1,
+        estado: estadoDoCodigo(codigo),
+        codigo,
         saida,
         duracaoMs: Date.now() - inicio,
       })
     })
   })
+}
+
+/**
+ * O codigo de saida de um passo, traduzido para o veredito.
+ *
+ * Existe uma vez so porque os dois executores -- subprocesso e funcao -- tem de
+ * responder igual, e ate 2026-09-06 nenhum dos dois respondia certo: os dois
+ * liam "diferente de zero" como "reprovou", que apaga a distincao que o
+ * cabecalho deste arquivo declara nas linhas 17-25.
+ *
+ * 2 e 127 sao a REGUA quebrando, nao o repositorio dizendo nao:
+ *
+ *   127  o comando nao existe, ou o interpretador nao subiu
+ *   2    invocacao errada, ou estado do repositorio torto -- o `checarSintaxe`
+ *        devolve 2 quando o indice do git lista arquivo que nao esta no disco, e
+ *        o comentario dele ja dizia "o executor nao trata isso como reprovacao
+ *        de conteudo". O executor tratava; agora nao trata.
+ *
+ * A diferenca nao e cosmetica: `quebrou` sai 127 e `reprovou` sai 1, e a regra
+ * da casa e que 127 domina 1 -- nao se acusa um repositorio com uma regua que
+ * quebrou.
+ */
+function estadoDoCodigo(codigo) {
+  if (codigo === 0) return 'passou'
+  if (codigo === 2 || codigo === 127) return 'quebrou'
+  return 'reprovou'
 }
 
 async function executarFuncao(passo, raiz) {
@@ -518,8 +557,23 @@ async function executarFuncao(passo, raiz) {
   const trabalho = (async () => {
     try {
       const r = await passo.funcao({ raiz, prazo })
-      const codigo = Number(r?.codigo ?? 0)
-      return { estado: codigo === 0 ? 'passou' : 'reprovou', codigo, saida: String(r?.saida ?? '') }
+
+      // VEREDITO AUSENTE E QUEBRA, nao aprovacao. Era `Number(r?.codigo ?? 0)`:
+      // funcao que devolvia `undefined`, `null`, `{}` ou esquecia o campo saia
+      // com codigo 0 e o passo PASSAVA. Passo mudo virando passo aprovado e a
+      // forma mais barata de portao falso -- e a mais dificil de notar, porque
+      // o placar fica verde.
+      const codigo = Number.isInteger(r?.codigo) ? r.codigo : Number(r?.codigo)
+      if (!Number.isInteger(codigo)) {
+        return {
+          estado: 'quebrou',
+          saida:
+            `[verificar] a função do passo não devolveu veredito: ` +
+            `esperava { codigo: <inteiro> }, veio ${JSON.stringify(r) ?? String(r)}`,
+        }
+      }
+
+      return { estado: estadoDoCodigo(codigo), codigo, saida: String(r?.saida ?? '') }
     } catch (e) {
       return { estado: 'quebrou', saida: `[verificar] a função do passo lançou: ${e.message}` }
     }
