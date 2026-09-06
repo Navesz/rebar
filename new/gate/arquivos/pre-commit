@@ -26,4 +26,25 @@ cd "$RAIZ"
 # prestes a acrescentar, e é o que cabe no orçamento de tempo.
 node .githooks/varrer-segredo.mjs --staged
 
+# ARQUIVO DE AMBIENTE RASTREADO e achado por si so, sem olhar o conteudo: um
+# `.env` vazio hoje recebe a chave amanha, e ai ja passou pela revisao. E a
+# regra `env-versionado` do rebar-security, e ela e N5 -- depois do commit o
+# conserto nao e apagar o arquivo, e rotacionar a credencial.
+#
+# Escrita aqui em vez de `npx rebar-security` porque hook nao pode depender de
+# rede: um `npx` a cada commit e lento e morre offline. Sao dois comandos.
+#
+# `.env.example`, `.env.sample` e afins ficam de fora -- sao o conserto da
+# falha, nao a falha.
+ENVS=$(git diff --cached --name-only --diff-filter=AM \
+  | grep -E '(^|/)\.env($|\.)' \
+  | grep -vE '\.(example|exemplo|sample|template|dist|modelo)$' || true)
+if [ -n "$ENVS" ]; then
+  echo "[env] arquivo de ambiente em stage:"
+  echo "$ENVS" | sed 's/^/  /'
+  echo "  Apagar nao basta se ja foi commitado: rotacione a credencial."
+  echo "  Se for exemplo, renomeie para .env.example."
+  exit 1
+fi
+
 exit 0
