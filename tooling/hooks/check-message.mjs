@@ -51,7 +51,7 @@
 // Chamado pelo hook commit-msg com o caminho do arquivo de mensagem.
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -94,18 +94,48 @@ const emailDe = (valor) => {
 }
 
 /**
- * Lê a allowlist do disco, e não do índice do git: no momento do commit-msg o
- * arquivo pode estar sendo editado no mesmo commit, e exigir que ele já esteja
- * em HEAD tornaria impossível o commit que ADICIONA um humano à lista. Quem
- * cobra o rastreamento é o rebar-check, que audita depois e vê o histórico.
+ * Lê a allowlist do ÍNDICE do git — o que está preparado para entrar neste
+ * commit —, e não do disco.
+ *
+ * Até 2026-09-06 lia do disco, com esta justificativa: "no momento do
+ * commit-msg o arquivo pode estar sendo editado no mesmo commit, e exigir que
+ * ele já esteja em HEAD tornaria impossível o commit que ADICIONA um humano à
+ * lista". O motivo procede; a fonte é que estava errada. Entre HEAD e o disco
+ * existe o índice, e o índice é literalmente "o que vai entrar neste commit":
+ * ele atende o caso legítimo — a adição está em stage, então vale — e fecha as
+ * duas portas que o disco deixava abertas.
+ *
+ *   1. ARQUIVO NÃO RASTREADO. Um `.rebar-coauthors` que nunca entrou no
+ *      repositório autorizava coautor, e não aparecia em revisão nenhuma:
+ *      quem clona não o vê, e o histórico não o tem.
+ *   2. LINHA NÃO PREPARADA. Acrescenta o e-mail no disco, comita com o coautor,
+ *      desfaz a linha. O commit passou e o repositório nunca teve a linha.
+ *
+ * A defesa antiga era "quem cobra o rastreamento é o rebar-check, que audita
+ * depois". Auditar depois é o que esta política existe para não precisar: o
+ * trailer de coautoria não se conserta com commit novo, ele fica no histórico.
+ *
+ * O disco ainda é lido, mas só para a MENSAGEM: existir lá e não estar em stage
+ * é o engano honesto mais provável, e merece "rode `git add`" em vez de
+ * "não existe".
  */
 function lerAllowlist(raiz) {
   const caminho = join(raiz, NOME_ALLOWLIST)
   let texto
   try {
-    texto = readFileSync(caminho, 'utf8')
-  } catch (e) {
-    return { caminho, emails: null, erro: e.code === 'ENOENT' ? 'não existe' : e.code || e.message }
+    // `:<arquivo>` é o índice. Caminho com barra normal porque essa sintaxe do
+    // git não é caminho de sistema de arquivos — no Windows a contrabarra falha.
+    texto = rodarGit(['show', `:${NOME_ALLOWLIST}`])
+  } catch {
+    const noDisco = existsSync(caminho)
+    return {
+      caminho,
+      emails: null,
+      erro: noDisco
+        ? 'existe no disco mas NÃO está em stage — o commit-msg lê o índice, ' +
+          `que é o que vai entrar neste commit. Rode: git add ${NOME_ALLOWLIST}`
+        : 'não está no índice do git',
+    }
   }
   const emails = new Set()
   for (const linha of texto.split(/\r?\n/)) {

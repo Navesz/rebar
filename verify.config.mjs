@@ -894,6 +894,22 @@ export default [
     tempoLimite: 1 * MINUTO,
   },
   {
+    // O PASSO ACIMA CONFERE QUE OS HOOKS EXISTEM. Este confere o que eles fazem.
+    //
+    // O `check-message.mjs` e a unica barreira que impede o trailer de coautoria
+    // de EXISTIR -- as outras auditam depois, e depois e tarde: trailer no
+    // historico nao se conserta com commit novo. Nada o executava, e por isso
+    // passou meses lendo a allowlist do DISCO em vez do indice, o que autorizava
+    // coautor por arquivo nunca rastreado e por linha acrescentada, usada e
+    // desfeita.
+    nome: 'commit-msg',
+    comando: node('--test', 'tooling/hooks/prove-message.mjs'),
+    exige: ['tooling/hooks/prove-message.mjs', 'tooling/hooks/check-message.mjs'],
+    dica: 'A porta N5 da coautoria mudou de comportamento. Se ela afrouxou, o trailer volta a entrar no historico -- e de la nao sai.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 2 * MINUTO,
+  },
+  {
     nome: 'syntax',
     funcao: checarSintaxe,
     dica: 'Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`.',

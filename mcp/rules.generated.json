@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "4f84dbaf1273d8afbed564beb740eecefc9977dd57fd4dcbc664ad8f037e8c5d",
+      "sha256": "33450af5d8ed1ff18ffaed2f1e8d35244d36502e3fc701766574a129e1bf0e08",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -1134,20 +1134,31 @@
       },
       {
         "ordem": 3,
+        "nome": "commit-msg",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "tooling/hooks/prove-message.mjs"
+        ],
+        "dica": "A porta N5 da coautoria mudou de comportamento. Se ela afrouxou, o trailer volta a entrar no historico -- e de la nao sai."
+      },
+      {
+        "ordem": 4,
         "nome": "syntax",
         "tipo": "funcao",
         "comando": null,
         "dica": "Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`."
       },
       {
-        "ordem": 4,
+        "ordem": 5,
         "nome": "blocks",
         "tipo": "funcao",
         "comando": null,
         "dica": "Os .ts/.tsx de new/site/blocks/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles."
       },
       {
-        "ordem": 5,
+        "ordem": 6,
         "nome": "mcp-server",
         "tipo": "comando",
         "comando": [
@@ -1157,7 +1168,7 @@
         "dica": "O servidor MCP nao respondeu ao protocolo. Se a queixa for de dependencia ausente: cd mcp && npm ci."
       },
       {
-        "ordem": 6,
+        "ordem": 7,
         "nome": "mcp",
         "tipo": "comando",
         "comando": [
@@ -1168,7 +1179,7 @@
         "dica": "Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/generate.mjs` e commite o mcp/rules.generated.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje."
       },
       {
-        "ordem": 7,
+        "ordem": 8,
         "nome": "numbers",
         "tipo": "comando",
         "comando": [
@@ -1179,7 +1190,7 @@
         "dica": "Um número do README ou do ESTADO não é mais o que a fonte diz — regenere com `node tooling/numbers.mjs` e commite o documento JUNTO com a mudança que o desatualizou. Se a queixa for de marcador malformado, o conserto é no documento: o medidor não inventa marcação."
       },
       {
-        "ordem": 8,
+        "ordem": 9,
         "nome": "format",
         "tipo": "comando",
         "comando": [
@@ -1191,7 +1202,7 @@
         "dica": "Formatação não se discute, se roda: `npm run format`. Se o prettier não estiver aí, `npm ci`."
       },
       {
-        "ordem": 9,
+        "ordem": 10,
         "nome": "links",
         "tipo": "comando",
         "comando": [
@@ -1201,7 +1212,7 @@
         "dica": "Link quebrado na documentação: a IA segue a referência, não acha, e reescreve do zero."
       },
       {
-        "ordem": 10,
+        "ordem": 11,
         "nome": "secret",
         "tipo": "comando",
         "comando": [
@@ -1211,7 +1222,7 @@
         "dica": "Segredo não se corrige com commit novo — precisa rotacionar a credencial."
       },
       {
-        "ordem": 11,
+        "ordem": 12,
         "nome": "secret-proofs",
         "tipo": "comando",
         "comando": [
@@ -1222,7 +1233,7 @@
         "dica": "O varredor de segredo parou de achar o que achava. Se a queixa for de codificacao, e o `decodificar()` -- o BOM de UTF-16 volta a virar NUL e o token sai um caractere por linha."
       },
       {
-        "ordem": 12,
+        "ordem": 13,
         "nome": "steps",
         "tipo": "comando",
         "comando": [
@@ -1233,7 +1244,7 @@
         "dica": "Um passo do verificar parou de pegar o que devia. O portao nao se prova sozinho — esta suite e quem o prova."
       },
       {
-        "ordem": 13,
+        "ordem": 14,
         "nome": "strip",
         "tipo": "comando",
         "comando": [
@@ -1244,7 +1255,7 @@
         "dica": "O removedor de comentario mudou de comportamento. Se ele passou a APAGAR mais, seis regras ficaram cegas e nao vao reclamar -- falso negativo nao aparece. Se passou a apagar menos, aparece como falso positivo nas regras."
       },
       {
-        "ordem": 14,
+        "ordem": 15,
         "nome": "proofs",
         "tipo": "comando",
         "comando": [
@@ -1254,7 +1265,7 @@
         "dica": "Uma regra do rebar-check parou de reprovar o que devia, ou passou a reprovar o que é correto."
       },
       {
-        "ordem": 15,
+        "ordem": 16,
         "nome": "generator-map",
         "tipo": "comando",
         "comando": [
@@ -1265,7 +1276,7 @@
         "dica": "O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto."
       },
       {
-        "ordem": 16,
+        "ordem": 17,
         "nome": "mcp-template",
         "tipo": "comando",
         "comando": [
@@ -1276,7 +1287,7 @@
         "dica": "O MCP que o gerador escreve parou de responder, ou passou a mentir sobre o estado do portao. Rode `node new/gate/prove-mcp-template.mjs` sem --curto para ver a troca JSON-RPC inteira."
       },
       {
-        "ordem": 17,
+        "ordem": 18,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -1288,7 +1299,7 @@
         "dica": "Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais."
       },
       {
-        "ordem": 18,
+        "ordem": 19,
         "nome": "self",
         "tipo": "comando",
         "comando": [

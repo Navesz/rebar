@@ -432,20 +432,20 @@ mesmo exit 0, então nenhum ramo "não se aplica" podia ser travado. É por isso
 casos com sufixo `__nao-se-aplica`. O mesmo comentário registra que `quebrou` nunca pode
 ser esperado — crash é defeito do instrumento, não resultado dele.
 
-### 4.4 PROVADO · `verificar` — <!--n verify.passos-->18<!--/n--> passos
+### 4.4 PROVADO · `verificar` — <!--n verify.passos-->19<!--/n--> passos
 
 _Remedido em 02/09/2026. Este arquivo dizia "8 de 8" e o README dizia "os 8 passos"; eram
-12 quando a contagem foi refeita, e são <!--n verify.passos-->18<!--/n--> agora. A
+12 quando a contagem foi refeita, e são <!--n verify.passos-->19<!--/n--> agora. A
 contagem passou a ser derivada do `default export` de `verify.config.mjs`._
 
 Na ordem em que rodam:
-<!--n verify.lista-passos-->`hygiene` · `hooks` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `mcp-template` · `security` · `self`<!--/n-->
+<!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `mcp-template` · `security` · `self`<!--/n-->
 
 ```bash
 npm run verify
 ```
 
-Em 02/09/2026: **APROVADO <!--n verify.passos-->18<!--/n--> de <!--n verify.passos-->18<!--/n--> passos · 22,3 s · exit 0.** A duração varia de máquina
+Em 02/09/2026: **APROVADO <!--n verify.passos-->19<!--/n--> de <!--n verify.passos-->19<!--/n--> passos · 22,3 s · exit 0.** A duração varia de máquina
 e de cache — em 31/08/2026, com 50 casos de prova e 8 passos, duas execuções deram **13,5
 s** e **15,7 s**, contra **51,9 s com 47 casos** em 30/08. A causa provável é a
 paralelização das fixtures no passo `provas`, mas **o passo isolado nunca foi
@@ -456,11 +456,11 @@ com a data — ver §0.
 
 | Passo | Posição | O que ele barra |
 | --- | --- | --- |
-| `blocos` | <!--n verify.posicao.blocks-->4 de 18<!--/n--> | sintaxe e `modelo.json` dos arquivos que o gerador copia para dentro de todo projeto criado — defeito aqui nasce replicado em todos eles |
-| `mcp-servidor` | <!--n verify.posicao.mcp-server-->5 de 18<!--/n--> | o servidor MCP **sobe e responde ao protocolo**. Sem `mcp/node_modules` o passo QUEBRA (127), não reprova: ferramental faltando não é o repositório errando |
-| `mcp` | <!--n verify.posicao.mcp-->6 de 18<!--/n--> | o artefato do MCP divergir da fonte — §4.12 |
-| `numeros` | <!--n verify.posicao.numbers-->7 de 18<!--/n--> | um número deste arquivo ou do README divergir da fonte — §0 |
-| `passos` | <!--n verify.posicao.steps-->12 de 18<!--/n--> | os passos que são **função** do portão, provados por mutação. `checarBlocos` entrou com 410 linhas e zero teste, e trocar o corpo por `return { codigo: 0 }` mantinha o `verificar` APROVADO |
+| `blocos` | <!--n verify.posicao.blocks-->5 de 19<!--/n--> | sintaxe e `modelo.json` dos arquivos que o gerador copia para dentro de todo projeto criado — defeito aqui nasce replicado em todos eles |
+| `mcp-servidor` | <!--n verify.posicao.mcp-server-->6 de 19<!--/n--> | o servidor MCP **sobe e responde ao protocolo**. Sem `mcp/node_modules` o passo QUEBRA (127), não reprova: ferramental faltando não é o repositório errando |
+| `mcp` | <!--n verify.posicao.mcp-->7 de 19<!--/n--> | o artefato do MCP divergir da fonte — §4.12 |
+| `numeros` | <!--n verify.posicao.numbers-->8 de 19<!--/n--> | um número deste arquivo ou do README divergir da fonte — §0 |
+| `passos` | <!--n verify.posicao.steps-->13 de 19<!--/n--> | os passos que são **função** do portão, provados por mutação. `checarBlocos` entrou com 410 linhas e zero teste, e trocar o corpo por `return { codigo: 0 }` mantinha o `verificar` APROVADO |
 
 Os dois primeiros passos conferem o **portão**, não o conteúdo: `higiene` (árvore limpa,
 índice sem `skip-worktree`, hash dos arquivos do portão contra o HEAD) e `hooks`
@@ -856,7 +856,7 @@ fonte, nunca cópia dela.
 | ------------------------- | ----------------------------------------------------------------------- |
 | `tooling/rebar-check/index.mjs` | **A fonte.** <!--n lines.rebar-check-->2.641<!--/n--> linhas, <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/generate.mjs`           | **O gerador.** <!--n lines.mcp-gerador-->960<!--/n--> linhas, **zero dependência** |
-| `mcp/rules.generated.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->94 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->18<!--/n--> passos · <!--n mcp.artefato.provas-->59<!--/n--> provas |
+| `mcp/rules.generated.json`  | **O artefato.** <!--n mcp.artefato.tamanho-->94 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->19<!--/n--> passos · <!--n mcp.artefato.provas-->59<!--/n--> provas |
 | `mcp/src/`                | **O servidor.** <!--n lines.mcp-servidor-->1.084<!--/n--> linhas, <!--n mcp.ferramentas-->5<!--/n--> ferramentas. Lê o artefato, nunca a fonte |
 
 Os cinco números do artefato são conferidos por **dois** portões independentes: o passo
@@ -884,7 +884,7 @@ verdade — o título de `readme`, linha 1404 do `index.mjs` — e o portão acu
     + regras.readme.titulo = tem README na raiz do repositorio   (fonte, hoje)
 ```
 
-`node mcp/generate.mjs` — **um comando** — e o `verificar` volta a APROVAR os <!--n verify.passos-->18<!--/n--> passos.
+`node mcp/generate.mjs` — **um comando** — e o `verificar` volta a APROVAR os <!--n verify.passos-->19<!--/n--> passos.
 
 **Zero dependência, conferido no pior caso.** O portão de frescor roda no `verificar` da
 raiz e não pode exigir `mcp/node_modules`. Provado num clone em `tmpdir` com a pasta
@@ -894,7 +894,7 @@ traz `mcp/node_modules`: o `node_modules/` do `.gitignore` já o cobre em qualqu
 
 **Custo medido do passo:** 175–213 ms em 5 rodadas (mediana 206 ms) em 01/09/2026, contra
 1,0 s do prettier e os segundos de `provas` e `auto` — cronometragem é medição de máquina e
-fica à mão, com a data (§0). Ele é o <!--n verify.posicao.mcp-->6 de 18<!--/n--> da
+fica à mão, com a data (§0). Ele é o <!--n verify.posicao.mcp-->7 de 19<!--/n--> da
 lista, depois de `sintaxe` — com o arquivo sem compilar, "o artefato divergiu" seria
 acusação falsa.
 
@@ -968,7 +968,7 @@ conveniência e ficam à mão, com esta data (§0).
 
 | Item da §8.1                                          | Estado real                                                                  |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `verificar/verificar.mjs`                             | **PRESENTE.** 34.566 bytes, rastreado. Reescrito, não portado. Hoje com <!--n verify.passos-->18<!--/n--> passos |
+| `verificar/verificar.mjs`                             | **PRESENTE.** 34.566 bytes, rastreado. Reescrito, não portado. Hoje com <!--n verify.passos-->19<!--/n--> passos |
 | `segredo/varrer-segredo.mjs`                          | **PRESENTE.** 35.855 bytes, rastreado (eram 34.483 em 30/08). Roda no `verificar` e no `pre-commit` |
 | `elos/verificar-elos.mjs`                             | **PRESENTE.** 2.191 bytes, rastreado. Execução limpa                           |
 | `hooks/`                                              | **PRESENTE, e instalado.** 4 arquivos rastreados, `core.hooksPath` ativo       |
@@ -1029,7 +1029,7 @@ Os comandos abaixo refletem os caminhos atuais; as medições originais são de 
 imprimem não ficam nos comentários da cerca**, e a razão é concreta: o GitHub mostra a
 cerca literalmente, então um `# 50 casos` copiado junto com o comando entrega à pessoa um
 número que já não é o que ela vai ver na tela. Cerca mostra comando; o número vai na prosa
-ao lado, onde o passo `numeros` alcança. Hoje: <!--n verify.passos-->18<!--/n--> passos
+ao lado, onde o passo `numeros` alcança. Hoje: <!--n verify.passos-->19<!--/n--> passos
 no `verificar`, <!--n proofs.casos-->55<!--/n--> casos no `provar`, <!--n domain.privilegio.testes-->16<!--/n--> asserções no domínio de privilégio, e 56
 arquivos varridos pelo `elos` (este último medido à mão, §0).
 
@@ -1334,7 +1334,7 @@ _Reescrito em 02/09/2026. A lista anterior tinha o push e o ruleset como item 1;
 foram feitos, e mantê-los aqui seria o mesmo defeito de número velho, um andar acima._
 
 Onde o repositório está, em 02/09/2026: o rebar passa na própria régua com **13 de 13 · 4
-n/a** (§4.2), o `verificar` fecha <!--n verify.passos-->18<!--/n--> de <!--n verify.passos-->18<!--/n--> passos, as provas são <!--n proofs.casos-->55<!--/n--> casos cobrindo <!--n proofs.cobertura-->23 de 23<!--/n--> regras, os hooks estão instalados, doze ataques
+n/a** (§4.2), o `verificar` fecha <!--n verify.passos-->19<!--/n--> de <!--n verify.passos-->19<!--/n--> passos, as provas são <!--n proofs.casos-->55<!--/n--> casos cobrindo <!--n proofs.cobertura-->23 de 23<!--/n--> regras, os hooks estão instalados, doze ataques
 estão fechados, e o repositório está empurrado, com CI verde nos dois sistemas e ruleset
 sem `bypass_actors` (§9, D+30).
 

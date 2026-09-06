@@ -869,6 +869,7 @@ describe('o passo `sintaxe`', { concurrency: 5 }, () => {
 const PASSOS_ESPERADOS = [
   'hygiene',
   'hooks',
+  'commit-msg',
   'syntax',
   'blocks',
   'mcp-server',
