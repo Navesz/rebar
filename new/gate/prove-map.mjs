@@ -99,3 +99,69 @@ describe('o mapa de arquivos do gerador', { concurrency: 4 }, () => {
     )
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O PROJETO GERADO TEM DE TER COMO PUBLICAR — e não por fora do portão
+//
+// P2 #9. O gerador entrega um Next configurado para export estático
+// (`output: "export"`, `trailingSlash`, `images.unoptimized`) e um `.pages.yml`
+// para o Pages CMS: tudo apontando para GitHub Pages, e nenhum job que
+// publicasse. O projeto nascia com tudo para publicar e nada que publique.
+//
+// Foi medido no `rebar-site`, que este gerador gerou: publicar exigiu escrever
+// o job à mão lá dentro, e a solução ficou no projeto em vez de voltar ao
+// molde. "Derivado, nunca duplicado" existe exatamente para isso.
+//
+// A segunda asserção é a que importa mais que a primeira. Ter deploy não vale
+// nada se ele puder rodar com o portão vermelho: um job de publicação sem
+// `needs` é um caminho paralelo ao portão, e o portão vira relatório.
+describe('publicação', () => {
+  const yml = readFileSync(join(MOLDES, 'verificar.yml'), 'utf8')
+
+  /** Os jobs do workflow, com o corpo de cada um. Indentação de dois espaços. */
+  const jobs = () => {
+    const corpo = yml.slice(yml.indexOf('\njobs:') + 1)
+    const achados = []
+    const re = /^ {2}([a-z][a-z0-9-]*):$/gm
+    const marcas = [...corpo.matchAll(re)]
+    marcas.forEach((m, i) => {
+      const fim = i + 1 < marcas.length ? marcas[i + 1].index : corpo.length
+      achados.push({ nome: m[1], corpo: corpo.slice(m.index, fim) })
+    })
+    return achados
+  }
+
+  test('o workflow emitido tem um job que publica', () => {
+    const publica = jobs().filter((j) => /actions\/deploy-pages/.test(j.corpo))
+    assert.equal(
+      publica.length,
+      1,
+      'o preset `site` nasce pronto para GitHub Pages e sem nada que o publique — ' +
+        'foi assim que o rebar-site precisou do job escrito à mão em vez de gerado',
+    )
+  })
+
+  test('E ELE NÃO CORRE POR FORA DO PORTÃO · todo deploy depende de `verificar`', () => {
+    for (const j of jobs().filter((x) =>
+      /actions\/deploy-pages|upload-pages-artifact/.test(x.corpo),
+    )) {
+      assert.match(
+        j.corpo,
+        /^\s+needs: verificar$/m,
+        `o job "${j.nome}" publica sem depender do portão — deploy paralelo sobe a página com o ` +
+          `lint quebrado, e aí o portão é relatório, não porta`,
+      )
+    }
+  })
+
+  test('a permissão de escrever no Pages fica SÓ no job que publica', () => {
+    // `permissions: pages: write` no topo daria a chave a todo job do arquivo,
+    // inclusive ao que roda código de PR de terceiro.
+    const topo = yml.slice(0, yml.indexOf('\njobs:'))
+    assert.doesNotMatch(
+      topo,
+      /pages:\s*write/,
+      'a permissão de Pages vazou para o escopo do arquivo',
+    )
+  })
+})
