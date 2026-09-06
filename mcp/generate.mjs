@@ -670,7 +670,7 @@ async function montar() {
       )
       regras.push({
         id: regra.id,
-        // Qual binário roda esta regra. Sem o campo, a IA lê "env-versionado"
+        // Qual binário roda esta regra. Sem o campo, a IA lê "env-committed"
         // no artefato e chama `npx rebar`, que não a conhece.
         modulo: m.modulo,
         titulo: regra.titulo,

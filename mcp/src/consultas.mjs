@@ -75,7 +75,7 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
     // Qual binário roda a regra, e só quando NÃO é o padrão.
     //
     // Sem esta marca a lista mistura os dois módulos e quem lê tenta
-    // `npx rebar --rule=env-versionado`, que não conhece a regra e sai com
+    // `npx rebar --rule=env-committed`, que não conhece a regra e sai com
     // código 2. Marcar as 23 do rebar-check tambem encheria a coluna de ruído
     // para dizer "o de sempre"; marcar só a exceção é o que se lê rápido.
     const onde = r.modulo && r.modulo !== 'rebar-check' ? '  ⟨seg⟩' : ''

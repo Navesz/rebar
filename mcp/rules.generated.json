@@ -10,7 +10,7 @@
     },
     {
       "arquivo": "tooling/security/index.mjs",
-      "sha256": "57561550a0cedb97b84b599aedbb3618663e17d2ff94dd2ba8f48aeecffa67c9",
+      "sha256": "a3a3a6f5f26f929e972c8485b9203a2a1f17159a796f1dcfd07135b6fe26d227",
       "daqui": "as regras de segurança e o porque de cada uma"
     },
     {
@@ -25,7 +25,7 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "8b315b0e0d9a3603e2bcc27f4a027cb811b34164cddf2d58d830f508e3ec4afd",
+      "sha256": "ab5d1657d71960157d1a265e9005152ea180fcf3421b23a74e07e6437ae02dad",
       "daqui": "o porque de cada um dos 61 casos de prova"
     },
     {
@@ -88,8 +88,8 @@
         "shadcn-complete",
         "raw-hex",
         "single-language",
-        "defesa-desligada",
-        "senha-sem-kdf"
+        "disabled-defense",
+        "password-without-kdf"
       ]
     },
     {
@@ -148,7 +148,7 @@
         "hooks-executable",
         "gate-with-placeholder",
         "ai-coauthorship",
-        "env-versionado"
+        "env-committed"
       ]
     },
     {
@@ -1064,7 +1064,7 @@
       ]
     },
     {
-      "id": "env-versionado",
+      "id": "env-committed",
       "modulo": "rebar-security",
       "titulo": "nenhum .env rastreado pelo git",
       "classe": "determinística",
@@ -1082,7 +1082,7 @@
       ],
       "provas": [
         {
-          "caso": "env-versionado",
+          "caso": "env-committed",
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "Segredo versionado e a classe mais comum do inventario: 7 dos 16 videos. Esta e a fatia mais barata dela, um `git ls-files`. O lado fail tem um `.env` rastreado; o lado pass tem `.env.example` E `.env.sample` rastreados, que sao o CONSERTO da falha e nao a falha -- documentar as variaveis sem os valores e exatamente o que se pede. Quem tirar a exclusao de exemplo faz o lado pass ficar vermelho; quem trocar a checagem por \"existe .env no disco\" faz o lado fail ficar verde, porque `.env` ignorado pelo git nao e achado nenhum."
@@ -1090,7 +1090,7 @@
       ]
     },
     {
-      "id": "defesa-desligada",
+      "id": "disabled-defense",
       "modulo": "rebar-security",
       "titulo": "nenhuma proteção de framework desligada por literal",
       "classe": "determinística",
@@ -1113,13 +1113,13 @@
       ],
       "provas": [
         {
-          "caso": "defesa-desligada",
+          "caso": "disabled-defense",
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "A lacuna mais barata que a auditoria do inventario achou, e ela nao veio de video nenhum: e o padrao mais deterministico que existe em repositorio feito com IA. Cada literal e uma decisao humana registrada em uma linha -- alguem desligou a protecao para o demo parar de dar erro e nunca religou. O lado pass carrega o falso positivo que derruba detector ingenuo: o MESMO literal escrito dentro de comentario, documentando por que NAO se deve usar. Sem `semComentarioNemImport` o lado pass fica vermelho, e o proprio arquivo de regras deste modulo se acusaria."
         },
         {
-          "caso": "defesa-desligada__hidden-by-string",
+          "caso": "disabled-defense__hidden-by-string",
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "P2 #4 da auditoria externa, e o unico caso deste modulo que nao e sobre a regra: e sobre o que a regra CONSEGUE VER. `semComentarioNemImport` era duas substituicoes de regex sem nocao de string, entao uma abertura de bloco DENTRO DE UMA STRING abria um comentario que so fechava no proximo fecha-bloco do arquivo -- e apagava tudo no meio. Medido nos 139 arquivos de codigo do rebar: 9 tinham codigo fora do exame, o pior com 1.181 tokens. Aqui o lado fail tem `rejectUnauthorized: false` entre uma string com abertura de bloco e o JSDoc que a fecha; com o removedor antigo esse lado fica VERDE, que e falso negativo, o pior desfecho de uma regua. O lado pass tem a MESMA string e o MESMO JSDoc, e nenhuma defesa desligada: e ele que garante que o conserto nao virou acusacao de string com barra e asterisco dentro."
@@ -1127,7 +1127,7 @@
       ]
     },
     {
-      "id": "senha-sem-kdf",
+      "id": "password-without-kdf",
       "modulo": "rebar-security",
       "titulo": "senha nunca comparada em texto puro nem por hash rápido",
       "classe": "determinística",
@@ -1150,7 +1150,7 @@
       ],
       "provas": [
         {
-          "caso": "senha-sem-kdf",
+          "caso": "password-without-kdf",
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "Terceira classe mais comum, 4 dos 16 videos, e escolhida antes do mass assignment (que aparece em 5) por custo: mass assignment so decide a severidade lendo a coluna privilegiada do schema, e isso exige parser. Esta aqui e textual inteira. O lado fail compara com `===`, o que prova que nao houve KDF -- bcrypt e argon2 devolvem hash com sal e exigem `compare`. O lado pass carrega o falso positivo que importa: PRE-HASH LEGITIMO. bcrypt trunca em 72 bytes calado, e a defesa recomendada e passar um sha256 da senha para ele. Quem faz isso esta CERTO, e acusa-lo seria punir quem conhece o problema -- por isso o sinal de hash rapido so vale onde nao ha primitiva lenta no mesmo arquivo. O vocabulario e bilingue nos dois lados: as duas arvores usam `senha`, nao `password`, porque este modulo audita repositorio brasileiro."

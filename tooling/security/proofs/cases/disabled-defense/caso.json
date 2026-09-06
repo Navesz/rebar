@@ -1,4 +1,4 @@
 {
-  "rule": "defesa-desligada",
+  "rule": "disabled-defense",
   "why": "A lacuna mais barata que a auditoria do inventario achou, e ela nao veio de video nenhum: e o padrao mais deterministico que existe em repositorio feito com IA. Cada literal e uma decisao humana registrada em uma linha -- alguem desligou a protecao para o demo parar de dar erro e nunca religou. O lado pass carrega o falso positivo que derruba detector ingenuo: o MESMO literal escrito dentro de comentario, documentando por que NAO se deve usar. Sem `semComentarioNemImport` o lado pass fica vermelho, e o proprio arquivo de regras deste modulo se acusaria."
 }
