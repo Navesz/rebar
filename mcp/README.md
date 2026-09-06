@@ -10,7 +10,7 @@ O defeito que ele existe para não repetir, nas palavras do dono: *"No Herz e no
 | --- | --- |
 | `tooling/rebar-check/index.mjs` | **A fonte.** <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/generate.mjs` | **O gerador.** Deriva o artefato da fonte |
-| `mcp/rules.generated.json` | **O artefato.** <!--n mcp.artefato.tamanho-->94 KB<!--/n-->. Não se edita à mão |
+| `mcp/rules.generated.json` | **O artefato.** <!--n mcp.artefato.tamanho-->95 KB<!--/n-->. Não se edita à mão |
 | `mcp/src/` | **O servidor.** Lê o artefato. Nunca lê o `index.mjs` |
 
 O que fecha o ciclo é o passo `mcp` do portão:

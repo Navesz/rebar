@@ -217,7 +217,99 @@ const PASTA_TESTE = new Set([
 ])
 const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar)[-.]|^test_/i
 
+/**
+ * O que NÃO PODE ser teste, por extensão.
+ *
+ * É uma NEGATIVA, e a escolha importa. A tentação é listar as extensões que
+ * VALEM como teste — `.mjs .ts .py .go` — e essa lista reprovaria `.dart`,
+ * `.R`, `.jl`, `.hs` e `.bats`: linguagens cujo arquivo de teste tem nome de
+ * teste e extensão que ninguém lembra de acrescentar. Falso positivo em regra
+ * automática custa mais que regra ausente, e aqui o falso positivo seria dizer
+ * "zero arquivo de teste" para quem escreveu testes.
+ *
+ * Então a lista é do que é prosa, planilha, imagem, mídia ou pacote. Extensão
+ * desconhecida continua contando como teste, que é o lado seguro desta escolha.
+ */
+const EXTENSAO_DE_DOCUMENTO = new Set([
+  // prosa
+  'md',
+  'markdown',
+  'mdx',
+  'txt',
+  'rst',
+  'adoc',
+  'asciidoc',
+  'org',
+  'tex',
+  'pdf',
+  'doc',
+  'docx',
+  'odt',
+  'rtf',
+  'epub',
+  // planilha e apresentação
+  'xls',
+  'xlsx',
+  'ods',
+  'ppt',
+  'pptx',
+  'odp',
+  // imagem, mídia, fonte
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'avif',
+  'bmp',
+  'ico',
+  'svg',
+  'mp3',
+  'wav',
+  'ogg',
+  'mp4',
+  'mov',
+  'webm',
+  'woff',
+  'woff2',
+  'ttf',
+  'otf',
+  'eot',
+  // pacote e registro
+  'zip',
+  'tar',
+  'gz',
+  'tgz',
+  'bz2',
+  'xz',
+  '7z',
+  'rar',
+  'log',
+])
+
+/**
+ * Documento é documento mesmo com nome de teste.
+ *
+ * Sem isto, `provas/PLANO.md` satisfazia a regra `tests` — a pasta está em
+ * `PASTA_TESTE` —, e `docs/PLANO.teste.md` também, por `NOME_TESTE`. Um
+ * repositório com zero teste e um documento de planejamento saía APROVADO, que
+ * é a direção errada de errar.
+ *
+ * O caso `tests__python-name` já tinha registrado que `TESTE-1-cabo-KKL.md` não
+ * conta, mas atribuiu isso ao separador `-` em vez da extensão: bastava
+ * renomear para `TESTE.1.cabo.md` e o buraco voltava.
+ */
+function ehDocumento(rel) {
+  const nome = rel.split('/').pop() ?? ''
+  const ponto = nome.lastIndexOf('.')
+  // Sem extensão não é documento: hook e script de shell moram assim, e um
+  // `tests/rodar` é teste.
+  if (ponto <= 0) return false
+  return EXTENSAO_DE_DOCUMENTO.has(nome.slice(ponto + 1).toLowerCase())
+}
+
 function ehTeste(rel) {
+  if (ehDocumento(rel)) return false
   const partes = rel.split('/')
   if (partes.slice(0, -1).some((p) => PASTA_TESTE.has(p.toLowerCase()))) return true
   return NOME_TESTE.test(partes[partes.length - 1])
