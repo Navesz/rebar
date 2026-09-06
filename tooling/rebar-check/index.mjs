@@ -248,7 +248,21 @@ const ehCodigoAvaliavel = (a) => CODIGO.test(a) && !IGNORAR.test(a)
  * outro. Reconhecer o caminho por forma devolveria o bypass genérico com um
  * `mkdir -p` a mais.
  */
-const CASOS_PROVAS = 'tooling/rebar-check/proofs/cases/'
+const RAIZES_DE_PROVA = [
+  'tooling/rebar-check/proofs/cases/',
+  // O modulo de seguranca tem provas proprias, e sem esta linha as arvores
+  // dele entravam na avaliacao do rebar: o aviso "3 caso.json IGNORADO(S)"
+  // saiu no primeiro commit do modulo. Passavam por sorte -- as fixtures sao
+  // pequenas hoje --, e e exatamente a falha que quebrou nove regras durante a
+  // traducao deste repositorio, quando os 53 marcadores deixaram de ser
+  // reconhecidos e o rebar acusou o proprio material de teste.
+  //
+  // LISTA, e nao "qualquer pasta terminada em proofs/cases/": reconhecer por
+  // forma devolveria o bypass generico com um `mkdir -p` a mais, que e o
+  // motivo de o prefixo ser literal desde o comeco. Raiz nova entra aqui, a
+  // mao, e quem acrescentar uma escreve por que.
+  'tooling/security/proofs/cases/',
+]
 
 /**
  * MODELO NÃO É PRODUTO — é a mesma lição do `caso.json`, um andar acima, e ela
@@ -310,7 +324,7 @@ function marcadorInvalido(dir, rel, campos = ['rule', 'why']) {
  *
  * Duas portas de saída, as duas VISÍVEIS na saída, e as duas com fechadura:
  *
- *   caso.json     marca a raiz de um caso de prova. Só vale sob CASOS_PROVAS e
+ *   caso.json     marca a raiz de um caso de prova. Só vale sob RAIZES_DE_PROVA e
  *                 só com o schema mínimo — ver a nota lá em cima, que registra
  *                 o ataque de três bytes que a versão anterior aceitava.
  *                 Marcador recusado vira AVISO, nomeando o arquivo.
@@ -353,10 +367,13 @@ function semFixtures(dir, todos) {
       marcadoresRecusados.push(`${a} — na raiz do repositório, esconderia o repositório inteiro`)
       continue
     }
-    // `prefixo === CASOS_PROVAS` é a mesma armadilha um nível abaixo: um
+    // `prefixo === <raiz>` é a mesma armadilha um nível abaixo: um
     // marcador posto na pasta que CONTÉM os casos apagaria todos de uma vez.
-    if (!prefixo.startsWith(CASOS_PROVAS) || prefixo === CASOS_PROVAS) {
-      marcadoresRecusados.push(`${a} — fora de ${CASOS_PROVAS}<caso>/`)
+    const sobRaiz = RAIZES_DE_PROVA.some((raiz) => prefixo.startsWith(raiz) && prefixo !== raiz)
+    if (!sobRaiz) {
+      marcadoresRecusados.push(
+        `${a} — fora de ${RAIZES_DE_PROVA.map((r) => `${r}<caso>/`).join(' e ')}`,
+      )
       continue
     }
     const invalido = marcadorInvalido(dir, a)
@@ -2168,14 +2185,23 @@ function imprimir(a) {
     console.log(`  ${c.amarelo(`⚠ ${ig.rebarignore} arquivo(s) escondidos por .rebarignore`)}`)
   }
   if (ig?.provas) {
-    // Prefixo comum fatorado: todas as raízes aceitas moram sob CASOS_PROVAS
-    // por construção, e repetir 40 caracteres por linha esconderia a lista
-    // dentro do próprio comprimento dela.
-    const nomes = (ig.raizesDeProva || []).map((p) => p.slice(CASOS_PROVAS.length, -1))
+    // Agrupado POR RAIZ. Enquanto havia uma só, o prefixo saía fatorado para
+    // não repetir 40 caracteres por linha e esconder a lista dentro do próprio
+    // comprimento dela. Com duas raízes, fatorar um prefixo comum que não
+    // existe mais imprimiria caso do módulo de segurança como se morasse sob o
+    // rebar-check — cada raiz sai com os seus.
+    // Agrupado POR RAIZ desde que existe mais de uma: fatorar um prefixo comum
+    // que nao existe mais imprimiria nome de caso do modulo de seguranca como
+    // se morasse sob o rebar-check.
+    const porRaiz = RAIZES_DE_PROVA.map((raiz) => {
+      const nomes = (ig.raizesDeProva || [])
+        .filter((p) => p.startsWith(raiz))
+        .map((p) => p.slice(raiz.length, -1))
+      return nomes.length ? `${raiz}{${nomes.join(', ')}}` : null
+    }).filter(Boolean)
     console.log(
       c.fraco(
-        `  ${ig.provas} arquivo(s) de caso de prova, fora da avaliação` +
-          `  ·  ${CASOS_PROVAS}{${nomes.join(', ')}}`,
+        `  ${ig.provas} arquivo(s) de caso de prova, fora da avaliação  ·  ${porRaiz.join('  ·  ')}`,
       ),
     )
   }
