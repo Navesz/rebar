@@ -223,7 +223,7 @@ servidor.registerTool(
 
     const alvo = caminho?.trim() ? caminho.trim() : RAIZ
     const args = [CHECKER, '--json']
-    if (regra) args.push(`--regra=${regra}`)
+    if (regra) args.push(`--rule=${regra}`)
     args.push(alvo)
 
     let saida
@@ -293,7 +293,7 @@ servidor.registerTool(
 
     return [
       `exit=${codigo} — ${significado}`,
-      `comando: node tooling/rebar-check/index.mjs --json${regra ? ` --regra=${regra}` : ''} ${exibirCaminho(alvo)}`,
+      `comando: node tooling/rebar-check/index.mjs --json${regra ? ` --rule=${regra}` : ''} ${exibirCaminho(alvo)}`,
       '',
       blocos.join('\n\n'),
       '',

@@ -80,7 +80,7 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
     `${regras.length} regra(s) — ${det} determinística(s) reprovam, ${regras.length - det} heurística(s) só avisam.`,
     ...saida,
     '',
-    'det = reprova o commit e o CI. heu = aparece no placar, não barra (só com --heuristicas).',
+    'det = reprova o commit e o CI. heu = aparece no placar, não barra (só com --heuristics).',
     'Para a razão medida de uma delas e as provas que a travam: rebar_porque { id }.',
   ].join('\n')
 }
@@ -167,7 +167,7 @@ function formatarRegra(r, artefato) {
     linhas.push('', 'O artefato não trouxe razão escrita para esta regra. Leia a fonte acima.')
   }
 
-  linhas.push('', `Para conferir: node tooling/rebar-check/index.mjs --regra=${r.id} .`)
+  linhas.push('', `Para conferir: node tooling/rebar-check/index.mjs --rule=${r.id} .`)
   return linhas.join('\n')
 }
 

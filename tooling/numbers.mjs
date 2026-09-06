@@ -277,8 +277,8 @@ function grupoProvas(totalDeRegras) {
     }
     // Casa pelo campo `regra` DE DENTRO do caso, e não pelo nome da pasta: o
     // nome é convenção, o campo é declaração. Mesma escolha do mcp/generate.mjs.
-    exigir(caso.regra, `${rel}: sem campo "regra"`)
-    regras.add(caso.regra)
+    exigir(caso.rule, `${rel}: sem campo "rule"`)
+    regras.add(caso.rule)
   }
   exigir(pastas.length, `${base}/: nenhum caso de prova nesta árvore`)
 
@@ -358,7 +358,7 @@ function grupoMcp() {
   return {
     'mcp.artefato.regras': `${a.regras.length}`,
     'mcp.artefato.niveis': `${a.niveis?.length ?? 0}`,
-    'mcp.artefato.passos': `${a.portao?.passos.length ?? 0}`,
+    'mcp.artefato.passos': `${a.gate?.passos.length ?? 0}`,
     'mcp.artefato.provas': `${a.regras.reduce((n, r) => n + (r.provas?.length || 0), 0)}`,
     // KB de documento, base 1000 — é a unidade em que os dois documentos já
     // escrevem "78 KB", e trocar a base agora criaria um diff que não é fato.

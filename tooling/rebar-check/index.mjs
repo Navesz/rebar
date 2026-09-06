@@ -20,8 +20,8 @@
 // Uso:
 //   node index.mjs [caminho...]        placar por repositório
 //   node index.mjs --json [caminho]    saída para CI
-//   node index.mjs --regra=<id> [dir]  uma regra só (é o que as provas usam)
-//   node index.mjs --heuristicas       heurísticas também derrubam o exit code
+//   node index.mjs --rule=<id> [dir]  uma regra só (é o que as provas usam)
+//   node index.mjs --heuristics         heurísticas também derrubam o exit code
 //   node index.mjs novo <nome> [dom]   despacha para o GERADOR, new/index.mjs
 //   node index.mjs --mcp               entrega o stdio ao SERVIDOR MCP, mcp/src/
 //
@@ -30,7 +30,7 @@
 // tem o NOME DO PACOTE — `rebar`, este arquivo — e passa "novo" como primeiro
 // argumento. Sem o despacho, o checker tratava "novo" como caminho a auditar e
 // saía 2 dizendo "caminho não existe". Um `bin` extra não conserta isso: ele só
-// é alcançável por `npx -p github:Navesz/rebar rebar-novo …`, que ninguém
+// é alcançável por `npx -p github:Navesz/rebar rebar-new …`, que ninguém
 // digita. Ele existe assim mesmo, como forma inequívoca — ver o package.json.
 //
 // Para auditar uma pasta que se chame literalmente `novo`, use `./novo`.
@@ -283,13 +283,13 @@ const CASOS_PROVAS = 'tooling/rebar-check/proofs/cases/'
 const RAIZES_DE_MODELO = ['new/gate/arquivos/', 'new/site/blocks/']
 
 /**
- * Schema mínimo do marcador: para o `caso.json`, `regra` e `porque`, os dois
- * campos que o prove.mjs exige de todo caso; para o `modelo.json`, `para` e
- * `porque`. Um marcador sem eles não é marcador, é um arquivo com o nome certo
+ * Schema mínimo do marcador: para o `caso.json`, `rule` e `why`, os dois
+ * campos que o prove.mjs exige de todo caso; para o `modelo.json`, `for` e
+ * `why`. Um marcador sem eles não é marcador, é um arquivo com o nome certo
  * — e esconder árvore era exatamente o que se conseguia com um arquivo com o
  * nome certo.
  */
-function marcadorInvalido(dir, rel, campos = ['regra', 'porque']) {
+function marcadorInvalido(dir, rel, campos = ['rule', 'why']) {
   const lido = lerJsonRastreado(dir, rel)
   if (lido.estado !== 'ok') return lido.erro
   const falta = campos.filter((k) => typeof lido.valor[k] !== 'string' || !lido.valor[k].trim())
@@ -381,7 +381,7 @@ function semFixtures(dir, todos) {
       modelosRecusados.push(`${a} — não é uma das raízes de modelo`)
       continue
     }
-    const invalido = marcadorInvalido(dir, a, ['para', 'porque'])
+    const invalido = marcadorInvalido(dir, a, ['for', 'why'])
     if (invalido) {
       modelosRecusados.push(`${a} — ${invalido}`)
       continue
@@ -1312,7 +1312,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'ci-gateia',
+    id: 'ci-gates',
     classe: 'determinística',
     nivel: 'N4',
     titulo: 'o CI alcança a verificação que o repositório tem',
@@ -1336,7 +1336,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'testes',
+    id: 'tests',
     classe: 'determinística',
     nivel: 'N3',
     titulo: 'tem teste',
@@ -1391,7 +1391,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'licenca',
+    id: 'license',
     classe: 'determinística',
     nivel: 'N7',
     titulo: 'tem LICENSE',
@@ -1442,7 +1442,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'hooks-executaveis',
+    id: 'hooks-executable',
     classe: 'determinística',
     nivel: 'N5',
     titulo: 'hook de git commitado com bit de execução',
@@ -1469,7 +1469,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'portao-com-placeholder',
+    id: 'gate-with-placeholder',
     classe: 'determinística',
     nivel: 'N5',
     titulo: 'o portão não ficou com placeholder de instalação',
@@ -1502,7 +1502,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'coautoria-ia',
+    id: 'ai-coauthorship',
     classe: 'determinística',
     nivel: 'N5',
     titulo: 'coautoria só de humanos da allowlist',
@@ -1570,7 +1570,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'identidade-git',
+    id: 'git-identity',
     classe: 'determinística',
     nivel: 'N4',
     titulo: 'identidade de autor consistente',
@@ -1587,7 +1587,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'ui-falso',
+    id: 'fake-ui',
     classe: 'determinística',
     nivel: 'N1',
     titulo: 'components/ui/ acompanhado de components.json',
@@ -1614,7 +1614,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'schema-orfao',
+    id: 'orphan-schema',
     classe: 'determinística',
     nivel: 'N1',
     titulo: 'nenhum JSON Schema órfão',
@@ -1638,7 +1638,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'conteudo-fora-do-codigo',
+    id: 'content-outside-code',
     // CONTINUA HEURÍSTICA — e agora com o número que RECUSA a promoção, não
     // com uma lista de pendências. Três dos quatro defeitos apontados na
     // auditoria de 31/08 estão consertados e medidos; o quarto não cedeu, e é
@@ -1741,7 +1741,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'telefone',
+    id: 'phone',
     // SOBE DE HEURÍSTICA A DETERMINÍSTICA, e o número que decidiu está aqui.
     //
     // Medido em 2026-08-30 nos 11 repositórios + o rebar: 417 arquivos de
@@ -1799,7 +1799,7 @@ export const REGRAS = [
   // ── heurísticas ─────────────────────────────────────────────────────────
 
   {
-    id: 'shadcn-completo',
+    id: 'shadcn-complete',
     classe: 'heurística',
     nivel: 'N1',
     titulo: 'shadcn com o aparato, não só a pasta',
@@ -1839,7 +1839,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'url-producao',
+    id: 'production-url',
     classe: 'heurística',
     // POR QUE CONTINUA HEURÍSTICA, com o número na mão.
     //
@@ -1918,7 +1918,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'hex-cru',
+    id: 'raw-hex',
     classe: 'heurística',
     nivel: 'N1',
     titulo: 'sem hex duplicando token do CSS',
@@ -1945,7 +1945,7 @@ export const REGRAS = [
   },
 
   {
-    id: 'idioma-unico',
+    id: 'single-language',
     classe: 'heurística',
     nivel: 'N1',
     titulo: 'um idioma só no repositório',
@@ -2306,12 +2306,12 @@ if (EH_PROGRAMA) {
   }
 
   const json = args.includes('--json')
-  const heuristicasBarram = args.includes('--heuristicas')
-  const regraArg = args.find((a) => a.startsWith('--regra='))
-  const filtro = regraArg ? regraArg.slice('--regra='.length) : null
+  const heuristicasBarram = args.includes('--heuristics')
+  const regraArg = args.find((a) => a.startsWith('--rule='))
+  const filtro = regraArg ? regraArg.slice('--rule='.length) : null
 
   const desconhecidas = args.filter(
-    (a) => a.startsWith('--') && !/^--(json|heuristicas|regra=)/.test(a),
+    (a) => a.startsWith('--') && !/^--(json|heuristics|rule=)/.test(a),
   )
   if (desconhecidas.length) {
     console.error(`rebar-check: opção desconhecida: ${desconhecidas.join(', ')}`)

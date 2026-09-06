@@ -8,15 +8,15 @@ O defeito que ele existe para não repetir, nas palavras do dono: *"No Herz e no
 
 | Peça | Papel |
 | --- | --- |
-| `ferramental/rebar-check/index.mjs` | **A fonte.** 22 regras, com o porquê medido de cada uma |
-| `mcp/gerar.mjs` | **O gerador.** Deriva o artefato da fonte |
-| `mcp/regras.gerado.json` | **O artefato.** 79 KB. Não se edita à mão |
+| `tooling/rebar-check/index.mjs` | **A fonte.** <!--n regras.total-->23<!--/n--> regras, com o porquê medido de cada uma |
+| `mcp/generate.mjs` | **O gerador.** Deriva o artefato da fonte |
+| `mcp/regras.gerado.json` | **O artefato.** <!--n mcp.artefato.tamanho-->83 KB<!--/n-->. Não se edita à mão |
 | `mcp/src/` | **O servidor.** Lê o artefato. Nunca lê o `index.mjs` |
 
-O que fecha o ciclo é o passo 5 do portão:
+O que fecha o ciclo é o passo `mcp` do portão:
 
 ```
-npm run verificar   →   passo `mcp`   →   node mcp/gerar.mjs --verificar
+npm run verify   →   passo `mcp`   →   node mcp/generate.mjs --verificar
 ```
 
 Ele regenera o artefato **em memória** e compara com o disco. Divergiu, reprova. É impossível mudar a regra e esquecer o MCP.
@@ -58,7 +58,7 @@ O Claude Code lê **`.mcp.json` na raiz do projeto**. Crie o arquivo com:
 
 Barra normal funciona no Windows e evita ter de escapar `\\` no JSON.
 
-Antes do primeiro uso, uma vez: `cd mcp && npm install`. O pacote `mcp/` tem dependência própria (SDK do MCP e zod) e é **separado da raiz de propósito** — a raiz continua com zero dependência, que é o que faz `npx github:Navesz/rebar` rodar sem instalar nada, e o portão de frescor (`gerar.mjs`) também é zero dependência, porque ele roda no `verificar` e não pode exigir `mcp/node_modules`.
+Antes do primeiro uso, uma vez, a partir da raiz: `npm ci --prefix mcp`. O pacote `mcp/` tem dependência própria (SDK do MCP e zod) e é **separado da raiz de propósito** — a raiz continua com zero dependência, que é o que faz `npx github:Navesz/rebar` rodar sem instalar nada, e o portão de frescor (`generate.mjs`) também é zero dependência, porque ele roda no `verificar` e não pode exigir `mcp/node_modules`.
 
 Depois de editar o `.mcp.json`, reinicie o Claude Code e confira com `/mcp`.
 
@@ -69,14 +69,14 @@ Depois de editar o `.mcp.json`, reinicie o Claude Code e confira com `/mcp`.
 | `rebar_regras` | "o que vai me reprovar aqui?" | antes de escrever código |
 | `rebar_porque` | "por que isto é regra?" — com o número medido e as provas | quando o portão reprovar e der vontade de contornar |
 | `rebar_decidir` | "o projeto já decidiu sobre X?" | antes de propor stack, biblioteca, formato ou processo |
-| `rebar_portao` | os 11 passos do `verificar`, o comando de cada um, os códigos de saída | quando o portão reprovar e a mensagem não bastar |
+| `rebar_portao` | os <!--n mcp.artefato.passos-->13<!--/n--> passos do portão, o comando de cada um, os códigos de saída | quando o portão reprovar e a mensagem não bastar |
 | `rebar_verificar` | roda a régua num caminho e devolve o placar | depois de mexer, antes de dizer que terminou |
 
-**Não existe `rebar_gerar`**, que a §7.2 previa. O gerador do rebar (`novo/index.mjs`) cria um projeto inteiro, roda `shadcn create` e faz o primeiro commit — não é emissor de componente, e uma tool que faz commit contraria a regra da casa de que quem commita é o dono. Tool que promete o que o repositório não faz é a promessa que ninguém confere, exatamente o que o campo `naoDerivado` do artefato existe para registrar.
+**Não existe `rebar_gerar`**, que a §7.2 previa. O gerador do rebar (`new/index.mjs`) cria um projeto inteiro, roda `shadcn create` e faz o primeiro commit — não é emissor de componente, e uma tool que faz commit contraria a regra da casa de que quem commita é o dono. Tool que promete o que o repositório não faz é a promessa que ninguém confere, exatamente o que o campo `naoDerivado` do artefato existe para registrar.
 
 ## O que ele NÃO é
 
-**O MCP nunca é a porta.** A porta é N0–N5: o `npm run verificar`, o hook e o CI. Chamar uma tool daqui é atalho para não errar; nenhuma resposta dela autoriza nada, e um verde do `rebar_verificar` não substitui o portão — que ainda roda formato, elos, segredo, provas e o frescor deste módulo.
+**O MCP nunca é a porta.** A porta é N0–N5: o `npm run verify`, o hook e o CI. Chamar uma tool daqui é atalho para não errar; nenhuma resposta dela autoriza nada, e um verde do `rebar_verificar` não substitui o portão — que ainda roda formato, elos, segredo, provas e o frescor deste módulo.
 
 Ele também **não serve prosa**. A versão anterior deste servidor devolvia trechos de `docs/PLANO.md` por seção; foi trocada porque prosa copiada é o formato que o Herz provou ignorável (17 guias, 1.961 linhas, 80 KB, e o próprio repositório admitindo que *"ferramenta MCP é discricionária, o modelo decide se chama"*), e porque o plano diz o que o projeto PRETENDE enquanto o artefato diz o que o portão REPROVA hoje. Quando os dois divergem, manda quem reprova. A prosa continua alcançável: as ferramentas devolvem `arquivo:linha` em vez de copiar o texto.
 

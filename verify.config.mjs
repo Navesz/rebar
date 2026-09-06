@@ -1041,7 +1041,7 @@ export default [
     // shell, que é exatamente o bug que quebrou o passo `fronteiras` do alicerce.
     comando: node('node_modules/prettier/bin/prettier.cjs', '--check', '.'),
     exige: ['node_modules/prettier/bin/prettier.cjs'],
-    dica: 'Formatação não se discute, se roda: `npm run formatar`. Se o prettier não estiver aí, `npm ci`.',
+    dica: 'Formatação não se discute, se roda: `npm run format`. Se o prettier não estiver aí, `npm ci`.',
     extrair: /^\[warn\]|^\S+\.(mjs|cjs|json|ya?ml)$/im,
     tempoLimite: 2 * MINUTO,
     limite: 12,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Barra coautoria NÃO HUMANA na mensagem que está sendo escrita.
 //
-// Por que existe além do passo no pre-commit: `rebar-check --regra=coautoria-ia`
+// Por que existe além do passo no pre-commit: `rebar-check --rule=ai-coauthorship`
 // lê `git log`, e o commit em curso ainda não está lá. Aquele passo barra o
 // PRÓXIMO commit — impede o trailer de ficar, não de entrar. Como o objetivo
 // declarado do rebar é "ignorar uma regra quebra o commit", faltava a metade

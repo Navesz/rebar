@@ -256,7 +256,7 @@ async function comMcpMutado(mutar) {
     await copiarSem(
       join(RAIZ, 'tooling', 'rebar-check'),
       join(tmp, 'tooling', 'rebar-check'),
-      'provas',
+      'proofs',
     )
     await cp(join(RAIZ, 'package.json'), join(tmp, 'package.json'))
 
@@ -438,7 +438,7 @@ async function montarRaizDoMedidor(dir, documento) {
   await copiarSem(
     join(RAIZ, 'tooling', 'rebar-check'),
     join(dir, 'tooling', 'rebar-check'),
-    'provas',
+    'proofs',
   )
   await cp(join(RAIZ, 'verify.config.mjs'), join(dir, 'verify.config.mjs'))
   await cp(join(RAIZ, 'package.json'), join(dir, 'package.json'))
@@ -493,6 +493,32 @@ after(async () => {
 })
 
 describe('o passo `numeros`', { concurrency: 8 }, () => {
+  test('REPROVA · passos do MCP mudam e o documento fica velho', async () => {
+    const r = await comNumeros(async ({ ler, escrever, rodar }) => {
+      for (const rel of ['mcp/regras.gerado.json', 'mcp/generate.mjs', 'mcp/src/index.mjs']) {
+        await escrever(rel, await readFile(join(RAIZ, rel), 'utf8'))
+      }
+      const artefato = JSON.parse(await ler('mcp/regras.gerado.json'))
+      assert.ok(artefato.gate.passos.length > 0, 'o artefato real precisa ter passos')
+      await escrever(
+        'README.md',
+        `${await ler('README.md')}\nO MCP tem <!--n mcp.artefato.passos-->0<!--/n--> passos.\n`,
+      )
+      const semeou = rodar()
+      assert.equal(semeou.codigo, 0, semeou.saida)
+      assert.ok(
+        (await ler('README.md')).includes(
+          `<!--n mcp.artefato.passos-->${artefato.gate.passos.length}<!--/n-->`,
+        ),
+        'o documento precisa refletir os passos presentes no artefato real',
+      )
+      artefato.gate.passos.pop()
+      await escrever('mcp/regras.gerado.json', JSON.stringify(artefato))
+    })
+    assert.equal(r.codigo, 1, `mudança nos passos do MCP passou despercebida:\n${r.saida}`)
+    assert.match(r.saida, /mcp\.artefato\.passos/)
+  })
+
   test('APROVA · documento recém-regenerado confere, e o grupo ausente sai como ⚠', async () => {
     const r = await comNumeros(async () => {})
     assert.equal(r.codigo, 0, `escrever e conferir discordaram na mesma árvore:\n${r.saida}`)

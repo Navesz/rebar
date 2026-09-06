@@ -481,11 +481,11 @@ function lerCaso(id) {
   // casava. Uma prova que sobrevive à volta do defeito que ela existe para
   // travar não é prova. Cada variante isola UM caminho.
   const regraDaPasta = id.includes('__') ? id.slice(0, id.indexOf('__')) : id
-  if (bruto.regra !== regraDaPasta) {
-    erros.push(`caso.json diz regra ${JSON.stringify(bruto.regra)} e a pasta se chama "${id}"`)
+  if (bruto.rule !== regraDaPasta) {
+    erros.push(`caso.json diz rule ${JSON.stringify(bruto.rule)} e a pasta se chama "${id}"`)
   }
   const regra = regraDaPasta
-  if (typeof bruto.porque !== 'string' || !bruto.porque.trim()) {
+  if (typeof bruto.why !== 'string' || !bruto.why.trim()) {
     erros.push('caso.json sem "porque" — a prova tem de dizer que falha real ela impede')
   }
 
@@ -527,9 +527,9 @@ function lerCaso(id) {
   }
 
   return {
-    regra,
+    rule: regra,
     erros,
-    porque: typeof bruto.porque === 'string' ? bruto.porque.trim() : '',
+    why: typeof bruto.why === 'string' ? bruto.why.trim() : '',
     lados,
   }
 }
@@ -605,9 +605,9 @@ async function montarLado(origem, commits, modos) {
 }
 
 async function rodarRegra(id, dir) {
-  // --heuristicas SEMPRE. Medido nas quatro combinações: com `--regra=` apontando
+  // --heuristics SEMPRE. Medido nas quatro combinações: com `--rule=` apontando
   // para regra determinística a flag é no-op (editorconfig sai 1 com e sem ela,
-  // porque nenhuma heurística chega a rodar sob o filtro); com `--regra=` numa
+  // porque nenhuma heurística chega a rodar sob o filtro); com `--rule=` numa
   // heurística é a ÚNICA forma do lado `fail` sair 1 — sem a flag `telefone`
   // acusa o telefone e ainda assim sai 0, e a prova seria impossível de escrever.
   // Sem isto as 5 heurísticas ficariam para sempre sem caso.
@@ -621,18 +621,14 @@ async function rodarRegra(id, dir) {
   // 17 depois que as guardas de leitura entraram. `stdout` e `stderr` vêm
   // SEPARADOS — juntá-los, como esta função fazia, destruía a única evidência
   // barata de que o checker morreu: qualquer coisa em stderr suja o JSON.
-  const r = await rodar(
-    process.execPath,
-    [INDEX, `--regra=${id}`, '--heuristicas', '--json', dir],
-    {
-      env: {
-        ...process.env,
-        GIT_CONFIG_GLOBAL: SEM_CONFIG,
-        GIT_CONFIG_SYSTEM: SEM_CONFIG,
-        NO_COLOR: '1',
-      },
+  const r = await rodar(process.execPath, [INDEX, `--rule=${id}`, '--heuristics', '--json', dir], {
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: SEM_CONFIG,
+      GIT_CONFIG_SYSTEM: SEM_CONFIG,
+      NO_COLOR: '1',
     },
-  )
+  })
   if (r.erro) throw new Error(`não consegui rodar o index.mjs: ${r.erro.message}`)
   return { codigo: r.codigo, stdout: r.stdout || '', stderr: (r.stderr || '').trim() }
 }
@@ -674,7 +670,7 @@ function observar(exec) {
   const res = dados[0].resultados
   if (!Array.isArray(res) || res.length !== 1) {
     const quantos = Array.isArray(res) ? res.length : 'nenhum'
-    return { estado: 'quebrou', detalhe: `--regra= devolveu ${quantos} resultado(s), esperava 1` }
+    return { estado: 'quebrou', detalhe: `--rule= devolveu ${quantos} resultado(s), esperava 1` }
   }
   const { estado, motivo } = res[0]
   if (typeof estado !== 'string') return { estado: 'quebrou', detalhe: 'resultado sem "estado"' }
@@ -682,7 +678,7 @@ function observar(exec) {
 
   // Trava também o CONTRATO do exit code, que era a única coisa que o formato
   // antigo checava e que o novo perderia de vista se só olhasse o JSON. Com
-  // `--heuristicas` ligado, reprovou tem de sair 1 e passou/na têm de sair 0,
+  // `--heuristics` ligado, reprovou tem de sair 1 e passou/na têm de sair 0,
   // inclusive para regra heurística.
   const codigoDevido = estado === 'reprovou' ? 1 : 0
   if (codigo !== codigoDevido) {
@@ -728,7 +724,7 @@ async function provarLado(id, lado, spec) {
  */
 async function provarCaso(caso) {
   const saidas = []
-  for (const lado of LADOS) saidas.push(await provarLado(caso.regra, lado, caso.lados[lado]))
+  for (const lado of LADOS) saidas.push(await provarLado(caso.rule, lado, caso.lados[lado]))
   return saidas
 }
 
@@ -741,7 +737,7 @@ async function provarCaso(caso) {
  * Se um dia a mensagem mudar, devolve null e a validação prévia só some.
  */
 async function regrasConhecidas() {
-  const r = await rodar(process.execPath, [INDEX, '--regra=__inexistente__'], {
+  const r = await rodar(process.execPath, [INDEX, '--rule=__inexistente__'], {
     env: { ...process.env, NO_COLOR: '1' },
   })
   const linha = `${r.stderr || ''}`.split('\n').find((l) => l.startsWith('disponíveis:'))
@@ -818,8 +814,8 @@ const trabalhos = ids.map((id) => {
   const caso = lerCaso(id)
   // Id que o index.mjs não conhece é prova mal formada. Pegar aqui evita montar
   // duas fixtures inteiras só para o index.mjs sair 2 nas duas.
-  if (regras && caso.regra && !regras.includes(caso.regra))
-    caso.erros.push(`o index.mjs não conhece a regra "${caso.regra}"`)
+  if (regras && caso.rule && !regras.includes(caso.rule))
+    caso.erros.push(`o index.mjs não conhece a regra "${caso.rule}"`)
   return { id, caso }
 })
 
@@ -838,7 +834,7 @@ function imprimirCaso({ id, caso }, resultados) {
     return
   }
 
-  if (!provadas.includes(caso.regra)) provadas.push(caso.regra)
+  if (!provadas.includes(caso.rule)) provadas.push(caso.rule)
   const pior = resultados.find((x) => x.veredito !== 'bateu')
 
   const resumoLados = resultados
@@ -859,7 +855,7 @@ function imprimirCaso({ id, caso }, resultados) {
   else if (resultados.some((x) => x.veredito === 'quebrou')) quebrados++
   else divergiram++
 
-  console.log(`      ${c.fraco(`porque: ${caso.porque}`)}`)
+  console.log(`      ${c.fraco(`porque: ${caso.why}`)}`)
   for (const x of resultados) {
     if (x.veredito === 'bateu') continue
     const explica = {

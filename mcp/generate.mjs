@@ -265,17 +265,17 @@ function lerProvas(idsValidos) {
       throw new Torto(`${rel}: JSON inválido — ${e.message}`)
     }
     exigir(
-      porRegra.has(caso.regra),
-      `${rel}: declara a regra "${caso.regra}", que não existe em REGRAS`,
+      porRegra.has(caso.rule),
+      `${rel}: declara a regra "${caso.rule}", que não existe em REGRAS`,
     )
-    porRegra.get(caso.regra).push({
+    porRegra.get(caso.rule).push({
       caso: nome,
       // Estado esperado de cada lado. Omitido, o prove.mjs assume
       // aprovar=passou / reprovar=reprovou — o padrão é replicado aqui porque é
       // ele que diz se o caso trava um ramo N/A, e ramo N/A é metade do valor.
       aprovar: existsSync(join(dir, 'pass')) ? caso.aprovar?.estado || 'passou' : null,
       reprovar: existsSync(join(dir, 'fail')) ? caso.reprovar?.estado || 'reprovou' : null,
-      porque: caso.porque || null,
+      porque: caso.why || null,
     })
   }
 
@@ -441,8 +441,8 @@ function lerDecisoes(fonteCheck, relCheck) {
         'Telefone, CNPJ e endereço são CONTEÚDO validado. Não são código e NÃO são variável de ambiente: com env var o build passa, o deploy sobe e o `wa.me` gera link sem destinatário.',
       prova: {
         arquivo: relCheck,
-        linha: linhaDoPadrao(fonteCheck, /id: 'telefone',/, relCheck),
-        trecho: "id: 'telefone'",
+        linha: linhaDoPadrao(fonteCheck, /id: 'phone',/, relCheck),
+        trecho: "id: 'phone'",
       },
       porque: null,
       regraQueImpoe: 'telefone',

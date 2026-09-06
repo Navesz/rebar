@@ -97,12 +97,12 @@ São <!--n regras.total-->23<!--/n--> regras em duas classes.
 
 **<!--n regras.deterministicas-->18<!--/n--> determinísticas** derrubam o exit code:
 
-São elas: <!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gateia` · `testes` · `typecheck` · `formatter` · `env-example` · `licenca` · `readme` · `notice` · `hooks-executaveis` · `portao-com-placeholder` · `coautoria-ia` · `identidade-git` · `ui-falso` · `schema-orfao` · `telefone`<!--/n-->
+São elas: <!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gates` · `tests` · `typecheck` · `formatter` · `env-example` · `license` · `readme` · `notice` · `hooks-executable` · `gate-with-placeholder` · `ai-coauthorship` · `git-identity` · `fake-ui` · `orphan-schema` · `phone`<!--/n-->
 
 **<!--n regras.heuristicas-->5<!--/n--> heurísticas** só informam, e a separação é medida,
 não estética:
 
-São elas: <!--n regras.lista-heuristicas-->`conteudo-fora-do-codigo` · `shadcn-completo` · `url-producao` · `hex-cru` · `idioma-unico`<!--/n-->
+São elas: <!--n regras.lista-heuristicas-->`content-outside-code` · `shadcn-complete` · `production-url` · `raw-hex` · `single-language`<!--/n-->
 
 Este comando imprime o número das determinísticas, e ele é o <!--n regras.deterministicas-->18<!--/n--> da linha acima:
 
@@ -112,7 +112,7 @@ npx github:Navesz/rebar --json . | grep -c '"classe": "determinística"'
 
 A regra ingênua de cor literal, medida num repositório real, deu **7 ocorrências e zero
 verdadeiros positivos** — cinco eram comentários documentando a própria regra. (Medição
-histórica no `herz`, 30/08/2026; está registrada em `ferramental/rebar-check/index.mjs`,
+histórica no `herz`, 30/08/2026; está registrada em `tooling/rebar-check/index.mjs`,
 ao lado da regra que ela decidiu.) Regra automática errada custa mais que regra ausente, e
 heurística que barra ensina a desligar a saída inteira.
 
@@ -121,7 +121,7 @@ heurística que barra ensina a desligar a saída inteira.
 São <!--n provas.casos-->53<!--/n--> casos, cobrindo <!--n provas.cobertura-->23 de 23<!--/n--> regras — nenhuma regra sem prova:
 
 ```bash
-npm run provar
+npm run prove
 ```
 
 Cada caso monta um repositório em miniatura num diretório temporário, com `git init`
@@ -144,7 +144,7 @@ O checker é uma das camadas, não a única.
 | **N4** | CI em matriz Windows + Linux, e o que ele roda é o `verificar` inteiro | GitHub Actions |
 | **N4s** | ruleset com check obrigatório | **o servidor** |
 
-`npm run verificar` **não é uma camada nova**: é a sequência que o N4 executa e que você
+`npm run verify` **não é uma camada nova**: é a sequência que o N4 executa e que você
 roda antes dele, hoje com <!--n verificar.passos-->13<!--/n--> passos. O checker é o último
 deles.
 
@@ -153,8 +153,8 @@ apaga, o `core.hooksPath` ele remove sem deixar diff. Só o ruleset resiste — 
 está com `bypass_actors: []`, então nem o dono passa por cima.
 
 ```bash
-npm run verificar        # a sequência inteira, um comando
-npm run instalar-hooks   # aponta core.hooksPath para ferramental/hooks
+npm run verify          # a sequência inteira, um comando
+npm run install-hooks   # aponta core.hooksPath para tooling/hooks
 ```
 
 ### Os <!--n verificar.passos-->13<!--/n--> passos, e o que cada um barra
@@ -179,7 +179,7 @@ de baixo: <!--n verificar.lista-passos-->`higiene` · `hooks` · `sintaxe` · `b
 | <!--n verificar.posicao.provas-->12 de 13<!--/n--> | `provas` | os <!--n provas.casos-->53<!--/n--> casos das regras |
 | <!--n verificar.posicao.auto-->13 de 13<!--/n--> | `auto` | o `rebar-check` apontado para o próprio rebar |
 
-**Nenhum passo é opcional**: o campo não existe, e `verificar.mjs` recusa a chave com exit
+**Nenhum passo é opcional**: o campo não existe, e `verify.mjs` recusa a chave com exit
 2. Onde há afrouxamento, ele é dentro do passo, e está dito aqui em vez de escondido:
 
 - `higiene` — **árvore suja só avisa fora do CI**, porque árvore suja é o estado normal de
@@ -189,7 +189,7 @@ de baixo: <!--n verificar.lista-passos-->`higiene` · `hooks` · `sintaxe` · `b
 - `hooks` — **`core.hooksPath` só avisa dentro do CI**, porque o runner não commita e o
   hook não roda lá. Localmente reprova. A existência dos arquivos de hook reprova em
   qualquer lugar.
-- `numeros` — grupo de fato que **esta** árvore não sabe derivar (sem `.git`, sem `novo/`)
+- `numeros` — grupo de fato que **esta** árvore não sabe derivar (sem `.git`, sem `new/`)
   só avisa, nomeando o grupo e a fonte que faltou.
 - `auto` — **heurística não entra no denominador**, sai como aviso. É o que impede
   heurística de ensinar a desligar a saída inteira.
@@ -259,8 +259,8 @@ reescrevia quando elas mudavam, então ele servia a versão velha e nada acusava
 Aqui o MCP **não é escrito à mão**. Ele é artefato gerado, como o `tsconfig` e o lint:
 
 ```bash
-node mcp/gerar.mjs              # deriva mcp/regras.gerado.json de ferramental/rebar-check/index.mjs
-node mcp/gerar.mjs --verificar  # regenera EM MEMÓRIA, compara com o disco, sai 1 se divergir
+node mcp/generate.mjs              # deriva mcp/regras.gerado.json de tooling/rebar-check/index.mjs
+node mcp/generate.mjs --verificar  # regenera EM MEMÓRIA, compara com o disco, sai 1 se divergir
 ```
 
 O segundo comando é o **passo `mcp` do portão**, o <!--n verificar.posicao.mcp-->6 de 13<!--/n--> da lista, e custa ~200 ms nesta máquina
@@ -270,10 +270,10 @@ reproduzível em quatro comandos — o segundo REPROVA no passo `mcp` nomeando o
 mudou, e o quarto volta a APROVAR os <!--n verificar.passos-->13<!--/n--> passos:
 
 ```bash
-sed -i "s/titulo: 'tem README',/titulo: 'tem README na raiz',/" ferramental/rebar-check/index.mjs
-node ferramental/verificar/verificar.mjs
-node mcp/gerar.mjs
-node ferramental/verificar/verificar.mjs
+sed -i "s/titulo: 'tem README',/titulo: 'tem README na raiz',/" tooling/rebar-check/index.mjs
+node tooling/verify/verify.mjs
+node mcp/generate.mjs
+node tooling/verify/verify.mjs
 ```
 
 O artefato é **derivado, nunca duplicado**: ele não guarda cópia da regra, deriva da
@@ -281,8 +281,8 @@ fonte, e grava o `sha256` de cada fonte que leu. Não há duas fontes para diver
 
 | | |
 | --- | --- |
-| `mcp/gerar.mjs` | <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
-| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->0<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
+| `mcp/generate.mjs` | <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
+| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
 | `mcp/src/` | o servidor, <!--n linhas.mcp-servidor-->937<!--/n--> linhas. Lê o artefato; **nunca** lê o `index.mjs` |
 
 O servidor expõe <!--n mcp.ferramentas-->5<!--/n--> ferramentas: `rebar_regras`, `rebar_porque`,
@@ -290,9 +290,9 @@ O servidor expõe <!--n mcp.ferramentas-->5<!--/n--> ferramentas: `rebar_regras`
 ponta, ver **[mcp/README.md](mcp/README.md)**.
 
 ```bash
-cd mcp && npm install           # uma vez: mcp/ é pacote separado, a raiz segue com zero dependência
+npm ci --prefix mcp            # uma vez, a partir da raiz: mcp/ é pacote separado
 node mcp/src/prova-cliente.mjs  # é o passo `mcp-servidor` do portão
-node ferramental/rebar-check/index.mjs --mcp   # é o que o .mcp.json de um projeto gerado executa
+node tooling/rebar-check/index.mjs --mcp   # é o que o .mcp.json de um projeto gerado executa
 ```
 
 O `prova-cliente.mjs` faz o handshake, um `tools/list`, sete `tools/call`, e ainda exercita
@@ -315,10 +315,10 @@ Honesto, e medido:
 | Preset `site` | **funciona** — Next 16 SSG, `og:image` no HTML, conteúdo validado no build |
 | Presets `app` / `api` | **não existem**, e são não-escopo até o `site` rodar em dois sites |
 | MCP (`mcp/`) | **funciona, e o portão o mantém em dia** — <!--n mcp.ferramentas-->5<!--/n--> ferramentas, artefato derivado das <!--n regras.total-->23<!--/n--> regras |
-| Os números destes documentos | **derivados** — `node ferramental/numeros.mjs` os escreve, e o passo `numeros` reprova se envelhecerem |
+| Os números destes documentos | **derivados** — `node tooling/numbers.mjs` os escreve, e o passo `numeros` reprova se envelhecerem |
 
-O rebar tira **13 de 13 · 4 não se aplica** na própria régua, com `novo/` já rastreado —
-medido em 02/09/2026 com `node ferramental/rebar-check/index.mjs .`, que é o passo `auto`
+O rebar tira **13 de 13 · 4 não se aplica** na própria régua, com `new/` já rastreado —
+medido em 02/09/2026 com `node tooling/rebar-check/index.mjs .`, que é o passo `auto`
 do portão. Este par de números **não** é derivado: obtê-lo pede RODAR a régua, e quem já o
 trava é o passo `auto`; derivá-lo aqui criaria a segunda fonte que o projeto inteiro existe
 para não ter. Isso não é motivo de orgulho: é o mínimo para ter autoridade de exigir dos
@@ -331,9 +331,9 @@ derivado da fonte, um comando regenera, e um passo do portão reprova se o docum
 divergir.
 
 ```bash
-node ferramental/numeros.mjs              # reescreve os números do README e do ESTADO
-node ferramental/numeros.mjs --verificar   # o passo `numeros` do portão: sai 1 se divergiu
-node ferramental/numeros.mjs --fatos       # o catálogo: cada fato, seu valor e sua fonte
+node tooling/numbers.mjs              # reescreve os números do README e do ESTADO
+node tooling/numbers.mjs --verificar   # o passo `numeros` do portão: sai 1 se divergiu
+node tooling/numbers.mjs --fatos       # o catálogo: cada fato, seu valor e sua fonte
 ```
 
 O que **não** é derivado fica dito com a data ao lado, como as três linhas acima: medição
@@ -366,19 +366,24 @@ de desenvolvimento é <!--n pacote.dev-dependencias-->`prettier` 3.9.6<!--/n-->.
 ```bash
 git clone https://github.com/Navesz/rebar && cd rebar
 npm ci
-npm run instalar-hooks
-npm run verificar
+npm ci --prefix mcp
+npm run install-hooks
+npm run verify
 ```
+
+No checkout, os caminhos e scripts usam os nomes `tooling/`, `new/`, `verify` e
+`prove`. O subcomando público continua `rebar novo`; os projetos gerados continuam
+usando `npm run verificar`.
 
 O gerador **não** tem script npm, de propósito: ele cria a pasta dentro do diretório atual,
 e `npm run` roda sempre na raiz do pacote — criaria `rebar/meu-site`. Do checkout, chame o
 arquivo, de onde o projeto vai morar:
 
 ```bash
-cd ~/projetos && node /caminho/do/rebar/novo/index.mjs meu-site meu-site.com.br
+cd ~/projetos && node /caminho/do/rebar/new/index.mjs meu-site meu-site.com.br
 ```
 
-Node ≥ 22. O `index.mjs` e o `novo/index.mjs` importam só built-ins — é o que faz o `npx`
+Node ≥ 22. O `index.mjs` e o `new/index.mjs` importam só built-ins — é o que faz o `npx`
 funcionar sem instalar nada, e a fronteira é deliberada: zero dependência é propriedade do
 que **confere**, não do que se confere. O gerador não abre exceção: ele chama o `shadcn`
 resolvendo o `npx-cli.js` que mora ao lado do `process.execPath` e passando os argumentos
@@ -386,8 +391,8 @@ como vetor, sem `shell: true` — `npx` no Windows é `npx.cmd`, e `execFileSync
 falha lá com `ENOENT` sobre um arquivo que está no PATH. Foi o bug que quebrou o projeto
 anterior, e ele só não apareceu antes porque o CI de lá só rodava Linux.
 
-`novo/site/blocos/` e `novo/portao/arquivos/` são **modelo, não produto** — arquivos que o
-gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->24<!--/n--> dos <!--n novo.arquivos-->28<!--/n--> arquivos de `novo/`. Cada uma das duas pastas tem um
+`new/site/blocks/` e `new/gate/arquivos/` são **modelo, não produto** — arquivos que o
+gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->24<!--/n--> dos <!--n novo.arquivos-->28<!--/n--> arquivos de `new/`. Cada uma das duas pastas tem um
 `modelo.json` que a tira da avaliação do rebar-check, e a contagem sai impressa no placar.
 Sem isso, os `.ts`/`.tsx` de exemplo faziam a regra `typecheck` enxergar aqui um projeto
 TypeScript sem compilador. Eles continuam sendo checados em dois lugares: no passo `blocos`

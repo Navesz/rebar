@@ -1,7 +1,0 @@
-{
-  "regra": "formatter",
-  "porque": "Prettier, biome e dprint são dependências npm: sem manifesto não há onde declará-los, e a regra não tem objeto para checar. O lado `pass` é uma árvore com código JavaScript e sem package.json, e tem de sair N/A e não `passou` — passar seria certificar como formatado um repositório sobre o qual não se olhou nada. O lado `fail` prova que a guarda não engoliu a regra: com o manifesto presente e só eslint declarado, a acusação continua saindo.",
-  "pass": {
-    "estado": "na"
-  }
-}

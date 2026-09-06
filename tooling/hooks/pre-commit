@@ -34,6 +34,6 @@ node tooling/secret/scan-secret.mjs --staged
 #    Divisão de trabalho com o hook commit-msg: o rebar-check lê `git log`, e o
 #    commit em curso ainda não está lá — este passo impede o trailer de FICAR.
 #    Impedir que ele ENTRE é do commit-msg, que roda com a mensagem na mão.
-node tooling/rebar-check/index.mjs --regra=coautoria-ia
+node tooling/rebar-check/index.mjs --rule=ai-coauthorship
 
 exit 0

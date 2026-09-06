@@ -178,7 +178,7 @@ if (ferramentas.length) {
 // Cada chamada abaixo é uma pergunta que uma IA de verdade faz neste repositório.
 const chamadas = [
   ['rebar_regras', { nivel: 'N1' }, 'o que me reprova quando eu mexer no CSS/lint'],
-  ['rebar_porque', { id: 'hex-cru' }, 'reprovou hex-cru; por que isso é regra'],
+  ['rebar_porque', { id: 'raw-hex' }, 'reprovou hex-cru; por que isso é regra'],
   ['rebar_decidir', { assunto: 'cor' }, 'posso escrever #fff no componente?'],
   ['rebar_decidir', { assunto: 'mongodb' }, 'assunto que o rebar NÃO governa'],
   ['rebar_portao', { passo: 'mcp' }, 'o passo do portão que guarda este módulo'],
