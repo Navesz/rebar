@@ -1118,6 +1118,24 @@ export default [
     limite: 8,
   },
   {
+    // O modulo de seguranca se prova pelo MESMO executor do rebar-check, com o
+    // checker e a pasta de casos passados por argumento. Duplicar mil linhas de
+    // runner seria a segunda fonte que diverge -- o defeito que este
+    // repositorio inteiro persegue.
+    //
+    // Passo proprio, e nao um `&&` dentro de `proofs`, porque os dois falham
+    // por motivos diferentes e a dica precisa dizer qual dos dois caiu.
+    nome: 'security',
+    comando: node(
+      'tooling/rebar-check/proofs/prove.mjs',
+      '--checker=tooling/security/index.mjs',
+      '--cases=tooling/security/proofs/cases',
+    ),
+    exige: ['tooling/security/index.mjs', 'tooling/security/proofs/cases'],
+    dica: 'Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais.',
+    extrair: /^\s*(✗|✘|erro|esperado)/i,
+  },
+  {
     nome: 'self',
     // O rebar na própria régua. É o passo mais caro porque lê o repositório
     // inteiro e o histórico do git.

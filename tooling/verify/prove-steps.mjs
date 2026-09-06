@@ -873,6 +873,7 @@ const PASSOS_ESPERADOS = [
   'secret',
   'steps',
   'proofs',
+  'security',
   'self',
 ]
 

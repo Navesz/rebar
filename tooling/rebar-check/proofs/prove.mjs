@@ -110,12 +110,25 @@ import { spawn } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { cp, mkdtemp, rm } from 'node:fs/promises'
 import { availableParallelism, cpus, tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
-const INDEX = join(AQUI, '..', 'index.mjs')
-const CASOS = join(AQUI, 'cases')
+
+// O checker e a pasta de casos sao PARAMETROS, nao constantes.
+//
+// O modulo de seguranca nasceu com o mesmo contrato deste runner -- tres
+// estados, `caso.json` com `rule`/`why`, pastas `pass/` e `fail/`, mutacao como
+// prova. Duplicar mil linhas de executor para ele seria a segunda fonte que
+// diverge, que e o defeito que este repositorio inteiro persegue. Sem
+// argumento, o padrao continua sendo o rebar-check e nada muda para quem ja
+// chamava `npm run prove`.
+const arg = (nome, padrao) => {
+  const a = process.argv.find((x) => x.startsWith(`--${nome}=`))
+  return a ? resolve(a.slice(nome.length + 3)) : padrao
+}
+const INDEX = arg('checker', join(AQUI, '..', 'index.mjs'))
+const CASOS = arg('cases', join(AQUI, 'cases'))
 
 // ─────────────────────────────────────────────────────────────── utilitários
 
@@ -768,11 +781,21 @@ if (args.some((a) => a === '-h' || a === '--ajuda' || a === '--help')) {
   console.log('uso: node prove.mjs [id-da-regra]')
   process.exit(0)
 }
-const flags = args.filter((a) => a.startsWith('-'))
+// A lista de flags validas e o PARSER moram em lugares diferentes, e este
+// repositorio ja pagou tres vezes por isso: `--heuristicas` virou
+// `--heuristics` no parser e continuou recusada aqui; `--regra=` virou
+// `--rule=` e o hook seguiu passando a antiga. Renomear ou acrescentar flag num
+// lado so a transforma em "opcao desconhecida", que e um erro que nao aponta
+// para a causa.
+const CONHECIDAS = /^--(checker|cases)=/
+const flags = args.filter((a) => a.startsWith('-') && !CONHECIDAS.test(a))
 if (flags.length)
-  morrer(`opção desconhecida: ${flags.join(', ')} — uso: node prove.mjs [id-da-regra]`)
-if (args.length > 1) morrer('um id de regra por vez')
-const soEste = args[0] || null
+  morrer(
+    `opção desconhecida: ${flags.join(', ')} — uso: node prove.mjs [id-da-regra] [--checker=<caminho>] [--cases=<pasta>]`,
+  )
+const posicionais = args.filter((a) => !a.startsWith('-'))
+if (posicionais.length > 1) morrer('um id de regra por vez')
+const soEste = posicionais[0] || null
 
 if (!existsSync(INDEX)) morrer(`index.mjs não está em ${INDEX}`)
 if (!existsSync(CASOS))

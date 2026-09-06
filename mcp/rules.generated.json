@@ -10,7 +10,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "26674303d3f8cab31e44960e8efb97aafd45346adacc05ac4f7794eb9235cca8",
+      "sha256": "d2d0ca29691d6a3b60ad81ee4b2d31caa87602faf2c1422c198894f67bcdb4f4",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -1096,6 +1096,18 @@
       },
       {
         "ordem": 13,
+        "nome": "security",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "tooling/rebar-check/proofs/prove.mjs",
+          "--checker=tooling/security/index.mjs",
+          "--cases=tooling/security/proofs/cases"
+        ],
+        "dica": "Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais."
+      },
+      {
+        "ordem": 14,
         "nome": "self",
         "tipo": "comando",
         "comando": [
@@ -1164,7 +1176,7 @@
       "decisao": "A raiz não tem dependência de produção, e o que confere não depende do que se confere. É o que faz `npx github:Navesz/rebar` rodar sem instalar nada.",
       "prova": {
         "arquivo": "package.json",
-        "linha": 20,
+        "linha": 23,
         "trecho": "dependencies: 0 · devDependencies: prettier"
       },
       "porque": null,

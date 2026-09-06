@@ -66,7 +66,7 @@
 // gambiarra que esta ferramenta existe para impedir.
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { closeSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const args = process.argv.slice(2)
@@ -689,9 +689,38 @@ const achados = []
 
 const doIndice = soStaged ? conteudosDoIndice(caminhos) : null
 
+/**
+ * Caminho dentro de um caso de prova? O marcador e o `caso.json` em algum
+ * diretorio ancestral -- o mesmo que o `semFixtures` do rebar-check usa, e nao
+ * uma lista de pastas escrita a mao, que envelheceria sozinha.
+ */
+function ehMaterialDeProva(caminho) {
+  const partes = caminho.split('/')
+  for (let i = partes.length - 1; i > 0; i--) {
+    if (existsSync(join(partes.slice(0, i).join('/'), 'caso.json'))) return true
+  }
+  return false
+}
+
 for (const caminho of caminhos) {
   // Arquivo de ambiente rastreado é achado por si só, independente do conteúdo.
-  if (/(^|\/)\.env(\.|$)/.test(caminho) && !/\.example$|\.exemplo$/.test(caminho)) {
+  //
+  // DUAS EXCLUSOES, e as duas foram previstas antes de doerem.
+  //
+  // A primeira: a lista de sufixos de exemplo era so `.example|.exemplo`, e a
+  // auditoria do inventario de seguranca registrou, com o numero da linha,
+  // que ela produzia dois falsos positivos. Produziu: o primeiro commit do
+  // modulo de seguranca foi barrado por um `.env.sample` que e o CONSERTO da
+  // falha, nao a falha.
+  //
+  // A segunda: material de prova. Um `.env` que existe para PROVAR que a regra
+  // detecta `.env` nao pode barrar o commit da propria prova. O marcador e o
+  // mesmo que o rebar-check usa -- um `caso.json` em diretorio ancestral.
+  if (
+    /(^|\/)\.env(\.|$)/.test(caminho) &&
+    !/\.(example|exemplo|sample|template|dist|modelo)$/.test(caminho) &&
+    !ehMaterialDeProva(caminho)
+  ) {
     achados.push({ caminho, linha: 0, coluna: 0, regra: 'env-versionado', trecho: caminho })
     continue
   }
