@@ -870,7 +870,7 @@ const node = (...args) => [process.execPath, ...args]
 
 export default [
   {
-    nome: 'higiene',
+    nome: 'hygiene',
     funcao: checarHigiene,
     dica: 'O estado do git contradiz o que o portão está prestes a afirmar. Nenhum veredito abaixo vale enquanto isto não estiver limpo.',
     extrair: /^erro |^ {2}[^⚠]/,
@@ -887,7 +887,7 @@ export default [
     tempoLimite: 1 * MINUTO,
   },
   {
-    nome: 'sintaxe',
+    nome: 'syntax',
     funcao: checarSintaxe,
     dica: 'Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`.',
     extrair: /^erro |SyntaxError|^o git lista|^  \S|^Índice/,
@@ -896,7 +896,7 @@ export default [
   {
     // Depois de `sintaxe` porque é da mesma família — "o código sequer é
     // código" — e antes de `formato` porque é mais barato: 0,06 s contra 1,0 s.
-    nome: 'blocos',
+    nome: 'blocks',
     funcao: checarBlocos,
     dica: 'Os .ts/.tsx de new/site/blocks/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles.',
     extrair: /^erro /,
@@ -915,7 +915,7 @@ export default [
     // A cura não é lembrar de regenerar: é tornar IMPOSSÍVEL esquecer.
     // `mcp/generate.mjs --verificar` regenera o artefato EM MEMÓRIA a partir de
     // `tooling/rebar-check/index.mjs` e compara com o
-    // `mcp/regras.gerado.json` que está no disco. Divergiu, sai 1. Mudar uma
+    // `mcp/rules.generated.json` que está no disco. Divergiu, sai 1. Mudar uma
     // regra e não regenerar passa a ser uma reprovação do portão, não um
     // silêncio de meses.
     //
@@ -940,7 +940,7 @@ export default [
     // `exige` lista SÓ o gerador, e a omissão do artefato é deliberada. O
     // verificar.mjs trata `exige` ausente como QUEBROU (127): "script ausente
     // não é o repositório reprovando, é o ferramental faltando". O
-    // `regras.gerado.json` é o SUJEITO da checagem, não a ferramenta — se ele
+    // `rules.generated.json` é o SUJEITO da checagem, não a ferramenta — se ele
     // sumiu, o repositório está velho da pior forma possível, e isso tem de
     // ser exit 1 dito pelo gerador, não 127 dito pelo executor. Enquanto
     // `mcp/generate.mjs` não existir, este passo QUEBRA com
@@ -952,7 +952,7 @@ export default [
     // pega "erro …" e linha de diff unificado; quando não casa nada, o
     // executor cai nas últimas linhas da saída, que é onde o resumo de um
     // diff mora.
-    nome: 'mcp-servidor',
+    nome: 'mcp-server',
     // O SERVIDOR PRECISA SUBIR, NAO SO EXISTIR. Achado da auditoria de 31/08:
     // `mcp/src/prova-cliente.mjs` — 370 linhas, o UNICO teste de ponta a ponta
     // do servidor de 937 linhas — nao era chamado por passo nenhum. Escrito e
@@ -973,7 +973,7 @@ export default [
     nome: 'mcp',
     comando: node('mcp/generate.mjs', '--verificar'),
     exige: ['mcp/generate.mjs'],
-    dica: 'Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/generate.mjs` e commite o mcp/regras.gerado.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje.',
+    dica: 'Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/generate.mjs` e commite o mcp/rules.generated.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje.',
     extrair: /^\s*(erro|error|✗|✘|[-+] )/i,
     tempoLimite: 1 * MINUTO,
     limite: 12,
@@ -1001,7 +1001,7 @@ export default [
     //      um deles sem compilar, "o documento divergiu" seria acusação falsa:
     //      o defeito está uma casa acima.
     //   2. DEPOIS de `mcp`, e por um motivo concreto: um dos fatos sai de
-    //      `mcp/regras.gerado.json`. Com o artefato velho, este passo acusaria
+    //      `mcp/rules.generated.json`. Com o artefato velho, este passo acusaria
     //      o README de estar errado quando quem está atrasado é o artefato — a
     //      acusação apontando para quem não errou. Com `mcp` antes, o portão
     //      reporta o PRIMEIRO passo caído, e o primeiro é o certo.
@@ -1020,7 +1020,7 @@ export default [
     // `exige` lista SÓ o medidor, e a omissão dos documentos é deliberada, pela
     // mesma razão do passo `mcp`: README e ESTADO são o SUJEITO da checagem,
     // não a ferramenta. Se sumirem, quem tem de falar é o medidor, com exit 1.
-    nome: 'numeros',
+    nome: 'numbers',
     comando: node('tooling/numbers.mjs', '--verificar'),
     exige: ['tooling/numbers.mjs'],
     dica: 'Um número do README ou do ESTADO não é mais o que a fonte diz — regenere com `node tooling/numbers.mjs` e commite o documento JUNTO com a mudança que o desatualizou. Se a queixa for de marcador malformado, o conserto é no documento: o medidor não inventa marcação.',
@@ -1030,7 +1030,7 @@ export default [
     limite: 12,
   },
   {
-    nome: 'formato',
+    nome: 'format',
     // O prettier é a ÚNICA dependência do repositório, e a fronteira é
     // deliberada: o `index.mjs` continua importando só built-ins, então
     // `npx github:Navesz/rebar` roda sem instalar nada. Zero dependência é
@@ -1047,7 +1047,7 @@ export default [
     limite: 12,
   },
   {
-    nome: 'elos',
+    nome: 'links',
     comando: node('tooling/links/check-links.mjs'),
     exige: ['tooling/links/check-links.mjs'],
     dica: 'Link quebrado na documentação: a IA segue a referência, não acha, e reescreve do zero.',
@@ -1055,7 +1055,7 @@ export default [
     tempoLimite: 1 * MINUTO,
   },
   {
-    nome: 'segredo',
+    nome: 'secret',
     comando: node('tooling/secret/scan-secret.mjs'),
     exige: ['tooling/secret/scan-secret.mjs'],
     dica: 'Segredo não se corrige com commit novo — precisa rotacionar a credencial.',
@@ -1069,7 +1069,7 @@ export default [
     tempoLimite: 3 * MINUTO,
   },
   {
-    nome: 'passos',
+    nome: 'steps',
     // O PORTAO PROVANDO O PORTAO. Passo que e `comando:` ja se prova sozinho —
     // se o script sumir, o passo cai. Passo que e `funcao:` e codigo do portao,
     // e codigo do portao sem prova e o defeito que este repositorio persegue,
@@ -1098,7 +1098,7 @@ export default [
     limite: 8,
   },
   {
-    nome: 'provas',
+    nome: 'proofs',
     comando: node('tooling/rebar-check/proofs/prove.mjs'),
     exige: ['tooling/rebar-check/proofs/prove.mjs'],
     dica: 'Uma regra do rebar-check parou de reprovar o que devia, ou passou a reprovar o que é correto.',
@@ -1118,7 +1118,7 @@ export default [
     limite: 8,
   },
   {
-    nome: 'auto',
+    nome: 'self',
     // O rebar na própria régua. É o passo mais caro porque lê o repositório
     // inteiro e o histórico do git.
     comando: node('tooling/rebar-check/index.mjs', '.'),

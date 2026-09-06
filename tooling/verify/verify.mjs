@@ -10,14 +10,14 @@
 // Uso:
 //   node tooling/verify/verify.mjs             roda TUDO
 //   node tooling/verify/verify.mjs --json      saída para máquina
-//   node tooling/verify/verify.mjs --passo=X   recorte de diagnóstico
+//   node tooling/verify/verify.mjs --step=X   recorte de diagnóstico
 //   node tooling/verify/verify.mjs --config=<caminho>
 //
 // CÓDIGOS DE SAÍDA — cinco coisas diferentes, cinco códigos diferentes:
 //   0    todos os passos rodaram e todos passaram. Só aqui existe APROVADO.
 //   1    REPROVOU: um passo rodou até o fim e disse não.
 //   2    erro de configuração, ou invocação errada.
-//   3    PARCIAL: rodou um recorte (--passo=). Não é aprovação.
+//   3    PARCIAL: rodou um recorte (--step=). Não é aprovação.
 //   127  QUEBROU: não deu para EXECUTAR um passo — comando ausente, falha de
 //        spawn, tempo limite. Defeito do ferramental, não do repositório.
 //
@@ -33,8 +33,8 @@
 // não é ignorado: é ERRO DE CONFIGURAÇÃO (exit 2), recusado pelo nome em
 // validarPassos(). Passo que não deve bloquear não é passo do verificar.
 //
-// FURO 2 — `--passo=<nome>`. Medido no alicerce: `node verificar.mjs
-// --passo=elos` imprimiu "VERIFICAR — APROVADO", exit 0, tendo rodado 1 de 6
+// FURO 2 — `--step=<nome>`. Medido no alicerce: `node verificar.mjs
+// --step=links` imprimiu "VERIFICAR — APROVADO", exit 0, tendo rodado 1 de 6
 // passos, sem uma palavra sobre os 5 que não rodaram. Qualquer CI fica verde de
 // graça. Aqui o recorte imprime "PARCIAL — 1 de N passos · NÃO É APROVAÇÃO",
 // lista nominalmente quem não rodou, e sai 3. Aprovação só existe quando o
@@ -47,7 +47,7 @@
 //
 // FURO 3 — a forja de config. Auditoria de 2026-08-30: escrevi em
 // $TEMP/forja.config.mjs seis passos com `funcao: () => ({ codigo: 0 })` e rodei
-// `verificar.mjs --config=$TEMP/forja.config.mjs`. Saída: "VERIFICAR — APROVADO
+// `verify.mjs --config=$TEMP/forja.config.mjs`. Saída: "VERIFICAR — APROVADO
 // 6 de 6 passos · 1 ms", exit 0 — byte-indistinguível de uma aprovação real,
 // porque NENHUM campo, nem no texto nem no --json, dizia qual config tinha
 // rodado. Duas trancas aqui: (1) o caminho do config e a raiz resolvida são
@@ -81,7 +81,7 @@ const args = process.argv.slice(2)
 const argConfig = args.find((a) => a.startsWith('--config='))
 const opcoes = {
   json: args.includes('--json'),
-  passo: args.find((a) => a.startsWith('--passo='))?.slice('--passo='.length),
+  passo: args.find((a) => a.startsWith('--step='))?.slice('--step='.length),
   config: argConfig === undefined ? undefined : argConfig.slice('--config='.length),
 }
 
@@ -107,7 +107,7 @@ const desconhecidos = args.filter((a) => !/^--(json|passo=|config=)/.test(a))
 if (desconhecidos.length) {
   console.error(`\n${c.vermelho('VERIFICAR — INVOCAÇÃO ERRADA')}\n`)
   console.error(`  não reconheço: ${desconhecidos.join(', ')}`)
-  console.error(`  aceito: --json · --passo=<nome> · --config=<caminho>\n`)
+  console.error(`  aceito: --json · --step=<nome> · --config=<caminho>\n`)
   process.exit(2)
 }
 
@@ -373,7 +373,7 @@ function validarPassos(passos, arquivo) {
     if (typeof p.nome !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p.nome)) {
       problemas.push(`${onde}: "nome" precisa ser minúsculo, sem espaço (ex.: "sintaxe").`)
     } else if (nomes.has(p.nome)) {
-      problemas.push(`${onde}: nome repetido — "--passo=${p.nome}" seria ambíguo.`)
+      problemas.push(`${onde}: nome repetido — "--step=${p.nome}" seria ambíguo.`)
     } else {
       nomes.add(p.nome)
     }
@@ -647,7 +647,7 @@ function relatar(veredito) {
     )
     console.log(`  ${c.cinza(`não rodaram (${naoRodaram.length}): ${naoRodaram.join(' · ')}`)}`)
     console.log(
-      `  ${c.cinza('recorte serve para consertar, não para liberar. Rode sem --passo= antes de commitar.')}`,
+      `  ${c.cinza('recorte serve para consertar, não para liberar. Rode sem --step= antes de commitar.')}`,
     )
   }
   console.log('')
@@ -665,7 +665,7 @@ function relatar(veredito) {
     if (r.erros.total > r.erros.mostradas.length) {
       console.log(
         c.cinza(
-          `      … mais ${r.erros.total - r.erros.mostradas.length} · node tooling/verify/verify.mjs --passo=${r.nome}`,
+          `      … mais ${r.erros.total - r.erros.mostradas.length} · node tooling/verify/verify.mjs --step=${r.nome}`,
         ),
       )
     }

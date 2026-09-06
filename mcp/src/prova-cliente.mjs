@@ -224,7 +224,10 @@ function montarCopia(prefixo, { comArtefato = true, fonteAdulterada = false } = 
   }
   symlinkSync(join(AQUI, '..', 'node_modules'), join(base, 'mcp', 'node_modules'), 'junction')
   if (comArtefato) {
-    copyFileSync(join(AQUI, '..', 'regras.gerado.json'), join(base, 'mcp', 'regras.gerado.json'))
+    copyFileSync(
+      join(AQUI, '..', 'rules.generated.json'),
+      join(base, 'mcp', 'rules.generated.json'),
+    )
   }
   if (fonteAdulterada) {
     const dir = join(base, 'tooling', 'rebar-check')
@@ -274,7 +277,7 @@ if (semArtefato) {
   console.log(saidaDeErro.trimEnd())
   console.log(`\n  exit=${codigo}`)
   const util =
-    saidaDeErro.includes('node mcp/generate.mjs') && saidaDeErro.includes('regras.gerado.json')
+    saidaDeErro.includes('node mcp/generate.mjs') && saidaDeErro.includes('rules.generated.json')
   if (codigo === 1 && util) ok('morreu com exit 1 e disse como gerar o artefato')
   else falhou(`esperado exit 1 com o comando de geração na mensagem; veio exit ${codigo}`)
   desmontarCopia(semArtefato.base)

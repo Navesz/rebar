@@ -212,6 +212,8 @@ const PASTA_TESTE = new Set([
   'testes',
   'prova',
   'provas',
+  'proof',
+  'proofs',
 ])
 const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar)[-.]|^test_/i
 

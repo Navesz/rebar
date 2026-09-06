@@ -80,7 +80,7 @@ const ESTATICOS = [
   ['editorconfig', '.editorconfig'],
   ['gitattributes', '.gitattributes'],
   ['dependabot.yml', '.github/dependabot.yml'],
-  ['verificar.yml', '.github/workflows/verificar.yml'],
+  ['verify.yml', '.github/workflows/verificar.yml'],
   ['pre-commit', `${PASTA_HOOKS}/pre-commit`],
   ['commit-msg', `${PASTA_HOOKS}/commit-msg`],
   ['instalar.mjs', `${PASTA_HOOKS}/instalar.mjs`],

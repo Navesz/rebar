@@ -5,12 +5,12 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "6e10e3b435ad7804ad9e860a3aebf55a9f27f2b5e72b79974e693c2d732a4da4",
+      "sha256": "ffcb3ebe65b6e7f83fb7cac94d0b22b435d77b6282c340aece72977b19049b80",
       "daqui": "as regras, o porque de cada uma e os códigos de saída"
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "c15c0041cdca9a08f6e922a88404d431cb6de0c4d727b866638b0bb93f263da8",
+      "sha256": "26674303d3f8cab31e44960e8efb97aafd45346adacc05ac4f7794eb9235cca8",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -20,7 +20,7 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases/",
-      "sha256": "dc6ed60480ae1396b07adfe2d478735a59e523899eda13774c7157a2dd122c3b",
+      "sha256": "10edbb29c5fc69599520a54d84e6509702b30704eae7f5cf3d284a00b1fb0069",
       "daqui": "o porque de cada um dos 53 casos de prova"
     }
   ],
@@ -158,7 +158,7 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1277
+        "linha": 1279
       },
       "porque": [],
       "provas": [
@@ -177,12 +177,12 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1285
+        "linha": 1287
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1290,
+          "linha": 1292,
           "texto": "Guarda de leitura só: a aplicabilidade continua sendo o package.json da RAIZ, porque dependabot e renovate são configuração de repositório e não de pacote. Sem a guarda, quebrar o package.json tirava esta regra do denominador junto com as outras três."
         }
       ],
@@ -208,7 +208,7 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1307
+        "linha": 1309
       },
       "porque": [],
       "provas": [
@@ -227,12 +227,12 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1315
+        "linha": 1317
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1320,
+          "linha": 1322,
           "texto": "Mesma guarda de leitura das outras: com o package.json quebrado, `r.pkg?.scripts` virava `{}`, `alvos` ficava vazio e a regra saía do denominador. Quatro regras sumindo é o que fazia 9 de 10 virar 6 de 6. Só cobra o que o repositório POSSUI. Exigir `lint` de um repo sem lint é exigir que ele adote uma ferramenta — decisão de outro nível."
         }
       ],
@@ -264,7 +264,7 @@
       "nivel": "N3",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1339
+        "linha": 1341
       },
       "porque": [],
       "provas": [
@@ -272,7 +272,7 @@
           "caso": "tests",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "Trava um dos dois falsos positivos determinísticos já medidos: a regra era cega a teste nomeado em português — 43 arquivos rastreados com `prova` no nome no alicerce e a regra enxergava ZERO, num checker escrito em português. Esta variante isola o ramo de SEGMENTO DE CAMINHO: o único arquivo de teste do lado aprovar é `proofs/soma.mjs`, e nenhum nome de arquivo casaria sozinho. Se o segmento `provas` sair do reconhecedor, o lado aprovar sai 1."
+          "porque": "Trava um dos dois falsos positivos determinísticos já medidos: a regra era cega a teste nomeado em português — 43 arquivos rastreados com `prova` no nome no alicerce e a regra enxergava ZERO, num checker escrito em português. Esta variante isola o ramo de SEGMENTO DE CAMINHO: o único arquivo de teste do lado aprovar é `provas/soma.mjs`, e nenhum nome de arquivo casaria sozinho. Se o segmento `provas` sair do reconhecedor, o lado aprovar sai 1."
         },
         {
           "caso": "tests__portuguese-name",
@@ -295,7 +295,7 @@
       "nivel": "N0",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1347
+        "linha": 1349
       },
       "porque": [],
       "provas": [
@@ -338,7 +338,7 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1364
+        "linha": 1366
       },
       "porque": [],
       "provas": [
@@ -375,7 +375,7 @@
       "nivel": "N2",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1378
+        "linha": 1380
       },
       "porque": [],
       "provas": [
@@ -412,7 +412,7 @@
       "nivel": "N7",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1394
+        "linha": 1396
       },
       "porque": [],
       "provas": [
@@ -431,27 +431,27 @@
       "nivel": "N7",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1402
+        "linha": 1404
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1406,
+          "linha": 1408,
           "texto": "ESTA REGRA PEGA ZERO HOJE, e isso fica escrito aqui de propósito."
         },
         {
           "onde": "cabecalho",
-          "linha": 1408,
+          "linha": 1410,
           "texto": "Medido em 31/08/2026 nos 12 repositórios da máquina: TODOS têm README, de 25 a 282 linhas úteis, e NENHUM é boilerplate de framework (procurei por \"bootstrapped with create-next-app\", \"npm create vite\", \"Getting Started with Create React App\" e afins — zero ocorrências)."
         },
         {
           "onde": "cabecalho",
-          "linha": 1413,
+          "linha": 1415,
           "texto": "Então por que existe. Primeiro: duas horas antes de esta linha ser escrita, o próprio rebar era o único repositório sem README, e foi a público assim — enquanto o docs/PLANO.md listava \"README como entregável\" DUAS VEZES como buraco que este projeto existe para tapar. A régua não enxergava o buraco que o plano dela nomeava. Segundo: o gerador vai produzir repositório novo, e repositório novo nasce sem README por padrão."
         },
         {
           "onde": "cabecalho",
-          "linha": 1421,
+          "linha": 1423,
           "texto": "Só PRESENÇA, sem piso de tamanho. Um limite de linhas reprovaria `navesz.github.io` (25 linhas) e `VectraB-Lab` (31), que são projetos pequenos com README proporcional — e regra automática errada custa mais que regra ausente."
         }
       ],
@@ -471,7 +471,7 @@
       "nivel": "N7",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1432
+        "linha": 1434
       },
       "porque": [],
       "provas": [
@@ -496,17 +496,17 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1445
+        "linha": 1447
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1449,
+          "linha": 1451,
           "texto": "ACHADO DE AUDITORIA, 31/08: o modo 100755 era garantido UMA VEZ, na criação, e nada o mantinha. Um `git update-index --chmod=-x` — ou um arquivo criado no Windows, onde o bit não existe — devolve o hook para 100644, e em Linux o git passa a IGNORÁ-LO em silêncio. O portão se declara ligado e não faz nada, que é o pior estado possível."
         },
         {
           "onde": "cabecalho",
-          "linha": 1455,
+          "linha": 1457,
           "texto": "O modo lido é o do ÍNDICE, não o do disco: `chmod` local não viaja no clone, e é o clone que chega na máquina de quem for usar."
         }
       ],
@@ -526,22 +526,22 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1472
+        "linha": 1474
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1476,
+          "linha": 1478,
           "texto": "ACHADO USANDO O GERADOR DE VERDADE, 02/09. O dono pediu um site real, e gerar um expôs isto: o placeholder do CONTEÚDO é inerte e barulhento — o build reprova enquanto sobrar `TROQUE-…`. O placeholder do PORTÃO era inerte e MUDO."
         },
         {
           "onde": "cabecalho",
-          "linha": 1481,
+          "linha": 1483,
           "texto": "A identidade do git desta máquina é local do repositório do rebar, não global. O gerador não achou nenhuma, escreveu `DONO NÃO CONFIGURADO` em NOTICE, README e `.rebar-coauthors`, e o rebar-check deu 13 de 13, exit 0 em cima disso."
         },
         {
           "onde": "cabecalho",
-          "linha": 1486,
+          "linha": 1488,
           "texto": "O pior dos três é o `.rebar-coauthors`: ele vira a allowlist de quem pode assinar commit, com um e-mail `@exemplo.invalido` dentro. Ninguém casa com aquele e-mail, então a regra `coautoria-ia` passa a reprovar todo commit — ou, dependendo de como for lida, nenhum. Portão instalado com placeholder é portão que se aprende a desligar na primeira semana."
         }
       ],
@@ -561,17 +561,17 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1505
+        "linha": 1507
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1513,
+          "linha": 1515,
           "texto": "Automação de manutenção sai antes de qualquer contagem, para que ela não apareça nem no veredito nem no NÚMERO impresso — ver AUTOMACAO_NAO_IA. Zero trailer de coautoria é o único veredito que NÃO depende de saber quem é IA e quem é gente: não há coautor nenhum, logo não há coautor de IA. Vale com allowlist e sem, e é o caso dos 11 commits deste repositório. Sai antes de tudo para que o ramo N/A abaixo nunca engula um repositório que está genuinamente limpo. Sem allowlist só resta ENUMERAR, e enumeração é a forma que este conserto existe para abandonar: medido em 2026-08-30, a lista de 9 agentes deixou passar Windsurf, ChatGPT, Cody, Codeium, Amazon Q e Tabnine de uma só vez. Aqui ela sobrevive por um motivo estreito: o rebar-check roda contra repositório de TERCEIRO, que não tem a allowlist do rebar, e desligar a regra ali seria trocar um portão furado por portão nenhum."
         },
         {
           "onde": "implementacao",
-          "linha": 1550,
+          "linha": 1552,
           "texto": "O que muda é o que a enumeração tem direito de AFIRMAR. Achou um agente conhecido, reprova — enumeração prova presença. Não achou, NÃO passa: vira N/A dizendo que há coautor que não dá para classificar. Enumeração não prova ausência, e um \"✓\" ali seria o checker afirmando o que não sabe. É a mesma disciplina do `na()` no alto deste arquivo: o que não dá para decidir sai do denominador, com o motivo impresso."
         }
       ],
@@ -615,7 +615,7 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1573
+        "linha": 1575
       },
       "porque": [],
       "provas": [
@@ -640,12 +640,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1590
+        "linha": 1592
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1595,
+          "linha": 1597,
           "texto": "A BASE de uma pasta de UI é o diretório que contém `components/`: `apps/web/src/components/ui/botao.tsx` tem base `apps/web/src/`. É de lá que a busca pela defesa sobe."
         }
       ],
@@ -677,17 +677,17 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1617
+        "linha": 1619
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1624,
+          "linha": 1626,
           "texto": "Teste CONTA como leitor, e é o único lugar do arquivo onde ele conta."
         },
         {
           "onde": "implementacao",
-          "linha": 1626,
+          "linha": 1628,
           "texto": "As outras regras de conteúdo perguntam o que o produto FAZ, e teste não é produto. Esta pergunta é outra: existe alguém que lê este schema? Um teste de contrato que o importa responde SIM da forma mais forte que existe — se o schema mudar, o teste quebra. Medido: o `openkartline` era acusado de dois schemas \"definidos e nunca lidos\" com `apps/web/src/services/schemaContract.test.ts` importando os dois nas linhas 2 e 3. Era a única acusação desta regra nos 11 repositórios, e era falsa."
         }
       ],
@@ -719,42 +719,42 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1641
+        "linha": 1643
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1642,
+          "linha": 1644,
           "texto": "CONTINUA HEURÍSTICA — e agora com o número que RECUSA a promoção, não com uma lista de pendências. Três dos quatro defeitos apontados na auditoria de 31/08 estão consertados e medidos; o quarto não cedeu, e é ele que segura a regra aqui."
         },
         {
           "onde": "cabecalho",
-          "linha": 1647,
+          "linha": 1649,
           "texto": "1. FRAGMENTO — CONSERTADO. O casamento cortava no primeiro `<`, e 18 das 185 frases começavam com ponto, travessão ou no meio da oração. `nosDeTexto()` remonta a corrida atravessando os elementos inline: ZERO de 262 agora começam fora do começo da oração. As 6 que começam em minúscula foram conferidas uma a uma na fonte: quatro são `<li>` de uma lista \"Nunca:\", uma é legenda escrita assim, e a sexta é sobra de depuração (`esperado 0x… · recebido 0x…`) — nenhuma é pedaço de frase."
         },
         {
           "onde": "cabecalho",
-          "linha": 1655,
+          "linha": 1657,
           "texto": "2. RÓTULO DE AÇÃO — CONSERTADO, e sem enumerar verbo. O discriminador é o DONO do nó de texto: `<button>`, `<a>` e `<label>` não são elemento de prosa, e o texto de um controle é o NOME dele. Ver o bloco de `PROSA`. Dos rótulos que a auditoria nomeou, saíram quatro: \"Imprimir ou salvar em PDF\" (`<button>`), \"Arraste pela grade ou use ‹ › para percorrer.\" (`<span>`), \"Não deu para abrir o cofre.\" (`<AlertTitle>`) e \"Carregando o índice de preços…\" (`<div>`)."
         },
         {
           "onde": "cabecalho",
-          "linha": 1663,
+          "linha": 1665,
           "texto": "3. PROVA DECORATIVA — CONSERTADA. Das nove mutações que sobreviviam nesta regra, as três nomeadas eram: apagar o dígito do padrão de preço, baixar o mínimo da frase e desligar o filtro de sinal de código. As três agora DIVERGEM, e o `pass/` do caso principal existe para isso: ele contém `R$` SEM dígito, um rótulo de campo de três palavras, uma linha de tabela com menos de 90% de letras, um `<button>` com rótulo de quatro palavras e um estado em `<div>`. Cada um deles fica vermelho se a guarda correspondente for afrouxada."
         },
         {
           "onde": "cabecalho",
-          "linha": 1672,
+          "linha": 1674,
           "texto": "4. VOCABULÁRIO DE INTERFACE EM `<p>` — NÃO CEDEU, e é o que recusa a promoção. Medido antes: 27 de 185 (14,6%). Medido depois: 31 de 262 (11,8%), e este número é RECONTÁVEL — `node measure-content.mjs <repos>` imprime a tabela e a classificação. O 14,1% que esta linha publicava até 31/08 vinha de contagem à mão e não se reproduzia; o instrumento foi escrito justamente porque este repositório já publicou número errado quatro vezes, e ele desmentiu o primeiro número que checou — o mais caro do arquivo, o que RECUSA a promoção desta regra. A estrutura não moveu o número porque os que restam moram em elemento de prosa de verdade: \"Nenhuma proposta salva ainda.\" é um `<p>` sob `history.length === 0` e \"Clique para enviar a logo da empresa\" é um `<p>` ao lado de um `<input type=\"file\">`. Separá-los de \"Nossa cozinha abre às 18h\" exigiria ENUMERAR verbo de instrução e palavra de estado — e enumeração aqui falha para o lado errado: a lista incompleta não deixa de excluir, ela ACUSA. É a inversão exata do argumento do `coautoria-ia`: lá a enumeração prova presença e por isso pode reprovar; aqui ela precisaria provar AUSÊNCIA de instrução para não acusar, e não prova. Com ~12% de ruído, determinística barra merge por rótulo de campo — e regra que barra merge por rótulo de campo ensina a desligar a saída inteira."
         },
         {
           "onde": "cabecalho",
-          "linha": 1693,
+          "linha": 1695,
           "texto": "A §12.3 do plano continua aberta por causa do item 4, e não por causa do 1, do 2 e do 3. O que falta não é engenharia de casamento: é um discriminador de VOZ — texto que fala do negócio contra texto que fala do programa — e ele não sai da árvore de elementos. O motivo do portão de aplicabilidade está no bloco de comentário acima de `RE_CONTEUDO_JSON`; a definição de \"literal de conteúdo\" e o número que ela dá nos 11 repositórios estão no bloco de `PROSA`, logo abaixo dele."
         },
         {
           "onde": "implementacao",
-          "linha": 1704,
+          "linha": 1706,
           "texto": "A base é o diretório que contém `conteudo/`: em monorepo, `apps/site/conteudo/menu.json` tem base `apps/site/`. A asserção fica presa àquela base, e não ao repositório inteiro, pelo mesmo motivo que `ui-falso` casa por proximidade: um `apps/painel/` vizinho que nunca prometeu nada não pode ser acusado pela promessa do `apps/site/`. Frase só em arquivo com JSX. Num `.ts` puro não existe nó de texto, e procurar marcação lá seria ler operador de comparação como prosa."
         }
       ],
@@ -792,32 +792,32 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1744
+        "linha": 1746
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1745,
+          "linha": 1747,
           "texto": "SOBE DE HEURÍSTICA A DETERMINÍSTICA, e o número que decidiu está aqui."
         },
         {
           "onde": "cabecalho",
-          "linha": 1747,
+          "linha": 1749,
           "texto": "Medido em 2026-08-30 nos 11 repositórios + o rebar: 417 arquivos de código de produção varridos, UMA acusação — `Galegos/src/lib/whatsapp.ts` linha 7, um `const WHATSAPP_NUMBER` com o celular da pizzaria em treze dígitos —, e ela é verdadeira. Um verdadeiro, zero falsos, em 417 arquivos. (O número não é transcrito aqui de propósito: ver a nota do `semComentario`, onde está o que acontece quando ele é.)"
         },
         {
           "onde": "cabecalho",
-          "linha": 1754,
+          "linha": 1756,
           "texto": "A §12.3 do plano fechou a decisão que dá o dente: telefone, CNPJ e endereço são CONTEÚDO validado, não código e não variável de ambiente. E o custo do erro está documentado no próprio Galegos: `Navesz/Galegos#1` tentou mover o número para env var e o dono parou o PR, porque o build passa e o `wa.me` sobe sem destinatário. Determinística é o que faz a decisão valer."
         },
         {
           "onde": "cabecalho",
-          "linha": 1761,
+          "linha": 1763,
           "texto": "O padrão foi APERTADO junto com a promoção, e essa é a metade cara. O antigo `\\(?\\d{2}\\)?\\s?9\\d{4}-?\\d{4}` aceitava ONZE DÍGITOS SEGUIDOS sem pontuação nenhuma, com um `9` na terceira casa: um EAN-13 de produto (`7891234599999`) casava. Aceitável numa heurística que só informa; inaceitável numa regra que reprova merge. Agora só conta o que traz MARCA de telefone brasileiro — link `wa.me`, código de país 55, ou a pontuação de DDD. O mesmo Galegos continua sendo pego (`55` + `24` + `9` + oito dígitos) e os outros 416 arquivos continuam limpos: o aperto não custou nem um verdadeiro positivo."
         },
         {
           "onde": "implementacao",
-          "linha": 1776,
+          "linha": 1778,
           "texto": "Comentário fora: ver a nota do `semComentario`. O que a §12.3 proíbe é o número que o programa USA — o que sobe no `wa.me` e no `tel:` —, e esse mora em código executado, não em nota de rodapé. ONZE DÍGITOS CRUS contam SÓ quando o arquivo monta um `wa.me` ou um `tel:`. É o conserto de uma regressão que o aperto acima causou e que a auditoria pegou: o MESMO celular do Galegos escrito sem o DDI, no mesmo arquivo, montando o mesmo link, passava limpo. O contexto é o que separa telefone de código de barras: um EAN-13 não vira link de WhatsApp, e por isso o dígito cru só conta acompanhado."
         }
       ],
@@ -843,17 +843,17 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1802
+        "linha": 1804
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1807,
+          "linha": 1809,
           "texto": "Mesmo conserto do `ui-falso` e do `formatter`: o `components.json` procurado em qualquer profundidade, o aparato procurado em todos os manifestos. Antes, monorepo nenhum chegava a ser avaliado por esta heurística — prumo, ducado e LinhaK saíam por `na('não usa shadcn')` tendo os três o arquivo rastreado numa subpasta. A guarda de leitura vem DEPOIS do N/A: quem não usa shadcn não deve ganhar aviso por causa de um package.json quebrado. Aqui isso é seguro porque heurística não entra no denominador — não há N/A a lavar. ATENÇÃO: @radix-ui sozinho reprova o único repo que acertou. O Galegos usa shadcn correto no estilo base-nova, com @base-ui/react e ZERO Radix."
         },
         {
           "onde": "implementacao",
-          "linha": 1822,
+          "linha": 1824,
           "texto": "`radix-ui` sem barra é o pacote unificado que substituiu os `@radix-ui/react-*` avulsos, e a ausência dele aqui era um falso positivo latente que este passo destapou: passando a enxergar `apps/web/components.json`, a heurística acusou o ducado de \"components.json sem primitiva\" com `\"radix-ui\": \"^1.6.7\"` declarado e `import { Select as SelectPrimitive } from 'radix-ui'` em oito componentes. Defesa procurada com nome velho é a mesma classe de erro que defesa procurada só na raiz."
         }
       ],
@@ -873,37 +873,37 @@
       "nivel": "N2",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1842
+        "linha": 1844
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1844,
+          "linha": 1846,
           "texto": "POR QUE CONTINUA HEURÍSTICA, com o número na mão."
         },
         {
           "onde": "cabecalho",
-          "linha": 1846,
+          "linha": 1848,
           "texto": "Depois dos dois consertos abaixo a regra passou de 12 arquivos acusados em 7 repositórios para 6 arquivos em 5, e os 6 são literalmente verdadeiros — nenhum é falso positivo. Mesmo assim ela NÃO sobe a determinística, e o motivo é o nome dela: 4 dos 6 são endereço de API PÚBLICA DE TERCEIRO (`viacep.com.br`, `api.bcb.gov.br`, `api.deepinfra.com`, `api.replicate.com`) e só 2 são a origem de produção do próprio site (`decima-edicoes/scripts/verify-static.mjs`, `navesz.github.io/scripts/fetch-data.mjs`). Fixar o endereço de uma API pública é engenharia normal, não defeito; o defeito é fixar PARA ONDE ESTE site sobe. Separar os dois exige saber a origem do deploy, e o checker não sabe. Barrar merge com 2 de 6 de precisão sobre o defeito que a regra nomeia é punir comportamento correto — e regra que pune comportamento correto ensina a desligar a saída inteira."
         },
         {
           "onde": "implementacao",
-          "linha": 1862,
+          "linha": 1864,
           "texto": "CONSERTO 1 — o padrão env-fallback, que é o padrão CERTO."
         },
         {
           "onde": "implementacao",
-          "linha": 1864,
+          "linha": 1866,
           "texto": "`process.env.X ?? 'https://…'` é exatamente o que se quer que a pessoa escreva: variável de ambiente com padrão sensato. Medido: `decima-edicoes/app/lib/site.ts:5` acusado por `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, e `hug-brasil-propostas` acusado DUAS vezes pela mesma forma (`scripts/check-access.js:3` e `src/lib/accessControl.ts:6`). Três das doze acusações eram a régua batendo em quem acertou."
         },
         {
           "onde": "implementacao",
-          "linha": 1872,
+          "linha": 1874,
           "texto": "O fallback é apagado do texto ANTES da busca, e não o arquivo inteiro: um arquivo pode ter o padrão certo numa linha e o endereço cru na outra, e absolver o arquivo por causa da linha boa seria trocar este falso positivo por um falso negativo. CONSERTO 2 — endereço só conta quando é usado COMO endereço."
         },
         {
           "onde": "implementacao",
-          "linha": 1881,
+          "linha": 1883,
           "texto": "O literal tem de ABRIR uma string e vir logo depois de uma chamada de requisição ou de um nome de endereço. Medido, três acusações caíram e as três não se sustentavam ao abrir o arquivo: openkartline/apps/web/src/App.tsx:521 — `href=\"https://github.com/…\"`, um link do rodapé para o próprio repositório. Link é link. prumo/…/migrations/20260825_0003_credentials.ts — vinte campos `doc: 'https://docs.fal.ai'`, catálogo de documentação semeado em tabela. É DADO, e dado é o lugar certo dele. prumo/…/collectors/index.ts:76 — o endereço dentro da string de `User-Agent`. Não abre string nenhuma, então nem chega a ser testado. Português na lista pela mesma razão de `NOMES_TYPECHECK` e de `NOME_TESTE`: régua escrita em português que só reconhece nome de variável em inglês é cega ao repositório que ela existe para medir. `origem`, `endereco` e `servidor` são o que um projeto daqui escreve onde o `decima-edicoes` escreveu `origin`. 60 caracteres bastam para o `const NOME_LONGO =` mais folgado e impedem que uma linha vizinha empreste o veredito à seguinte."
         }
       ],
@@ -929,12 +929,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1921
+        "linha": 1923
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1926,
+          "linha": 1928,
           "texto": "Só acusa hex que JÁ EXISTE como token no CSS. Hex solto tem contexto legítimo demais — material de three.js, véu de overlay — e a versão ingênua desta regra deu 100% de falso positivo quando medida."
         }
       ],
@@ -954,17 +954,17 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1948
+        "linha": 1950
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1959,
+          "linha": 1961,
           "texto": "Trecho entre crases é CÓDIGO CITADO, não prosa, e sai antes do teste de idioma. Identificador em inglês dentro de um comentário em português não é troca de idioma, é o nome da coisa — ninguém traduz `User-Agent`, `<input type=\"file\">` ou `cat-file --batch`."
         },
         {
           "onde": "implementacao",
-          "linha": 1964,
+          "linha": 1966,
           "texto": "Medido em 2026-08-31 no espelho do rebar com `new/` rastreado: a contagem `en` caía de 3 para 0, e esses 3 eram exatamente estes três arquivos, todos com prosa em português — `index.mjs`, `scan-secret.mjs` e `new/index.mjs`. Com min(pt,en) >= 3 sendo o piso, os três davam a acusação inteira. O caso de prova `idioma-unico` não tem uma crase e continua igual pelos dois lados."
         }
       ],
@@ -983,7 +983,7 @@
     "passos": [
       {
         "ordem": 1,
-        "nome": "higiene",
+        "nome": "hygiene",
         "tipo": "funcao",
         "comando": null,
         "dica": "O estado do git contradiz o que o portão está prestes a afirmar. Nenhum veredito abaixo vale enquanto isto não estiver limpo."
@@ -997,21 +997,21 @@
       },
       {
         "ordem": 3,
-        "nome": "sintaxe",
+        "nome": "syntax",
         "tipo": "funcao",
         "comando": null,
         "dica": "Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`."
       },
       {
         "ordem": 4,
-        "nome": "blocos",
+        "nome": "blocks",
         "tipo": "funcao",
         "comando": null,
         "dica": "Os .ts/.tsx de new/site/blocks/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles."
       },
       {
         "ordem": 5,
-        "nome": "mcp-servidor",
+        "nome": "mcp-server",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1028,11 +1028,11 @@
           "mcp/generate.mjs",
           "--verificar"
         ],
-        "dica": "Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/generate.mjs` e commite o mcp/regras.gerado.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje."
+        "dica": "Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/generate.mjs` e commite o mcp/rules.generated.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje."
       },
       {
         "ordem": 7,
-        "nome": "numeros",
+        "nome": "numbers",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1043,7 +1043,7 @@
       },
       {
         "ordem": 8,
-        "nome": "formato",
+        "nome": "format",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1055,7 +1055,7 @@
       },
       {
         "ordem": 9,
-        "nome": "elos",
+        "nome": "links",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1065,7 +1065,7 @@
       },
       {
         "ordem": 10,
-        "nome": "segredo",
+        "nome": "secret",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1075,7 +1075,7 @@
       },
       {
         "ordem": 11,
-        "nome": "passos",
+        "nome": "steps",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1086,7 +1086,7 @@
       },
       {
         "ordem": 12,
-        "nome": "provas",
+        "nome": "proofs",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1096,7 +1096,7 @@
       },
       {
         "ordem": 13,
-        "nome": "auto",
+        "nome": "self",
         "tipo": "comando",
         "comando": [
           "node",
@@ -1142,7 +1142,7 @@
       "decisao": "Conteúdo mora em `conteudo/*.json`, validado por esquema — não dentro de `src/` nem de `app/`.",
       "prova": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 859,
+        "linha": 861,
         "trecho": "RE_CONTEUDO_JSON"
       },
       "porque": null,
@@ -1153,7 +1153,7 @@
       "decisao": "Telefone, CNPJ e endereço são CONTEÚDO validado. Não são código e NÃO são variável de ambiente: com env var o build passa, o deploy sobe e o `wa.me` gera link sem destinatário.",
       "prova": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1744,
+        "linha": 1746,
         "trecho": "id: 'phone'"
       },
       "porque": null,

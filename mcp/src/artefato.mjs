@@ -9,7 +9,7 @@
 //
 //   tooling/rebar-check/index.mjs   a FONTE. 22 regras, o porquê de cada uma.
 //   mcp/generate.mjs                       o GERADOR. Deriva o artefato da fonte.
-//   mcp/regras.gerado.json              o ARTEFATO. É o que este arquivo lê.
+//   mcp/rules.generated.json              o ARTEFATO. É o que este arquivo lê.
 //   node mcp/generate.mjs --verificar      o PORTÃO DE FRESCOR. Regenera em memória,
 //                                       compara com o disco, reprova se divergir.
 //
@@ -31,7 +31,7 @@ const AQUI = dirname(fileURLToPath(import.meta.url))
 export const RAIZ = join(AQUI, '..', '..')
 
 /** O artefato mora ao lado do gerador, dentro do pacote mcp/. */
-export const CAMINHO_ARTEFATO = join(RAIZ, 'mcp', 'regras.gerado.json')
+export const CAMINHO_ARTEFATO = join(RAIZ, 'mcp', 'rules.generated.json')
 
 /** Erro com mensagem que diz o que fazer. O `process.exit` fica no chamador. */
 export class FalhaDeArtefato extends Error {}

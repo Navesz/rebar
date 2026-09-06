@@ -59,7 +59,7 @@
 //      distância entre decisão e uso que o rebar acusa nos outros.
 //
 //   3. MARCADOR INLINE POR NÚMERO. ESCOLHIDA.
-//        **<!--n regras.deterministicas-->17<!--/n--> determinísticas**
+//        **<!--n rules.deterministicas-->17<!--/n--> determinísticas**
 //      · RENDERIZA: comentário HTML é invisível no GitHub, e é inline legal em
 //        CommonMark — o `**` continua abrindo ênfase forte porque vem depois de
 //        espaço e antes de pontuação.
@@ -69,7 +69,7 @@
 //        regra nova mexe em 5 trechos do README; um bloco gerado mexeria em 5
 //        blocos inteiros. Diff que ninguém revisa é diff que passa.
 //      · BÔNUS não planejado: o marcador NOMEIA o fato. Quem abre o markdown
-//        cru vê `regras.deterministicas` e sabe que não deve editar à mão — a
+//        cru vê `rules.deterministicas` e sabe que não deve editar à mão — a
 //        forma se documenta no lugar onde a tentação acontece.
 //
 // O CUSTO DA ESCOLHA, e ele é real: comentário HTML é invisível no markdown
@@ -249,12 +249,12 @@ async function grupoRegras() {
   const lista = (rs) => rs.map((r) => `\`${r.id}\``).join(' · ')
 
   return {
-    'regras.total': `${regras.length}`,
-    'regras.deterministicas': `${det.length}`,
-    'regras.heuristicas': `${heu.length}`,
-    'regras.lista-deterministicas': lista(det),
-    'regras.lista-heuristicas': lista(heu),
-    'linhas.rebar-check': `${pt(contarLinhas(rel))}`,
+    'rules.total': `${regras.length}`,
+    'rules.deterministicas': `${det.length}`,
+    'rules.heuristicas': `${heu.length}`,
+    'rules.lista-deterministicas': lista(det),
+    'rules.lista-heuristicas': lista(heu),
+    'lines.rebar-check': `${pt(contarLinhas(rel))}`,
   }
 }
 
@@ -283,8 +283,8 @@ function grupoProvas(totalDeRegras) {
   exigir(pastas.length, `${base}/: nenhum caso de prova nesta árvore`)
 
   return {
-    'provas.casos': `${pastas.length}`,
-    'provas.regras-com-prova': `${regras.size}`,
+    'proofs.casos': `${pastas.length}`,
+    'proofs.regras-com-prova': `${regras.size}`,
     // COBERTURA É UMA FRAÇÃO DE DUAS FONTES, e a versão anterior desta linha
     // era `${regras.size} de ${regras.size}` — o mesmo número duas vezes.
     //
@@ -298,8 +298,8 @@ function grupoProvas(totalDeRegras) {
     // Agora o numerador vem dos `caso.json` e o denominador vem do catálogo de
     // regras do checker. São fontes diferentes, e é por serem diferentes que a
     // fração pode ficar desigual e acusar.
-    'provas.cobertura': `${regras.size} de ${totalDeRegras}`,
-    'provas.regras-sem-prova': `${Math.max(0, totalDeRegras - regras.size)}`,
+    'proofs.cobertura': `${regras.size} de ${totalDeRegras}`,
+    'proofs.regras-sem-prova': `${Math.max(0, totalDeRegras - regras.size)}`,
   }
 }
 
@@ -316,22 +316,22 @@ async function grupoVerificar() {
   )
 
   const fatos = {
-    'verificar.passos': `${passos.length}`,
-    'verificar.lista-passos': nomes.map((n) => `\`${n}\``).join(' · '),
+    'verify.passos': `${passos.length}`,
+    'verify.lista-passos': nomes.map((n) => `\`${n}\``).join(' · '),
   }
   // Uma posição por passo, e não só a do `mcp` que o README cita hoje. É de
   // graça, e faz com que inserir um passo no meio conserte TODA citação de
   // posição de uma vez — que é exatamente o erro que o README carrega agora
   // ("5 de 11", quando são 12 passos e o `mcp` é o sexto).
   nomes.forEach((n, i) => {
-    fatos[`verificar.posicao.${n}`] = `${i + 1} de ${passos.length}`
+    fatos[`verify.posicao.${n}`] = `${i + 1} de ${passos.length}`
   })
   return fatos
 }
 
 /** O artefato do MCP e o servidor que o lê. */
 function grupoMcp() {
-  const relArtefato = 'mcp/regras.gerado.json'
+  const relArtefato = 'mcp/rules.generated.json'
   const bruto = ler(relArtefato)
   let a
   try {
@@ -364,8 +364,8 @@ function grupoMcp() {
     // escrevem "78 KB", e trocar a base agora criaria um diff que não é fato.
     'mcp.artefato.tamanho': `${Math.round(Buffer.byteLength(bruto, 'utf8') / 1000)} KB`,
     'mcp.ferramentas': `${ferramentas.length}`,
-    'linhas.mcp-gerador': `${pt(contarLinhas('mcp/generate.mjs'))}`,
-    'linhas.mcp-servidor': `${pt(linhasServidor)}`,
+    'lines.mcp-gerador': `${pt(contarLinhas('mcp/generate.mjs'))}`,
+    'lines.mcp-servidor': `${pt(linhasServidor)}`,
   }
 }
 
@@ -400,9 +400,9 @@ function grupoNovo() {
   const modelo = todos.filter((f) => pastasModelo.some((p) => f.startsWith(p)))
 
   return {
-    'novo.passos': `${total}`,
-    'novo.arquivos': `${todos.length}`,
-    'novo.arquivos-modelo': `${modelo.length}`,
+    'new.passos': `${total}`,
+    'new.arquivos': `${todos.length}`,
+    'new.arquivos-modelo': `${modelo.length}`,
   }
 }
 
@@ -450,8 +450,8 @@ function grupoPacote() {
   const pkg = JSON.parse(ler(rel))
   const dev = Object.entries(pkg.devDependencies || {})
   return {
-    'pacote.dependencias': `${Object.keys(pkg.dependencies || {}).length}`,
-    'pacote.dev-dependencias': dev.map(([n, v]) => `\`${n}\` ${v}`).join(' · ') || 'nenhuma',
+    'package.dependencias': `${Object.keys(pkg.dependencies || {}).length}`,
+    'package.dev-dependencias': dev.map(([n, v]) => `\`${n}\` ${v}`).join(' · ') || 'nenhuma',
   }
 }
 
@@ -460,7 +460,7 @@ function grupoDominio() {
   const rel = 'domains/privilegio-de-banco/privilegio.test.mjs'
   const testes = [...ler(rel).matchAll(/^\s*test\(/gm)].length
   exigir(testes, `${rel}: nenhum test( casado — a suíte mudou de forma`)
-  return { 'dominio.privilegio.testes': `${testes}` }
+  return { 'domain.privilegio.testes': `${testes}` }
 }
 
 /**
@@ -473,7 +473,7 @@ const GRUPOS = [
   { chave: 'verificar', exige: ['verify.config.mjs'], montar: grupoVerificar },
   {
     chave: 'mcp',
-    exige: ['mcp/regras.gerado.json', 'mcp/src/index.mjs', 'mcp/generate.mjs'],
+    exige: ['mcp/rules.generated.json', 'mcp/src/index.mjs', 'mcp/generate.mjs'],
     montar: grupoMcp,
   },
   { chave: 'novo', exige: ['new/index.mjs'], montar: grupoNovo },
@@ -499,7 +499,7 @@ async function derivar() {
     // O grupo `provas` recebe o total de regras porque cobertura é fração de
     // DUAS fontes — ver a nota em `grupoProvas`. Os grupos correm em ordem de
     // declaração, e `regras` vem antes de `provas` por isso.
-    const jaDerivado = fatos.get('regras.total')?.valor
+    const jaDerivado = fatos.get('rules.total')?.valor
     for (const [id, valor] of Object.entries(await g.montar(Number(jaDerivado)))) {
       exigir(!fatos.has(id), `fato "${id}" derivado por dois grupos — id duplicado`)
       exigir(typeof valor === 'string' && valor.length, `fato "${id}" veio vazio`)
@@ -660,7 +660,7 @@ function reescrever(texto, fatos) {
 /**
  * Recorte pelo MEIO, e não pelo fim, e a diferença foi medida.
  *
- * `regras.lista-deterministicas` são 17 ids em crase — 300 caracteres. Colados
+ * `rules.lista-deterministicas` são 17 ids em crase — 300 caracteres. Colados
  * inteiros duas vezes (velho e novo) empurram as outras divergências para fora
  * da tela com o `limite: 12` do passo. Mas cortar pelo FIM é pior que cortar
  * muito: a lista cresce no fim, então as duas linhas sairiam IDÊNTICAS na tela
@@ -701,7 +701,7 @@ function avisarSemMarcador(docs, fatos) {
   // para não repetir.
   console.error(
     `  ⚠ nenhum marcador em ${docs.length} documento(s) markdown — este portão confere 0 dos ` +
-      `${fatos.size} fatos que sabe derivar. Marque assim: <!--n regras.deterministicas-->` +
+      `${fatos.size} fatos que sabe derivar. Marque assim: <!--n rules.deterministicas-->` +
       '17<!--/n--> · a lista de ids sai em `node tooling/numbers.mjs --fatos`',
   )
 }

@@ -189,11 +189,11 @@ describe('o passo `blocos`', { concurrency: 7 }, () => {
 //      que o portão não usa.
 //
 // O caso que importa é ARTEFATO VELHO: a regra mudou no `index.mjs` e o
-// `regras.gerado.json` ficou para trás. É o defeito do Herz, encenado.
+// `rules.generated.json` ficou para trás. É o defeito do Herz, encenado.
 
 const GERADOR = 'mcp/generate.mjs'
 const FONTE = join('tooling', 'rebar-check', 'index.mjs')
-const ARTEFATO = join('mcp', 'regras.gerado.json')
+const ARTEFATO = join('mcp', 'rules.generated.json')
 
 // Enquanto a outra frente não entrega o gerador, estas provas ficam SKIP em vez
 // de vermelhas — e o buraco não é silencioso: o passo `mcp` do
@@ -286,7 +286,7 @@ describe('o passo `mcp`', { concurrency: 4 }, () => {
     assert.equal(
       r.codigo,
       0,
-      'o mcp/regras.gerado.json do repositório está VELHO (ou o gerador não roda ' +
+      'o mcp/rules.generated.json do repositório está VELHO (ou o gerador não roda ' +
         `sem mcp/node_modules). Regenere com: node mcp/generate.mjs\n${r.saida}`,
     )
   })
@@ -382,11 +382,11 @@ const MEDIDOR = 'tooling/numbers.mjs'
 const SEMENTE = [
   '# raiz de prova',
   '',
-  'Regras: <!--n regras.total-->0<!--/n--> · determinísticas',
-  '<!--n regras.deterministicas-->0<!--/n--> · heurísticas <!--n regras.heuristicas-->0<!--/n-->.',
+  'Regras: <!--n rules.total-->0<!--/n--> · determinísticas',
+  '<!--n rules.deterministicas-->0<!--/n--> · heurísticas <!--n rules.heuristicas-->0<!--/n-->.',
   '',
-  'O portão tem <!--n verificar.passos-->0<!--/n--> passos, e o `mcp` é o',
-  '<!--n verificar.posicao.mcp-->0 de 0<!--/n-->.',
+  'O portão tem <!--n verify.passos-->0<!--/n--> passos, e o `mcp` é o',
+  '<!--n verify.posicao.mcp-->0 de 0<!--/n-->.',
   '',
 ].join('\n')
 
@@ -495,10 +495,10 @@ after(async () => {
 describe('o passo `numeros`', { concurrency: 8 }, () => {
   test('REPROVA · passos do MCP mudam e o documento fica velho', async () => {
     const r = await comNumeros(async ({ ler, escrever, rodar }) => {
-      for (const rel of ['mcp/regras.gerado.json', 'mcp/generate.mjs', 'mcp/src/index.mjs']) {
+      for (const rel of ['mcp/rules.generated.json', 'mcp/generate.mjs', 'mcp/src/index.mjs']) {
         await escrever(rel, await readFile(join(RAIZ, rel), 'utf8'))
       }
-      const artefato = JSON.parse(await ler('mcp/regras.gerado.json'))
+      const artefato = JSON.parse(await ler('mcp/rules.generated.json'))
       assert.ok(artefato.gate.passos.length > 0, 'o artefato real precisa ter passos')
       await escrever(
         'README.md',
@@ -513,7 +513,7 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
         'o documento precisa refletir os passos presentes no artefato real',
       )
       artefato.gate.passos.pop()
-      await escrever('mcp/regras.gerado.json', JSON.stringify(artefato))
+      await escrever('mcp/rules.generated.json', JSON.stringify(artefato))
     })
     assert.equal(r.codigo, 1, `mudança nos passos do MCP passou despercebida:\n${r.saida}`)
     assert.match(r.saida, /mcp\.artefato\.passos/)
@@ -532,14 +532,14 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
   test('REPROVA · número editado à mão no documento', async () => {
     const r = await comNumeros(async ({ ler, escrever }) => {
       const t = await ler('README.md')
-      const antes = /<!--n regras\.total-->(\d+)<!--\/n-->/.exec(t)
-      assert.ok(antes, 'a semente perdeu o marcador de regras.total')
-      await escrever('README.md', t.replace(antes[0], '<!--n regras.total-->999<!--/n-->'))
+      const antes = /<!--n rules\.total-->(\d+)<!--\/n-->/.exec(t)
+      assert.ok(antes, 'a semente perdeu o marcador de rules.total')
+      await escrever('README.md', t.replace(antes[0], '<!--n rules.total-->999<!--/n-->'))
     })
     assert.notEqual(r.codigo, 0, `número inventado no documento passou limpo:\n${r.saida}`)
     assert.match(
       r.saida,
-      /regras\.total/,
+      /rules\.total/,
       'reprovar sem dizer QUAL número divergiu manda o dono reler o documento inteiro',
     )
     assert.match(
@@ -566,7 +566,7 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
     assert.notEqual(r.codigo, 0, `regra nova sem regenerar o documento passou limpo:\n${r.saida}`)
     assert.match(
       r.saida,
-      /regras\.(total|deterministicas)/,
+      /rules\.(total|deterministicas)/,
       'o diff tem de nomear o fato que mudou, senão não é diff, é reclamação',
     )
   })
@@ -589,7 +589,7 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
       const t = await ler('README.md')
       await escrever(
         'README.md',
-        `${t}\n\`\`\`bash\nnpm run provar   # <!--n regras.total-->22<!--/n--> regras\n\`\`\`\n`,
+        `${t}\n\`\`\`bash\nnpm run provar   # <!--n rules.total-->22<!--/n--> regras\n\`\`\`\n`,
       )
     })
     assert.notEqual(r.codigo, 0, 'marcador dentro de cerca passou limpo, e ele aparece na página')
@@ -633,7 +633,7 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
     // dispararia `abreParagrafo`, e o teste passaria pelo defeito errado.
     const r = await comNumeros(async ({ ler, escrever }) => {
       const t = await ler('README.md')
-      await escrever('README.md', `${t}\nAberto e nunca fechado: <!--n regras.total-->22\n`)
+      await escrever('README.md', `${t}\nAberto e nunca fechado: <!--n rules.total-->22\n`)
     })
     assert.notEqual(
       r.codigo,
@@ -652,7 +652,7 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
     const r = await comNumeros(async ({ escrever }) => {
       await escrever(
         join('docs', 'PROFUNDO.md'),
-        'Regras: <!--n regras.total-->0<!--/n--> na subpasta.\n',
+        'Regras: <!--n rules.total-->0<!--/n--> na subpasta.\n',
       )
     })
     assert.notEqual(r.codigo, 0, 'documento em subpasta ficou fora do portão')
@@ -671,7 +671,7 @@ describe('o passo `numeros`', { concurrency: 8 }, () => {
     // a única coisa que pode reprovar aqui é o defeito de render.
     const r = await comNumeros(async ({ ler, escrever }) => {
       const t = await ler('README.md')
-      const alvo = '<!--n regras.deterministicas-->'
+      const alvo = '<!--n rules.deterministicas-->'
       assert.ok(t.includes(`\n${alvo}`), 'a semente perdeu o marcador que começa linha')
       await escrever('README.md', t.replace(`\n${alvo}`, `\n\n${alvo}`))
     })
@@ -861,19 +861,19 @@ describe('o passo `sintaxe`', { concurrency: 5 }, () => {
 // que o agente não edita.
 
 const PASSOS_ESPERADOS = [
-  'higiene',
+  'hygiene',
   'hooks',
-  'sintaxe',
-  'blocos',
-  'mcp-servidor',
+  'syntax',
+  'blocks',
+  'mcp-server',
   'mcp',
-  'numeros',
-  'formato',
-  'elos',
-  'segredo',
-  'passos',
-  'provas',
-  'auto',
+  'numbers',
+  'format',
+  'links',
+  'secret',
+  'steps',
+  'proofs',
+  'self',
 ]
 
 test('O PORTÃO NÃO ENCOLHE · todos os passos esperados continuam na lista', async () => {

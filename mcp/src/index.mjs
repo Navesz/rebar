@@ -8,7 +8,7 @@
 //
 // A correção está em duas peças, e SÓ UMA delas mora aqui:
 //
-//   mcp/generate.mjs           deriva mcp/regras.gerado.json da fonte, e o passo `mcp` do
+//   mcp/generate.mjs           deriva mcp/rules.generated.json da fonte, e o passo `mcp` do
 //                           `npm run verify` regenera em memória e REPROVA se o
 //                           disco divergir. Esse é o portão de frescor.
 //   mcp/src/*  (este)       serve o artefato. Nunca lê tooling/rebar-check/index.mjs.
@@ -105,7 +105,7 @@ servidor.registerTool(
       'Lista as regras do rebar-check, agrupadas por nível N0–N7, com id, classe e título. ' +
       'CHAME ANTES DE ESCREVER CÓDIGO neste repositório ou num projeto gerado por ele: é a lista ' +
       'do que vai reprovar no commit e no CI. Filtre por nível, classe ou termo para não trazer tudo. ' +
-      'Derivado de mcp/regras.gerado.json; a razão de cada regra sai em rebar_porque.',
+      'Derivado de mcp/rules.generated.json; a razão de cada regra sai em rebar_porque.',
     inputSchema: {
       nivel: z.string().optional().describe('N0..N7 — só as regras desse nível'),
       classe: z

@@ -8,9 +8,9 @@ O defeito que ele existe para não repetir, nas palavras do dono: *"No Herz e no
 
 | Peça | Papel |
 | --- | --- |
-| `tooling/rebar-check/index.mjs` | **A fonte.** <!--n regras.total-->23<!--/n--> regras, com o porquê medido de cada uma |
+| `tooling/rebar-check/index.mjs` | **A fonte.** <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/generate.mjs` | **O gerador.** Deriva o artefato da fonte |
-| `mcp/regras.gerado.json` | **O artefato.** <!--n mcp.artefato.tamanho-->83 KB<!--/n-->. Não se edita à mão |
+| `mcp/rules.generated.json` | **O artefato.** <!--n mcp.artefato.tamanho-->83 KB<!--/n-->. Não se edita à mão |
 | `mcp/src/` | **O servidor.** Lê o artefato. Nunca lê o `index.mjs` |
 
 O que fecha o ciclo é o passo `mcp` do portão:

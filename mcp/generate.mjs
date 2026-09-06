@@ -15,7 +15,7 @@
 // arquivo inteiro:
 //
 //   ARTEFATO GERADO      o servidor MCP não guarda regra escrita à mão. Ele lê
-//                        `regras.gerado.json`, que sai daqui.
+//                        `rules.generated.json`, que sai daqui.
 //   PORTÃO DE FRESCOR    `--verificar` regenera EM MEMÓRIA e compara com o
 //                        disco. Divergiu, sai 1. É o que torna impossível mudar
 //                        a regra e esquecer o MCP.
@@ -30,7 +30,7 @@
 // passa a depender do que ele está conferindo.
 //
 // Uso:
-//   node mcp/generate.mjs              escreve mcp/regras.gerado.json
+//   node mcp/generate.mjs              escreve mcp/rules.generated.json
 //   node mcp/generate.mjs --verificar  regenera em memória, compara, sai 1 se divergiu
 //   node mcp/generate.mjs --resumo     imprime o que seria gerado, sem escrever
 //
@@ -50,7 +50,7 @@ import { REGRAS } from '../tooling/rebar-check/index.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..')
-const ARTEFATO = join(AQUI, 'regras.gerado.json')
+const ARTEFATO = join(AQUI, 'rules.generated.json')
 
 /** Erro de GERAÇÃO — sai 2, nunca 1. Ver o bloco de códigos de saída acima. */
 class Torto extends Error {}
@@ -714,7 +714,7 @@ function diferencas(disco, gerado, onde = '') {
   const saida = []
   for (const k of chaves) {
     // Em lista de objetos identificados, o caminho usa o IDENTIFICADOR e não o
-    // índice: `regras.telefone.titulo` diz o que mudou, `regras.17.titulo`
+    // índice: `rules.telefone.titulo` diz o que mudou, `rules.17.titulo`
     // manda contar. E o índice ainda mente quando o que mudou foi a ORDEM —
     // inserir uma regra no meio faria toda regra abaixo dela aparecer como
     // divergente por posição, e as 5 linhas úteis do diff sumiriam no meio de 40.
@@ -796,7 +796,7 @@ function conferir(gerado, ausentes) {
   avisarAusentes(ausentes)
   const disco = lerDoDisco()
   if (disco.ausente) {
-    console.error('mcp/gerar --verificar: DIVERGIU — mcp/regras.gerado.json não existe.')
+    console.error('mcp/gerar --verificar: DIVERGIU — mcp/rules.generated.json não existe.')
     console.error('  O servidor MCP leria o nada. Rode: node mcp/generate.mjs')
     return 1
   }

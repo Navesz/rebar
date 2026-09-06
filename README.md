@@ -93,18 +93,18 @@ O `127` domina o `1`: não se acusa um repositório com uma régua que quebrou.
 
 ## O que ele checa
 
-São <!--n regras.total-->23<!--/n--> regras em duas classes.
+São <!--n rules.total-->23<!--/n--> regras em duas classes.
 
-**<!--n regras.deterministicas-->18<!--/n--> determinísticas** derrubam o exit code:
+**<!--n rules.deterministicas-->18<!--/n--> determinísticas** derrubam o exit code:
 
-São elas: <!--n regras.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gates` · `tests` · `typecheck` · `formatter` · `env-example` · `license` · `readme` · `notice` · `hooks-executable` · `gate-with-placeholder` · `ai-coauthorship` · `git-identity` · `fake-ui` · `orphan-schema` · `phone`<!--/n-->
+São elas: <!--n rules.lista-deterministicas-->`editorconfig` · `dependabot` · `ci` · `ci-gates` · `tests` · `typecheck` · `formatter` · `env-example` · `license` · `readme` · `notice` · `hooks-executable` · `gate-with-placeholder` · `ai-coauthorship` · `git-identity` · `fake-ui` · `orphan-schema` · `phone`<!--/n-->
 
-**<!--n regras.heuristicas-->5<!--/n--> heurísticas** só informam, e a separação é medida,
+**<!--n rules.heuristicas-->5<!--/n--> heurísticas** só informam, e a separação é medida,
 não estética:
 
-São elas: <!--n regras.lista-heuristicas-->`content-outside-code` · `shadcn-complete` · `production-url` · `raw-hex` · `single-language`<!--/n-->
+São elas: <!--n rules.lista-heuristicas-->`content-outside-code` · `shadcn-complete` · `production-url` · `raw-hex` · `single-language`<!--/n-->
 
-Este comando imprime o número das determinísticas, e ele é o <!--n regras.deterministicas-->18<!--/n--> da linha acima:
+Este comando imprime o número das determinísticas, e ele é o <!--n rules.deterministicas-->18<!--/n--> da linha acima:
 
 ```bash
 npx github:Navesz/rebar --json . | grep -c '"classe": "determinística"'
@@ -118,7 +118,7 @@ heurística que barra ensina a desligar a saída inteira.
 
 ### Toda regra nasce com dois casos
 
-São <!--n provas.casos-->53<!--/n--> casos, cobrindo <!--n provas.cobertura-->23 de 23<!--/n--> regras — nenhuma regra sem prova:
+São <!--n proofs.casos-->53<!--/n--> casos, cobrindo <!--n proofs.cobertura-->23 de 23<!--/n--> regras — nenhuma regra sem prova:
 
 ```bash
 npm run prove
@@ -145,7 +145,7 @@ O checker é uma das camadas, não a única.
 | **N4s** | ruleset com check obrigatório | **o servidor** |
 
 `npm run verify` **não é uma camada nova**: é a sequência que o N4 executa e que você
-roda antes dele, hoje com <!--n verificar.passos-->13<!--/n--> passos. O checker é o último
+roda antes dele, hoje com <!--n verify.passos-->13<!--/n--> passos. O checker é o último
 deles.
 
 O N4s existe porque tudo abaixo dele mora em arquivo que o agente edita: o workflow ele
@@ -157,27 +157,27 @@ npm run verify          # a sequência inteira, um comando
 npm run install-hooks   # aponta core.hooksPath para tooling/hooks
 ```
 
-### Os <!--n verificar.passos-->13<!--/n--> passos, e o que cada um barra
+### Os <!--n verify.passos-->13<!--/n--> passos, e o que cada um barra
 
 Na ordem em que rodam, do mais barato para o mais caro — o executor reporta o **primeiro**
 passo caído como "conserte primeiro", e consertar sintaxe costuma apagar sozinho as falhas
-de baixo: <!--n verificar.lista-passos-->`higiene` · `hooks` · `sintaxe` · `blocos` · `mcp-servidor` · `mcp` · `numeros` · `formato` · `elos` · `segredo` · `passos` · `provas` · `auto`<!--/n-->
+de baixo: <!--n verify.lista-passos-->`hygiene` · `hooks` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `steps` · `proofs` · `self`<!--/n-->
 
 | # | Passo | O que ele barra |
 |---|---|---|
-| <!--n verificar.posicao.higiene-->1 de 13<!--/n--> | `higiene` | o estado do git contra o que o portão está prestes a afirmar: bit de `skip-worktree`/`assume-unchanged` no índice, ignore local em `.git/info/exclude`, e o hash dos dois arquivos do próprio portão contra o HEAD |
-| <!--n verificar.posicao.hooks-->2 de 13<!--/n--> | `hooks` | os dois hooks existem e `core.hooksPath` aponta para eles |
-| <!--n verificar.posicao.sintaxe-->3 de 13<!--/n--> | `sintaxe` | `node --check` em cada `.mjs` que o git conhece, rastreado ou recém-escrito |
-| <!--n verificar.posicao.blocos-->4 de 13<!--/n--> | `blocos` | sintaxe e `modelo.json` dos arquivos que o gerador copia para **dentro** de todo projeto criado |
-| <!--n verificar.posicao.mcp-servidor-->5 de 13<!--/n--> | `mcp-servidor` | o servidor MCP **sobe e responde ao protocolo** — não basta existir no disco |
-| <!--n verificar.posicao.mcp-->6 de 13<!--/n--> | `mcp` | o artefato do MCP divergir da fonte de que ele deriva |
-| <!--n verificar.posicao.numeros-->7 de 13<!--/n--> | `numeros` | um número do README ou do ESTADO divergir da fonte — é o passo que escreveu os números desta página |
-| <!--n verificar.posicao.formato-->8 de 13<!--/n--> | `formato` | `prettier --check .` |
-| <!--n verificar.posicao.elos-->9 de 13<!--/n--> | `elos` | link relativo quebrado na documentação |
-| <!--n verificar.posicao.segredo-->10 de 13<!--/n--> | `segredo` | credencial no repositório, com o conteúdo lido do **índice** quando é `--staged` |
-| <!--n verificar.posicao.passos-->11 de 13<!--/n--> | `passos` | os passos que são função do portão, provados **por mutação** — o portão provando o portão |
-| <!--n verificar.posicao.provas-->12 de 13<!--/n--> | `provas` | os <!--n provas.casos-->53<!--/n--> casos das regras |
-| <!--n verificar.posicao.auto-->13 de 13<!--/n--> | `auto` | o `rebar-check` apontado para o próprio rebar |
+| <!--n verify.posicao.hygiene-->1 de 13<!--/n--> | `higiene` | o estado do git contra o que o portão está prestes a afirmar: bit de `skip-worktree`/`assume-unchanged` no índice, ignore local em `.git/info/exclude`, e o hash dos dois arquivos do próprio portão contra o HEAD |
+| <!--n verify.posicao.hooks-->2 de 13<!--/n--> | `hooks` | os dois hooks existem e `core.hooksPath` aponta para eles |
+| <!--n verify.posicao.syntax-->3 de 13<!--/n--> | `sintaxe` | `node --check` em cada `.mjs` que o git conhece, rastreado ou recém-escrito |
+| <!--n verify.posicao.blocks-->4 de 13<!--/n--> | `blocos` | sintaxe e `modelo.json` dos arquivos que o gerador copia para **dentro** de todo projeto criado |
+| <!--n verify.posicao.mcp-server-->5 de 13<!--/n--> | `mcp-servidor` | o servidor MCP **sobe e responde ao protocolo** — não basta existir no disco |
+| <!--n verify.posicao.mcp-->6 de 13<!--/n--> | `mcp` | o artefato do MCP divergir da fonte de que ele deriva |
+| <!--n verify.posicao.numbers-->7 de 13<!--/n--> | `numeros` | um número do README ou do ESTADO divergir da fonte — é o passo que escreveu os números desta página |
+| <!--n verify.posicao.format-->8 de 13<!--/n--> | `formato` | `prettier --check .` |
+| <!--n verify.posicao.links-->9 de 13<!--/n--> | `elos` | link relativo quebrado na documentação |
+| <!--n verify.posicao.secret-->10 de 13<!--/n--> | `segredo` | credencial no repositório, com o conteúdo lido do **índice** quando é `--staged` |
+| <!--n verify.posicao.steps-->11 de 13<!--/n--> | `passos` | os passos que são função do portão, provados **por mutação** — o portão provando o portão |
+| <!--n verify.posicao.proofs-->12 de 13<!--/n--> | `provas` | os <!--n proofs.casos-->53<!--/n--> casos das regras |
+| <!--n verify.posicao.self-->13 de 13<!--/n--> | `auto` | o `rebar-check` apontado para o próprio rebar |
 
 **Nenhum passo é opcional**: o campo não existe, e `verify.mjs` recusa a chave com exit
 2. Onde há afrouxamento, ele é dentro do passo, e está dito aqui em vez de escondido:
@@ -205,7 +205,7 @@ imprime **mesmo quando o passo passa**, em seção própria abaixo do placar.
 npx github:Navesz/rebar novo padaria-do-ze padaria-do-ze.com.br
 ```
 
-Ele roda <!--n novo.passos-->6<!--/n--> passos: valida o nome, chama `shadcn create` (Next 16 App Router, React 19.2.4,
+Ele roda <!--n new.passos-->6<!--/n--> passos: valida o nome, chama `shadcn create` (Next 16 App Router, React 19.2.4,
 Tailwind 4, `@base-ui/react`, **zero Radix**), aplica o preset `site` por cima, aplica o
 portão por cima do preset, faz `git init` + hooks + primeiro commit, e **roda a régua no
 que acabou de criar, imprimindo o placar**. Um gerador que fabrica projeto reprovado é um
@@ -259,15 +259,15 @@ reescrevia quando elas mudavam, então ele servia a versão velha e nada acusava
 Aqui o MCP **não é escrito à mão**. Ele é artefato gerado, como o `tsconfig` e o lint:
 
 ```bash
-node mcp/generate.mjs              # deriva mcp/regras.gerado.json de tooling/rebar-check/index.mjs
+node mcp/generate.mjs              # deriva mcp/rules.generated.json de tooling/rebar-check/index.mjs
 node mcp/generate.mjs --verificar  # regenera EM MEMÓRIA, compara com o disco, sai 1 se divergir
 ```
 
-O segundo comando é o **passo `mcp` do portão**, o <!--n verificar.posicao.mcp-->6 de 13<!--/n--> da lista, e custa ~200 ms nesta máquina
+O segundo comando é o **passo `mcp` do portão**, o <!--n verify.posicao.mcp-->6 de 13<!--/n--> da lista, e custa ~200 ms nesta máquina
 (mediana de 5 rodadas em 01/09/2026 — Windows 11, Node 24.13; é medição de máquina, não
 propriedade da árvore). Mudar uma regra e esquecer o MCP virou impossível, e isso é
 reproduzível em quatro comandos — o segundo REPROVA no passo `mcp` nomeando o título que
-mudou, e o quarto volta a APROVAR os <!--n verificar.passos-->13<!--/n--> passos:
+mudou, e o quarto volta a APROVAR os <!--n verify.passos-->13<!--/n--> passos:
 
 ```bash
 sed -i "s/titulo: 'tem README',/titulo: 'tem README na raiz',/" tooling/rebar-check/index.mjs
@@ -281,9 +281,9 @@ fonte, e grava o `sha256` de cada fonte que leu. Não há duas fontes para diver
 
 | | |
 | --- | --- |
-| `mcp/generate.mjs` | <!--n linhas.mcp-gerador-->902<!--/n--> linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
-| `mcp/regras.gerado.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
-| `mcp/src/` | o servidor, <!--n linhas.mcp-servidor-->937<!--/n--> linhas. Lê o artefato; **nunca** lê o `index.mjs` |
+| `mcp/generate.mjs` | <!--n lines.mcp-gerador-->902<!--/n--> linhas, **zero dependência** — roda no `verificar` da raiz, sem `mcp/node_modules` |
+| `mcp/rules.generated.json` | <!--n mcp.artefato.tamanho-->83 KB<!--/n--> · <!--n mcp.artefato.regras-->23<!--/n--> regras · <!--n mcp.artefato.niveis-->8<!--/n--> níveis · <!--n mcp.artefato.passos-->13<!--/n--> passos · <!--n mcp.artefato.provas-->53<!--/n--> provas |
+| `mcp/src/` | o servidor, <!--n lines.mcp-servidor-->937<!--/n--> linhas. Lê o artefato; **nunca** lê o `index.mjs` |
 
 O servidor expõe <!--n mcp.ferramentas-->5<!--/n--> ferramentas: `rebar_regras`, `rebar_porque`,
 `rebar_decidir`, `rebar_portao`, `rebar_verificar`. Para ligar e para a prova de ponta a
@@ -308,13 +308,13 @@ Honesto, e medido:
 
 | | |
 |---|---|
-| O checker | **funciona** — <!--n regras.total-->23<!--/n--> regras, <!--n provas.casos-->53<!--/n--> provas, rodado contra 19 repositórios em 30/08/2026 |
-| O portão | **funciona** — <!--n verificar.passos-->13<!--/n--> passos, CI verde nos dois sistemas, merge barrado com PR plantado |
-| Domínio de privilégio de banco | **provado** — <!--n dominio.privilegio.testes-->16<!--/n--> asserções contra PostgreSQL 17 real |
+| O checker | **funciona** — <!--n rules.total-->23<!--/n--> regras, <!--n proofs.casos-->53<!--/n--> provas, rodado contra 19 repositórios em 30/08/2026 |
+| O portão | **funciona** — <!--n verify.passos-->13<!--/n--> passos, CI verde nos dois sistemas, merge barrado com PR plantado |
+| Domínio de privilégio de banco | **provado** — <!--n domain.privilegio.testes-->16<!--/n--> asserções contra PostgreSQL 17 real |
 | O gerador (`rebar novo`) | **funciona** — rodado de ponta a ponta em 31/08/2026, projeto 14 de 14 |
 | Preset `site` | **funciona** — Next 16 SSG, `og:image` no HTML, conteúdo validado no build |
 | Presets `app` / `api` | **não existem**, e são não-escopo até o `site` rodar em dois sites |
-| MCP (`mcp/`) | **funciona, e o portão o mantém em dia** — <!--n mcp.ferramentas-->5<!--/n--> ferramentas, artefato derivado das <!--n regras.total-->23<!--/n--> regras |
+| MCP (`mcp/`) | **funciona, e o portão o mantém em dia** — <!--n mcp.ferramentas-->5<!--/n--> ferramentas, artefato derivado das <!--n rules.total-->23<!--/n--> regras |
 | Os números destes documentos | **derivados** — `node tooling/numbers.mjs` os escreve, e o passo `numeros` reprova se envelhecerem |
 
 O rebar tira **13 de 13 · 4 não se aplica** na própria régua, com `new/` já rastreado —
@@ -360,8 +360,8 @@ escala.
 
 ## Desenvolvimento
 
-O `npm ci` instala <!--n pacote.dependencias-->0<!--/n--> dependências de runtime; a única
-de desenvolvimento é <!--n pacote.dev-dependencias-->`prettier` 3.9.6<!--/n-->.
+O `npm ci` instala <!--n package.dependencias-->0<!--/n--> dependências de runtime; a única
+de desenvolvimento é <!--n package.dev-dependencias-->`prettier` 3.9.6<!--/n-->.
 
 ```bash
 git clone https://github.com/Navesz/rebar && cd rebar
@@ -392,7 +392,7 @@ falha lá com `ENOENT` sobre um arquivo que está no PATH. Foi o bug que quebrou
 anterior, e ele só não apareceu antes porque o CI de lá só rodava Linux.
 
 `new/site/blocks/` e `new/gate/arquivos/` são **modelo, não produto** — arquivos que o
-gerador copia para dentro do projeto criado — <!--n novo.arquivos-modelo-->24<!--/n--> dos <!--n novo.arquivos-->28<!--/n--> arquivos de `new/`. Cada uma das duas pastas tem um
+gerador copia para dentro do projeto criado — <!--n new.arquivos-modelo-->24<!--/n--> dos <!--n new.arquivos-->28<!--/n--> arquivos de `new/`. Cada uma das duas pastas tem um
 `modelo.json` que a tira da avaliação do rebar-check, e a contagem sai impressa no placar.
 Sem isso, os `.ts`/`.tsx` de exemplo faziam a regra `typecheck` enxergar aqui um projeto
 TypeScript sem compilador. Eles continuam sendo checados em dois lugares: no passo `blocos`
