@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "33450af5d8ed1ff18ffaed2f1e8d35244d36502e3fc701766574a129e1bf0e08",
+      "sha256": "4e0c19a2cc89265b49c3f6df24281a296a915947c08358c7c0fa853922e909a5",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -1300,6 +1300,17 @@
       },
       {
         "ordem": 17,
+        "nome": "generator-identity",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "new/prove-identidade.mjs"
+        ],
+        "dica": "A identidade do primeiro commit do projeto gerado deixou de bater com a que vai no NOTICE e na allowlist. O projeto nasce com a lista dizendo uma pessoa e o historico tendo outra, e isso so aparece meses depois."
+      },
+      {
+        "ordem": 18,
         "nome": "mcp-template",
         "tipo": "comando",
         "comando": [
@@ -1310,7 +1321,7 @@
         "dica": "O MCP que o gerador escreve parou de responder, ou passou a mentir sobre o estado do portao. Rode `node new/gate/prove-mcp-template.mjs` sem --curto para ver a troca JSON-RPC inteira."
       },
       {
-        "ordem": 18,
+        "ordem": 19,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -1322,7 +1333,7 @@
         "dica": "Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais."
       },
       {
-        "ordem": 19,
+        "ordem": 20,
         "nome": "self",
         "tipo": "comando",
         "comando": [
@@ -1340,7 +1351,7 @@
       "decisao": "O scaffold é delegado ao `shadcn create`; o rebar aplica o preset `site` por cima e roda a régua no resultado.",
       "prova": {
         "arquivo": "new/index.mjs",
-        "linha": 128,
+        "linha": 129,
         "trecho": "shadcn@latest create"
       },
       "porque": [

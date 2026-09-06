@@ -1189,6 +1189,24 @@ export default [
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {
+    // O PRIMEIRO COMMIT DO PROJETO GERADO tem de sair com a MESMA identidade
+    // que foi escrita no NOTICE e na allowlist. O gerador usava `-c user.*`
+    // achando que isso fixava o autor; no git a variavel de ambiente GANHA da
+    // config, e `-c` e config. Numa maquina com `git config user.email` e
+    // `GIT_AUTHOR_EMAIL` divergentes -- runner de CI, container -- o projeto
+    // nascia com a allowlist dizendo uma pessoa e o historico tendo outra.
+    //
+    // A primeira assercao da prova mede a PRECEDENCIA no git puro, sem passar
+    // pelo conserto: se ela cair, o conserto virou desnecessario em vez de
+    // errado em silencio.
+    nome: 'generator-identity',
+    comando: node('--test', 'new/prove-identidade.mjs'),
+    exige: ['new/prove-identidade.mjs', 'new/identidade.mjs', 'new/index.mjs'],
+    dica: 'A identidade do primeiro commit do projeto gerado deixou de bater com a que vai no NOTICE e na allowlist. O projeto nasce com a lista dizendo uma pessoa e o historico tendo outra, e isso so aparece meses depois.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 2 * MINUTO,
+  },
+  {
     // E O MAPA AINDA NAO E O PRODUTO. O passo acima confere que o modelo do MCP
     // e EMITIDO; o `syntax` confere que ele PARSEIA. Nenhum dos dois confere que
     // ele RESPONDE -- e sao 800 linhas que vao para dentro de todo projeto
