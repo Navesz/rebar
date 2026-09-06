@@ -14,7 +14,7 @@
 # que nasce com os dois hooks instalados, impedir a entrada basta; varrer o
 # histórico inteiro a cada commit é o trabalho que a régua do rebar faz no CI.
 #
-# Instale com: node .githooks/instalar.mjs
+# Instale com: node .githooks/install.mjs
 # Pule uma vez com: git commit --no-verify
 
 set -e
@@ -24,7 +24,7 @@ cd "$RAIZ"
 
 # Só o que está em stage, não o repositório inteiro: é o que este commit está
 # prestes a acrescentar, e é o que cabe no orçamento de tempo.
-node .githooks/varrer-segredo.mjs --staged
+node .githooks/scan-secret.mjs --staged
 
 # ARQUIVO DE AMBIENTE RASTREADO e achado por si so, sem olhar o conteudo: um
 # `.env` vazio hoje recebe a chave amanha, e ai ja passou pela revisao. E a

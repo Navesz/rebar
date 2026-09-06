@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "c3e0b152ae178393f8f0a83e9fcba14b2fb5c234e3373366886e0536c0ceb782",
+      "sha256": "cbedfff05e78f8f58ed838398d95e0eb8494efaf534c552a1f8eaef5a3e443f3",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -1232,6 +1232,17 @@
       },
       {
         "ordem": 14,
+        "nome": "generator-map",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "new/gate/prove-map.mjs"
+        ],
+        "dica": "O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto."
+      },
+      {
+        "ordem": 15,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -1243,7 +1254,7 @@
         "dica": "Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais."
       },
       {
-        "ordem": 15,
+        "ordem": 16,
         "nome": "self",
         "tipo": "comando",
         "comando": [

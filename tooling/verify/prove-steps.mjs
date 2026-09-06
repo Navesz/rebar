@@ -880,6 +880,7 @@ const PASSOS_ESPERADOS = [
   'secret-proofs',
   'steps',
   'proofs',
+  'generator-map',
   'security',
   'self',
 ]
