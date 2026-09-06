@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "5fc496f7a7faf5c23cab450fe6b65f94aafda6b42617b7bd564ca433d79d91a2",
+      "sha256": "1c919ae3c861a86c1307d71255dddc0f4e1aeb8fab48dfff2db9ee1d24d740e9",
       "daqui": "os passos do portão, na ordem"
     },
     {
@@ -1249,6 +1249,17 @@
       },
       {
         "ordem": 15,
+        "nome": "mcp-template",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "new/gate/prove-mcp-template.mjs",
+          "--curto"
+        ],
+        "dica": "O MCP que o gerador escreve parou de responder, ou passou a mentir sobre o estado do portao. Rode `node new/gate/prove-mcp-template.mjs` sem --curto para ver a troca JSON-RPC inteira."
+      },
+      {
+        "ordem": 16,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -1260,7 +1271,7 @@
         "dica": "Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais."
       },
       {
-        "ordem": 16,
+        "ordem": 17,
         "nome": "self",
         "tipo": "comando",
         "comando": [

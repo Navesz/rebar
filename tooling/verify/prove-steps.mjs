@@ -881,6 +881,7 @@ const PASSOS_ESPERADOS = [
   'steps',
   'proofs',
   'generator-map',
+  'mcp-template',
   'security',
   'self',
 ]

@@ -85,8 +85,8 @@
 // stderr, por `grito()`.
 
 import { execFile, execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // ─────────────────────────────────────────────────────────────── 1. onde estamos
@@ -101,6 +101,10 @@ import { fileURLToPath } from 'node:url'
 // com barra antes da letra do drive, e todo join a partir dele aponta para o nada.
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = dirname(AQUI)
+
+// A pasta que o `core.hooksPath` tem de apontar para o portão deste projeto
+// existir de verdade. O gerador a escreve com este nome; se mudar lá, muda aqui.
+const PASTA_HOOKS = '.githooks'
 
 // A régua publicada. É o comando que o CI deste projeto roda e a única coisa que
 // este arquivo sabe sobre o rebar: um endereço, nenhuma regra.
@@ -226,26 +230,94 @@ function placeholdersPendentes() {
 
 // ─────────────────────────────────────────────── 4. o estado do portão, derivado
 
+/** Mesmo diretório, respondido pelo sistema de arquivos e não por string.
+ *
+ * `realpathSync.native` resolve link simbólico E canoniza a caixa das letras no
+ * Windows, onde `.GITHOOKS` e `.githooks` são a mesma pasta e a comparação de
+ * texto diria que não. Só cai na comparação de texto quando um dos dois lados
+ * não existe — e aí a diferença já foi decidida antes de chegar aqui.
+ */
+function mesmaPasta(a, b) {
+  try {
+    return realpathSync.native(a) === realpathSync.native(b)
+  } catch {
+    return resolve(a) === resolve(b)
+  }
+}
+
 /**
  * Os hooks só valem se o git souber deles. `core.hooksPath` é o que liga
  * `.githooks/` ao git, e ele NÃO vem junto no clone — quem clona este projeto
  * recebe os arquivos e nenhum hook armado. É a diferença entre "o arquivo existe"
  * e "o commit é barrado", e a resposta tem de dizer qual das duas é o caso.
+ *
+ * LER O VALOR NÃO BASTA, e é o que esta função fazia até 2026-09-06: ela
+ * devolvia `valor`, e quem chamava concluía `armado = valor !== null`. Só que
+ * `core.hooksPath` é uma string livre — o git grava sem conferir nada:
+ *
+ *   $ git config core.hooksPath .hooks-que-nunca-existiram   # sai 0, calado
+ *   $ git commit ...                                          # nenhum hook roda
+ *
+ * A partir daí o git não executa hook nenhum e não avisa, e este MCP respondia
+ * `armado_no_git: true` — que é pior que não saber, porque é justamente o que faz
+ * o agente parar de perguntar. Mesmo desfecho quando o valor aponta para uma
+ * pasta que EXISTE mas é outra: o git roda os hooks de lá e os `.githooks/`
+ * deste projeto ficam inertes no disco.
+ *
+ * Então são três estados, e a resposta diz qual é junto com o porquê.
  */
 function hooksArmados() {
+  let bruto = null
   try {
-    const v = execFileSync('git', ['config', '--get', 'core.hooksPath'], {
-      cwd: RAIZ,
-      encoding: 'utf8',
-      timeout: 5000,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
-    return { valor: v || null, erro: null }
+    bruto =
+      execFileSync('git', ['config', '--get', 'core.hooksPath'], {
+        cwd: RAIZ,
+        encoding: 'utf8',
+        timeout: 5000,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim() || null
   } catch {
     // Sai não-zero quando a chave não existe — que é o caso comum e não é falha.
-    return { valor: null, erro: null }
+    bruto = null
   }
+
+  if (bruto === null) {
+    return {
+      valor: null,
+      armado: false,
+      motivo:
+        '`core.hooksPath` não está configurado — os arquivos estão no disco e o git os ignora.',
+    }
+  }
+
+  // Caminho relativo em `core.hooksPath` resolve a partir do TOPO da árvore de
+  // trabalho, não do diretório onde o comando roda. É o que o git documenta, e
+  // resolver do cwd daria "armado" ou "quebrado" conforme a pasta de onde se
+  // chamasse este servidor.
+  const destino = resolve(RAIZ, bruto)
+
+  if (!existsSync(destino)) {
+    return {
+      valor: bruto,
+      armado: false,
+      motivo:
+        `\`core.hooksPath\` aponta para ${JSON.stringify(bruto)}, que NÃO existe no disco. ` +
+        'O git aceita qualquer string aqui e não confere nada: nenhum hook roda, e sem erro nenhum.',
+    }
+  }
+
+  if (!mesmaPasta(destino, join(RAIZ, PASTA_HOOKS))) {
+    return {
+      valor: bruto,
+      armado: false,
+      motivo:
+        `\`core.hooksPath\` aponta para ${JSON.stringify(bruto)}, e não para ${PASTA_HOOKS}/. ` +
+        'O git executa os hooks de lá; os deste projeto estão no disco e nunca rodam.',
+    }
+  }
+
+  return { valor: bruto, armado: true, motivo: null }
 }
 
 /** As dependências reais, com as versões reais. Nunca uma lista escrita à mão. */
@@ -276,7 +348,7 @@ function regrasDoProjeto() {
   const p = pilha()
   const ph = placeholdersPendentes()
   const hooks = hooksArmados()
-  const armadoNoGit = hooks.valor !== null
+  const armadoNoGit = hooks.armado
 
   const regra = (id, titulo, imposta, corpo) => {
     const presentes = imposta.filter((rel) => tem(rel))
@@ -336,8 +408,7 @@ function regrasDoProjeto() {
           'Por isso é a única coisa barrada ANTES de existir, e não auditada depois.',
         como: armadoNoGit
           ? 'Já armado. O hook varre só o que está em stage, para caber em menos de 5 s.'
-          : 'ARME AGORA: `node .githooks/install.mjs`. Sem `core.hooksPath` o arquivo está no ' +
-            'disco e o git NÃO O EXECUTA — o portão parece instalado e verifica zero.',
+          : `${hooks.motivo} ARME AGORA: \`node .githooks/install.mjs\`.`,
       },
     ),
     regra(
@@ -713,7 +784,10 @@ const FERRAMENTAS = [
         passos,
         hooks_de_git: {
           core_hooksPath: hooks.valor,
-          armado: hooks.valor !== null,
+          armado: hooks.armado,
+          // Presente só quando NÃO está armado, e é o campo que diz qual dos três
+          // desarmados é: sem configuração, destino inexistente, ou outra pasta.
+          porque_nao: hooks.motivo,
           arquivos_no_disco: ['.githooks/pre-commit', '.githooks/commit-msg'].filter((r) => tem(r)),
           como_armar: 'node .githooks/install.mjs',
           porque:

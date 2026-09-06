@@ -1137,19 +1137,7 @@ export default [
     limite: 8,
   },
   {
-    // O modulo de seguranca se prova pelo MESMO executor do rebar-check, com o
-    // checker e a pasta de casos passados por argumento. Duplicar mil linhas de
-    // runner seria a segunda fonte que diverge -- o defeito que este
-    // repositorio inteiro persegue.
-    //
-    nome: 'generator-map',
-    comando: node('--test', 'new/gate/prove-map.mjs'),
-    exige: ['new/gate/prove-map.mjs', 'new/gate/aplicar.mjs'],
-    dica: 'O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto.',
-    extrair: /^\s*(✖|not ok|AssertionError)/i,
-  },
-  {
-    // O PASSO ACIMA E O QUE FALTAVA, e a ausencia dele custou o produto.
+    // ESTE PASSO E O QUE FALTAVA, e a ausencia dele custou o produto.
     //
     // Na traducao dos nomes o `aplicar.mjs` passou a ler `verify.yml` de uma
     // pasta onde o arquivo se chama `verificar.yml`. `rebar novo` morreu com
@@ -1160,7 +1148,36 @@ export default [
     // Ele confere o MAPA, nao gera projeto: geracao de verdade e `npm create
     // vite` mais `shadcn` mais `npm install`, minutos e rede, e passo que
     // ninguem espera e passo que alguem desliga.
-
+    nome: 'generator-map',
+    comando: node('--test', 'new/gate/prove-map.mjs'),
+    exige: ['new/gate/prove-map.mjs', 'new/gate/aplicar.mjs'],
+    dica: 'O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
+    // E O MAPA AINDA NAO E O PRODUTO. O passo acima confere que o modelo do MCP
+    // e EMITIDO; o `syntax` confere que ele PARSEIA. Nenhum dos dois confere que
+    // ele RESPONDE -- e sao 800 linhas que vao para dentro de todo projeto
+    // gerado.
+    //
+    // Este passo fala MCP de verdade com uma copia do modelo, num projeto
+    // montado num tmpdir, e pergunta a coisa mais cara que ele responde: o
+    // portao esta armado? `core.hooksPath` e string livre, o git grava sem
+    // conferir nada, e quem le so o valor anuncia portao fechado sobre portao
+    // escancarado. Cinco estados, cinco casos.
+    nome: 'mcp-template',
+    comando: node('new/gate/prove-mcp-template.mjs', '--curto'),
+    exige: ['new/gate/prove-mcp-template.mjs', 'new/gate/arquivos/mcp-rebar.mjs'],
+    dica: 'O MCP que o gerador escreve parou de responder, ou passou a mentir sobre o estado do portao. Rode `node new/gate/prove-mcp-template.mjs` sem --curto para ver a troca JSON-RPC inteira.',
+    extrair: /^\s*FALHA/,
+    tempoLimite: 2 * MINUTO,
+  },
+  {
+    // O modulo de seguranca se prova pelo MESMO executor do rebar-check, com o
+    // checker e a pasta de casos passados por argumento. Duplicar mil linhas de
+    // runner seria a segunda fonte que diverge -- o defeito que este
+    // repositorio inteiro persegue.
+    //
     // Passo proprio, e nao um `&&` dentro de `proofs`, porque os dois falham
     // por motivos diferentes e a dica precisa dizer qual dos dois caiu.
     nome: 'security',

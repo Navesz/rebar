@@ -31,16 +31,15 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// O cliente mora fora deste arquivo desde que apareceu a segunda prova que
+// precisa dele — a do MCP que o gerador escreve, em new/gate/prove-mcp-template.mjs.
+import { Cliente, PROTOCOLO, textoDa, trecho } from './cliente-jsonrpc.mjs'
+
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const SERVIDOR = join(AQUI, 'index.mjs')
 const RAIZ = join(AQUI, '..', '..')
 const LEIAME = join(AQUI, '..', 'README.md')
 const CURTO = process.argv.includes('--curto')
-
-// A versão do protocolo que este cliente fala. O servidor responde com a dele; se
-// negociar para outra, a resposta do initialize mostra qual — e isso é informação,
-// não erro.
-const PROTOCOLO = '2025-06-18'
 
 let falhas = 0
 
@@ -57,95 +56,10 @@ function falhou(t) {
   console.log(`  FALHA ${t}`)
 }
 
-/** Corta resposta longa: a prova é que a resposta veio certa, não o texto inteiro. */
-function trecho(t, limite = 900) {
-  const s = String(t)
-  return s.length <= limite ? s : `${s.slice(0, limite)}\n   … (+${s.length - limite} caracteres)`
-}
-
-class Cliente {
-  /**
-   * Por padrão sobe o servidor com `process.execPath`, o node que está rodando este
-   * cliente. Com `comando` explícito, sobe do jeito que o `.mcp.json` do README manda
-   * — que é o que o passo 5 usa para provar o snippet em vez de prometê-lo.
-   */
-  constructor(caminhoDoServidor, comando = null) {
-    const [exe, args, opcoes] = comando
-      ? [comando.command, comando.args, { cwd: RAIZ }]
-      : [process.execPath, [caminhoDoServidor], {}]
-    this.proc = spawn(exe, args, {
-      ...opcoes,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-    this.proximoId = 1
-    this.pendentes = new Map()
-    this.stderr = ''
-    this.resto = ''
-
-    this.proc.stdout.setEncoding('utf8')
-    this.proc.stdout.on('data', (pedaco) => {
-      this.resto += pedaco
-      let quebra
-      while ((quebra = this.resto.indexOf('\n')) >= 0) {
-        const linha = this.resto.slice(0, quebra).trim()
-        this.resto = this.resto.slice(quebra + 1)
-        if (!linha) continue
-        const msg = JSON.parse(linha)
-        if (msg.id !== undefined && this.pendentes.has(msg.id)) {
-          this.pendentes.get(msg.id)(msg)
-          this.pendentes.delete(msg.id)
-        }
-      }
-    })
-    this.proc.stderr.setEncoding('utf8')
-    this.proc.stderr.on('data', (d) => {
-      this.stderr += d
-    })
-  }
-
-  enviar(objeto) {
-    if (!CURTO) console.log(`  → ${JSON.stringify(objeto)}`)
-    this.proc.stdin.write(`${JSON.stringify(objeto)}\n`)
-  }
-
-  /** Requisição com id: devolve a resposta correspondente. 15 s é folga generosa. */
-  pedir(metodo, params) {
-    const id = this.proximoId++
-    const req = { jsonrpc: '2.0', id, method: metodo, params }
-    return new Promise((resolve, reject) => {
-      const relogio = setTimeout(
-        () => reject(new Error(`sem resposta para ${metodo} em 15 s`)),
-        15_000,
-      )
-      this.pendentes.set(id, (msg) => {
-        clearTimeout(relogio)
-        if (!CURTO) console.log(`  ← ${trecho(JSON.stringify(msg), 700)}`)
-        resolve(msg)
-      })
-      this.enviar(req)
-    })
-  }
-
-  /** Notificação: sem id, sem resposta. O `initialized` é obrigatório no MCP. */
-  notificar(metodo, params) {
-    this.enviar({ jsonrpc: '2.0', method: metodo, params })
-  }
-
-  fechar() {
-    this.proc.stdin.end()
-    this.proc.kill()
-  }
-}
-
-function textoDa(resposta) {
-  return (resposta.result?.content ?? []).map((c) => c.text).join('\n')
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 titulo('1 · handshake: initialize + notifications/initialized')
-const cliente = new Cliente(SERVIDOR)
+const cliente = new Cliente(SERVIDOR, { curto: CURTO })
 
 const ini = await cliente.pedir('initialize', {
   protocolVersion: PROTOCOLO,
@@ -360,7 +274,7 @@ if (!fence) {
   if (entrada?.command !== 'node') {
     falhou(`o snippet chama "${entrada?.command}"; tem de ser "node" (npx no Windows dá ENOENT)`)
   }
-  const doSnippet = new Cliente(null, entrada)
+  const doSnippet = new Cliente(null, { comando: entrada, cwd: RAIZ, curto: CURTO })
   try {
     const r = await doSnippet.pedir('initialize', {
       protocolVersion: PROTOCOLO,
@@ -400,7 +314,7 @@ try {
 }
 
 if (velho) {
-  const c = new Cliente(velho.servidor)
+  const c = new Cliente(velho.servidor, { curto: CURTO })
   try {
     await c.pedir('initialize', {
       protocolVersion: PROTOCOLO,
