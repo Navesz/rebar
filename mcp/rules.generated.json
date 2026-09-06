@@ -6,7 +6,12 @@
     {
       "arquivo": "tooling/rebar-check/index.mjs",
       "sha256": "4cef6922e5b4685f47d214cc99d30602ee15ccdce2ed61de571f00cbabe8cec4",
-      "daqui": "as regras, o porque de cada uma e os códigos de saída"
+      "daqui": "as regras de formato, o porque de cada uma e os códigos de saída"
+    },
+    {
+      "arquivo": "tooling/security/index.mjs",
+      "sha256": "57561550a0cedb97b84b599aedbb3618663e17d2ff94dd2ba8f48aeecffa67c9",
+      "daqui": "as regras de segurança e o porque de cada uma"
     },
     {
       "arquivo": "verify.config.mjs",
@@ -19,9 +24,9 @@
       "daqui": "a taxonomia N0–N7 e os ponteiros de prosa"
     },
     {
-      "arquivo": "tooling/rebar-check/proofs/cases/",
-      "sha256": "10edbb29c5fc69599520a54d84e6509702b30704eae7f5cf3d284a00b1fb0069",
-      "daqui": "o porque de cada um dos 53 casos de prova"
+      "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
+      "sha256": "e66cf409ca9b3a556e2ca24196881d4f8b2f5d7aa90d2e989e5184a036429237",
+      "daqui": "o porque de cada um dos 56 casos de prova"
     }
   ],
   "codigosDeSaida": {
@@ -62,7 +67,9 @@
         "phone",
         "shadcn-complete",
         "raw-hex",
-        "single-language"
+        "single-language",
+        "defesa-desligada",
+        "senha-sem-kdf"
       ]
     },
     {
@@ -120,7 +127,8 @@
       "regras": [
         "hooks-executable",
         "gate-with-placeholder",
-        "ai-coauthorship"
+        "ai-coauthorship",
+        "env-versionado"
       ]
     },
     {
@@ -153,6 +161,7 @@
   "regras": [
     {
       "id": "editorconfig",
+      "modulo": "rebar-check",
       "titulo": "tem .editorconfig",
       "classe": "determinística",
       "nivel": "N1",
@@ -172,6 +181,7 @@
     },
     {
       "id": "dependabot",
+      "modulo": "rebar-check",
       "titulo": "atualização de dependência automatizada",
       "classe": "determinística",
       "nivel": "N4",
@@ -203,6 +213,7 @@
     },
     {
       "id": "ci",
+      "modulo": "rebar-check",
       "titulo": "tem CI",
       "classe": "determinística",
       "nivel": "N4",
@@ -222,6 +233,7 @@
     },
     {
       "id": "ci-gates",
+      "modulo": "rebar-check",
       "titulo": "o CI alcança a verificação que o repositório tem",
       "classe": "determinística",
       "nivel": "N4",
@@ -259,6 +271,7 @@
     },
     {
       "id": "tests",
+      "modulo": "rebar-check",
       "titulo": "tem teste",
       "classe": "determinística",
       "nivel": "N3",
@@ -290,6 +303,7 @@
     },
     {
       "id": "typecheck",
+      "modulo": "rebar-check",
       "titulo": "tem script de typecheck",
       "classe": "determinística",
       "nivel": "N0",
@@ -333,6 +347,7 @@
     },
     {
       "id": "formatter",
+      "modulo": "rebar-check",
       "titulo": "tem formatador",
       "classe": "determinística",
       "nivel": "N1",
@@ -370,6 +385,7 @@
     },
     {
       "id": "env-example",
+      "modulo": "rebar-check",
       "titulo": "lê env e documenta em .env.example",
       "classe": "determinística",
       "nivel": "N2",
@@ -407,6 +423,7 @@
     },
     {
       "id": "license",
+      "modulo": "rebar-check",
       "titulo": "tem LICENSE",
       "classe": "determinística",
       "nivel": "N7",
@@ -426,6 +443,7 @@
     },
     {
       "id": "readme",
+      "modulo": "rebar-check",
       "titulo": "tem README",
       "classe": "determinística",
       "nivel": "N7",
@@ -466,6 +484,7 @@
     },
     {
       "id": "notice",
+      "modulo": "rebar-check",
       "titulo": "Apache-2.0 acompanhado de NOTICE",
       "classe": "determinística",
       "nivel": "N7",
@@ -491,6 +510,7 @@
     },
     {
       "id": "hooks-executable",
+      "modulo": "rebar-check",
       "titulo": "hook de git commitado com bit de execução",
       "classe": "determinística",
       "nivel": "N5",
@@ -521,6 +541,7 @@
     },
     {
       "id": "gate-with-placeholder",
+      "modulo": "rebar-check",
       "titulo": "o portão não ficou com placeholder de instalação",
       "classe": "determinística",
       "nivel": "N5",
@@ -556,6 +577,7 @@
     },
     {
       "id": "ai-coauthorship",
+      "modulo": "rebar-check",
       "titulo": "coautoria só de humanos da allowlist",
       "classe": "determinística",
       "nivel": "N5",
@@ -610,6 +632,7 @@
     },
     {
       "id": "git-identity",
+      "modulo": "rebar-check",
       "titulo": "identidade de autor consistente",
       "classe": "determinística",
       "nivel": "N4",
@@ -635,6 +658,7 @@
     },
     {
       "id": "fake-ui",
+      "modulo": "rebar-check",
       "titulo": "components/ui/ acompanhado de components.json",
       "classe": "determinística",
       "nivel": "N1",
@@ -672,6 +696,7 @@
     },
     {
       "id": "orphan-schema",
+      "modulo": "rebar-check",
       "titulo": "nenhum JSON Schema órfão",
       "classe": "determinística",
       "nivel": "N1",
@@ -714,6 +739,7 @@
     },
     {
       "id": "content-outside-code",
+      "modulo": "rebar-check",
       "titulo": "conteúdo em conteudo/*.json, não dentro de src/ nem de app/",
       "classe": "heurística",
       "nivel": "N1",
@@ -787,6 +813,7 @@
     },
     {
       "id": "phone",
+      "modulo": "rebar-check",
       "titulo": "sem telefone brasileiro no código",
       "classe": "determinística",
       "nivel": "N1",
@@ -838,6 +865,7 @@
     },
     {
       "id": "shadcn-complete",
+      "modulo": "rebar-check",
       "titulo": "shadcn com o aparato, não só a pasta",
       "classe": "heurística",
       "nivel": "N1",
@@ -868,6 +896,7 @@
     },
     {
       "id": "production-url",
+      "modulo": "rebar-check",
       "titulo": "sem URL de produção fora de configuração",
       "classe": "heurística",
       "nivel": "N2",
@@ -924,6 +953,7 @@
     },
     {
       "id": "raw-hex",
+      "modulo": "rebar-check",
       "titulo": "sem hex duplicando token do CSS",
       "classe": "heurística",
       "nivel": "N1",
@@ -949,6 +979,7 @@
     },
     {
       "id": "single-language",
+      "modulo": "rebar-check",
       "titulo": "um idioma só no repositório",
       "classe": "heurística",
       "nivel": "N1",
@@ -974,6 +1005,94 @@
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "Era a última das 21 regras sem caso, e regra sem caso é regra que ninguém pode refatorar com segurança. A falha real é o repositório que troca de idioma no meio: o `prumo`, medido em 2026-08-30, tem 24 arquivos com comentário em português e 47 em inglês, e a próxima pessoa escreve no idioma do arquivo que abriu primeiro. O piso é `min(pt, en) >= 3` de propósito — uma linha solta em inglês num repositório em português é citação, não troca de idioma —, e os dois lados existem para travar esse piso pelos dois lados: o `pass` tem QUATRO arquivos em português e zero em inglês, o `fail` tem os mesmos quatro mais TRÊS em inglês, exatamente o piso. Quem baixar o piso para 1 faz o `pass` continuar verde e não é pego; quem subir para 4 faz o `fail` ficar verde e é."
+        }
+      ]
+    },
+    {
+      "id": "env-versionado",
+      "modulo": "rebar-security",
+      "titulo": "nenhum .env rastreado pelo git",
+      "classe": "determinística",
+      "nivel": "N5",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 113
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 111,
+          "texto": "──────────────────────────────────────────────────────────────────── S1"
+        }
+      ],
+      "provas": [
+        {
+          "caso": "env-versionado",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Segredo versionado e a classe mais comum do inventario: 7 dos 16 videos. Esta e a fatia mais barata dela, um `git ls-files`. O lado fail tem um `.env` rastreado; o lado pass tem `.env.example` E `.env.sample` rastreados, que sao o CONSERTO da falha e nao a falha -- documentar as variaveis sem os valores e exatamente o que se pede. Quem tirar a exclusao de exemplo faz o lado pass ficar vermelho; quem trocar a checagem por \"existe .env no disco\" faz o lado fail ficar verde, porque `.env` ignorado pelo git nao e achado nenhum."
+        }
+      ]
+    },
+    {
+      "id": "defesa-desligada",
+      "modulo": "rebar-security",
+      "titulo": "nenhuma proteção de framework desligada por literal",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 150
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 148,
+          "texto": "──────────────────────────────────────────────────────────────────── S2"
+        },
+        {
+          "onde": "implementacao",
+          "linha": 173,
+          "texto": "Fonte ja vem com o texto; config e workflow precisam de leitura. Conjunto FECHADO. Cada entrada é um literal, não uma heurística. DEBUG ligado só conta junto de host liberado: `DEBUG = True` sozinho é o default de desenvolvimento e acusá-lo pinta todo settings.py."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "defesa-desligada",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A lacuna mais barata que a auditoria do inventario achou, e ela nao veio de video nenhum: e o padrao mais deterministico que existe em repositorio feito com IA. Cada literal e uma decisao humana registrada em uma linha -- alguem desligou a protecao para o demo parar de dar erro e nunca religou. O lado pass carrega o falso positivo que derruba detector ingenuo: o MESMO literal escrito dentro de comentario, documentando por que NAO se deve usar. Sem `semComentarioNemImport` o lado pass fica vermelho, e o proprio arquivo de regras deste modulo se acusaria."
+        }
+      ]
+    },
+    {
+      "id": "senha-sem-kdf",
+      "modulo": "rebar-security",
+      "titulo": "senha nunca comparada em texto puro nem por hash rápido",
+      "classe": "determinística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 228
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 226,
+          "texto": "──────────────────────────────────────────────────────────────────── S3"
+        },
+        {
+          "onde": "implementacao",
+          "linha": 258,
+          "texto": "Vocabulário BILÍNGUE. Ver a nota do topo: a lista só em inglês é cega exatamente nos repositórios que este módulo existe para auditar."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "senha-sem-kdf",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Terceira classe mais comum, 4 dos 16 videos, e escolhida antes do mass assignment (que aparece em 5) por custo: mass assignment so decide a severidade lendo a coluna privilegiada do schema, e isso exige parser. Esta aqui e textual inteira. O lado fail compara com `===`, o que prova que nao houve KDF -- bcrypt e argon2 devolvem hash com sal e exigem `compare`. O lado pass carrega o falso positivo que importa: PRE-HASH LEGITIMO. bcrypt trunca em 72 bytes calado, e a defesa recomendada e passar um sha256 da senha para ele. Quem faz isso esta CERTO, e acusa-lo seria punir quem conhece o problema -- por isso o sinal de hash rapido so vale onde nao ha primitiva lenta no mesmo arquivo. O vocabulario e bilingue nos dois lados: as duas arvores usam `senha`, nao `password`, porque este modulo audita repositorio brasileiro."
         }
       ]
     }

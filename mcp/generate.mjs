@@ -47,6 +47,7 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { REGRAS } from '../tooling/rebar-check/index.mjs'
+import { REGRAS as REGRAS_SEGURANCA } from '../tooling/security/index.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..')
@@ -244,8 +245,10 @@ function regrasNoTexto(fonte, rel) {
 // seria invisível porque o corte é determinístico. Quem decide o que cabe numa
 // resposta é o servidor, na hora de responder — não o gerador, para sempre.
 
-function lerProvas(idsValidos) {
-  const relBase = 'tooling/rebar-check/proofs/cases'
+// `relBase` e parametro desde que existe mais de um modulo de regra: cada um
+// tem as suas provas, e fixar a pasta aqui faria as regras de seguranca
+// entrarem no artefato sem prova nenhuma -- calado.
+function lerProvas(idsValidos, relBase) {
   const base = join(RAIZ, ...relBase.split('/'))
   exigir(existsSync(base), `fonte ausente: ${relBase}/`)
 
@@ -592,40 +595,90 @@ async function montar() {
   // indentação ou alguém escrever uma regra numa forma nova, o parser casa a
   // menos — e sem esta comparação a regra sumiria do artefato em SILÊNCIO, que é
   // o defeito exato que este módulo existe para não cometer.
-  const noTexto = regrasNoTexto(fonteCheck, relCheck)
-  const idsTexto = noTexto.map((r) => r.id).join(',')
-  const idsModulo = REGRAS.map((r) => r.id).join(',')
-  exigir(
-    idsTexto === idsModulo,
-    `${relCheck}: o texto casou ${noTexto.length} regra(s) e o módulo exporta ${REGRAS.length}.\n` +
-      `  texto : ${idsTexto}\n  módulo: ${idsModulo}`,
-  )
-
-  const provas = pulou('proofs') ? null : lerProvas(REGRAS.map((r) => r.id))
   const niveis = pulou('niveis') ? null : lerNiveis(relPlano)
 
-  const regras = REGRAS.map((regra, i) => {
-    const t = noTexto[i]
+  // DOIS MÓDULOS DE REGRA, e o segundo é o motivo desta lista existir.
+  //
+  // O `rebar-check` diz se o repositório está no formato certo; o
+  // `rebar-security` diz se ele tem falha de segurança. São binários
+  // diferentes, com provas próprias, mas UMA fonte de verdade para a IA: sem
+  // isto o MCP servia 23 regras e zero de segurança, e quem abrisse o projeto
+  // era avisado do `.editorconfig` e não do `.env` rastreado.
+  //
+  // Cada módulo carrega o caminho das PRÓPRIAS provas. Fixar a pasta faria as
+  // regras do segundo entrarem no artefato sem prova, em silêncio.
+  const MODULOS = [
+    { modulo: 'rebar-check', rel: relCheck, REGRAS, provas: 'tooling/rebar-check/proofs/cases' },
+    {
+      modulo: 'rebar-security',
+      rel: 'tooling/security/index.mjs',
+      REGRAS: REGRAS_SEGURANCA,
+      provas: 'tooling/security/proofs/cases',
+    },
+  ]
+
+  const regras = []
+  const provasPorModulo = []
+  for (const m of MODULOS) {
+    const fonte = ler(m.rel)
+
+    // A CONFERÊNCIA QUE TORNA A DERIVA ALTA, agora por módulo. O texto e o
+    // array importado têm de concordar na lista inteira, id a id, na mesma
+    // ordem. Se o prettier mudar a indentação ou alguém escrever uma regra numa
+    // forma nova, o parser casa a menos — e sem esta comparação a regra sumiria
+    // do artefato em SILÊNCIO, que é o defeito que este módulo existe para não
+    // cometer.
+    const noTexto = regrasNoTexto(fonte, m.rel)
+    const idsTexto = noTexto.map((r) => r.id).join(',')
+    const idsModulo = m.REGRAS.map((r) => r.id).join(',')
     exigir(
-      regra.titulo && regra.classe && regra.nivel,
-      `regra ${regra.id}: campo obrigatório vazio`,
+      idsTexto === idsModulo,
+      `${m.rel}: o texto casou ${noTexto.length} regra(s) e o módulo exporta ${m.REGRAS.length}.\n` +
+        `  texto : ${idsTexto}\n  módulo: ${idsModulo}`,
     )
-    exigir(
-      !niveis || niveis.linhas.some((n) => n.nivel === regra.nivel),
-      `regra ${regra.id}: nível "${regra.nivel}" não existe na tabela N0–N7`,
-    )
-    return {
-      id: regra.id,
-      titulo: regra.titulo,
-      // determinística derruba o exit code; heurística só informa. É a
-      // diferença entre "não entra na principal" e "fica anotado".
-      classe: regra.classe,
-      nivel: regra.nivel,
-      fonte: { arquivo: relCheck, linha: t.linha },
-      porque: t.porque,
-      ...(provas ? { provas: provas.porRegra.get(regra.id) } : {}),
+
+    const provas = pulou('proofs')
+      ? null
+      : lerProvas(
+          m.REGRAS.map((r) => r.id),
+          m.provas,
+        )
+    if (provas) provasPorModulo.push(provas)
+
+    for (const [i, regra] of m.REGRAS.entries()) {
+      const t = noTexto[i]
+      exigir(
+        regra.titulo && regra.classe && regra.nivel,
+        `regra ${regra.id}: campo obrigatório vazio`,
+      )
+      exigir(
+        !niveis || niveis.linhas.some((n) => n.nivel === regra.nivel),
+        `regra ${regra.id}: nível "${regra.nivel}" não existe na tabela N0–N7`,
+      )
+      regras.push({
+        id: regra.id,
+        // Qual binário roda esta regra. Sem o campo, a IA lê "env-versionado"
+        // no artefato e chama `npx rebar`, que não a conhece.
+        modulo: m.modulo,
+        titulo: regra.titulo,
+        // determinística derruba o exit code; heurística só informa. É a
+        // diferença entre "não entra na principal" e "fica anotado".
+        classe: regra.classe,
+        nivel: regra.nivel,
+        fonte: { arquivo: m.rel, linha: t.linha },
+        porque: t.porque,
+        ...(provas ? { provas: provas.porRegra.get(regra.id) } : {}),
+      })
     }
-  })
+  }
+
+  const provas = provasPorModulo.length
+    ? {
+        quantos: provasPorModulo.reduce((s, p) => s + p.quantos, 0),
+        impressao: sha256(provasPorModulo.map((p) => `${p.relBase}\n${p.impressao}`).join('\n')),
+        relBase: provasPorModulo.map((p) => p.relBase).join(' · '),
+      }
+    : null
 
   const porNivel = (n) => regras.filter((r) => r.nivel === n).map((r) => r.id)
 
@@ -638,7 +691,12 @@ async function montar() {
       {
         arquivo: relCheck,
         sha256: sha256(fonteCheck),
-        daqui: 'as regras, o porque de cada uma e os códigos de saída',
+        daqui: 'as regras de formato, o porque de cada uma e os códigos de saída',
+      },
+      {
+        arquivo: 'tooling/security/index.mjs',
+        sha256: sha256(ler('tooling/security/index.mjs')),
+        daqui: 'as regras de segurança e o porque de cada uma',
       },
       ...(pulou('gate')
         ? []

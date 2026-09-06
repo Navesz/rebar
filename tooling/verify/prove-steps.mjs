@@ -258,6 +258,11 @@ async function comMcpMutado(mutar) {
       join(tmp, 'tooling', 'rebar-check'),
       'proofs',
     )
+    // O gerador do MCP passou a importar as regras de SEGURANCA tambem. Sem
+    // esta copia a arvore temporaria nao resolve o import e a mutacao morre com
+    // ERR_MODULE_NOT_FOUND -- que o teste leria como "o artefato esta velho",
+    // apontando para o lugar errado.
+    await copiarSem(join(RAIZ, 'tooling', 'security'), join(tmp, 'tooling', 'security'), 'proofs')
     await cp(join(RAIZ, 'package.json'), join(tmp, 'package.json'))
 
     await mutar({
@@ -440,6 +445,7 @@ async function montarRaizDoMedidor(dir, documento) {
     join(dir, 'tooling', 'rebar-check'),
     'proofs',
   )
+  await copiarSem(join(RAIZ, 'tooling', 'security'), join(dir, 'tooling', 'security'), 'proofs')
   await cp(join(RAIZ, 'verify.config.mjs'), join(dir, 'verify.config.mjs'))
   await cp(join(RAIZ, 'package.json'), join(dir, 'package.json'))
   await writeFile(join(dir, 'README.md'), documento, 'utf8')

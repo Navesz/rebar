@@ -72,7 +72,14 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
       saida.push(n ? `${n.nivel} · ${n.oQueE} — falha como: ${n.falhaComo}` : nivelAtual)
     }
     const sigla = SIGLA_CLASSE[r.classe] ?? r.classe
-    saida.push(`  ${r.id.padEnd(larguraId)}  ${sigla}  ${r.titulo}`)
+    // Qual binário roda a regra, e só quando NÃO é o padrão.
+    //
+    // Sem esta marca a lista mistura os dois módulos e quem lê tenta
+    // `npx rebar --rule=env-versionado`, que não conhece a regra e sai com
+    // código 2. Marcar as 23 do rebar-check tambem encheria a coluna de ruído
+    // para dizer "o de sempre"; marcar só a exceção é o que se lê rápido.
+    const onde = r.modulo && r.modulo !== 'rebar-check' ? '  ⟨seg⟩' : ''
+    saida.push(`  ${r.id.padEnd(larguraId)}  ${sigla}  ${r.titulo}${onde}`)
   }
 
   const det = regras.filter((r) => r.classe === 'determinística').length
@@ -81,6 +88,9 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
     ...saida,
     '',
     'det = reprova o commit e o CI. heu = aparece no placar, não barra (só com --heuristics).',
+    ...(regras.some((r) => r.modulo === 'rebar-security')
+      ? ['⟨seg⟩ = regra do rebar-security. Roda com `rebar-security`, não com `rebar`.']
+      : []),
     'Para a razão medida de uma delas e as provas que a travam: rebar_porque { id }.',
   ].join('\n')
 }
