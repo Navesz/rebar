@@ -1069,6 +1069,18 @@ export default [
     tempoLimite: 3 * MINUTO,
   },
   {
+    // O passo `secret` acima prova que o varredor RODA. Este prova que ele
+    // ACHA -- e a distancia entre os dois foi um P1 de auditoria externa: o
+    // mesmo token em UTF-16LE passou batido, com exit 0, zero achados e o
+    // arquivo contado como "binario varrido". O passo ficou verde a execucao
+    // inteira, porque nada perguntava se ele tinha encontrado alguma coisa.
+    nome: 'secret-proofs',
+    comando: node('--test', 'tooling/secret/prove-scan.mjs'),
+    exige: ['tooling/secret/prove-scan.mjs'],
+    dica: 'O varredor de segredo parou de achar o que achava. Se a queixa for de codificacao, e o `decodificar()` -- o BOM de UTF-16 volta a virar NUL e o token sai um caractere por linha.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
     nome: 'steps',
     // O PORTAO PROVANDO O PORTAO. Passo que e `comando:` ja se prova sozinho —
     // se o script sumir, o passo cai. Passo que e `funcao:` e codigo do portao,

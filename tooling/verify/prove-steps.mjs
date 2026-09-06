@@ -877,6 +877,7 @@ const PASSOS_ESPERADOS = [
   'format',
   'links',
   'secret',
+  'secret-proofs',
   'steps',
   'proofs',
   'security',

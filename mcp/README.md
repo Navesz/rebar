@@ -10,7 +10,7 @@ O defeito que ele existe para não repetir, nas palavras do dono: *"No Herz e no
 | --- | --- |
 | `tooling/rebar-check/index.mjs` | **A fonte.** <!--n rules.total-->23<!--/n--> regras, com o porquê medido de cada uma |
 | `mcp/generate.mjs` | **O gerador.** Deriva o artefato da fonte |
-| `mcp/rules.generated.json` | **O artefato.** <!--n mcp.artefato.tamanho-->89 KB<!--/n-->. Não se edita à mão |
+| `mcp/rules.generated.json` | **O artefato.** <!--n mcp.artefato.tamanho-->90 KB<!--/n-->. Não se edita à mão |
 | `mcp/src/` | **O servidor.** Lê o artefato. Nunca lê o `index.mjs` |
 
 O que fecha o ciclo é o passo `mcp` do portão:
@@ -69,7 +69,7 @@ Depois de editar o `.mcp.json`, reinicie o Claude Code e confira com `/mcp`.
 | `rebar_regras` | "o que vai me reprovar aqui?" | antes de escrever código |
 | `rebar_porque` | "por que isto é regra?" — com o número medido e as provas | quando o portão reprovar e der vontade de contornar |
 | `rebar_decidir` | "o projeto já decidiu sobre X?" | antes de propor stack, biblioteca, formato ou processo |
-| `rebar_portao` | os <!--n mcp.artefato.passos-->14<!--/n--> passos do portão, o comando de cada um, os códigos de saída | quando o portão reprovar e a mensagem não bastar |
+| `rebar_portao` | os <!--n mcp.artefato.passos-->15<!--/n--> passos do portão, o comando de cada um, os códigos de saída | quando o portão reprovar e a mensagem não bastar |
 | `rebar_verificar` | roda a régua num caminho e devolve o placar | depois de mexer, antes de dizer que terminou |
 
 **Não existe `rebar_gerar`**, que a §7.2 previa. O gerador do rebar (`new/index.mjs`) cria um projeto inteiro, roda `shadcn create` e faz o primeiro commit — não é emissor de componente, e uma tool que faz commit contraria a regra da casa de que quem commita é o dono. Tool que promete o que o repositório não faz é a promessa que ninguém confere, exatamente o que o campo `naoDerivado` do artefato existe para registrar.

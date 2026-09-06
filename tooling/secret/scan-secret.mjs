@@ -653,8 +653,48 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados) {
   }
 }
 
+/**
+ * Decodifica pelo BOM antes de qualquer coisa.
+ *
+ * P1 de auditoria externa, reproduzido: o MESMO token sintético em dois
+ * arquivos no índice, um UTF-8 e outro UTF-16LE com BOM. O primeiro foi achado,
+ * o segundo passou — exit 0, zero achados, e o arquivo contado como "binário
+ * varrido", de modo que o silêncio parecia cobertura.
+ *
+ * O mecanismo é pior que "não decodifica". Em UTF-16LE cada caractere ASCII
+ * ocupa dois bytes, o segundo NUL. O `toString('utf8')` devolve `g\0h\0p\0…`;
+ * a guarda de binário logo abaixo vê o NUL e troca os controles por QUEBRA DE
+ * LINHA, justamente para expor ilhas de texto em binário. O efeito colateral é
+ * que o token sai um caractere por linha, e nenhuma regra casa nada.
+ *
+ * Só BOM, e isso é escolha. BOM é determinístico: três assinaturas, sem
+ * adivinhação. Detectar UTF-16 SEM BOM exigiria estatística sobre a proporção
+ * de NULs, e errar para o lado do "isto é texto" faria o varredor gastar as
+ * regras caras em binário de verdade. O que sobra sem BOM continua entrando
+ * pelo caminho de binário — varrido pelas ilhas, e CONTADO no relatório, que é
+ * a diferença entre cobertura ausente e cobertura fingida.
+ */
+function decodificar(dados) {
+  if (dados.length >= 2) {
+    // UTF-16LE: FF FE  ·  UTF-16BE: FE FF
+    if (dados[0] === 0xff && dados[1] === 0xfe) return dados.subarray(2).toString('utf16le')
+    if (dados[0] === 0xfe && dados[1] === 0xff) {
+      // Node não decodifica BE direto: troca os pares e cai no LE.
+      const trocado = Buffer.from(dados.subarray(2))
+      trocado.swap16()
+      return trocado.toString('utf16le')
+    }
+  }
+  // UTF-8 com BOM: EF BB BF. O BOM sozinho não atrapalha a regex, mas deixá-lo
+  // no texto desloca a coluna do achado em três bytes na primeira linha.
+  if (dados.length >= 3 && dados[0] === 0xef && dados[1] === 0xbb && dados[2] === 0xbf) {
+    return dados.subarray(3).toString('utf8')
+  }
+  return dados.toString('utf8')
+}
+
 function varrerConteudo(caminho, dados, relatorio) {
-  let texto = dados.toString('utf8')
+  let texto = decodificar(dados)
   let binario = false
   if (texto.indexOf('\u0000') !== -1) {
     // FURO 3: byte NUL fazia o arquivo inteiro ser pulado em silêncio. Segredo
