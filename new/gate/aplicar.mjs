@@ -76,14 +76,14 @@ const PASTA_REBAR = '.rebar'
 // commits diferentes é como ponteiro quebra calado.
 const MCP_LANCADOR = `${PASTA_REBAR}/mcp.mjs`
 
-const ESTATICOS = [
+export const ESTATICOS = [
   ['editorconfig', '.editorconfig'],
   ['gitattributes', '.gitattributes'],
   ['dependabot.yml', '.github/dependabot.yml'],
-  ['verify.yml', '.github/workflows/verificar.yml'],
+  ['verificar.yml', '.github/workflows/verificar.yml'],
   ['pre-commit', `${PASTA_HOOKS}/pre-commit`],
   ['commit-msg', `${PASTA_HOOKS}/commit-msg`],
-  ['instalar.mjs', `${PASTA_HOOKS}/instalar.mjs`],
+  ['install.mjs', `${PASTA_HOOKS}/install.mjs`],
   ['portao.test.mjs', 'testes/portao.test.mjs'],
   // O MCP DESTE PROJETO. Ver o cabeçalho de `mcp-rebar.mjs` para a decisão
   // inteira e para os números que a mediram; o resumo é: o projeto serve as
@@ -111,7 +111,7 @@ const ESTATICOS = [
 // Os dois `.mjs` copiados são autocontidos, só de built-in do Node, e acham a
 // raiz por `git rev-parse --show-toplevel`. Postos em `.githooks/`, eles leem o
 // repositório GERADO, não o rebar.
-const COPIADOS_DO_REBAR = [
+export const COPIADOS_DO_REBAR = [
   ['LICENSE', 'LICENSE'],
   ['tooling/secret/scan-secret.mjs', `${PASTA_HOOKS}/scan-secret.mjs`],
   ['tooling/hooks/check-message.mjs', `${PASTA_HOOKS}/check-message.mjs`],

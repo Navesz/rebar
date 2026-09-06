@@ -106,6 +106,11 @@ const RAIZ = dirname(AQUI)
 // este arquivo sabe sobre o rebar: um endereço, nenhuma regra.
 const ESPEC_REBAR = 'github:Navesz/rebar'
 const REGUA = `npx --yes ${ESPEC_REBAR} .`
+// Binário DIFERENTE do mesmo pacote, daí o `-p`: sem ele o npx roda o bin
+// padrão e a "régua de segurança" seria a de formato com outro nome. As duas
+// respondem separado porque falham por motivos separados — formato errado e
+// falha de segurança não se consertam do mesmo jeito nem com a mesma pressa.
+const REGUA_SEGURANCA = `npx --yes -p ${ESPEC_REBAR} rebar-security .`
 
 // Tudo o que for para humano vai para o stderr. Ver a seção 5 do cabeçalho.
 const grito = (t) => process.stderr.write(`mcp: ${t}\n`)
@@ -453,7 +458,7 @@ const FERRAMENTAS = [
         desarmadas.length
           ? `ATENÇÃO: ${desarmadas.length} regra(s) DESARMADA(S) — o arquivo que as impõe não está aqui. Avise o usuário.`
           : 'Todas as regras abaixo têm o arquivo que as impõe presente no disco.',
-        `Estas são as regras DESTE site. As 22 regras do rebar-check rodam por \`${REGUA}\` — use rebar_verificar { regua: true }.`,
+        `Estas são as regras DESTE site. As do rebar-check rodam por \`${REGUA}\`, e as de segurança por \`${REGUA_SEGURANCA}\` — use rebar_verificar { regua: true }.`,
         '',
       ].join('\n')
       return cabeca + emJson(regras)
@@ -715,7 +720,11 @@ const FERRAMENTAS = [
             'O hook NÃO vem armado no clone. Sem `core.hooksPath` o arquivo está no disco e o git ' +
             'não o executa: o portão parece instalado e verifica zero.',
         },
-        regua_do_rebar: `${REGUA}   (as 22 regras; rede necessária)`,
+        regua_do_rebar: `${REGUA}   (formato; rede necessária)`,
+        // Binário separado porque falha por motivo separado: formato
+        // errado e falha de segurança não se consertam do mesmo jeito
+        // nem com a mesma pressa.
+        regua_de_seguranca: `${REGUA_SEGURANCA}   (segurança; rede necessária)`,
         aviso: 'Este MCP é atalho. Quem barra é o comando acima, o hook e o CI.',
       })
     },

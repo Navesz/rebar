@@ -628,8 +628,53 @@ const RE_RUNNER =
  * cada arquivo entram uma vez só, senão um script que chama a si mesmo faria
  * o laço crescer para sempre.
  */
+/**
+ * Só o que o workflow EXECUTA: os valores de `run:`.
+ *
+ * P1 de auditoria externa, reproduzido: com `scripts.test` definido e um
+ * workflow que só faz `echo ok`, a regra reprovava — e acrescentar a linha
+ * `# TODO: run test later` virava o veredito para APROVADO. O texto-base era o
+ * YAML cru, então qualquer aparição da palavra em qualquer lugar do arquivo
+ * satisfazia a regra.
+ *
+ * POR QUE EXTRAIR EM VEZ DE SUBTRAIR. Tirar comentário consertaria só o caso
+ * relatado, e o mesmo relatório nomeia dois vizinhos: nome de job e mensagem de
+ * `echo`. Subtrair não-execução é uma lista que nunca fecha — `name:`,
+ * `echo`, `if:`, `env:`, chave de job, `with:`, o `on:`. Extrair execução
+ * é uma lista de um item, e ela é a definição do que a regra pergunta: o CI
+ * ALCANÇA a verificação, e alcançar é rodar.
+ *
+ * O que continua fora do alcance, e é honesto dizer: um `uses:` de ação
+ * composta pode rodar o script sem um `run:` visível aqui. Nesse caso a regra
+ * reprova um CI que de fato verifica — falso positivo, e o repositório escolhe
+ * o falso positivo sobre o falso negativo quando o assunto é portão.
+ */
+function comandosDoCi(yml) {
+  const linhas = yml.split('\n')
+  const saida = []
+  for (let i = 0; i < linhas.length; i++) {
+    const m = linhas[i].match(/^(\s*)-?\s*run\s*:\s*(.*)$/)
+    if (!m) continue
+    const [, recuo, resto] = m
+    // Escalar de bloco: `run: |` ou `run: >`, e o comando vem indentado abaixo.
+    if (/^[|>][-+]?\s*$/.test(resto)) {
+      const base = recuo.length
+      for (let j = i + 1; j < linhas.length; j++) {
+        if (linhas[j].trim() === '') continue
+        const r = linhas[j].match(/^(\s*)/)[1].length
+        if (r <= base) break
+        saida.push(linhas[j])
+        i = j
+      }
+    } else if (resto) {
+      saida.push(resto)
+    }
+  }
+  return saida.join('\n')
+}
+
 function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
-  let texto = yml
+  let texto = comandosDoCi(yml)
   const vistos = new Set()
   const lidos = new Set()
   for (let i = 0; i < profundidade; i++) {

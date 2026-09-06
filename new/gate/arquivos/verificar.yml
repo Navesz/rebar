@@ -74,3 +74,12 @@ jobs:
       # parcial, 127 o ferramental quebrou — todos derrubam o job.
       - name: régua do rebar
         run: npx --yes github:Navesz/rebar .
+
+      # A RÉGUA DE SEGURANÇA, e ela é um binário DIFERENTE do mesmo pacote —
+      # por isso o `-p`. Sem ele o npx roda o bin padrão, que é o checker de
+      # formato, e este passo repetiria o de cima sem ninguém notar.
+      #
+      # Aqui pode ser rede: roda uma vez por push, não uma vez por commit. O
+      # que não podia esperar pelo CI está no hook, escrito em shell.
+      - name: régua de segurança
+        run: npx --yes -p github:Navesz/rebar rebar-security .

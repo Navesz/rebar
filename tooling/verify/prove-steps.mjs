@@ -877,8 +877,10 @@ const PASSOS_ESPERADOS = [
   'format',
   'links',
   'secret',
+  'secret-proofs',
   'steps',
   'proofs',
+  'generator-map',
   'security',
   'self',
 ]

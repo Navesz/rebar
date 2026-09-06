@@ -1069,6 +1069,18 @@ export default [
     tempoLimite: 3 * MINUTO,
   },
   {
+    // O passo `secret` acima prova que o varredor RODA. Este prova que ele
+    // ACHA -- e a distancia entre os dois foi um P1 de auditoria externa: o
+    // mesmo token em UTF-16LE passou batido, com exit 0, zero achados e o
+    // arquivo contado como "binario varrido". O passo ficou verde a execucao
+    // inteira, porque nada perguntava se ele tinha encontrado alguma coisa.
+    nome: 'secret-proofs',
+    comando: node('--test', 'tooling/secret/prove-scan.mjs'),
+    exige: ['tooling/secret/prove-scan.mjs'],
+    dica: 'O varredor de segredo parou de achar o que achava. Se a queixa for de codificacao, e o `decodificar()` -- o BOM de UTF-16 volta a virar NUL e o token sai um caractere por linha.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
     nome: 'steps',
     // O PORTAO PROVANDO O PORTAO. Passo que e `comando:` ja se prova sozinho —
     // se o script sumir, o passo cai. Passo que e `funcao:` e codigo do portao,
@@ -1123,6 +1135,25 @@ export default [
     // runner seria a segunda fonte que diverge -- o defeito que este
     // repositorio inteiro persegue.
     //
+    nome: 'generator-map',
+    comando: node('--test', 'new/gate/prove-map.mjs'),
+    exige: ['new/gate/prove-map.mjs', 'new/gate/aplicar.mjs'],
+    dica: 'O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
+    // O PASSO ACIMA E O QUE FALTAVA, e a ausencia dele custou o produto.
+    //
+    // Na traducao dos nomes o `aplicar.mjs` passou a ler `verify.yml` de uma
+    // pasta onde o arquivo se chama `verificar.yml`. `rebar novo` morreu com
+    // ENOENT, e este portao ficou 15 de 15 VERDE por seis commits: o checker se
+    // prova, as regras se provam, o MCP se prova, o portao se prova -- e o
+    // produto nao.
+    //
+    // Ele confere o MAPA, nao gera projeto: geracao de verdade e `npm create
+    // vite` mais `shadcn` mais `npm install`, minutos e rede, e passo que
+    // ninguem espera e passo que alguem desliga.
+
     // Passo proprio, e nao um `&&` dentro de `proofs`, porque os dois falham
     // por motivos diferentes e a dica precisa dizer qual dos dois caiu.
     nome: 'security',

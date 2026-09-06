@@ -1,0 +1,9 @@
+name: ci
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # TODO: run test later
+      - run: echo "running tests"

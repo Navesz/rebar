@@ -4,4 +4,4 @@
 # conteúdo, este olha o que ele acrescenta em AUTORIA.
 set -e
 RAIZ=$(git rev-parse --show-toplevel)
-exec node "$RAIZ/.githooks/checar-mensagem.mjs" "$1"
+exec node "$RAIZ/.githooks/check-message.mjs" "$1"

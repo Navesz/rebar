@@ -14,7 +14,7 @@
 # que nasce com os dois hooks instalados, impedir a entrada basta; varrer o
 # histórico inteiro a cada commit é o trabalho que a régua do rebar faz no CI.
 #
-# Instale com: node .githooks/instalar.mjs
+# Instale com: node .githooks/install.mjs
 # Pule uma vez com: git commit --no-verify
 
 set -e
@@ -24,6 +24,27 @@ cd "$RAIZ"
 
 # Só o que está em stage, não o repositório inteiro: é o que este commit está
 # prestes a acrescentar, e é o que cabe no orçamento de tempo.
-node .githooks/varrer-segredo.mjs --staged
+node .githooks/scan-secret.mjs --staged
+
+# ARQUIVO DE AMBIENTE RASTREADO e achado por si so, sem olhar o conteudo: um
+# `.env` vazio hoje recebe a chave amanha, e ai ja passou pela revisao. E a
+# regra `env-versionado` do rebar-security, e ela e N5 -- depois do commit o
+# conserto nao e apagar o arquivo, e rotacionar a credencial.
+#
+# Escrita aqui em vez de `npx rebar-security` porque hook nao pode depender de
+# rede: um `npx` a cada commit e lento e morre offline. Sao dois comandos.
+#
+# `.env.example`, `.env.sample` e afins ficam de fora -- sao o conserto da
+# falha, nao a falha.
+ENVS=$(git diff --cached --name-only --diff-filter=AM \
+  | grep -E '(^|/)\.env($|\.)' \
+  | grep -vE '\.(example|exemplo|sample|template|dist|modelo)$' || true)
+if [ -n "$ENVS" ]; then
+  echo "[env] arquivo de ambiente em stage:"
+  echo "$ENVS" | sed 's/^/  /'
+  echo "  Apagar nao basta se ja foi commitado: rotacione a credencial."
+  echo "  Se for exemplo, renomeie para .env.example."
+  exit 1
+fi
 
 exit 0

@@ -346,7 +346,7 @@ async function main(argv) {
   // Os hooks são instalados ANTES do primeiro commit, de propósito: o commit do
   // gerador passa pelo portão que o gerador acabou de montar. Portão que a
   // própria criação dele não atravessa é portão não testado.
-  const inst = spawnSync(process.execPath, [join(destino, PASTA_HOOKS, 'instalar.mjs')], {
+  const inst = spawnSync(process.execPath, [join(destino, PASTA_HOOKS, 'install.mjs')], {
     cwd: destino,
     encoding: 'utf8',
   })

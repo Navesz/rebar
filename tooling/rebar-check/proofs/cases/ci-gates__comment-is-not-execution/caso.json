@@ -1,0 +1,4 @@
+{
+  "rule": "ci-gates",
+  "why": "P1 de auditoria externa, reproduzido antes de consertar: com `scripts.test` definido e um workflow que so faz `echo ok`, a regra reprovava -- e acrescentar a linha `# TODO: run test later` virava o veredito para APROVADO, exit 0. O texto-base era o YAML cru, entao a palavra em qualquer lugar do arquivo satisfazia a regra. O lado fail tem exatamente essa arvore: comentario citando test, nome de job chamado test, e um `echo \"running tests\"` -- os tres vizinhos que o relatorio nomeia junto, e nenhum deles executa nada. O lado pass tem os TRES tambem, mais um `run: npm test` de verdade: e a prova de que o conserto nao foi tirar a palavra do texto, e sim olhar so onde o workflow executa. Quem trocar `comandosDoCi` por uma subtracao de comentario faz o lado fail ficar verde de novo pelo nome do job."
+}
