@@ -65,13 +65,29 @@ function validarNome(nome) {
 // concatenated as `https://${dominio}`, so a value carrying a slash, a space or
 // a scheme produces a broken URL that only shows up on the share card, after
 // publishing.
-const DOMINIO_VALIDO = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/
+const HOST = '[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+'
+
+// A PATH IS ALLOWED, and it is not a nicety: a GitHub Pages PROJECT site lives
+// at `user.github.io/repo`. Without this the only way to generate one was to
+// generate it wrong and edit the JSON afterwards — which is the "edit by hand"
+// this generator exists to remove. The schema accepts the path since the same
+// commit; the CLI was one level behind.
+//
+// The rest of the validation stands, and its reason does not change: the value
+// is concatenated as `https://${dominio}`, so a scheme, a space, a query, a
+// fragment or a trailing slash still produce a broken URL that only shows up on
+// the share card, after publishing.
+const CAMINHO = '(?:/[A-Za-z0-9._~-]+)*'
+const DOMINIO_VALIDO = new RegExp(`^${HOST}${CAMINHO}$`)
 
 function validarDominio(dominio) {
-  if (DOMINIO_VALIDO.test(dominio) && dominio.length <= 253) return null
+  // 253 is the DNS limit and it applies to the HOST, not to the path.
+  const host = dominio.split('/')[0]
+  if (DOMINIO_VALIDO.test(dominio) && host.length <= 253) return null
   return (
-    `"${dominio}" is not a domain. Write only the host, without https:// and without a ` +
-    'slash — for example: padaria.com.br, or navesz.github.io'
+    `"${dominio}" is not a domain. Write the host, without https:// and without a trailing ` +
+    'slash — for example: padaria.com.br. For a GitHub Pages project site the repository ' +
+    'name comes after the host: navesz.github.io/assay'
   )
 }
 
@@ -207,7 +223,7 @@ async function main(argv) {
   const erroNome = validarNome(nome)
   if (erroNome) {
     console.error(`\n  ${erroNome}\n`)
-    console.error('  usage: npx github:Navesz/rebar new <nome> [dominio]\n')
+    console.error('  usage: npx github:Navesz/rebar new <name> [domain[/path]]\n')
     return 2
   }
 

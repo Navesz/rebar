@@ -157,6 +157,63 @@ test('no core, no site: nome, urlBase, titulo and descricao stay mandatory', () 
   }
 })
 
+// ── (a2) `urlBase`: the side that FAILS, which was missing ────────────────
+//
+// THE RULE WAS BORN WITH ONLY THE HAPPY CASE, and it was measured: deleting the
+// credential defence from `urlBase` left this suite at 10 of 10 green. A rule
+// whose failing side is never exercised is a rule that can be quietly loosened —
+// and this one guards the value that becomes `og:url`, the sitemap and
+// `robots.txt` on a published site.
+//
+// The regex and the condition split the work, and the cases below cross both:
+// the regex already refuses `http://`, a query and a trailing slash; the
+// condition is the only thing standing between a `user:senha@host` and the
+// canonical URL of the site, because `u:p@host` has no space, slash, `?` or `#`
+// for the regex to catch.
+
+test('urlBase refuses credentials, a port, and anything that is not the canonical form', () => {
+  for (const [valor, oQueEstaErrado] of [
+    ['https://user:senha@padariadoze.com.br', 'credentials with a password'],
+    ['https://user@padariadoze.com.br', 'credentials with a user only'],
+    ['https://@padariadoze.com.br', 'empty credentials'],
+    ['https://padariadoze.com.br:8080', 'a port'],
+    ['https://padariadoze.com.br:443', 'the default port, written out'],
+    ['https://PADARIADOZE.com.br', 'a host the URL parser normalises'],
+    ['https://padariadoze.com.br/', 'a trailing slash'],
+    ['https://padariadoze.com.br/loja/', 'a trailing slash after a path'],
+    ['http://padariadoze.com.br', 'no TLS'],
+    ['https://padariadoze.com.br?utm=1', 'a query string'],
+    ['https://padariadoze.com.br#topo', 'a fragment'],
+    ['padariadoze.com.br', 'no scheme'],
+  ]) {
+    const site = minimo()
+    site.meta.urlBase = valor
+    const mensagem = recusa(site)
+    assert.match(
+      mensagem,
+      /meta\.urlBase/,
+      `${valor} (${oQueEstaErrado}) was refused, but the message does not name the field`,
+    )
+  }
+})
+
+test('urlBase accepts the canonical forms — the side that stops the rule from refusing everything', () => {
+  for (const valor of [
+    'https://padariadoze.com.br',
+    'https://navesz.github.io/assay',
+    'https://padariadoze.com.br/loja/centro',
+    'https://loja.padariadoze.com.br',
+  ]) {
+    const site = minimo()
+    site.meta.urlBase = valor
+    assert.equal(
+      esquemaSite(site, 'site').meta.urlBase,
+      valor,
+      `${valor} is a legitimate address and the schema refused it`,
+    )
+  }
+})
+
 // ── (b) the demand follows the use ────────────────────────────────────────
 
 test('the Galegos site — all declared — is accepted and the link points at the number', () => {
