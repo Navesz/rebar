@@ -1680,7 +1680,7 @@ export const REGRAS = [
     // its sentinel and prove the MCP freshness gate. Translating it drops that
     // proof in silence, and repeating the literal up here would make the
     // proof's `replace` hit this comment instead of the title.
-    titulo: 'tem .editorconfig',
+    titulo: 'has an .editorconfig',
     checar: (r) => (existe(r.dir, '.editorconfig') ? null : 'absent'),
   },
 

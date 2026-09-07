@@ -631,6 +631,40 @@ function abreParagrafo(linhas, i) {
   return !anterior.trim() || /^(#|\||```|---)/.test(anterior)
 }
 
+/**
+ * Badge numbers, derived WITHOUT a marker.
+ *
+ * A marker cannot live inside a link destination — see the defect detector in
+ * `marcadoresDe` — and a badge is a link destination and nothing else. So the
+ * number is found by the SHAPE of the shields.io URL and rewritten from the
+ * fact, which keeps the two properties that matter: it renders on GitHub, and it
+ * cannot age without the gate saying so.
+ *
+ * The label is part of the key because the three READMEs are in three languages
+ * and the badge label is translated. The number is not.
+ */
+const BADGES = [
+  { doc: 'README.md', rotulo: 'rules', fato: 'rules.all' },
+  { doc: 'README.md', rotulo: 'gate', fato: 'verify.passos' },
+  { doc: 'README.pt-BR.md', rotulo: 'regras', fato: 'rules.all' },
+  { doc: 'README.pt-BR.md', rotulo: 'port%C3%A3o', fato: 'verify.passos' },
+  { doc: 'README.es.md', rotulo: 'reglas', fato: 'rules.all' },
+  { doc: 'README.es.md', rotulo: 'compuerta', fato: 'verify.passos' },
+]
+
+const reDoBadge = (rotulo) => new RegExp(`(img\\.shields\\.io/badge/${rotulo}-)(\\d+)`, 'g')
+
+/** The badges of one document, shaped like marker findings so the rest is free. */
+function badgesDe(rel, texto) {
+  const achados = []
+  for (const b of BADGES.filter((x) => x.doc === rel)) {
+    for (const m of texto.matchAll(reDoBadge(b.rotulo))) {
+      achados.push({ arquivo: rel, id: b.fato, linha: linhaDe(texto, m.index), atual: m[2] })
+    }
+  }
+  return achados
+}
+
 function marcadoresDe(rel) {
   const texto = ler(rel)
   const cerca = linhasEmCerca(texto)
@@ -671,6 +705,33 @@ function marcadoresDe(rel) {
       )
     }
   }
+  // A MARKER INSIDE A LINK DESTINATION. It is the defect that actually shipped:
+  //
+  //   [![Rules](https://img.shields.io/badge/rules-<!--n x-->26<!--/n-->-blue)](#x)
+  //
+  // An HTML comment inside `](...)` breaks the `![...](...)` syntax and GitHub
+  // prints the whole thing as literal text. The badge was broken from the day it
+  // was written, and it was not caught because `--verificar` proved the NUMBER
+  // was fresh and nobody opened the rendered page. The number was right and the
+  // badge was text.
+  //
+  // A badge number needs no marker at all — see `BADGES` above.
+  for (const m of texto.matchAll(MARCADOR)) {
+    const linha = linhaDe(texto, m.index)
+    if (cerca.has(linha)) continue
+    const daLinha = texto.split(String.fromCharCode(10))[linha - 1] ?? ''
+    const antes = daLinha.slice(0, Math.max(0, daLinha.indexOf(m[0])))
+    const abriu = antes.lastIndexOf('](')
+    if (abriu !== -1 && !antes.slice(abriu + 2).includes(')')) {
+      // "dentro de link" stays Portuguese: prove-steps.mjs asserts it.
+      defeitos.push(
+        `${rel}:${linha}: marker "${m[1]}" INSIDE a link destination (dentro de link) — ` +
+          'an HTML comment in `](...)` breaks the markdown and GitHub prints the line as ' +
+          'text. A badge number needs no marker: see BADGES in tooling/numbers.mjs.',
+      )
+    }
+  }
+
   // A marker that OPENS a paragraph — see `abreParagrafo`. It comes last because
   // it is the only defect that does not stop the number from being checked: it
   // breaks the RENDER, not the derivation. But it breaks for whoever reads on
@@ -688,18 +749,36 @@ function marcadoresDe(rel) {
     }
   }
 
+  // The badges join the findings HERE, and that is the whole wiring: `conferir`
+  // and `escrever` iterate `achados` comparing `atual` to the fact, and neither
+  // needs to know a badge from a marker.
+  achados.push(...badgesDe(rel, texto))
+
   return { texto, achados, defeitos }
 }
 
 /** Rewrites the known markers. Returns the new text and how many changed. */
-function reescrever(texto, fatos) {
+function reescrever(texto, fatos, rel) {
   let trocados = 0
-  const novo = texto.replace(MARCADOR, (inteiro, id, atual) => {
+  let novo = texto.replace(MARCADOR, (inteiro, id, atual) => {
     const fato = fatos.get(id)
     if (!fato || fato.valor === atual) return inteiro
     trocados++
     return `<!--n ${id}-->${fato.valor}<!--/n-->`
   })
+
+  // The badges, by URL shape instead of by marker. Same idempotence: bytes only
+  // move when the value moved.
+  for (const b of BADGES.filter((x) => x.doc === rel)) {
+    const fato = fatos.get(b.fato)
+    if (!fato) continue
+    novo = novo.replace(reDoBadge(b.rotulo), (inteiro, prefixo, atual) => {
+      if (fato.valor === atual) return inteiro
+      trocados++
+      return `${prefixo}${fato.valor}`
+    })
+  }
+
   return { novo, trocados }
 }
 
@@ -774,7 +853,7 @@ function escrever(fatos, ausentes) {
       defeitos.push(`${a.arquivo}:${a.linha}: "${a.id}" is not a derivable fact (see --fatos)`)
     }
     if (!achados.length) continue
-    const { novo, trocados } = reescrever(texto, fatos)
+    const { novo, trocados } = reescrever(texto, fatos, rel)
     if (!trocados) continue
     // Idempotent on purpose: bytes are only touched when a value changed. It is
     // what stops a regeneration from dirtying the diff of a commit that touched no
