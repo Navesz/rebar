@@ -5,7 +5,7 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "a67fca12ba08a88cb963caa989d721a12428646dcdfd432259810754e713c2fd",
+      "sha256": "54a5b60c67e56e2349eecc4881d831919c78f6a123af9e0494b279233a66d0ae",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
@@ -182,7 +182,7 @@
     {
       "id": "editorconfig",
       "modulo": "rebar-check",
-      "titulo": "tem .editorconfig",
+      "titulo": "has an .editorconfig",
       "classe": "determinística",
       "nivel": "N1",
       "fonte": {

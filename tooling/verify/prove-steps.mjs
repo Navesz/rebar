@@ -309,7 +309,7 @@ describe('the `mcp` step', { concurrency: 4 }, () => {
         // Source anchor, not prose: it has to match the text in ${FONTE} byte for
         // byte. `TITULO-TROCADO-PELA-PROVA` is the planted sentinel the regex
         // below looks for — renaming either one breaks the proof.
-        const antes = "titulo: 'tem .editorconfig'"
+        const antes = "titulo: 'has an .editorconfig'"
         assert.ok(t.includes(antes), `the editorconfig rule changed shape in ${FONTE}`)
         await escrever(FONTE, t.replace(antes, "titulo: 'TITULO-TROCADO-PELA-PROVA'"))
       })
@@ -703,6 +703,49 @@ describe('the `numeros` step', { concurrency: 8 }, () => {
     assert.notEqual(r.codigo, 0, 'marker opening a paragraph passed clean, and it breaks render')
     // The METER prints this in Portuguese: the regex stays as it is.
     assert.match(r.saida, /ABRE parágrafo/)
+  })
+
+  test('FAILS · marker INSIDE a link destination', async () => {
+    // THE DEFECT THAT ACTUALLY SHIPPED, and it shipped in the most embarrassing
+    // way available to this project: the badge said `rules-26` and GitHub printed
+    //
+    //   ![Rules](https://img.shields.io/badge/rules-26-blue)
+    //
+    // as literal text, for weeks. An HTML comment inside `](...)` breaks the
+    // markdown. It was not caught because `--verificar` proved the NUMBER was
+    // fresh and nobody opened the rendered page: the tooling was checked and the
+    // product was not, which is the exact failure this repository exists to stop.
+    const r = await comNumeros(async ({ ler, escrever }) => {
+      const t = await ler('README.md')
+      await escrever(
+        'README.md',
+        `${t}\n\n[![Rules](https://img.shields.io/badge/rules-<!--n rules.total-->1<!--/n-->-blue)](#x)\n`,
+      )
+    })
+    assert.notEqual(
+      r.codigo,
+      0,
+      'a marker inside a link destination passed clean, and it breaks render',
+    )
+    // The METER prints this in Portuguese: the regex stays as it is.
+    assert.match(r.saida, /dentro de link/)
+  })
+
+  test('the badge number is derived WITHOUT a marker, and a stale one fails', async () => {
+    // The other half of the same fix. The number has to keep coming from the
+    // source — otherwise the badge is a second source that ages, and this one
+    // already did: it said 23 while the MCP served 26. So it is derived by the
+    // SHAPE of the shields.io URL instead, which renders and still cannot age.
+    const r = await comNumeros(async ({ ler, escrever }) => {
+      const t = await ler('README.md')
+      await escrever(
+        'README.md',
+        `${t}\n\n[![Rules](https://img.shields.io/badge/rules-99-blue)](#x)\n`,
+      )
+    })
+    assert.notEqual(r.codigo, 0, 'a badge showing 99 rules passed clean')
+    assert.match(r.saida, /rules\.all/)
+    assert.match(r.saida, /99/)
   })
 })
 

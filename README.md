@@ -1,18 +1,27 @@
 # rebar
 
+![rebar — checker, gate, generator](docs/assets/rebar-banner.svg)
+
 > **Makes wrong code fail.** A checker that runs against any repository, a gate that blocks
 > the commit when a rule is ignored, and a generator that builds the next project already on
 > the right side of the ruler.
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Rules](https://img.shields.io/badge/rules-<!--n rules.all-->26<!--/n-->-blue)](#what-it-checks)
-[![Gate](https://img.shields.io/badge/gate-<!--n verify.passos-->20<!--/n-->%20steps-blue)](#the-gate)
+[![Rules](https://img.shields.io/badge/rules-26-blue)](#what-it-checks)
+[![Gate](https://img.shields.io/badge/gate-20%20steps-blue)](#the-gate)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](ESTADO.md)
 
 [Leia em português](README.pt-BR.md) · [Léelo en español](README.es.md) ·
 [Website](https://navesz.github.io/rebar-site/) · [State of the project](ESTADO.md) ·
 [Plan](docs/PLANO.md)
+
+![rebar-check running on the rebar repository itself: 14 of 14, 4 not applicable, 1 warning](docs/assets/rebar-scoreboard.svg)
+
+That is the real output, generated from the run — not a screenshot drawn by hand.
+Three states, and the third is what stops the score from lying: a rule that does not
+apply prints `–` **with the reason** and leaves the denominator, instead of counting
+as a pass it never earned.
 
 ```bash
 npx github:Navesz/rebar .                    # audit what already exists

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="220" viewBox="0 0 920 220" role="img" aria-label="rebar — checker, gate, generator">
+  <title>rebar — checker, gate, generator</title>
+
+  <defs>
+    <!-- The mark is the same one the site serves: a piece of rebar, with the
+         ribs cut OUT of the bar rather than drawn on top. The ribs are what
+         make rebar grip the concrete — the whole metaphor of the project is
+         reinforcement you do not see from outside. -->
+    <mask id="ribs">
+      <rect width="100" height="100" fill="#fff"/>
+      <rect x="4" y="65.5" width="40" height="3" rx="1.5" fill="#000" transform="rotate(-35 24 67)"/>
+      <rect x="4" y="73.5" width="40" height="3" rx="1.5" fill="#000" transform="rotate(-35 24 75)"/>
+      <rect x="4" y="81.5" width="40" height="3" rx="1.5" fill="#000" transform="rotate(-35 24 83)"/>
+    </mask>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2a05c"/>
+      <stop offset="1" stop-color="#d9701f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Card. #0e1117 is the site's dark background, and it is also GitHub's, so
+       the banner sits on the page instead of on top of it. -->
+  <rect x="0.75" y="0.75" width="918.5" height="218.5" rx="18" fill="#0e1117" stroke="#2f343c" stroke-width="1.5"/>
+
+  <!-- Mark, in a tile that echoes the card -->
+  <rect x="44" y="52" width="116" height="116" rx="26" fill="#161a21" stroke="#2f343c" stroke-width="1.5"/>
+  <g transform="translate(66 74) scale(0.72)" mask="url(#ribs)">
+    <rect x="16" y="8" width="16" height="84" rx="3" fill="url(#steel)"/>
+    <rect x="16" y="8" width="68" height="16" rx="3" fill="url(#steel)"/>
+    <rect x="68" y="8" width="16" height="52" rx="3" fill="url(#steel)"/>
+    <rect x="16" y="44" width="68" height="16" rx="3" fill="url(#steel)"/>
+    <rect x="37.102" y="64.5" width="52.797" height="16" rx="3" fill="url(#steel)" transform="rotate(42.797 63.5 72.5)"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="200" y="121"
+        font-family="'Segoe UI', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif"
+        font-size="76" font-weight="700" letter-spacing="-2.5" fill="#f0f3f6">rebar</text>
+
+  <!-- Subtitle. Monospace and tracked, because the thing is a command-line
+       ruler and the README should say so before the first paragraph does. -->
+  <text x="204" y="156"
+        font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace"
+        font-size="16" font-weight="500" letter-spacing="5.5" fill="#ec8435">CHECKER · GATE · GENERATOR</text>
+
+  <!-- The verdict strip on the right: the three states the project is built
+       around, in the three colours the terminal actually prints. -->
+  <g font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15">
+    <text x="702" y="86" fill="#53be70">✓ passed</text>
+    <text x="702" y="115" fill="#ff6367">✗ failed</text>
+    <text x="702" y="144" fill="#a0a5ac">– not applicable</text>
+  </g>
+  <line x1="666" y1="62" x2="666" y2="158" stroke="#2f343c" stroke-width="1.5"/>
+</svg>

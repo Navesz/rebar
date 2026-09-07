@@ -1,18 +1,27 @@
 # rebar
 
+![rebar — checker, compuerta, generador](docs/assets/rebar-banner.svg)
+
 > **Hace que el código incorrecto no pase.** Un verificador que se ejecuta contra cualquier
 > repositorio, una compuerta que bloquea el commit cuando se ignora una regla, y un generador
 > que construye el próximo proyecto ya del lado correcto de la regla.
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licencia](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Reglas](https://img.shields.io/badge/reglas-<!--n rules.all-->26<!--/n-->-blue)](#qué-verifica)
-[![Compuerta](https://img.shields.io/badge/compuerta-<!--n verify.passos-->20<!--/n-->%20pasos-blue)](#la-compuerta)
+[![Reglas](https://img.shields.io/badge/reglas-26-blue)](#qué-verifica)
+[![Compuerta](https://img.shields.io/badge/compuerta-20%20pasos-blue)](#la-compuerta)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
 [Read in English](README.md) · [Leia em português](README.pt-BR.md) ·
 [Sitio](https://navesz.github.io/rebar-site/) · [Estado del proyecto](ESTADO.md) ·
 [Plan](docs/PLANO.md)
+
+![rebar-check corriendo sobre el propio repositorio de rebar: 14 de 14, 4 no aplican, 1 aviso](docs/assets/rebar-scoreboard.svg)
+
+Esa es la salida real, generada de la ejecución — no una captura dibujada a mano.
+Son tres estados, y el tercero es lo que impide que el marcador mienta: una regla que
+no aplica imprime `–` **con el motivo** y sale del denominador, en vez de contar como
+una aprobación que no se ganó.
 
 ```bash
 npx github:Navesz/rebar .                    # auditar lo que ya existe

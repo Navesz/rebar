@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="572" viewBox="0 0 1120 572" role="img" aria-label="rebar-check output on the rebar repository itself">
+  <title>rebar-check on the rebar repository itself</title>
+
+  <rect x="0.75" y="0.75" width="1118.5" height="570.5" rx="14" fill="#0e1117" stroke="#2f343c" stroke-width="1.5"/>
+
+  <!-- Window chrome, so the image reads as a terminal at a glance -->
+  <circle cx="28" cy="26" r="6" fill="#ff6367"/>
+  <circle cx="50" cy="26" r="6" fill="#ec8435"/>
+  <circle cx="72" cy="26" r="6" fill="#53be70"/>
+  <text x="96" y="31" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="13" fill="#6f757e">npx github:Navesz/rebar .</text>
+  <line x1="1" y1="44" x2="1119" y2="44" stroke="#2f343c" stroke-width="1.5"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" xml:space="preserve">
+  <text x="26" y="62" fill="#ec8435" font-weight="600">rebar-check · .</text>
+  <text y="84"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">editorconfig</tspan><tspan x="256" fill="#8b9199">has an .editorconfig</tspan></text>
+  <text y="106"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">dependabot</tspan><tspan x="256" fill="#8b9199">automated dependency updates</tspan></text>
+  <text y="128"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">ci</tspan><tspan x="256" fill="#8b9199">has CI</tspan></text>
+  <text y="150"><tspan x="26" fill="#6f757e">–</tspan><tspan x="52" fill="#c9ced6">ci-gates</tspan><tspan x="256" fill="#8b9199">the CI reaches the verification the repository has</tspan><tspan fill="#5c626b" dx="12">package.json has no lint, typecheck or test script</tspan></text>
+  <text y="172"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">tests</tspan><tspan x="256" fill="#8b9199">has tests</tspan></text>
+  <text y="194"><tspan x="26" fill="#6f757e">–</tspan><tspan x="52" fill="#c9ced6">typecheck</tspan><tspan x="256" fill="#8b9199">has a typecheck script</tspan><tspan fill="#5c626b" dx="12">no TypeScript</tspan></text>
+  <text y="216"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">formatter</tspan><tspan x="256" fill="#8b9199">has a formatter</tspan></text>
+  <text y="238"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">env-example</tspan><tspan x="256" fill="#8b9199">reads env and documents it in .env.example</tspan></text>
+  <text y="260"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">license</tspan><tspan x="256" fill="#8b9199">has a LICENSE</tspan></text>
+  <text y="282"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">readme</tspan><tspan x="256" fill="#8b9199">has a README</tspan></text>
+  <text y="304"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">notice</tspan><tspan x="256" fill="#8b9199">Apache-2.0 accompanied by a NOTICE</tspan></text>
+  <text y="326"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">hooks-executable</tspan><tspan x="256" fill="#8b9199">git hook committed with the execute bit</tspan></text>
+  <text y="348"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">gate-with-placeholder</tspan><tspan x="256" fill="#8b9199">the gate was not left with an install placeholder</tspan></text>
+  <text y="370"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">ai-coauthorship</tspan><tspan x="256" fill="#8b9199">co-authorship only by humans from the allowlist</tspan></text>
+  <text y="392"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">git-identity</tspan><tspan x="256" fill="#8b9199">consistent author identity</tspan></text>
+  <text y="414"><tspan x="26" fill="#6f757e">–</tspan><tspan x="52" fill="#c9ced6">fake-ui</tspan><tspan x="256" fill="#8b9199">components/ui/ accompanied by components.json</tspan><tspan fill="#5c626b" dx="12">no components/ui/ folder</tspan></text>
+  <text y="436"><tspan x="26" fill="#6f757e">–</tspan><tspan x="52" fill="#c9ced6">orphan-schema</tspan><tspan x="256" fill="#8b9199">no orphan JSON Schema</tspan><tspan fill="#5c626b" dx="12">no .schema.json in the repository</tspan></text>
+  <text y="458"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">phone</tspan><tspan x="256" fill="#8b9199">no Brazilian phone number in the code</tspan></text>
+  <text x="26" y="480" fill="#6f757e" font-style="italic">── heuristics (they do not enter the score, they do not drop the CI)</text>
+  <text y="502"><tspan x="26" fill="#ff6367">✗</tspan><tspan x="52" fill="#c9ced6">production-url</tspan><tspan x="256" fill="#8b9199">1 file(s): tooling/secret/prove-scan.mjs</tspan></text>
+  <text x="26" y="530" fill="#f0f3f6" font-weight="600">14 of 14  ·  4 not applicable  ·  1 warning(s)</text>
+  </g>
+</svg>
