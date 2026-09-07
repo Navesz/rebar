@@ -1,0 +1,9 @@
+{
+  "name": "alvo",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "node build.mjs",
+    "verify": "node verify.mjs",
+    "check": "node check.mjs"
+  }
+}

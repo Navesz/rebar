@@ -9,7 +9,7 @@
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licencia](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
 [![Reglas](https://img.shields.io/badge/reglas-26-blue)](#qué-verifica)
-[![Compuerta](https://img.shields.io/badge/compuerta-20%20pasos-blue)](#la-compuerta)
+[![Compuerta](https://img.shields.io/badge/compuerta-22%20pasos-blue)](#la-compuerta)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
 [Read in English](README.md) · [Leia em português](README.pt-BR.md) ·
@@ -113,7 +113,7 @@ apagar la salida entera.
 
 ### Toda regla nace con dos casos
 
-Son <!--n proofs.casos-->58<!--/n--> casos, un par por regla, y las <!--n rules.total-->23<!--/n--> reglas están cubiertas:
+Son <!--n proofs.casos-->59<!--/n--> casos, un par por regla, y las <!--n rules.total-->23<!--/n--> reglas están cubiertas:
 
 ```bash
 npm run prove
@@ -156,9 +156,9 @@ El verificador es una de las capas, no la única.
 | **N4s** | ruleset con check obligatorio | **el servidor** |
 
 `npm run verify` **no es una capa nueva**: es la secuencia que ejecuta el N4 y que se ejecuta
-antes que él, hoy con <!--n verify.passos-->20<!--/n--> pasos.
+antes que él, hoy con <!--n verify.passos-->22<!--/n--> pasos.
 
-En orden: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `generator-identity` · `mcp-template` · `security` · `self`<!--/n-->
+En orden: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
 
 El N4s existe porque todo lo que está debajo vive en un archivo que el agente edita: el
 workflow lo borra, el `core.hooksPath` lo quita sin dejar diff. Solo el ruleset resiste — y
@@ -187,13 +187,13 @@ sea avisada antes de escribir, y no después.
 El artefacto es **derivado, nunca duplicado**: `npm run verify` lo regenera en memoria y falla
 si el disco diverge. Es imposible cambiar una regla y olvidar el MCP.
 
-Lleva <!--n mcp.artefato.regras-->26<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->20<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->62<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
+Lleva <!--n mcp.artefato.regras-->26<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->22<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->63<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
 
 ## Mapa del repositorio
 
 | Ruta | Qué |
 |---|---|
-| `tooling/rebar-check/` | la regla de formato y sus <!--n proofs.casos-->58<!--/n--> casos de prueba |
+| `tooling/rebar-check/` | la regla de formato y sus <!--n proofs.casos-->59<!--/n--> casos de prueba |
 | `tooling/security/` | la regla de seguridad |
 | `tooling/verify/` | el ejecutor de la compuerta y las pruebas por mutación de sus pasos |
 | `tooling/secret/` | el escáner de secretos, y las seis pruebas de detección |

@@ -951,6 +951,8 @@ const PASSOS_ESPERADOS = [
   'generator-identity',
   'mcp-template',
   'security',
+  'security-table',
+  'security-self',
   'self',
 ]
 

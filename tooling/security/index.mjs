@@ -120,6 +120,40 @@ const corpo = (dir, rel) => {
 // `tooling/numbers.mjs` all compare against the literal. Translate it here and
 // all three rules print as heuristic, stop failing the commit, and the MCP
 // scoreboard counts zero deterministic ones.
+// CLOSED set. Every entry is a literal, not a heuristic.
+//
+// THE SECOND COLUMN IS THE EXPLANATION ALONE, and never the literal. Until
+// 2026-09-07 it carried both — `'rejectUnauthorized: false — TLS without
+// verifying the certificate'` — and that duplication made this rule ACCUSE
+// ITS OWN TABLE: eight of the nine findings it reported against the rebar
+// were these strings finding themselves.
+//
+// Measured, and the measurement is what points at the fix: the REGEX as
+// written in the source does NOT self-match (`\s*` is not whitespace), only
+// the message did. So the literal in the output comes from the MATCH now,
+// which is where it should have come from all along — it is the text that
+// is actually in the audited file, not a copy of it typed here.
+//
+// Excluding this file instead would have been the patch: a repository that
+// vendored the rebar would go on accusing it.
+export const DESLIGAM = [
+  [/rejectUnauthorized\s*:\s*false/, 'TLS without verifying the certificate'],
+  [/NODE_TLS_REJECT_UNAUTHORIZED\s*[=:]\s*['"`]?0/, 'turns TLS off for the whole process'],
+  [/\bverify\s*=\s*False\b/, 'requests without verifying the certificate'],
+  [/InsecureSkipVerify\s*:\s*true/, 'TLS without verifying the certificate'],
+  // MONTADO, e nao literal: este e o unico padrao da tabela sem `\s` no
+  // meio, entao a fonte dele carregaria o proprio texto que ele procura e a
+  // regra acusaria este arquivo para sempre. Nos outros a fonte tem `\s*`
+  // onde o codigo real tem espaco, e por isso nao se auto-casam.
+  //
+  // Mesmo idioma que `'ghp_' + 'A1b2...'` em tooling/secret/prove-scan.mjs.
+  // A prova `nenhum padrao casa a propria fonte` trava isto.
+  [new RegExp('@csrf' + '_exempt\\b'), 'route with no CSRF protection'],
+  [/skip_before_action\s+:verify_authenticity_token/, 'CSRF turned off'],
+  [/contentSecurityPolicy\s*:\s*false/, 'helmet without a CSP'],
+  [/curl\s+(-[a-zA-Z]*k|--insecure)\b/, 'download without checking the cert'],
+]
+
 export const REGRAS = [
   // ──────────────────────────────────────────────────────────────────── S1
   {
@@ -199,34 +233,15 @@ export const REGRAS = [
       ]
       if (!alvos.length) return na('no code or configuration file')
 
-      // CLOSED set. Every entry is a literal, not a heuristic.
-      const DESLIGAM = [
-        [
-          /rejectUnauthorized\s*:\s*false/,
-          'rejectUnauthorized: false — TLS without verifying the certificate',
-        ],
-        [
-          /NODE_TLS_REJECT_UNAUTHORIZED\s*[=:]\s*['"`]?0/,
-          'NODE_TLS_REJECT_UNAUTHORIZED=0 — turns TLS off for the whole process',
-        ],
-        [/\bverify\s*=\s*False\b/, 'verify=False — requests without verifying the certificate'],
-        [
-          /InsecureSkipVerify\s*:\s*true/,
-          'InsecureSkipVerify: true — TLS without verifying the certificate',
-        ],
-        [/@csrf_exempt\b/, '@csrf_exempt — route with no CSRF protection'],
-        [
-          /skip_before_action\s+:verify_authenticity_token/,
-          'skip_before_action :verify_authenticity_token — CSRF turned off',
-        ],
-        [/contentSecurityPolicy\s*:\s*false/, 'helmet with contentSecurityPolicy: false — no CSP'],
-        [/curl\s+(-[a-zA-Z]*k|--insecure)\b/, 'curl -k — download without checking the cert'],
-      ]
-
       const achados = []
       for (const [rel, t] of alvos) {
         for (const [padrao, motivo] of DESLIGAM) {
-          if (padrao.test(t)) achados.push(`${rel}: ${motivo}`)
+          // O TEXTO CASADO, e nao uma copia dele digitada na tabela. A saida sai
+          // igual a de antes -- `rejectUnauthorized: false — TLS without ...` --
+          // com a diferenca de que o literal agora e o que ESTA no arquivo
+          // auditado, com o espacamento que ele tem de verdade.
+          const casou = padrao.exec(t)
+          if (casou) achados.push(`${rel}: ${casou[0].trim()} — ${motivo}`)
         }
         // DEBUG on only counts alongside an open host: `DEBUG = True` by itself
         // is the development default, and flagging it paints every settings.py.

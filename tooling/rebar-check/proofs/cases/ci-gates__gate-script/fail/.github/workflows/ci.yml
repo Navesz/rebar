@@ -1,0 +1,11 @@
+name: ci
+on: [push]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      # So o build. O `verify` declarado no package.json nunca roda --
+      # e o portao existe no papel e nao na esteira.
+      - run: npm run build

@@ -5,17 +5,17 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "54a5b60c67e56e2349eecc4881d831919c78f6a123af9e0494b279233a66d0ae",
+      "sha256": "90620c2e5f3c19ffb1f7d0d5a6a40402fc62aa3bb717e2e592992456f508209a",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
       "arquivo": "tooling/security/index.mjs",
-      "sha256": "ec4e20676fecd1c8bbe0963b50428e74e5660d06b2177609b9cd497e4792e515",
+      "sha256": "322d02d067c4b1b760a4baad7da4164c1ecdc2e832faa8acead2d47abe3053d2",
       "daqui": "the security rules and the why of each one"
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "5d83ee61ec99dbb9da12dc86a9ecde8dcfc7f8c9713739d930bdc11d21b3ad7b",
+      "sha256": "7472d15a7bf19cbe8d800e7ca9fc62296c785cfce5f4e104e292cfca0b4094aa",
       "daqui": "the gate steps, in order"
     },
     {
@@ -25,8 +25,8 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "a9ac35f0fea4153b97d1c9f76a862170c5e49c09ed4571becd3fadf3a8e06e3f",
-      "daqui": "the why of each of the 62 proof cases"
+      "sha256": "6943444062b909cfc103c8663c08ff6c551adadb97543bd7b7920c643f2b3a3c",
+      "daqui": "the why of each of the 63 proof cases"
     },
     {
       "arquivo": "new/index.mjs",
@@ -187,12 +187,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1675
+        "linha": 1684
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1678,
+          "linha": 1687,
           "texto": "Portuguese on purpose: tooling/verify/prove-steps.mjs matches the line below byte for byte — the `titulo` key plus this exact title — to plant its sentinel and prove the MCP freshness gate. Translating it drops that proof in silence, and repeating the literal up here would make the proof's `replace` hit this comment instead of the title."
         }
       ],
@@ -213,12 +213,12 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1688
+        "linha": 1697
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1693,
+          "linha": 1702,
           "texto": "A read guard only: applicability is still the ROOT package.json, because dependabot and renovate are repository configuration and not package configuration. Without the guard, breaking the package.json took this rule out of the denominator along with the other three."
         }
       ],
@@ -245,7 +245,7 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1710
+        "linha": 1719
       },
       "porque": [],
       "provas": [
@@ -265,13 +265,33 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1718
+        "linha": 1727
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1723,
+          "linha": 1732,
           "texto": "Same read guard as the others: with a broken package.json, `r.pkg?.scripts` became `{}`, `alvos` came out empty and the rule left the denominator. Four rules vanishing is what turned 9 of 10 into 6 of 6. Charges only what the repository HAS. Demanding `lint` of a repo with no lint is demanding it adopt a tool — a decision of another level."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1742,
+          "texto": "THE GATE SCRIPTS ARE IN THE LIST, and leaving them out cost the rule its own author: the rebar declares `verify` and not `lint`/`typecheck`/`test`, so this rule — the one that is the whole point of the project — came out NOT APPLICABLE on the rebar itself. It was exercised in the proofs and in the generated project, never on the owner."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1748,
+          "texto": "`check` AND `validate` ARE DELIBERATELY OUT, and the measurement is why. The first draft had them, and it failed on the first repository it was tried against — this one: the rebar declares `check` as `node tooling/rebar-check/index.mjs .`, and the CI runs that exact command through the `self` step of the gate. The rule sees the NAME and cannot read through `verify.config.mjs`, so it accused a repository that does run the thing. False positive, on the author, on the first try."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1756,
+          "texto": "And the case that seemed to justify them does not need them: in the forensics the `openparts` had a `check` chaining everything and nothing ran it — but it had NO CI at all, so the `ci` rule already fails it and this one correctly returns N/A pointing there. Widening recovered no lost case; it only added false-positive surface. Automatic rule that is wrong costs more than a missing rule."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 1763,
+          "texto": "`verify`/`verificar` stay because they name THE GATE, unambiguously, and bilingual for the same reason as `PASTA_TESTE`: the audited repositories are Brazilian."
         }
       ],
       "provas": [
@@ -286,6 +306,12 @@
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "P1 from an external audit, reproduced before fixing: with `scripts.test` defined and a workflow that only does `echo ok`, the rule failed -- and adding the line `# TODO: run test later` flipped the verdict to PASSED, exit 0. The base text was the raw YAML, so the word anywhere in the file satisfied the rule. The fail side has exactly that tree: a comment citing test, a job named test, and an `echo \"running tests\"` -- the three neighbors the report names together, and none of them executes anything. The pass side has all THREE too, plus a real `run: npm test`: it is the proof that the fix was not taking the word out of the text, but looking only where the workflow executes. Whoever swaps `comandosDoCi` for a subtraction of comments turns the fail side green again by the job name."
+        },
+        {
+          "caso": "ci-gates__gate-script",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "O vocabulario da regra era `lint`, `typecheck` e `test`, e com isso ela saia NAO-APLICAVEL no proprio rebar -- que declara `verify`. A regra que e o diferencial do projeto nao se aplicava ao projeto: era exercitada nas provas e no projeto gerado, nunca no dono. `verify` e `verificar` entram porque nomeiam O PORTAO, sem ambiguidade, e bilingue pelo mesmo motivo do PASTA_TESTE: os repositorios auditados sao brasileiros. `check` e `validate` ficaram DE FORA, e a medicao e o motivo: o primeiro rascunho os tinha e reprovou no primeiro repositorio em que foi testado, este -- o rebar declara `check` como `node tooling/rebar-check/index.mjs .` e o CI roda esse comando exato pelo passo `self` do portao. A regra ve o NOME e nao le atraves do verify.config.mjs, entao acusou quem de fato roda a coisa. E o caso que parecia justifica-los nao precisa deles: o openparts tinha `check` que ninguem rodava, mas nao tinha CI nenhum, entao a regra `ci` ja o reprova e esta aqui devolve N/A apontando para la. Ampliar nao recuperou caso perdido, so acrescentou superficie de falso positivo. O lado aprovar tem `check` E `verify`, com o CI alcancando so o `verify`: quem reintroduzir `check` na lista faz ele ficar vermelho."
         },
         {
           "caso": "ci-gates__not-applicable",
@@ -309,7 +335,7 @@
       "nivel": "N3",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1742
+        "linha": 1776
       },
       "porque": [],
       "provas": [
@@ -347,7 +373,7 @@
       "nivel": "N0",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1750
+        "linha": 1784
       },
       "porque": [],
       "provas": [
@@ -391,7 +417,7 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1767
+        "linha": 1801
       },
       "porque": [],
       "provas": [
@@ -429,7 +455,7 @@
       "nivel": "N2",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1781
+        "linha": 1815
       },
       "porque": [],
       "provas": [
@@ -467,7 +493,7 @@
       "nivel": "N7",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1797
+        "linha": 1831
       },
       "porque": [],
       "provas": [
@@ -487,27 +513,27 @@
       "nivel": "N7",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1805
+        "linha": 1839
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1809,
+          "linha": 1843,
           "texto": "THIS RULE CATCHES ZERO TODAY, and that is written here on purpose."
         },
         {
           "onde": "cabecalho",
-          "linha": 1811,
+          "linha": 1845,
           "texto": "Measured on 31/08/2026 across the 12 repositories on this machine: ALL have a README, from 25 to 282 useful lines, and NONE is framework boilerplate (I searched for \"bootstrapped with create-next-app\", \"npm create vite\", \"Getting Started with Create React App\" and the like — zero occurrences)."
         },
         {
           "onde": "cabecalho",
-          "linha": 1817,
+          "linha": 1851,
           "texto": "So why it exists. First: two hours before this line was written, rebar itself was the only repository with no README, and it went public that way — while docs/PLANO.md listed \"README como entregável\" [README as a deliverable] TWICE as a hole this project exists to fill. The ruler could not see the hole its own plan named. Second: the generator is going to produce a new repository, and a new repository is born without a README by default."
         },
         {
           "onde": "cabecalho",
-          "linha": 1825,
+          "linha": 1859,
           "texto": "PRESENCE only, with no size floor. A line limit would fail `navesz.github.io` (25 lines) and `VectraB-Lab` (31), which are small projects with a proportional README — and a wrong automatic rule costs more than a missing rule."
         }
       ],
@@ -528,7 +554,7 @@
       "nivel": "N7",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1836
+        "linha": 1870
       },
       "porque": [],
       "provas": [
@@ -554,17 +580,17 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1849
+        "linha": 1883
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1853,
+          "linha": 1887,
           "texto": "AUDIT FINDING, 31/08: mode 100755 was guaranteed ONCE, at creation, and nothing kept it. A `git update-index --chmod=-x` — or a file created on Windows, where the bit does not exist — returns the hook to 100644, and on Linux git starts IGNORING IT in silence. The gate declares itself on and does nothing, which is the worst possible state."
         },
         {
           "onde": "cabecalho",
-          "linha": 1859,
+          "linha": 1893,
           "texto": "The mode read is the INDEX's, not the disk's: a local `chmod` does not travel in the clone, and it is the clone that lands on the user's machine."
         }
       ],
@@ -585,27 +611,27 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1876
+        "linha": 1910
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 1880,
+          "linha": 1914,
           "texto": "FINDING FROM USING THE GENERATOR FOR REAL, 02/09. The owner asked for a real site, and generating one exposed this: the CONTENT placeholder is inert and loud — the build fails while a `TROQUE-…` is left. The GATE placeholder was inert and MUTE."
         },
         {
           "onde": "cabecalho",
-          "linha": 1885,
+          "linha": 1919,
           "texto": "The git identity on this machine is local to the rebar repository, not global. The generator found none, wrote `DONO NÃO CONFIGURADO` in NOTICE, README and `.rebar-coauthors`, and rebar-check gave 13 of 13, exit 0 on top of that."
         },
         {
           "onde": "cabecalho",
-          "linha": 1890,
+          "linha": 1924,
           "texto": "The worst of the three is `.rebar-coauthors`: it becomes the allowlist of who may sign a commit, with an `@exemplo.invalido` e-mail inside. Nobody matches that e-mail, so the `coautoria-ia` rule starts failing every commit — or, depending on how it is read, none. A gate installed with a placeholder is a gate people learn to switch off in the first week."
         },
         {
           "onde": "implementacao",
-          "linha": 1896,
+          "linha": 1930,
           "texto": "The Portuguese in MARCA is a CONTRACT with the generator, not prose: `new/index.mjs` writes `DONO NÃO CONFIGURADO` and `configure-git-user-email@exemplo.invalido`, and the site templates write `TROQUE-…`. Translating it makes the gate stop seeing them."
         }
       ],
@@ -626,17 +652,17 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1913
+        "linha": 1947
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1921,
+          "linha": 1955,
           "texto": "Maintenance automation leaves before any count, so that it appears neither in the verdict nor in the printed NUMBER — see AUTOMACAO_NAO_IA. Zero co-authorship trailers is the only verdict that does NOT depend on knowing who is AI and who is a person: there is no co-author at all, therefore no AI co-author. It holds with and without an allowlist, and it is the case of this repository's 11 commits. It leaves before everything else so the N/A branch below never swallows a repository that is genuinely clean. Without an allowlist only ENUMERATION is left, and enumeration is the form this fix exists to abandon: measured on 2026-08-30, the list of 9 agents let Windsurf, ChatGPT, Cody, Codeium, Amazon Q and Tabnine through in one go. Here it survives for a narrow reason: rebar-check runs against a THIRD PARTY's repository, which does not have rebar's allowlist, and turning the rule off there would trade a leaky gate for no gate at all."
         },
         {
           "onde": "implementacao",
-          "linha": 1959,
+          "linha": 1993,
           "texto": "What changes is what enumeration has the right to ASSERT. Found a known agent, it fails — enumeration proves presence. Found none, it does NOT pass: it becomes N/A saying there is a co-author that cannot be classified. Enumeration does not prove absence, and a \"✓\" there would be the checker asserting what it does not know. Same discipline as the `na()` at the top of this file: what cannot be decided leaves the denominator, with the reason printed."
         }
       ],
@@ -681,17 +707,17 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1983
+        "linha": 2017
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 1994,
+          "linha": 2028,
           "texto": "COUNTING COMBINATIONS WAS THE DEFECT. Two humans in a repository are two combinations, and the rule failed — a false positive against a team, which is the thing this house avoids most: a wrong automatic rule costs more than a missing rule. What follows separates what the ruler PROVES from what it merely suspects. 1 · COLLISION — the deterministic core. One name with two e-mails, or one e-mail with two names, is not \"two people\": it is an inconsistent identity, which is the name of the rule. It is the case measured in the forensics — the same person now as `Leonardo Naves <…noreply>`, now as `leona <leonardo@empresa.com.br>`, and `git shortlog` counting two. 1b · THE GITHUB LOGIN SHOWING UP TWICE. This is the case collision does not catch and the forensics measured: `Leonardo Naves <12345+leona@users.noreply.github.com>` and `leona <leonardo@empresa.com.br>` are the same person, and name and e-mail differ in both."
         },
         {
           "onde": "implementacao",
-          "linha": 2048,
+          "linha": 2082,
           "texto": "The link is written in the address. The format is `<id>+<login>@users.noreply.github.com`, so the login is `leona` — a platform identifier, not an invented nickname. When it reappears as the NAME of another identity or as the local part of its e-mail, it is the same person with two identities, and the effect is what the rule exists to prevent: the personal e-mail enters the public history and `git shortlog` counts two people where there is one. 2 · NO COLLISION, BUT THE REPOSITORY ALREADY DECLARED WHO IS HUMAN. The list is the SAME one the co-authorship rule uses, on purpose: the question is the same — \"who is human on this project?\" — and two lists diverge. Its header already says that whoever answers for the commit is the owner of the e-mail. 3 · NO COLLISION AND NO LIST. The ruler has no way of knowing whether these are N people or one person with N identities, and inventing an answer is what it used to do. `na` leaves the denominator with the reason in plain sight: a declared non-measurement is worth more than a guess, and the reason points at the fix."
         }
       ],
@@ -724,12 +750,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2118
+        "linha": 2152
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2123,
+          "linha": 2157,
           "texto": "The BASE of a UI folder is the directory that contains `components/`: `apps/web/src/components/ui/botao.tsx` has base `apps/web/src/`. That is where the search for the defense climbs from."
         }
       ],
@@ -762,17 +788,17 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2145
+        "linha": 2179
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2152,
+          "linha": 2186,
           "texto": "A test COUNTS as a reader, and this is the only place in the file where it counts."
         },
         {
           "onde": "implementacao",
-          "linha": 2155,
+          "linha": 2189,
           "texto": "The other content rules ask what the product DOES, and a test is not product. This question is another one: is there anyone who reads this schema? A contract test that imports it answers YES in the strongest form there is — if the schema changes, the test breaks. Measured: `openkartline` was accused of two schemas \"defined and never read\" with `apps/web/src/services/schemaContract.test.ts` importing both on lines 2 and 3. It was this rule's only accusation across the 11 repositories, and it was false."
         }
       ],
@@ -805,47 +831,47 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2170
+        "linha": 2204
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 2171,
+          "linha": 2205,
           "texto": "STILL A HEURISTIC — and now with the number that REFUSES the promotion, not with a list of pending items. Three of the four defects named in the 31/08 audit are fixed and measured; the fourth did not give, and it is the one holding the rule here."
         },
         {
           "onde": "cabecalho",
-          "linha": 2176,
+          "linha": 2210,
           "texto": "Every quoted sentence below is EVIDENCE copied verbatim out of the audited Brazilian repositories, and stays in Portuguese for that reason."
         },
         {
           "onde": "cabecalho",
-          "linha": 2179,
+          "linha": 2213,
           "texto": "1. FRAGMENT — FIXED. The match cut at the first `<`, and 18 of the 185 sentences started with a period, a dash or in the middle of the clause. `nosDeTexto()` reassembles the run across the inline elements: ZERO of 262 now start away from the start of the clause. The 6 that start in lowercase were checked one by one in the source: four are `<li>` items of a \"Nunca:\" list, one is a caption written that way, and the sixth is debugging leftover (`esperado 0x… · recebido 0x…`) — none is a piece of a sentence."
         },
         {
           "onde": "cabecalho",
-          "linha": 2188,
+          "linha": 2222,
           "texto": "2. ACTION LABEL — FIXED, and without enumerating verbs. The discriminator is the OWNER of the text node: `<button>`, `<a>` and `<label>` are not prose elements, and the text of a control is its NAME. See the `PROSA` block. Of the labels the audit named, four left: \"Imprimir ou salvar em PDF\" (`<button>`), \"Arraste pela grade ou use ‹ › para percorrer.\" (`<span>`), \"Não deu para abrir o cofre.\" (`<AlertTitle>`) and \"Carregando o índice de preços…\" (`<div>`)."
         },
         {
           "onde": "cabecalho",
-          "linha": 2196,
+          "linha": 2230,
           "texto": "3. DECORATIVE PROOF — FIXED. Of the nine mutations that survived in this rule, the three named were: erasing the digit from the price pattern, lowering the sentence minimum and turning off the code-signal filter. All three now DIVERGE, and the main case's `pass/` exists for that: it contains `R$` WITHOUT a digit, a three-word field label, a table row with fewer than 90% letters, a `<button>` with a four-word label and a state in a `<div>`. Each of them turns red if the corresponding guard is loosened."
         },
         {
           "onde": "cabecalho",
-          "linha": 2205,
+          "linha": 2239,
           "texto": "4. INTERFACE VOCABULARY IN `<p>` — DID NOT GIVE, and it is what refuses the promotion. Measured before: 27 of 185 (14.6%). Measured after: 31 of 262 (11.8%), and this number is RECOUNTABLE — `node measure-content.mjs <repos>` prints the table and the classification. The 14.1% this line published until 31/08 came from a hand count and did not reproduce; the instrument was written precisely because this repository has already published a wrong number four times, and it contradicted the first number it checked — the most expensive one in the file, the one that REFUSES this rule's promotion. The structure did not move the number because the ones that remain live in real prose elements: \"Nenhuma proposta salva ainda.\" is a `<p>` under `history.length === 0` and \"Clique para enviar a logo da empresa\" is a `<p>` next to an `<input type=\"file\">`. Separating them from \"Nossa cozinha abre às 18h\" would require ENUMERATING instruction verbs and state words — and enumeration here fails toward the wrong side: the incomplete list does not merely stop excluding, it ACCUSES. It is the exact inversion of the `coautoria-ia` argument: there enumeration proves presence and can therefore fail; here it would have to prove the ABSENCE of instruction in order not to accuse, and it does not. With ~12% noise, a deterministic rule blocks merges over a field label — and a rule that blocks merges over a field label teaches people to turn the whole output off."
         },
         {
           "onde": "cabecalho",
-          "linha": 2228,
+          "linha": 2262,
           "texto": "§12.3 of the plan stays open because of item 4, and not because of 1, 2 and 3. What is missing is not matching engineering: it is a discriminator of VOICE — text that speaks of the business against text that speaks of the program — and it does not come out of the element tree. The reason for the applicability gate is in the comment block above `RE_CONTEUDO_JSON`; the definition of \"content literal\" and the number it gives across the 11 repositories are in the `PROSA` block, just below it."
         },
         {
           "onde": "implementacao",
-          "linha": 2239,
+          "linha": 2273,
           "texto": "The base is the directory that contains `conteudo/`: in a monorepo, `apps/site/conteudo/menu.json` has base `apps/site/`. The assertion stays tied to that base, and not to the whole repository, for the same reason `ui-falso` matches by proximity: a neighboring `apps/painel/` that never promised anything cannot be accused by `apps/site/`'s promise. Sentences only in files with JSX. In a plain `.ts` there is no text node, and looking for markup there would read a comparison operator as prose."
         }
       ],
@@ -884,32 +910,32 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2278
+        "linha": 2312
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 2279,
+          "linha": 2313,
           "texto": "PROMOTED FROM HEURISTIC TO DETERMINISTIC, and the number that decided it is here."
         },
         {
           "onde": "cabecalho",
-          "linha": 2282,
+          "linha": 2316,
           "texto": "Measured on 2026-08-30 across the 11 repositories + rebar: 417 production code files swept, ONE accusation — `Galegos/src/lib/whatsapp.ts` line 7, a `const WHATSAPP_NUMBER` with the pizzeria's mobile in thirteen digits —, and it is true. One true, zero false, in 417 files. (The number is not transcribed here on purpose: see the `semComentario` note, which holds what happens when it is.)"
         },
         {
           "onde": "cabecalho",
-          "linha": 2289,
+          "linha": 2323,
           "texto": "§12.3 of the plan settled the decision that gives this its teeth: phone, CNPJ and address are validated CONTENT, not code and not an environment variable. And the cost of the mistake is documented in Galegos itself: `Navesz/Galegos#1` tried to move the number into an env var and the owner stopped the PR, because the build passes and the `wa.me` ships with no recipient. Deterministic is what makes the decision hold."
         },
         {
           "onde": "cabecalho",
-          "linha": 2296,
+          "linha": 2330,
           "texto": "The pattern was TIGHTENED along with the promotion, and that is the expensive half. The old `\\(?\\d{2}\\)?\\s?9\\d{4}-?\\d{4}` accepted ELEVEN DIGITS IN A ROW with no punctuation at all, with a `9` in the third place: a product EAN-13 (`7891234599999`) matched. Acceptable in a heuristic that only informs; unacceptable in a rule that fails merges. Now only what carries a MARK of a Brazilian phone counts — a `wa.me` link, country code 55, or the DDD punctuation. The same Galegos is still caught (`55` + `24` + `9` + eight digits) and the other 416 files stay clean: the tightening did not cost a single true positive."
         },
         {
           "onde": "implementacao",
-          "linha": 2309,
+          "linha": 2343,
           "texto": "The patterns below describe the shape of a BRAZILIAN phone number — the `wa.me` link, the 55 country code, the DDD in parentheses. They are the subject of the rule, not prose, and there is nothing in them to translate. Comments out: see the `semComentario` note. What §12.3 forbids is the number the program USES — the one that ships in the `wa.me` and in the `tel:` —, and that one lives in executed code, not in a footnote. ELEVEN RAW DIGITS count ONLY when the file assembles a `wa.me` or a `tel:`. It is the fix for a regression the tightening above caused and the audit caught: the SAME Galegos mobile written without the country code, in the same file, assembling the same link, passed clean. Context is what separates a phone from a barcode: an EAN-13 does not become a WhatsApp link, and that is why the raw digits only count accompanied."
         }
       ],
@@ -942,17 +968,17 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2341
+        "linha": 2375
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2346,
+          "linha": 2380,
           "texto": "Same fix as `ui-falso` and `formatter`: `components.json` looked for at any depth, the apparatus looked for in every manifest. Before, no monorepo ever got evaluated by this heuristic — prumo, ducado and LinhaK left through `na('does not use shadcn')` while all three had the file tracked in a subfolder. The read guard comes AFTER the N/A: whoever does not use shadcn should not earn a warning because of a broken package.json. Here that is safe because a heuristic does not enter the denominator — there is no N/A to launder. WATCH OUT: @radix-ui alone fails the one repo that got it right. Galegos uses shadcn correctly in the base-nova style, with @base-ui/react and ZERO Radix."
         },
         {
           "onde": "implementacao",
-          "linha": 2363,
+          "linha": 2397,
           "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused ducado of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root."
         }
       ],
@@ -973,37 +999,37 @@
       "nivel": "N2",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2383
+        "linha": 2417
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 2385,
+          "linha": 2419,
           "texto": "WHY IT STAYS A HEURISTIC, with the number in hand."
         },
         {
           "onde": "cabecalho",
-          "linha": 2387,
+          "linha": 2421,
           "texto": "After the two fixes below the rule went from 12 accused files in 7 repositories to 6 files in 5, and the 6 are literally true — none is a false positive. Even so it does NOT get promoted to deterministic, and the reason is its own name: 4 of the 6 are the address of a THIRD PARTY's PUBLIC API (`viacep.com.br`, `api.bcb.gov.br`, `api.deepinfra.com`, `api.replicate.com`) and only 2 are the production origin of the site itself (`decima-edicoes/scripts/verify-static.mjs`, `navesz.github.io/scripts/fetch-data.mjs`). Pinning the address of a public API is normal engineering, not a defect; the defect is pinning WHERE THIS site ships to. Separating the two requires knowing the deploy origin, and the checker does not know it. Blocking merges at 2-of-6 precision on the defect the rule names is punishing correct behavior — and a rule that punishes correct behavior teaches people to turn the whole output off."
         },
         {
           "onde": "implementacao",
-          "linha": 2404,
+          "linha": 2438,
           "texto": "FIX 1 — the env-fallback pattern, which is the RIGHT pattern."
         },
         {
           "onde": "implementacao",
-          "linha": 2406,
+          "linha": 2440,
           "texto": "`process.env.X ?? 'https://…'` is exactly what you want a person to write: an environment variable with a sensible default. Measured: `decima-edicoes/app/lib/site.ts:5` accused over `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, and `hug-brasil-propostas` accused TWICE over the same shape (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three of the twelve accusations were the ruler hitting whoever got it right."
         },
         {
           "onde": "implementacao",
-          "linha": 2414,
+          "linha": 2448,
           "texto": "The fallback is erased from the text BEFORE the search, and not the whole file: a file can have the right pattern on one line and the raw address on another, and absolving the file because of the good line would trade this false positive for a false negative. FIX 2 — an address only counts when it is used AS an address."
         },
         {
           "onde": "implementacao",
-          "linha": 2423,
+          "linha": 2457,
           "texto": "The literal has to OPEN a string and come right after a request call or an address name. Measured, three accusations fell and none of the three held up once the file was opened: openkartline/apps/web/src/App.tsx:521 — `href=\"https://github.com/…\"`, a footer link to the repository itself. A link is a link. prumo/…/migrations/20260825_0003_credentials.ts — twenty `doc: 'https://docs.fal.ai'` fields, a documentation catalog seeded into a table. It is DATA, and a table is the right place for data. prumo/…/collectors/index.ts:76 — the address inside the `User-Agent` string. It opens no string, so it never even gets tested. Portuguese in the list for the same reason as `NOMES_TYPECHECK` and `NOME_TESTE`, and it must NOT be translated: a ruler that only recognizes English variable names is blind to the repository it exists to measure. `origem`, `endereco` and `servidor` are what a project from here writes where `decima-edicoes` wrote `origin`. 60 characters are enough for the roomiest `const LONG_NAME =` and keep a neighboring line from lending its verdict to the next one."
         }
       ],
@@ -1030,12 +1056,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2463
+        "linha": 2497
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2468,
+          "linha": 2502,
           "texto": "Only accuses hex that ALREADY EXISTS as a token in the CSS. A loose hex has too many legitimate contexts — three.js material, overlay veil — and the naive version of this rule gave 100% false positives when measured."
         }
       ],
@@ -1056,27 +1082,27 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2491
+        "linha": 2525
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2496,
+          "linha": 2530,
           "texto": "The Portuguese stopwords below are the DETECTOR, not prose. Translating them makes the rule stop detecting Portuguese, which is the one thing it exists to do. Leave both lists exactly as they are. `soComentario` AND NOT A REGEX OF ITS OWN. Until 2026-09-07 this rule pulled the comments out with the same naive pair that `semComentario` stopped being — and it had the same defect, measured here: a block-opener inside a string literal in `new/gate/aplicar.mjs` opened a bogus comment and dragged `destino: 'preservado', porque:` into the text about to be judged. Two extractions of one concept are two sources to diverge, and these did."
         },
         {
           "onde": "implementacao",
-          "linha": 2512,
+          "linha": 2546,
           "texto": "A span between backticks is CODE QUOTED, not prose, and leaves before the language test. An identifier in English inside a Portuguese comment is not a language switch, it is the name of the thing — nobody translates `User-Agent`, `<input type=\"file\">` or `cat-file --batch`."
         },
         {
           "onde": "implementacao",
-          "linha": 2517,
+          "linha": 2551,
           "texto": "Measured on 2026-08-31 on the rebar mirror with `new/` tracked: the `en` count fell from 3 to 0, and those 3 were exactly these three files, all with Portuguese prose — `index.mjs`, `scan-secret.mjs` and `new/index.mjs`. With min(pt,en) >= 3 as the floor, those three carried the whole accusation."
         },
         {
           "onde": "implementacao",
-          "linha": 2523,
+          "linha": 2557,
           "texto": "A span between QUOTES leaves for the same reason, and the reason is stronger: quoted speech is not the writer's prose, and translating what somebody said is rewriting it, not translating. This repository is full of the owner's words kept verbatim with the English in brackets after them, and of sample strings measured in Brazilian repositories — the measurement IS the Portuguese. Measured on 2026-09-07, after the translation: 9 of the 11 files the rule was accusing were quotation only. Without this the rule fails on the very repository it is the reference for, which is how the naive colour rule died."
         }
       ],
@@ -1103,12 +1129,12 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 126
+        "linha": 160
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 124,
+          "linha": 158,
           "texto": "──────────────────────────────────────────────────────────────────── S1"
         }
       ],
@@ -1129,18 +1155,18 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 165
+        "linha": 199
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 163,
+          "linha": 197,
           "texto": "──────────────────────────────────────────────────────────────────── S2"
         },
         {
           "onde": "implementacao",
-          "linha": 189,
-          "texto": "Source already comes with the text; config and workflow need a read. CLOSED set. Every entry is a literal, not a heuristic. DEBUG on only counts alongside an open host: `DEBUG = True` by itself is the development default, and flagging it paints every settings.py."
+          "linha": 223,
+          "texto": "Source already comes with the text; config and workflow need a read. O TEXTO CASADO, e nao uma copia dele digitada na tabela. A saida sai igual a de antes -- `rejectUnauthorized: false — TLS without ...` -- com a diferenca de que o literal agora e o que ESTA no arquivo auditado, com o espacamento que ele tem de verdade. DEBUG on only counts alongside an open host: `DEBUG = True` by itself is the development default, and flagging it paints every settings.py."
         }
       ],
       "provas": [
@@ -1166,22 +1192,22 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 244
+        "linha": 259
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 242,
+          "linha": 257,
           "texto": "──────────────────────────────────────────────────────────────────── S3"
         },
         {
           "onde": "implementacao",
-          "linha": 277,
+          "linha": 292,
           "texto": "BILINGUAL vocabulary. See the note at the top: the English-only list is blind in exactly the repositories this module exists to audit. `senha` stays in Portuguese because it is what the rule LOOKS FOR inside third-party Brazilian code — translating it blinds the detector."
         },
         {
           "onde": "implementacao",
-          "linha": 282,
+          "linha": 297,
           "texto": "`rebar-segredo-ok:` is not prose either: it is the escape token `tooling/secret/scan-secret.mjs` matches, and renaming it voids every escape already written in the audited repositories. Only the justification after the colon is English — the token demands `\\s*\\S+` after it, and it gets it."
         }
       ],
@@ -1391,6 +1417,28 @@
       },
       {
         "ordem": 20,
+        "nome": "security-table",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "tooling/security/prove-table.mjs"
+        ],
+        "dica": "Um padrao da tabela de `disabled-defense` voltou a carregar o proprio literal em texto puro. A regra passa a se encontrar, e a acusar todo repositorio que contenha uma copia dela."
+      },
+      {
+        "ordem": 21,
+        "nome": "security-self",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "tooling/security/index.mjs",
+          "."
+        ],
+        "dica": "O rebar reprovou na propria regua de seguranca. Se o achado for a tabela de deteccao se encontrando, o conserto e tirar o literal da mensagem -- nao excluir o arquivo, que so adia."
+      },
+      {
+        "ordem": 22,
         "nome": "self",
         "tipo": "comando",
         "comando": [
@@ -1438,7 +1486,7 @@
       "decisao": "Content lives in `conteudo/*.json`, schema-validated — not inside `src/` nor `app/`.",
       "prova": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 1046,
+        "linha": 1055,
         "trecho": "RE_CONTEUDO_JSON"
       },
       "porque": null,
@@ -1449,7 +1497,7 @@
       "decisao": "Phone, CNPJ and address are validated CONTENT. They are not code and they are NOT environment variables: with an env var the build passes, the deploy ships and `wa.me` generates a link with no recipient.",
       "prova": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2278,
+        "linha": 2312,
         "trecho": "id: 'phone'"
       },
       "porque": null,

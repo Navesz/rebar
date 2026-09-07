@@ -1282,6 +1282,37 @@ export default [
     extrair: /^\s*(✗|✘|erro|esperado)/i,
   },
   {
+    // A TABELA DA REGRA, provada sozinha.
+    //
+    // `disabled-defense` guardava o literal DUAS vezes por entrada: na expressao
+    // regular e, em texto puro, na mensagem legivel ao lado -- e a mensagem
+    // casava. A regra acusava a propria tabela, oito vezes.
+    nome: 'security-table',
+    comando: node('--test', 'tooling/security/prove-table.mjs'),
+    exige: ['tooling/security/prove-table.mjs', 'tooling/security/index.mjs'],
+    dica: 'Um padrao da tabela de `disabled-defense` voltou a carregar o proprio literal em texto puro. A regra passa a se encontrar, e a acusar todo repositorio que contenha uma copia dela.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
+    // A REGUA DE SEGURANCA SOBRE O PROPRIO REPOSITORIO, e ela faltava.
+    //
+    // O passo `security` acima roda as PROVAS do modulo -- "as regras ainda
+    // reprovam o que devem?" --, que e outra pergunta. Esta e "e este
+    // repositorio, passa?". A resposta era NAO havia semanas, com exit 1 e nove
+    // achados, e o portao ficava 20 de 20 verde porque ninguem perguntava.
+    //
+    // E o espelho do passo `self`, que existe pelo mesmo motivo para o
+    // rebar-check. A regua de seguranca nao tinha o dela.
+    nome: 'security-self',
+    comando: node('tooling/security/index.mjs', '.'),
+    exige: ['tooling/security/index.mjs'],
+    dica: 'O rebar reprovou na propria regua de seguranca. Se o achado for a tabela de deteccao se encontrando, o conserto e tirar o literal da mensagem -- nao excluir o arquivo, que so adia.',
+    extrair: /^\s*(✗|⚠)/,
+    avisar: /^\s*⚠/,
+    tempoLimite: 3 * MINUTO,
+    limite: 8,
+  },
+  {
     nome: 'self',
     // rebar on its own ruler. It is the most expensive step because it reads the
     // whole repository and the git history.
