@@ -128,9 +128,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # `node-version: '22'` e nao `node-version-file: '.nvmrc'`: o gerador nao
+      # escreve .nvmrc, e o job acima ja fixa a versao aqui mesmo. Um arquivo a
+      # mais so para dizer o mesmo numero seria uma segunda fonte para divergir
+      # -- e, do jeito que estava, uma fonte que nao existia: o setup-node
+      # morria e este job, o unico com `pages: write`, nunca rodou verde.
       - uses: actions/setup-node@v7
         with:
-          node-version-file: '.nvmrc'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
 

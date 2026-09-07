@@ -29,7 +29,7 @@ cria: é o cliente que precisa carregá-lo, e isso é decisão do usuário, não
 | escrever telefone, endereço, preço ou URL de produção dentro de `.tsx` | o build passa, o site publica com o dado errado e ninguém é avisado — falha **em silêncio**, já no ar |
 | inventar um valor plausível para calar um `TROQUE-…` de `conteudo/site.json` | o build para ali de propósito; valor inventado sobe, parece certo e não entrega pedido nenhum. Pergunte o valor real ao usuário |
 | deixar chave, token ou `.env` entrar no commit | `.githooks/pre-commit` barra. Se escapar, não se conserta com commit novo: tem de rotacionar a credencial |
-| assinar `Co-authored-by:` com o seu nome | `.githooks/commit-msg` barra antes de o commit existir, e a régua barra depois, no histórico. A allowlist é de **humanos**, em `.rebar-coautores`, e quem a edita é o dono |
+| assinar `Co-authored-by:` com o seu nome | `.githooks/commit-msg` barra antes de o commit existir, e a régua barra depois, no histórico. A allowlist é de **humanos**, em `.rebar-coauthors`, e quem a edita é o dono |
 | instalar dependência para o que o Next ou o Node já fazem | dependência nova precisa de motivo escrito. Se um built-in resolve, é ele |
 
 ## 3. A base, para você não inventar

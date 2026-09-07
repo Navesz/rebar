@@ -831,6 +831,11 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
 }
 
 export {
+  // Exportada para `prove-map.mjs`: o teste que o gerador EMITE faz sete
+  // asserções sobre o AGENTS.md, e quem produz o AGENTS.md é esta função. Ate
+  // 2026-09-07 nada a executava, e o molde e o teste emitido divergiam em dois
+  // pontos sem que nada acusasse.
+  moldeAgents,
   marcarExecutaveis,
   PASTA_HOOKS,
   EXECUTAVEIS,
