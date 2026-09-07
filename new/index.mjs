@@ -290,7 +290,7 @@ async function main(argv) {
     avisosSite.push(
       `no domain given — the content came out with "${dominio}", which does not resolve. ` +
         'Change `meta.urlBase` in conteudo/site.json before publishing, or generate again ' +
-        `with: novo ${nome} <dominio>`,
+        `with: new ${nome} <domain>`,
     )
   }
   const caminhoSite = join(AQUI, 'site', 'aplicar.mjs')

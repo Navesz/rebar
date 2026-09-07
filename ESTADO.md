@@ -289,7 +289,7 @@ names, printed verbatim):
 ### 4.2 PROVEN · `rebar-check` — <!--n rules.total-->23<!--/n--> checks, zero dependency
 
 _Remeasured on 31/08/2026 · numbers derived since 02/09/2026._
-`tooling/rebar-check/index.mjs`, <!--n lines.rebar-check-->3.014<!--/n--> lines.
+`tooling/rebar-check/index.mjs`, <!--n lines.rebar-check-->3.029<!--/n--> lines.
 Runs in any repository, **never writes**.
 
 There are <!--n rules.deterministicas-->18<!--/n--> deterministic and <!--n rules.heuristicas-->5<!--/n--> heuristic, and both lists come out of the `REGRAS`
@@ -401,11 +401,11 @@ between backticks before the test. Measured on the mirror: `en` from **3 to 0**,
 were `index.mjs`, `scan-secret.mjs` and `new/index.mjs`, all with prose in Portuguese. The
 `idioma-unico` proof case has not one backtick and does not change because of this.
 
-### 4.3 PROVEN · The proofs — <!--n proofs.casos-->59<!--/n--> cases, <!--n proofs.cobertura-->23 de 23<!--/n--> rules
+### 4.3 PROVEN · The proofs — <!--n proofs.casos-->60<!--/n--> cases, <!--n proofs.cobertura-->23 de 23<!--/n--> rules
 
 _Remeasured on 31/08/2026 · numbers derived since 02/09/2026._
 
-There are <!--n proofs.casos-->59<!--/n--> cases and <!--n proofs.regras-com-prova-->23<!--/n--> rules with proof — coverage <!--n proofs.cobertura-->23 de 23<!--/n-->, with no uncovered rule. The runner counts the folders
+There are <!--n proofs.casos-->60<!--/n--> cases and <!--n proofs.regras-com-prova-->23<!--/n--> rules with proof — coverage <!--n proofs.cobertura-->23 de 23<!--/n-->, with no uncovered rule. The runner counts the folders
 in `tooling/rebar-check/proofs/cases/`, which is exactly what the number meter reads:
 
 ```bash
@@ -417,7 +417,7 @@ ls tooling/rebar-check/proofs/cases | wc -l
 different sections of the same text.** All four are gone: the number is now a single one,
 derived, and the `numeros` step fails if it ages. It is the case that justified §0.
 
-Of the <!--n proofs.casos-->59<!--/n-->, **two are from 31/08 and lock the template exclusion**
+Of the <!--n proofs.casos-->60<!--/n-->, **two are from 31/08 and lock the template exclusion**
 described in §4.2. Running only the `typecheck` rule, on 02/09/2026, it came out 5 of 5:
 
 ```bash
@@ -871,9 +871,9 @@ artifact is derived from the source, never a copy of it.
 
 | Piece                     | What it is                                                              |
 | ------------------------- | ----------------------------------------------------------------------- |
-| `tooling/rebar-check/index.mjs` | **The source.** <!--n lines.rebar-check-->3.014<!--/n--> lines, <!--n rules.total-->23<!--/n--> rules, with the measured why of each one |
+| `tooling/rebar-check/index.mjs` | **The source.** <!--n lines.rebar-check-->3.029<!--/n--> lines, <!--n rules.total-->23<!--/n--> rules, with the measured why of each one |
 | `mcp/generate.mjs`           | **The generator.** <!--n lines.mcp-gerador-->1.072<!--/n--> lines, **zero dependency** |
-| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->111 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->22<!--/n--> steps · <!--n mcp.artefato.provas-->63<!--/n--> proofs |
+| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->113 KB<!--/n--> · <!--n mcp.artefato.regras-->26<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->22<!--/n--> steps · <!--n mcp.artefato.provas-->64<!--/n--> proofs |
 | `mcp/src/`                | **The server.** <!--n lines.mcp-servidor-->1.157<!--/n--> lines, <!--n mcp.ferramentas-->5<!--/n--> tools. Reads the artifact, never the source |
 
 The artifact's five numbers are checked by **two** independent gates: the `mcp` step
@@ -1049,7 +1049,7 @@ GitHub shows the fence literally, so a `# 50 casos` copied along with the comman
 person a number that is no longer the one they will see on the screen. The fence shows the
 command; the number goes in the prose beside it, where the `numeros` step reaches. Today:
 <!--n verify.passos-->22<!--/n--> steps
-in `verificar`, <!--n proofs.casos-->59<!--/n--> cases in `provar`, <!--n domain.privilegio.testes-->16<!--/n--> assertions in the privilege domain, and 56
+in `verificar`, <!--n proofs.casos-->60<!--/n--> cases in `provar`, <!--n domain.privilegio.testes-->16<!--/n--> assertions in the privilege domain, and 56
 files swept by `elos` (this last one measured by hand, §0).
 
 ```bash
@@ -1362,7 +1362,7 @@ _Rewritten on 02/09/2026. The previous list had the push and the ruleset as item
 were done, and keeping them here would be the same stale-number defect, one floor up._
 
 Where the repository stands, on 02/09/2026: rebar passes on its own ruler with **13 of 13 · 4
-n/a** (§4.2), `verificar` closes <!--n verify.passos-->22<!--/n--> of <!--n verify.passos-->22<!--/n--> steps, the proofs are <!--n proofs.casos-->59<!--/n--> cases covering <!--n proofs.cobertura-->23 de 23<!--/n--> rules, the hooks are installed, twelve attacks
+n/a** (§4.2), `verificar` closes <!--n verify.passos-->22<!--/n--> of <!--n verify.passos-->22<!--/n--> steps, the proofs are <!--n proofs.casos-->60<!--/n--> cases covering <!--n proofs.cobertura-->23 de 23<!--/n--> rules, the hooks are installed, twelve attacks
 are closed, and the repository is pushed, with green CI on both systems and a ruleset
 without `bypass_actors` (§9, D+30).
 

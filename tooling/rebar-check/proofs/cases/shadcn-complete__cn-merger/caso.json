@@ -1,0 +1,4 @@
+{
+  "rule": "shadcn-complete",
+  "why": "A regra exigia `tailwind-merge` cravado e com isso REPROVAVA o projeto que o proprio gerador deste repositorio emite: ele instala `cn`, que se declara no npm como \"drop-in replacement for clsx + tailwind-merge\" e faz o mesmo trabalho, compilado. Duas partes do mesmo projeto discordando -- e o defeito apareceu porque o rebar foi USADO para gerar um projeto, nao porque alguem auditou a regra. E a mesma licao que a linha da primitiva, tres linhas acima, ja tinha aprendido: la a regra aceita `@radix-ui/*`, `radix-ui` E `@base-ui/react`, porque cravar uma so reprovava o unico dos seis repositorios medidos que tinha acertado. O que a regra pergunta e se existe um misturador de classes, nao qual. O lado aprovar usa `cn`; o lado reprovar tem components.json, primitiva e cva e NENHUM misturador, que e o `components/ui/` imitando a convencao sem a garantia. Quem voltar a cravar `tailwind-merge` faz o lado aprovar ficar vermelho."
+}

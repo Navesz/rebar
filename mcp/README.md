@@ -10,7 +10,7 @@ The defect it exists so as not to repeat, in the owner's words: *"No Herz e no B
 | --- | --- |
 | `tooling/rebar-check/index.mjs` | **The source.** <!--n rules.total-->23<!--/n--> rules, each with its measured why |
 | `mcp/generate.mjs` | **The generator.** Derives the artifact from the source |
-| `mcp/rules.generated.json` | **The artifact.** <!--n mcp.artefato.tamanho-->111 KB<!--/n-->. Not edited by hand |
+| `mcp/rules.generated.json` | **The artifact.** <!--n mcp.artefato.tamanho-->113 KB<!--/n-->. Not edited by hand |
 | `mcp/src/` | **The server.** Reads the artifact. Never reads `index.mjs` |
 
 What closes the loop is the gate's `mcp` step:

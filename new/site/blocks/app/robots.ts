@@ -2,15 +2,16 @@ import type { MetadataRoute } from 'next'
 
 import { site } from '@/conteudo/carregar'
 
-// Ver a nota de `sitemap.ts`: sem `force-static` esta rota não é emitida no
-// export, e o silêncio é total.
+// See the note in `sitemap.ts`: without `force-static` this route is not
+// emitted into the export, and the silence is total.
 export const dynamic = 'force-static'
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [{ userAgent: '*', allow: '/' }],
-    // `urlBase` é validado SEM barra no fim justamente para esta concatenação
-    // não produzir `//sitemap.xml`, que é 404 anunciado como se fosse válido.
+    // `urlBase` is validated WITHOUT a trailing slash precisely so this
+    // concatenation does not produce `//sitemap.xml`, which is a 404 announced
+    // as if it were valid.
     sitemap: `${site.meta.urlBase}/sitemap.xml`,
   }
 }

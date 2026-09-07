@@ -5,7 +5,7 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "90620c2e5f3c19ffb1f7d0d5a6a40402fc62aa3bb717e2e592992456f508209a",
+      "sha256": "e27f6c2261f2630642bc8c29c0354d0e383680b024679474675141627f28996e",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
@@ -25,12 +25,12 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "6943444062b909cfc103c8663c08ff6c551adadb97543bd7b7920c643f2b3a3c",
-      "daqui": "the why of each of the 63 proof cases"
+      "sha256": "cc5387319c4c49d9e268860aa0ec8dbe7f88904dcb09ccfef38fc7f420a19fe6",
+      "daqui": "the why of each of the 64 proof cases"
     },
     {
       "arquivo": "new/index.mjs",
-      "sha256": "c2786a5d556b3fb23d3e1ef4266b24efaf5ed424b40e5729dbbb1e2cda024746",
+      "sha256": "9bc07531879d3d2f94dfadafef1c7d1b500980e69c8e2c5a6b57c5882d376d96",
       "daqui": "the stack of the `site` preset, extracted from the header"
     },
     {
@@ -979,10 +979,26 @@
         {
           "onde": "implementacao",
           "linha": 2397,
-          "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused ducado of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root."
+          "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused ducado of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root. O MISTURADOR DE CLASSES, e nao uma implementacao dele."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2413,
+          "texto": "Cravar `tailwind-merge` reprovava o projeto que o PROPRIO gerador deste repositorio emite: ele instala `cn`, que se declara no npm \"drop-in replacement for clsx + tailwind-merge\" e faz o mesmo trabalho compilado. Duas partes do mesmo projeto discordando, e a regra estava do lado errado."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2419,
+          "texto": "E a MESMA licao que a linha da primitiva, tres linhas acima, ja tinha aprendido: la a regra aceita `@radix-ui/*`, `radix-ui` E `@base-ui/react`, porque cravar uma so reprovava o unico repositorio dos seis que tinha acertado. O que a regra pergunta e se existe um misturador, nao qual."
         }
       ],
       "provas": [
+        {
+          "caso": "shadcn-complete__cn-merger",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A regra exigia `tailwind-merge` cravado e com isso REPROVAVA o projeto que o proprio gerador deste repositorio emite: ele instala `cn`, que se declara no npm como \"drop-in replacement for clsx + tailwind-merge\" e faz o mesmo trabalho, compilado. Duas partes do mesmo projeto discordando -- e o defeito apareceu porque o rebar foi USADO para gerar um projeto, nao porque alguem auditou a regra. E a mesma licao que a linha da primitiva, tres linhas acima, ja tinha aprendido: la a regra aceita `@radix-ui/*`, `radix-ui` E `@base-ui/react`, porque cravar uma so reprovava o unico dos seis repositorios medidos que tinha acertado. O que a regra pergunta e se existe um misturador de classes, nao qual. O lado aprovar usa `cn`; o lado reprovar tem components.json, primitiva e cva e NENHUM misturador, que e o `components/ui/` imitando a convencao sem a garantia. Quem voltar a cravar `tailwind-merge` faz o lado aprovar ficar vermelho."
+        },
         {
           "caso": "shadcn-complete__does-not-use-shadcn",
           "aprovar": "passou",
@@ -999,37 +1015,37 @@
       "nivel": "N2",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2417
+        "linha": 2432
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 2419,
+          "linha": 2434,
           "texto": "WHY IT STAYS A HEURISTIC, with the number in hand."
         },
         {
           "onde": "cabecalho",
-          "linha": 2421,
+          "linha": 2436,
           "texto": "After the two fixes below the rule went from 12 accused files in 7 repositories to 6 files in 5, and the 6 are literally true — none is a false positive. Even so it does NOT get promoted to deterministic, and the reason is its own name: 4 of the 6 are the address of a THIRD PARTY's PUBLIC API (`viacep.com.br`, `api.bcb.gov.br`, `api.deepinfra.com`, `api.replicate.com`) and only 2 are the production origin of the site itself (`decima-edicoes/scripts/verify-static.mjs`, `navesz.github.io/scripts/fetch-data.mjs`). Pinning the address of a public API is normal engineering, not a defect; the defect is pinning WHERE THIS site ships to. Separating the two requires knowing the deploy origin, and the checker does not know it. Blocking merges at 2-of-6 precision on the defect the rule names is punishing correct behavior — and a rule that punishes correct behavior teaches people to turn the whole output off."
         },
         {
           "onde": "implementacao",
-          "linha": 2438,
+          "linha": 2453,
           "texto": "FIX 1 — the env-fallback pattern, which is the RIGHT pattern."
         },
         {
           "onde": "implementacao",
-          "linha": 2440,
+          "linha": 2455,
           "texto": "`process.env.X ?? 'https://…'` is exactly what you want a person to write: an environment variable with a sensible default. Measured: `decima-edicoes/app/lib/site.ts:5` accused over `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, and `hug-brasil-propostas` accused TWICE over the same shape (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three of the twelve accusations were the ruler hitting whoever got it right."
         },
         {
           "onde": "implementacao",
-          "linha": 2448,
+          "linha": 2463,
           "texto": "The fallback is erased from the text BEFORE the search, and not the whole file: a file can have the right pattern on one line and the raw address on another, and absolving the file because of the good line would trade this false positive for a false negative. FIX 2 — an address only counts when it is used AS an address."
         },
         {
           "onde": "implementacao",
-          "linha": 2457,
+          "linha": 2472,
           "texto": "The literal has to OPEN a string and come right after a request call or an address name. Measured, three accusations fell and none of the three held up once the file was opened: openkartline/apps/web/src/App.tsx:521 — `href=\"https://github.com/…\"`, a footer link to the repository itself. A link is a link. prumo/…/migrations/20260825_0003_credentials.ts — twenty `doc: 'https://docs.fal.ai'` fields, a documentation catalog seeded into a table. It is DATA, and a table is the right place for data. prumo/…/collectors/index.ts:76 — the address inside the `User-Agent` string. It opens no string, so it never even gets tested. Portuguese in the list for the same reason as `NOMES_TYPECHECK` and `NOME_TESTE`, and it must NOT be translated: a ruler that only recognizes English variable names is blind to the repository it exists to measure. `origem`, `endereco` and `servidor` are what a project from here writes where `decima-edicoes` wrote `origin`. 60 characters are enough for the roomiest `const LONG_NAME =` and keep a neighboring line from lending its verdict to the next one."
         }
       ],
@@ -1056,12 +1072,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2497
+        "linha": 2512
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2502,
+          "linha": 2517,
           "texto": "Only accuses hex that ALREADY EXISTS as a token in the CSS. A loose hex has too many legitimate contexts — three.js material, overlay veil — and the naive version of this rule gave 100% false positives when measured."
         }
       ],
@@ -1082,27 +1098,27 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2525
+        "linha": 2540
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2530,
+          "linha": 2545,
           "texto": "The Portuguese stopwords below are the DETECTOR, not prose. Translating them makes the rule stop detecting Portuguese, which is the one thing it exists to do. Leave both lists exactly as they are. `soComentario` AND NOT A REGEX OF ITS OWN. Until 2026-09-07 this rule pulled the comments out with the same naive pair that `semComentario` stopped being — and it had the same defect, measured here: a block-opener inside a string literal in `new/gate/aplicar.mjs` opened a bogus comment and dragged `destino: 'preservado', porque:` into the text about to be judged. Two extractions of one concept are two sources to diverge, and these did."
         },
         {
           "onde": "implementacao",
-          "linha": 2546,
+          "linha": 2561,
           "texto": "A span between backticks is CODE QUOTED, not prose, and leaves before the language test. An identifier in English inside a Portuguese comment is not a language switch, it is the name of the thing — nobody translates `User-Agent`, `<input type=\"file\">` or `cat-file --batch`."
         },
         {
           "onde": "implementacao",
-          "linha": 2551,
+          "linha": 2566,
           "texto": "Measured on 2026-08-31 on the rebar mirror with `new/` tracked: the `en` count fell from 3 to 0, and those 3 were exactly these three files, all with Portuguese prose — `index.mjs`, `scan-secret.mjs` and `new/index.mjs`. With min(pt,en) >= 3 as the floor, those three carried the whole accusation."
         },
         {
           "onde": "implementacao",
-          "linha": 2557,
+          "linha": 2572,
           "texto": "A span between QUOTES leaves for the same reason, and the reason is stronger: quoted speech is not the writer's prose, and translating what somebody said is rewriting it, not translating. This repository is full of the owner's words kept verbatim with the English in brackets after them, and of sample strings measured in Brazilian repositories — the measurement IS the Portuguese. Measured on 2026-09-07, after the translation: 9 of the 11 files the rule was accusing were quotation only. Without this the rule fails on the very repository it is the reference for, which is how the naive colour rule died."
         }
       ],

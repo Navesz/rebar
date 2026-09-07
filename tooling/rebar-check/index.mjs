@@ -2408,7 +2408,22 @@ export const REGRAS = [
       const faltam = []
       if (!primitiva) faltam.push('a primitive (@radix-ui/*, radix-ui or @base-ui/react)')
       if (!d['class-variance-authority']) faltam.push('cva')
-      if (!d['tailwind-merge']) faltam.push('tailwind-merge')
+      // O MISTURADOR DE CLASSES, e nao uma implementacao dele.
+      //
+      // Cravar `tailwind-merge` reprovava o projeto que o PROPRIO gerador deste
+      // repositorio emite: ele instala `cn`, que se declara no npm "drop-in
+      // replacement for clsx + tailwind-merge" e faz o mesmo trabalho compilado.
+      // Duas partes do mesmo projeto discordando, e a regra estava do lado
+      // errado.
+      //
+      // E a MESMA licao que a linha da primitiva, tres linhas acima, ja tinha
+      // aprendido: la a regra aceita `@radix-ui/*`, `radix-ui` E
+      // `@base-ui/react`, porque cravar uma so reprovava o unico repositorio dos
+      // seis que tinha acertado. O que a regra pergunta e se existe um
+      // misturador, nao qual.
+      const MISTURADORES = ['tailwind-merge', 'cn']
+      if (!MISTURADORES.some((m) => d[m]))
+        faltam.push(`a class merger (${MISTURADORES.join(' or ')})`)
       return faltam.length ? `components.json with no ${faltam.join(', ')}` : null
     },
   },
