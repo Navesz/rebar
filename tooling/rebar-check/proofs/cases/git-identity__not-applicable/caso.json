@@ -1,6 +1,6 @@
 {
   "rule": "git-identity",
-  "why": "Os dois ramos N/A da regra, um por pasta. `pass/` declara `\"commits\": []`: sem histórico não há identidade a comparar, e a versão que engolia o erro do `git log` fazia esse repositório APROVAR numa regra sobre autoria. `fail/` tem um commit só, do dependabot: bot commita, e commitar não faz dele uma identidade inconsistente do dono. Esse segundo ramo tem preço medido — sem a lista de bots, o merge commit que o GitHub cria em refs/pull/N/merge contava como segunda pessoa E como e-mail pessoal exposto, dois falsos positivos de uma vez, e TODO pull request nascia reprovado.",
+  "why": "The two N/A branches of the rule, one per folder. `pass/` declares `\"commits\": []`: with no history there is no identity to compare, and the version that swallowed the `git log` error made this repository PASS on a rule about authorship. `fail/` has a single commit, from dependabot: a bot commits, and committing does not make it an inconsistent identity of the owner. This second branch has a measured price — without the bot list, the merge commit GitHub creates at refs/pull/N/merge counted as a second person AND as an exposed personal e-mail, two false positives at once, and EVERY pull request was born failed.",
   "pass": {
     "estado": "na",
     "commits": []

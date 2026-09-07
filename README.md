@@ -6,7 +6,7 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Rules](https://img.shields.io/badge/rules-<!--n rules.total-->23<!--/n-->-blue)](#what-it-checks)
+[![Rules](https://img.shields.io/badge/rules-<!--n rules.all-->26<!--/n-->-blue)](#what-it-checks)
 [![Gate](https://img.shields.io/badge/gate-<!--n verify.passos-->20<!--/n-->%20steps-blue)](#the-gate)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](ESTADO.md)
 
@@ -16,7 +16,7 @@
 
 ```bash
 npx github:Navesz/rebar .                    # audit what already exists
-npx github:Navesz/rebar novo padaria-do-ze   # start on the right side
+npx github:Navesz/rebar new padaria-do-ze   # start on the right side
 ```
 
 Zero runtime dependencies. The checker never writes to the repository it audits.
@@ -102,7 +102,7 @@ output off.
 
 ### Every rule is born with two cases
 
-There are <!--n proofs.casos-->57<!--/n--> cases, one pair per rule, and all <!--n rules.total-->23<!--/n--> rules are covered:
+There are <!--n proofs.casos-->58<!--/n--> cases, one pair per rule, and all <!--n rules.total-->23<!--/n--> rules are covered:
 
 ```bash
 npm run prove
@@ -123,7 +123,7 @@ fail.
 |---|---|---|
 | `npx github:Navesz/rebar .` | Is the repository in the right shape? | Does not look at security, does not run the app |
 | `npx -p github:Navesz/rebar rebar-security .` | Does it have a security flaw? | Does not check Broken Access Control — OWASP #1 |
-| `npx github:Navesz/rebar novo <name>` | Start a project already gated | One preset only: `site` |
+| `npx github:Navesz/rebar new <name>` | Start a project already gated | One preset only: `site` |
 
 The `-p` on the second one is not a detail. Without it `npx` runs the package's default bin —
 the format checker — and the "security ruler" step silently repeats the one above it.
@@ -160,7 +160,7 @@ npm run install-hooks   # points core.hooksPath at tooling/hooks
 ### The step that was missing, and what its absence cost
 
 During a rename, `aplicar.mjs` started reading `verify.yml` from a folder where the file is
-called `verificar.yml`. **`rebar novo` died with ENOENT** — and `npm run verify` stayed green
+called `verificar.yml`. **`rebar new` died with ENOENT** — and `npm run verify` stayed green
 for six commits, because no step generated a project. The checker proves itself, the rules
 prove themselves, the MCP proves itself, the gate proves itself by mutation — and the product
 did not.
@@ -176,13 +176,13 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->26<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->20<!--/n--> gate steps and <!--n mcp.artefato.provas-->61<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->26<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->20<!--/n--> gate steps and <!--n mcp.artefato.provas-->62<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 
 | Path | What |
 |---|---|
-| `tooling/rebar-check/` | the format ruler and its <!--n proofs.casos-->57<!--/n--> proof cases |
+| `tooling/rebar-check/` | the format ruler and its <!--n proofs.casos-->58<!--/n--> proof cases |
 | `tooling/security/` | the security ruler |
 | `tooling/verify/` | the gate runner and the mutation proofs of its steps |
 | `tooling/secret/` | the secret scanner, and the six detection proofs |

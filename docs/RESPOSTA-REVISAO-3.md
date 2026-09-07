@@ -1,120 +1,126 @@
-# Terceira resposta — o pipeline, e uma inversão
+# Third response — the pipeline, and an inversion
 
-Você está certo sobre o `pipeline: true`. Fui à documentação primária do PostgreSQL e ela me contradiz literalmente. Mas a fonte também traz uma coisa que inverte a conclusão dos dois lados.
+You are right about `pipeline: true`. I went to the primary PostgreSQL documentation and it contradicts me literally. But the source also brings something that inverts the conclusion on both sides.
 
 ---
 
-## 1. Concedido — e a citação exata
+## 1. Conceded — and the exact quote
 
-`libpq-pipeline-mode`, documentação oficial:
+`libpq-pipeline-mode`, official documentation:
 
 > *"The server executes statements, and returns results, **in the order the client sends them**."*
 
-Ponto final. Pipelining remove a espera pelo resultado, **não** a ordem. Minha frase "com pipelining ligado, a premissa de ordenação some" está errada. Sua formulação entra no lugar:
+Full stop. Pipelining removes the wait for the result, **not** the order. My sentence "with pipelining on, the ordering premise disappears" is wrong. Your formulation goes in its place:
 
-> `pipeline: true` não invalida a ordem de execução do PostgreSQL, mas permite despacho concorrente sem esperar o resultado da inicialização. A fronteira de segurança não deve depender de ordenação nem de enfileiramento: `onConnect` impede que o client seja adquirido antes de a inicialização privilegiada terminar **com sucesso**.
+> `pipeline: true` does not invalidate PostgreSQL's execution order, but it allows concurrent dispatch without waiting for the initialization result. The security boundary must not depend on ordering or on queueing: `onConnect` prevents the client from being acquired before the privileged initialization finishes **successfully**.
 
-E seu enquadramento é o certo: **o problema nunca foi ordering, foi ausência de acquisition barrier.**
+And your framing is the right one: **the problem was never ordering, it was the absence of an acquisition barrier.**
 
 ---
 
-## 2. A inversão: pipelining é mais seguro, não menos
+## 2. The inversion: pipelining is safer, not less safe
 
-A mesma página traz o comportamento de erro, e ele desmonta o que eu tinha implicado:
+The same page carries the error behavior, and it dismantles what I had implied:
 
 > *"If any statement encounters an error, the server aborts the current transaction and **does not execute any subsequent command in the queue** until the next synchronization point; a `PGRES_PIPELINE_ABORTED` result is produced for each such command."*
 
-Ou seja: **em pipeline, um `SET ROLE` que falha aborta as queries seguintes.** O caminho de falha fica protegido de graça.
+That is: **in a pipeline, a `SET ROLE` that fails aborts the queries that follow.** The failure path is protected for free.
 
-O perigoso é o modo **padrão**, sem pipeline — onde cada query tem o próprio Sync, e um `SET ROLE` que falha **não impede** a próxima query de executar. Com privilégio total.
+The dangerous one is the **default** mode, without pipeline — where each query has its own Sync, and a `SET ROLE` that fails **does not stop** the next query from executing. With full privilege.
 
-Eu tinha dito que ligar `pipeline: true` quebraria a fronteira. É o contrário: hoje, sem pipeline, é que a janela existe. Errei duas vezes na mesma frase — no mecanismo e na direção.
+I had said that turning on `pipeline: true` would break the boundary. It is the opposite: it is today, without pipeline, that the window exists. I got it wrong twice in the same sentence — in the mechanism and in the direction.
 
-O que isso reforça é justamente a sua tese, e de forma mais dura: **o comportamento correto depende de uma configuração que ninguém declarou explicitamente, e ela pode mudar.** É exatamente o tipo de garantia acidental que não pode sustentar uma fronteira de segurança. `onConnect` torna a pergunta irrelevante.
+What this reinforces is precisely your thesis, and in a harder form: **the correct behavior depends on a setting nobody declared explicitly, and it can change.** It is exactly the kind of accidental guarantee that cannot hold up a security boundary. `onConnect` makes the question irrelevant.
 
 ---
 
-## 3. `@expect-rule` — adotado, e você fecha um furo que eu deixei
+## 3. `@expect-rule` — adopted, and you close a hole I left
 
-Concordo integralmente. Marcador estruturado no lugar de comentário livre, com as quatro validações que você listou:
+I agree entirely. A structured marker in place of a free-form comment, with the four validations you listed:
+
+<!-- The rule id below stays in Portuguese: it is an identifier in the inherited rule set,
+     not prose. Renaming it here would invalidate the markers already written in fixtures. -->
 
 ```ts
 // @expect-rule sem-io-externo-no-caso-de-uso
 ```
 
-- a regra existe no conjunto declarado
-- a fixture referencia N regras válidas
-- cada regra declarada **realmente disparou naquele arquivo**
-- **nenhuma regra não declarada disparou ali**
+- the rule exists in the declared set
+- the fixture references N valid rules
+- each declared rule **actually fired in that file**
+- **no undeclared rule fired there**
 
-O último item é o que eu não tinha proposto, e é o que fecha o furo de verdade. Sem ele, uma fixture pode ficar vermelha pelo motivo errado indefinidamente.
+The last item is the one I had not proposed, and it is the one that really closes the hole. Without it, a fixture can stay red for the wrong reason indefinitely.
 
-E seu ponto sobre o typo é concreto: `// viola: sem-io-externo-caso-de-uso` (faltando um `-`) hoje passaria como texto livre e criaria um segundo ponto de ambiguidade. Marcador validado contra o registro de regras elimina isso.
+And your point about the typo is concrete: `// viola: sem-io-externo-caso-de-uso` (missing one `-`) would today pass as free text and would create a second point of ambiguity. A marker validated against the rule registry eliminates that.
 
-Uma nota de implementação: uma fixture pode legitimamente violar duas regras ao mesmo tempo — um arquivo que importa `db/` **e** fecha ciclo. O `N regras` da sua especificação cobre isso, desde que declaradas. Vale dizer explicitamente, senão alguém escreve o parser aceitando só uma.
+An implementation note: a fixture can legitimately violate two rules at once — a file that imports `db/` **and** closes a cycle. The `N rules` in your specification covers that, as long as they are declared. It is worth saying explicitly, otherwise someone writes the parser accepting only one.
 
 ---
 
-## 4. A invariante unificada — é a melhor contribuição desta rodada
+## 4. The unified invariant — it is the best contribution of this round
 
-Adotado como você escreveu:
+Adopted as you wrote it:
 
-> **Toda mutação idempotente que produza efeito externo deve persistir estado de negócio, registro de idempotência e linha de outbox na mesma transação.**
+> **Every idempotent mutation that produces an external effect must persist business state, idempotency record and outbox row in the same transaction.**
 
-Isso conecta duas decisões que estavam sendo discutidas em separado, e o desenho fica:
+This connects two decisions that were being discussed separately, and the design becomes:
 
 ```
 BEGIN
   claim commandId
-  executa alteração no domínio
-  grava estado de negócio
-  grava linha de outbox
-  grava resultado da idempotência
+  apply the domain change
+  write the business state
+  write the outbox row
+  write the idempotency result
 COMMIT
         ↓
-worker de outbox  →  efeito externo
+outbox worker  →  external effect
 ```
 
-Uma sutileza que vale registrar junto, senão alguém a descobre em produção: **no caminho de replay, nenhuma linha nova de outbox pode ser escrita.** Retry com o mesmo `commandId` e mesmo hash devolve o resultado guardado e não reenfileira o efeito. Caso contrário a idempotência do banco existe e o efeito externo duplica assim mesmo — que é precisamente o que a invariante existe para impedir.
+One subtlety worth recording alongside it, otherwise someone discovers it in production: **on the replay path, no new outbox row may be written.** A retry with the same `commandId` and the same hash returns the stored result and does not re-enqueue the effect. Otherwise the database idempotency exists and the external effect duplicates all the same — which is precisely what the invariant exists to prevent.
 
 ---
 
-## 5. Canonicalização — você está certo em não deixar a gente inventar
+## 5. Canonicalization — you are right not to let us invent it
 
-`ordenarObjetoRecursivamente()` caseiro é exatamente o tipo de função que nasce em quinze minutos e vira bug de reconciliação seis meses depois.
+<!-- The function name and the JSON keys in this section stay in Portuguese: they are
+     identifiers and payload keys quoted as they exist, not prose. -->
 
-Das suas duas opções, prefiro a segunda, pelo motivo que você mesmo deu:
+A homemade `ordenarObjetoRecursivamente()` is exactly the kind of function that is born in fifteen minutes and turns into a reconciliation bug six months later.
+
+Of your two options, I prefer the second, for the reason you gave yourself:
 
 ```
-Zod parse → DTO normalizado → serialização canônica → hash
+Zod parse → normalized DTO → canonical serialization → hash
 ```
 
-Porque quem decide se `{"quantidade":1}` e `{"quantidade":1,"campoIgnorado":"x"}` são o mesmo comando **é o contrato**, não o hash. Se o schema faz `strip` do campo extra, os dois são o mesmo pedido e precisam ter o mesmo hash. Se o schema é `strict` e rejeita, nem chega no hash. Hashear o texto cru antes do parse põe essa decisão no lugar errado — e num desenho contract-first, é o único lugar onde ela não deveria estar.
+Because what decides whether `{"quantidade":1}` and `{"quantidade":1,"campoIgnorado":"x"}` are the same command **is the contract**, not the hash. If the schema `strip`s the extra field, the two are the same request and must have the same hash. If the schema is `strict` and rejects it, it never reaches the hash. Hashing the raw text before the parse puts that decision in the wrong place — and in a contract-first design, it is the only place where it should not be.
 
-JCS/RFC 8785 entra como a serialização canônica **depois** do parse, não no lugar dele.
+JCS/RFC 8785 comes in as the canonical serialization **after** the parse, not in its place.
 
 ---
 
-## 6. Sobre RC não significar "não use"
+## 6. On RC not meaning "do not use"
 
-Aceito a nuance, e ela importa para a decisão real. A equipe declara API estável e feature-complete; o defeito da minha primeira resposta foi chamar de GA, não recomendar.
+I accept the nuance, and it matters for the real decision. The team declares the API stable and feature-complete; the defect of my first response was calling it GA, not recommending it.
 
-Fica assim no documento: **TanStack Start é candidato forte para o preset `site`, em RC, com API declarada estável pela própria equipe.** Escolhível, com o estágio dito em voz alta — não vendido como estável.
+It goes into the document like this: **TanStack Start is a strong candidate for the `site` preset, in RC, with an API the team itself declares stable.** Choosable, with the stage said out loud — not sold as stable.
 
 ---
 
-## Placar
+## Scoreboard
 
-| Item | Veredito |
+| Item | Verdict |
 |---|---|
-| `pipeline: true` remove ordenação | ❌ **errei** — a doc diz "in the order the client sends them" |
-| Pipelining piora a fronteira | ❌ **errei ao contrário** — em pipeline, erro **aborta** as seguintes; o perigoso é o modo padrão |
-| O problema é acquisition barrier, não ordering | ✅ seu enquadramento, adotado |
-| `@expect-rule` estruturado | ✅ adotado, com "nenhuma regra inesperada disparou" |
-| Invariante unificada idempotência + outbox | ✅ adotado — melhor contribuição da rodada |
-| Canonicalização pelo contrato, não caseira | ✅ adotado |
-| RC ≠ não usar | ✅ nuance aceita |
+| `pipeline: true` removes ordering | ❌ **I got it wrong** — the docs say "in the order the client sends them" |
+| Pipelining makes the boundary worse | ❌ **I got it wrong backwards** — in a pipeline, an error **aborts** the ones that follow; the dangerous mode is the default |
+| The problem is the acquisition barrier, not ordering | ✅ your framing, adopted |
+| Structured `@expect-rule` | ✅ adopted, with "no unexpected rule fired" |
+| Unified idempotency + outbox invariant | ✅ adopted — best contribution of the round |
+| Canonicalization by the contract, not homemade | ✅ adopted |
+| RC ≠ do not use | ✅ nuance accepted |
 
-Duas rodadas, dois erros factuais meus, os dois pegos por você indo à fonte primária. O processo está funcionando — e é literalmente o mecanismo que a stack tenta automatizar: **afirmação com número precisa de fonte, e a fonte precisa ser primária.** Eu falhei nisso duas vezes num documento que prega isso, o que é o argumento mais honesto que existe a favor de a regra ser máquina e não disciplina.
+Two rounds, two factual errors of mine, both caught by you going to the primary source. The process is working — and it is literally the mechanism the stack tries to automate: **a claim with a number needs a source, and the source needs to be primary.** I failed at that twice in a document that preaches it, which is the most honest argument there is for the rule being machine and not discipline.
 
-Vou aplicar as correções no `STACK.md` antes de virar ADR.
+I will apply the corrections to `STACK.md` before it becomes an ADR.

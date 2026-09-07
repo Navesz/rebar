@@ -1,15 +1,18 @@
-// A PROVA DA PRECEDÊNCIA — feita contra o git, não contra a documentação dele.
+// THE PROOF OF PRECEDENCE — made against git, not against git's documentation.
 //
-// P2 #13. O gerador escrevia a identidade no NOTICE e na allowlist e commitava
-// com `-c user.name=… -c user.email=…`, achando que isso fixava o autor. O
-// comentário lá dizia: "Sem isto, uma máquina com config global e GIT_AUTHOR_*
-// divergentes escreveria um nome no arquivo e outro no histórico". Estava
-// invertido — no git a variável de ambiente GANHA da config, e `-c` é config.
+// P2 #13. The generator wrote the identity into the NOTICE and into the
+// allowlist and committed with `-c user.name=… -c user.email=…`, thinking that
+// pinned the author. The comment over there said: "Sem isto, uma máquina com
+// config global e GIT_AUTHOR_* divergentes escreveria um nome no arquivo e outro
+// no histórico" [without this, a machine with a global config and diverging
+// GIT_AUTHOR_* would write one name into the file and another into the history].
+// It was backwards — in git the environment variable BEATS the config, and `-c`
+// is config.
 //
-// O primeiro caso aqui embaixo é o que mede isso, e ele NÃO exercita o conserto:
-// ele mede o git puro. Se um dia a precedência do git mudar, é ele que avisa, e
-// o resto deste arquivo passa a ser desnecessário em vez de silenciosamente
-// errado.
+// The first case down below is the one that measures this, and it does NOT
+// exercise the fix: it measures plain git. If git's precedence ever changes, it
+// is the one that warns, and the rest of this file becomes unnecessary instead
+// of silently wrong.
 //
 //   node --test new/prove-identidade.mjs
 
@@ -25,13 +28,13 @@ import { ambienteDeIdentidade } from './identidade.mjs'
 const DOS_ARQUIVOS = { nome: 'Dona Do Projeto', email: 'dona@projeto.exemplo' }
 const DO_AMBIENTE = { nome: 'Outra Pessoa', email: 'outra@maquina.exemplo' }
 
-/** Um repositório com um arquivo em stage, pronto para receber um commit. */
+/** A repository with one file staged, ready to take a commit. */
 function repoPronto() {
   const dir = mkdtempSync(join(tmpdir(), 'rebar-ident-'))
   const vazio = join(dir, 'git-config-vazio')
   writeFileSync(vazio, '', 'utf8')
-  // Config global e de sistema fora do caminho: a identidade da máquina de quem
-  // roda a prova decidiria o resultado.
+  // Global and system config out of the way: the identity of the machine
+  // running the proof would decide the result.
   const limpo = { ...process.env, GIT_CONFIG_GLOBAL: vazio, GIT_CONFIG_SYSTEM: vazio }
   for (const k of [
     'GIT_AUTHOR_NAME',
@@ -45,8 +48,8 @@ function repoPronto() {
     spawnSync('git', args, { cwd: dir, encoding: 'utf8', env, windowsHide: true })
 
   rodar(['init', '-q'])
-  // A config LOCAL do repositório é o que o gerador leria com `configGit`, e é
-  // o que ele escreve nos arquivos.
+  // The repository's LOCAL config is what the generator would read with
+  // `configGit`, and it is what it writes into the files.
   rodar(['config', 'user.name', DOS_ARQUIVOS.nome])
   rodar(['config', 'user.email', DOS_ARQUIVOS.email])
   writeFileSync(join(dir, 'LEIAME.md'), '# projeto\n', 'utf8')
@@ -72,10 +75,10 @@ const ARGS_DO_COMMIT = (nome, email) => [
   'primeiro commit',
 ]
 
-test('A PRECEDÊNCIA, medida no git: GIT_AUTHOR_* ganha de `-c user.*`', () => {
-  // Este caso NÃO usa o conserto. Ele mede o git, e é a premissa de tudo o que
-  // vem depois: se ele parar de valer, o resto vira desnecessário em vez de
-  // errado em silêncio.
+test('THE PRECEDENCE, measured in git: GIT_AUTHOR_* beats `-c user.*`', () => {
+  // This case does NOT use the fix. It measures git, and it is the premise of
+  // everything that comes after: if it stops holding, the rest turns
+  // unnecessary instead of wrong in silence.
   const r = repoPronto()
   try {
     const comAmbienteDivergente = {
@@ -87,18 +90,19 @@ test('A PRECEDÊNCIA, medida no git: GIT_AUTHOR_* ganha de `-c user.*`', () => {
     assert.equal(
       r.autorDoUltimoCommit(),
       `${DO_AMBIENTE.nome} <${DO_AMBIENTE.email}>`,
-      'se o `-c` ganhasse, o gerador antigo estaria certo e este conserto seria desnecessário',
+      'if `-c` won, the old generator would be right and this fix would be unnecessary',
     )
   } finally {
     r.fim()
   }
 })
 
-test('O CONSERTO · o commit sai com a identidade dos ARQUIVOS, apesar do ambiente', () => {
+test('THE FIX · the commit comes out with the identity from the FILES, despite the environment', () => {
   const r = repoPronto()
   try {
-    // A máquina hostil: config local dizendo uma coisa, ambiente dizendo outra.
-    // É a situação de runner de CI e de container, que é onde o gerador roda.
+    // The hostile machine: local config saying one thing, environment saying
+    // another. It is the situation of a CI runner and of a container, which is
+    // where the generator runs.
     const maquina = {
       ...r.limpo,
       GIT_AUTHOR_NAME: DO_AMBIENTE.nome,
@@ -116,7 +120,7 @@ test('O CONSERTO · o commit sai com a identidade dos ARQUIVOS, apesar do ambien
   }
 })
 
-test('o committer também, porque o histórico guarda os dois', () => {
+test('the committer too, because the history keeps both', () => {
   const r = repoPronto()
   try {
     const maquina = { ...r.limpo, GIT_COMMITTER_EMAIL: DO_AMBIENTE.email }
@@ -133,7 +137,7 @@ test('o committer também, porque o histórico guarda os dois', () => {
   }
 })
 
-test('sem ambiente hostil nada muda — o conserto não inventa identidade', () => {
+test('with no hostile environment nothing changes — the fix does not invent an identity', () => {
   const r = repoPronto()
   try {
     r.rodar(
@@ -146,7 +150,7 @@ test('sem ambiente hostil nada muda — o conserto não inventa identidade', () 
   }
 })
 
-test('`process.env` não é mutado — a identidade não vaza para os outros filhos', () => {
+test('`process.env` is not mutated — the identity does not leak into the other children', () => {
   const antes = process.env.GIT_AUTHOR_EMAIL
   ambienteDeIdentidade('Alguém', 'alguem@exemplo.com')
   assert.equal(process.env.GIT_AUTHOR_EMAIL, antes)

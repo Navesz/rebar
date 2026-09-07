@@ -1,6 +1,6 @@
 {
   "rule": "ci-gates",
-  "why": "Os DOIS ramos N/A desta regra num caso só, um por pasta — as pastas se chamam `pass` e `fail` por herança do formato, e aqui cada uma isola um ramo diferente. `pass/` tem os scripts lint e test e nenhum workflow: quem cobra a existência de CI é a regra `ci`, e cobrar duas vezes a mesma ausência mede a mesma coisa duas vezes e reprova o repositório em dobro. `fail/` tem workflow e um package.json cujo único script é `empacotar`: a regra só cobra o que o repositório POSSUI, porque exigir `lint` de quem não tem lint é exigir a adoção de uma ferramenta, decisão de outro nível. Qualquer um dos dois virando `passou` faz o caso acusar.",
+  "why": "BOTH N/A branches of this rule in a single case, one per folder — the folders are called `pass` and `fail` by inheritance from the format, and here each isolates a different branch. `pass/` has the lint and test scripts and no workflow: the one that charges for the existence of CI is the `ci` rule, and charging twice for the same absence measures the same thing twice and fails the repository double. `fail/` has a workflow and a package.json whose only script is `empacotar`: the rule only charges for what the repository HAS, because demanding `lint` from someone who has no lint is demanding the adoption of a tool, a decision of another level. Either of the two turning into `passou` makes the case accuse.",
   "pass": {
     "estado": "na"
   },

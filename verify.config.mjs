@@ -1,27 +1,28 @@
-// Sequência de verificação do rebar.
+// The rebar verification sequence.
 //
-// Um repositório cujo produto é "fazer código errado não passar" e que não se
-// verifica não tem autoridade nenhuma para exigir verificação dos outros. Por
-// isso o último passo é o rebar-check apontado para o próprio rebar.
+// A repository whose product is "make wrong code fail" and that does not verify
+// itself has no authority at all to demand verification from anyone else. That
+// is why the last step is rebar-check pointed at rebar itself.
 //
-// Ordem: do mais barato para o mais caro. A ordem não é estética — o executor
-// reporta o primeiro passo caído como "conserte primeiro", e consertar sintaxe
-// costuma apagar sozinho as falhas dos passos de baixo.
+// Order: cheapest to most expensive. The order is not aesthetic — the runner
+// reports the first fallen step as "fix this first", and fixing syntax usually
+// erases the failures of the steps below on its own.
 //
-// Não existe campo `opcional` aqui, e não é esquecimento: verificar.mjs recusa
-// a chave com exit 2. Passo que não bloqueia não é passo do verificar.
+// There is no `opcional` field here, and that is not an oversight: verificar.mjs
+// refuses the key with exit 2. A step that does not block is not a step of the
+// verify.
 //
-// Os dois primeiros passos, `higiene` e `hooks`, conferem o PORTÃO, não o
-// conteúdo. Vieram da auditoria de 2026-08-30, que provou três coisas:
-//   · `git update-index --skip-worktree verify.config.mjs` + reescrever o
-//     arquivo no disco com passos no-op ⇒ `git status --short`, `git diff` e
-//     `git diff HEAD` todos VAZIOS, e o verificar imprimindo APROVADO. O único
-//     comando que denuncia é `git ls-files -v`, e nada no rebar o rodava.
-//   · árvore com 4 arquivos não commitados ⇒ APROVADO 6 de 6. "APROVADO" e
-//     "árvore limpa" são duas alegações independentes, e o portão só fazia uma.
-//   · `git config --get core.hooksPath` saía VAZIO no repositório real: o portão
-//     de segredo e o de coautoria estavam inertes, e o verificar aprovou assim
-//     mesmo.
+// The first two steps, `higiene` and `hooks`, check the GATE, not the content.
+// They came from the 2026-08-30 audit, which proved three things:
+//   · `git update-index --skip-worktree verify.config.mjs` + rewriting the file
+//     on disk with no-op steps ⇒ `git status --short`, `git diff` and
+//     `git diff HEAD` all EMPTY, and the verify printing PASSED. The only
+//     command that gives it away is `git ls-files -v`, and nothing in rebar ran it.
+//   · tree with 4 uncommitted files ⇒ PASSED 6 of 6. "PASSED" and "clean
+//     tree" are two independent claims, and the gate only made one.
+//   · `git config --get core.hooksPath` came out EMPTY in the real repository:
+//     the secret gate and the co-authorship gate were inert, and the verify
+//     passed it anyway.
 
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
@@ -32,24 +33,24 @@ import { pathToFileURL } from 'node:url'
 
 const MINUTO = 60 * 1000
 
-// CI de verdade (GitHub Actions, GitLab, CircleCI) exporta CI=true. As strings
-// "false"/"0" são checadas porque quem quer rodar como se fosse local costuma
-// escrever isso, e `Boolean("false")` é true.
+// Real CI (GitHub Actions, GitLab, CircleCI) exports CI=true. The strings
+// "false"/"0" are checked because whoever wants to run as if local usually
+// writes that, and `Boolean("false")` is true.
 const DENTRO_DO_CI = !['', 'false', '0'].includes(String(process.env.CI ?? '').toLowerCase())
 
-// Os dois arquivos que DEFINEM o veredito. Se alguém troca um deles no disco
-// sem que o git veja, todo o resto desta lista vira teatro.
+// The two files that DEFINE the verdict. If someone swaps one of them on disk
+// without git seeing it, all the rest of this list becomes theatre.
 const ARQUIVOS_DO_PORTAO = ['verify.config.mjs', 'tooling/verify/verify.mjs']
 
 const HOOKS_ESPERADOS = ['pre-commit', 'commit-msg']
 const HOOKS_PATH_ESPERADO = 'tooling/hooks'
 
-// Primeira linha de uma mensagem de erro.
+// First line of an error message.
 //
-// Existe porque interpolar um split de quebra de linha dentro de template
-// literal ja quebrou este arquivo duas vezes hoje: o escape escrito a mao
-// virou quebra de verdade no meio da string, e o node parou de compilar. A
-// funcao tira o escape de dentro da template.
+// It exists because interpolating a newline split inside a template literal has
+// already broken this file twice today: the hand-written escape turned into a
+// real line break in the middle of the string, and node stopped compiling. The
+// function takes the escape out of the template.
 function primeiraLinha(mensagem) {
   return String(mensagem).split(String.fromCharCode(10))[0]
 }
@@ -64,8 +65,8 @@ function git(raiz, argumentos) {
   })
 }
 
-// Para os comandos cuja FALHA é uma resposta legítima (`config --get` de chave
-// ausente sai 1; `rev-parse HEAD:x` sai 128 quando x não está no commit).
+// For the commands whose FAILURE is a legitimate answer (`config --get` of a
+// missing key exits 1; `rev-parse HEAD:x` exits 128 when x is not in the commit).
 function gitOpcional(raiz, argumentos) {
   try {
     return git(raiz, argumentos).trim()
@@ -74,67 +75,76 @@ function gitOpcional(raiz, argumentos) {
   }
 }
 
-// Letra do `git ls-files -v`. Maiúscula fora de H já é anomalia; MINÚSCULA é
-// assume-unchanged em qualquer letra, e é o irmão silencioso do skip-worktree.
+// Letter from `git ls-files -v`. An uppercase letter other than H is already an
+// anomaly; LOWERCASE is assume-unchanged whatever the letter, and it is the
+// silent brother of skip-worktree.
 const LEGENDA_LS_FILES = {
-  S: 'skip-worktree — o git para de olhar o disco para este arquivo',
-  M: 'não resolvido (merge)',
-  R: 'no índice, ausente do disco',
-  C: 'alterado de outra forma',
-  K: 'marcado para remoção',
+  S: 'skip-worktree — git stops looking at the disk for this file',
+  M: 'unmerged',
+  R: 'in the index, missing from the disk',
+  C: 'changed some other way',
+  K: 'marked for removal',
 }
 
 function legenda(letra) {
   if (letra >= 'a' && letra <= 'z')
-    return 'assume-unchanged — o git confia no índice e ignora o disco'
-  return LEGENDA_LS_FILES[letra] ?? 'estado de índice fora do normal'
+    return 'assume-unchanged — git trusts the index and ignores the disk'
+  return LEGENDA_LS_FILES[letra] ?? 'index state outside the normal'
 }
 
 /**
- * O portão conferindo o portão. Quatro perguntas, todas de custo desprezível
- * (~40 ms nesta máquina), por isso este é o primeiro passo da lista.
+ * The gate checking the gate. Four questions, all of negligible cost (~40 ms on
+ * this machine), which is why this is the first step of the list.
  *
- * POLÍTICA CI/LOCAL, e o porquê dela: árvore suja é o estado NORMAL de quem
- * está editando. Reprovar nisso localmente faria o portão ser impossível de
- * satisfazer durante o trabalho — e portão que não fecha é portão que se
- * aprende a contornar, que é exatamente a falha que este passo existe para
- * matar. Então fora do CI a sujeira é AVISO (linha com ⚠, que o campo `avisar`
- * do passo publica no placar MESMO quando o passo passa: some do veredito, não
- * some da tela). Dentro do CI o runner faz checkout de um commit e não edita
- * nada, logo qualquer sujeira ali é artefato gerado ou resto de build — e aí
- * reprova.
+ * CI/LOCAL POLICY, and the why of it: a dirty tree is the NORMAL state of
+ * whoever is editing. Failing on that locally would make the gate impossible to
+ * satisfy during the work — and a gate that does not close is a gate people
+ * learn to work around, which is exactly the failure this step exists to kill.
+ * So outside CI the dirt is a WARNING (a ⚠ line, which the step's `avisar` field
+ * publishes on the scoreboard EVEN when the step passes: it leaves the verdict,
+ * it does not leave the screen). Inside CI the runner checks out a commit and
+ * edits nothing, so any dirt there is a generated artifact or build leftover —
+ * and then it fails.
  *
- * A divergência de hash não segue essa política quando é INVISÍVEL. Arquivo do
- * portão que diverge do HEAD e NÃO aparece em `git status` é a assinatura exata
- * do ataque skip-worktree: reprova sempre, CI ou não. Se diverge e aparece no
- * status, é edição honesta e vale a regra de cima.
+ * Hash divergence does not follow that policy when it is INVISIBLE. A gate file
+ * that diverges from HEAD and does NOT show up in `git status` is the exact
+ * signature of the skip-worktree attack: it always fails, CI or not. If it
+ * diverges and shows up in the status, it is honest editing and the rule above
+ * holds.
  */
 function checarHigiene({ raiz }) {
   const erros = []
   const avisos = []
 
-  // 1 — bits de rastreio do índice. É o ÚNICO lugar onde skip-worktree e
-  // assume-unchanged aparecem; status, diff e `diff HEAD` são todos cegos a eles.
-  // `-z` nao muda o veredito: a letra fica na posicao 0 e sobrevive a
-  // citacao. Muda o que se LE -- sem ele o caminho sai escapado e o dono
-  // nao reconhece o arquivo que ele mesmo marcou.
+  // The `erro ` prefix on the lines below stays in Portuguese ON PURPOSE: it is
+  // the severity token that this step's `extrair` regex (/^erro |^ {2}[^⚠]/, at
+  // the bottom of this file) matches to choose which lines the runner shows.
+  // Translating it breaks the match in silence — the step still fails, but the
+  // report falls back to the last lines of the output.
+
+  // 1 — index tracking bits. It is the ONLY place where skip-worktree and
+  // assume-unchanged show up; status, diff and `diff HEAD` are all blind to them.
+  // `-z` does not change the verdict: the letter sits at position 0 and survives
+  // the quoting. It changes what one READS -- without it the path comes out
+  // escaped and the owner does not recognize the file he marked himself.
   const anomalas = git(raiz, ['ls-files', '-v', '-z'])
     .split('\0')
     .map((l) => l.replace(/\s+$/, ''))
     .filter((l) => l.length > 0 && !l.startsWith('H '))
   if (anomalas.length) {
-    erros.push(`erro ${anomalas.length} arquivo(s) com bit de rastreio alterado no índice:`)
+    erros.push(`erro ${anomalas.length} file(s) with an altered tracking bit in the index:`)
     for (const linha of anomalas.slice(0, 10)) {
       erros.push(`  ${linha.slice(2)}  [${linha[0]}] ${legenda(linha[0])}`)
     }
-    if (anomalas.length > 10) erros.push(`  … mais ${anomalas.length - 10}`)
-    erros.push('  Desfaça: git update-index --no-skip-worktree --no-assume-unchanged <arquivo>')
+    if (anomalas.length > 10) erros.push(`  … ${anomalas.length - 10} more`)
+    erros.push('  Undo: git update-index --no-skip-worktree --no-assume-unchanged <file>')
   }
 
-  // 2 — .git/info/exclude. Ignore local, não versionado, invisível em revisão:
-  // dá para sumir com um arquivo dos olhos do `git status` sem tocar no
-  // .gitignore que os outros leem. `rev-parse --git-path` porque em worktree e
-  // submódulo o .git é arquivo, não pasta, e join(raiz,'.git',…) erra o alvo.
+  // 2 — .git/info/exclude. A local ignore, unversioned, invisible in review: it
+  // lets you make a file vanish from the eyes of `git status` without touching
+  // the .gitignore the others read. `rev-parse --git-path` because in a worktree
+  // and in a submodule .git is a file, not a folder, and join(raiz,'.git',…)
+  // misses the target.
   const caminhoExclude = gitOpcional(raiz, ['rev-parse', '--git-path', 'info/exclude'])
   if (caminhoExclude) {
     const alvo = join(raiz, caminhoExclude)
@@ -144,55 +154,55 @@ function checarHigiene({ raiz }) {
         .map((l) => l.trim())
         .filter((l) => l.length > 0 && !l.startsWith('#'))
       if (regras.length) {
-        erros.push(`erro .git/info/exclude tem ${regras.length} regra(s) de ignore local:`)
+        erros.push(`erro .git/info/exclude has ${regras.length} local ignore rule(s):`)
         for (const r of regras.slice(0, 10)) erros.push(`  ${r}`)
-        erros.push('  Ignore que vale para todos mora no .gitignore, versionado e revisável.')
+        erros.push('  An ignore for everyone lives in .gitignore, versioned and reviewable.')
       }
     }
   }
 
-  // 3 — sujeira da árvore. Ver POLÍTICA CI/LOCAL acima.
+  // 3 — tree dirt. See CI/LOCAL POLICY above.
   const status = git(raiz, ['status', '--porcelain'])
     .split('\n')
     .filter((l) => l.trim().length > 0)
   if (status.length) {
     const destino = DENTRO_DO_CI ? erros : avisos
     destino.push(
-      `${DENTRO_DO_CI ? 'erro' : '⚠'} árvore com ${status.length} alteração(ões) não commitada(s)` +
+      `${DENTRO_DO_CI ? 'erro' : '⚠'} tree with ${status.length} uncommitted change(s)` +
         (DENTRO_DO_CI
-          ? ' — no CI isso é artefato gerado ou resto de build, não trabalho em curso'
-          : ' — APROVADO não quer dizer árvore limpa'),
+          ? ' — in CI this is a generated artifact or build leftover, not work in progress'
+          : ' — PASSED does not mean a clean tree'),
     )
     for (const l of status.slice(0, 8)) destino.push(`  ${DENTRO_DO_CI ? '' : '⚠ '}${l.trim()}`)
-    if (status.length > 8) destino.push(`  ${DENTRO_DO_CI ? '' : '⚠ '}… mais ${status.length - 8}`)
+    if (status.length > 8) destino.push(`  ${DENTRO_DO_CI ? '' : '⚠ '}… ${status.length - 8} more`)
   }
 
-  // 4 — o disco contra o HEAD, para os arquivos que decidem o veredito.
+  // 4 — the disk against HEAD, for the files that decide the verdict.
   const textoStatus = status.join('\n')
   for (const rel of ARQUIVOS_DO_PORTAO) {
     if (!existsSync(join(raiz, rel))) {
-      erros.push(`erro ${rel} não existe no disco — o portão está incompleto`)
+      erros.push(`erro ${rel} does not exist on disk — the gate is incomplete`)
       continue
     }
     const noHead = gitOpcional(raiz, ['rev-parse', `HEAD:${rel}`])
     if (noHead === null) {
-      erros.push(`erro ${rel} não está no HEAD — não há versão revisada para comparar`)
+      erros.push(`erro ${rel} is not in HEAD — there is no reviewed version to compare against`)
       continue
     }
-    // `hash-object` com caminho aplica os mesmos filtros de limpeza que o git
-    // aplicaria ao commitar (o .gitattributes deste repo normaliza fim de linha),
-    // então comparar com o blob do HEAD é comparação de igual para igual.
+    // `hash-object` with a path applies the same clean filters git would apply
+    // on commit (this repo's .gitattributes normalizes line endings), so
+    // comparing against the HEAD blob is a like-for-like comparison.
     const noDisco = gitOpcional(raiz, ['hash-object', '--', rel])
     if (noDisco !== noHead) {
-      // Substring basta: os dois caminhos são ASCII simples, e o porcelain pode
-      // trazê-los com prefixo de estado ou em linha de rename ("R  a -> b").
+      // A substring is enough: both paths are plain ASCII, and the porcelain can
+      // bring them with a status prefix or on a rename line ("R  a -> b").
       const visivel = textoStatus.includes(rel)
       const destino = visivel && !DENTRO_DO_CI ? avisos : erros
       destino.push(
-        `${destino === avisos ? '⚠' : 'erro'} ${rel} no disco difere do HEAD` +
+        `${destino === avisos ? '⚠' : 'erro'} ${rel} on disk differs from HEAD` +
           (visivel
-            ? ' (aparece em git status — edição em curso)'
-            : ' e NÃO aparece em git status — assinatura de skip-worktree/assume-unchanged'),
+            ? ' (shows up in git status — edit in progress)'
+            : ' and does NOT show up in git status — skip-worktree/assume-unchanged signature'),
       )
     }
   }
@@ -201,21 +211,22 @@ function checarHigiene({ raiz }) {
   if (erros.length) return { codigo: 1, saida: linhas.join('\n') }
   return {
     codigo: 0,
-    saida: linhas.length ? linhas.join('\n') : 'índice, exclude, árvore e hash do portão conferem',
+    saida: linhas.length ? linhas.join('\n') : 'index, exclude, tree and gate hash all check out',
   }
 }
 
 /**
- * Hooks instalados. Auditado em 2026-08-30: `git config --get core.hooksPath`
- * saía vazio no repositório real, ou seja, o hook de segredo e o de coautoria
- * nunca rodaram em commit nenhum — e o verificar imprimia APROVADO, porque
- * nenhum passo lia isso.
+ * Hooks installed. Audited on 2026-08-30: `git config --get core.hooksPath`
+ * came out empty in the real repository, meaning the secret hook and the
+ * co-authorship hook never ran on a single commit — and the verify printed
+ * PASSED, because no step read that.
  *
- * Divisão CI/local: a EXISTÊNCIA dos arquivos de hook é conteúdo do
- * repositório e reprova em qualquer lugar. Já `core.hooksPath` é configuração
- * de clone local (mora em .git/config, que não é versionado) e o runner de CI
- * não commita nada — exigir lá seria reprovar o CI por não fazer algo que ele
- * não faz. Então no CI isso vira aviso VISÍVEL, nunca um silêncio.
+ * CI/local split: the EXISTENCE of the hook files is repository content and
+ * fails anywhere. `core.hooksPath`, on the other hand, is local-clone
+ * configuration (it lives in .git/config, which is not versioned) and the CI
+ * runner commits nothing — demanding it there would be failing CI for not doing
+ * something it does not do. So in CI this becomes a VISIBLE warning, never a
+ * silence.
  */
 function checarHooks({ raiz }) {
   const erros = []
@@ -223,18 +234,18 @@ function checarHooks({ raiz }) {
 
   const faltando = HOOKS_ESPERADOS.filter((h) => !existsSync(join(raiz, HOOKS_PATH_ESPERADO, h)))
   if (faltando.length) {
-    erros.push(`erro hook(s) ausente(s) em ${HOOKS_PATH_ESPERADO}/: ${faltando.join(', ')}`)
+    erros.push(`erro missing hook(s) in ${HOOKS_PATH_ESPERADO}/: ${faltando.join(', ')}`)
   }
 
   const atual = gitOpcional(raiz, ['config', '--get', 'core.hooksPath'])
   if (atual !== HOOKS_PATH_ESPERADO) {
-    const comoEsta = atual === null || atual === '' ? 'não configurado' : `"${atual}"`
+    const comoEsta = atual === null || atual === '' ? 'not configured' : `"${atual}"`
     const destino = DENTRO_DO_CI ? avisos : erros
     destino.push(
-      `${DENTRO_DO_CI ? '⚠' : 'erro'} core.hooksPath ${comoEsta}, esperado "${HOOKS_PATH_ESPERADO}"` +
+      `${DENTRO_DO_CI ? '⚠' : 'erro'} core.hooksPath ${comoEsta}, expected "${HOOKS_PATH_ESPERADO}"` +
         (DENTRO_DO_CI
-          ? ' — não conferido no CI: o runner não commita, então hook não roda lá'
-          : ' — pre-commit e commit-msg inertes. Instale: node tooling/hooks/install.mjs'),
+          ? ' — not checked in CI: the runner does not commit, so no hook runs there'
+          : ' — pre-commit and commit-msg inert. Install: node tooling/hooks/install.mjs'),
     )
   }
 
@@ -244,32 +255,32 @@ function checarHooks({ raiz }) {
     codigo: 0,
     saida: linhas.length
       ? linhas.join('\n')
-      : `core.hooksPath = ${HOOKS_PATH_ESPERADO} · ${HOOKS_ESPERADOS.join(', ')} presentes`,
+      : `core.hooksPath = ${HOOKS_PATH_ESPERADO} · ${HOOKS_ESPERADOS.join(', ')} present`,
   }
 }
 
 /**
- * Lista os .mjs que o git conhece.
+ * Lists the .mjs files git knows about.
  *
- * `--cached --others --exclude-standard` = rastreado + novo-ainda-não-add,
- * menos o que o .gitignore cobre. Só `--cached` deixaria escapar exatamente o
- * arquivo recém-escrito e ainda não commitado — que é onde o erro de sintaxe
- * está em praticamente todos os casos. O `--exclude-standard` é o que mantém
- * node_modules/ fora da conta, respeitando o .gitignore do repositório.
+ * `--cached --others --exclude-standard` = tracked + new-not-yet-added, minus
+ * whatever .gitignore covers. `--cached` alone would let exactly the
+ * just-written, not-yet-committed file slip through — which is where the syntax
+ * error is in practically every case. `--exclude-standard` is what keeps
+ * node_modules/ out of the count, respecting the repository's .gitignore.
  *
- * Iterar a saída do git em Node, e não `find | xargs`, é deliberado: o config
- * do alicerce usa `find ferramental -name "*.mjs" -print0 | xargs -0 -n1 node
- * --check`, que não existe no Windows. O defeito sobreviveu lá porque o CI dele
- * só roda Linux.
+ * Iterating git's output in Node, and not `find | xargs`, is deliberate: the
+ * alicerce config uses `find ferramental -name "*.mjs" -print0 | xargs -0 -n1
+ * node --check`, which does not exist on Windows. The defect survived there
+ * because its CI only runs Linux.
  */
 function listarMjs(raiz) {
-  // `-z` obrigatorio. Sem ele um `.mjs` com acento no nome volta C-quoted, o
-  // `node --check` recebe um caminho que nao existe, e o passo `syntax`
-  // aprovaria um arquivo com erro de sintaxe por nunca te-lo alcancado.
+  // `-z` is mandatory. Without it a `.mjs` with an accent in the name comes back
+  // C-quoted, `node --check` receives a path that does not exist, and the
+  // `syntax` step would pass a file with a syntax error by never having reached
+  // it.
   //
-  // Este consumidor NAO estava no relatorio de auditoria que apontou os outros
-  // tres -- apareceu ao procurar a familia inteira em vez de so os locais
-  // citados.
+  // This consumer was NOT in the audit report that named the other three -- it
+  // showed up when looking for the whole family instead of only the cited spots.
   const saida = execFileSync(
     'git',
     ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
@@ -284,60 +295,60 @@ function listarMjs(raiz) {
 }
 
 /**
- * Quantos `node --check` em voo ao mesmo tempo.
+ * How many `node --check` in flight at once.
  *
- * Mesma disciplina — e o mesmo teto — do TETO de `proofs/prove.mjs`. O `min`
- * com os núcleos existe pela mesma razão: runner de CI com 2 ou 4 vCPU pega 2
- * ou 4, não 16. `availableParallelism` respeita o cgroup do contêiner, coisa
- * que `cpus().length` não faz.
+ * Same discipline — and the same ceiling — as the TETO of `proofs/prove.mjs`.
+ * The `min` against the cores exists for the same reason: a CI runner with 2 or
+ * 4 vCPU takes 2 or 4, not 16. `availableParallelism` respects the container's
+ * cgroup, which `cpus().length` does not.
  *
- * Medido em 02/09 nesta máquina (Windows 11, 20 núcleos, Node 24.13), os 81
- * arquivos .mjs que o git lista, relógio de ponta a ponta, em duas condições —
- * a segunda com outro agente rodando a suíte no mesmo minuto:
+ * Measured on 02/09 on this machine (Windows 11, 20 cores, Node 24.13), the 81
+ * .mjs files git lists, end-to-end clock, under two conditions — the second with
+ * another agent running the suite in the same minute:
  *
- *   piscina    1 (em série)      4        8       12       16       20
- *   ociosa          6321 ms  2273 ms  1465 ms  1504 ms  1498 ms  1408 ms
- *   em carga        7949 ms  2719 ms  2074 ms  1721 ms  1729 ms  1961 ms
+ *   pool         1 (serial)      4        8       12       16       20
+ *   idle            6321 ms  2273 ms  1465 ms  1504 ms  1498 ms  1408 ms
+ *   loaded          7949 ms  2719 ms  2074 ms  1721 ms  1729 ms  1961 ms
  *
- * O ganho grosso acaba em 8, e de 8 em diante a curva é plana dentro do ruído:
- * o piso passa a ser o custo de subir um processo node no Windows (~17 ms
- * amortizados por arquivo), não a espera. Em 20 a máquina em carga volta a
- * piorar, que é a briga por disco aparecendo — a mesma cotovelada que a tabela
- * do `prove.mjs` registra. 16 é o único valor que fica no piso nas duas
- * linhas.
+ * The coarse gain ends at 8, and from 8 on the curve is flat within the noise:
+ * the floor becomes the cost of starting a node process on Windows (~17 ms
+ * amortized per file), not the waiting. At 20 the loaded machine gets worse
+ * again, which is the fight over the disk showing up — the same elbow the
+ * `prove.mjs` table records. 16 is the only value that stays on the floor in
+ * both rows.
  */
 const TETO_SINTAXE = Math.max(2, Math.min(16, availableParallelism()))
 
 /**
- * `node --check` em cada arquivo, um processo por arquivo — é o único modo que
- * o flag aceita. Se lançar (git ausente, por exemplo), o executor classifica
- * como QUEBROU e sai 127, não como o repositório reprovando.
+ * `node --check` on every file, one process per file — it is the only mode the
+ * flag accepts. If it throws (git missing, for instance), the runner classifies
+ * it as BROKE and exits 127, not as the repository failing.
  *
- * POR QUE ISTO É UMA PISCINA, e não um laço. A versão anterior era
- * `execFileSync` em série, e o comentário dela dizia "18 arquivos em 1,1 s,
- * ~63 ms cada · continua sendo o passo mais barato da lista". As duas frases
- * envelheceram juntas: a árvore chegou a 81 arquivos .mjs — 60 deles são
- * fixtures de dez linhas em `proofs/cases/`, onde o custo é subir o node, não
- * ler o arquivo — e o passo virou 6,3 s, o TERCEIRO mais caro do portão.
+ * WHY THIS IS A POOL, and not a loop. The previous version was `execFileSync` in
+ * series, and its comment said "18 files in 1.1 s, ~63 ms each · still the
+ * cheapest step of the list". The two sentences aged together: the tree reached
+ * 81 .mjs files — 60 of them are ten-line fixtures in `proofs/cases/`, where the
+ * cost is starting node, not reading the file — and the step became 6.3 s, the
+ * THIRD most expensive of the gate.
  *
- * O que mudou aqui é SÓ o escalonamento. Continua sendo um `node --check` por
- * arquivo, o mesmo binário, o mesmo flag, a mesma mensagem de erro lida da
- * mesma stderr: nenhuma checagem foi trocada por uma mais barata. Medido:
- * 6321 ms → 1498 ms com a máquina ociosa e 7949 ms → 1729 ms com ela em carga,
- * ou seja 4,2× e 4,6× no relógio.
+ * What changed here is ONLY the scheduling. It is still one `node --check` per
+ * file, the same binary, the same flag, the same error message read from the
+ * same stderr: no check was swapped for a cheaper one. Measured: 6321 ms →
+ * 1498 ms with the machine idle and 7949 ms → 1729 ms with it loaded, that is
+ * 4.2× and 4.6× on the clock.
  *
- * A alternativa que seria 60× em vez de 4,3× — UM processo com
- * `--experimental-vm-modules` construindo `new vm.SourceTextModule` por
- * arquivo, que parseia sem executar — foi medida em 106 ms e NÃO foi adotada:
- * ela troca o parser que o node usa para valer por um caminho atrás de flag
- * experimental, e "acelerar removendo checagem" é justamente o que este
- * repositório existe para não fazer.
+ * The alternative that would be 60× instead of 4.3× — ONE process with
+ * `--experimental-vm-modules` building `new vm.SourceTextModule` per file, which
+ * parses without executing — was measured at 106 ms and was NOT adopted: it
+ * swaps the parser node uses for real for a path behind an experimental flag,
+ * and "speeding up by removing checks" is precisely what this repository exists
+ * not to do.
  *
- * O PRAZO deixou de ser consultado a cada volta e passou a ser uma corrida: com
- * `spawn` assíncrono o laço de eventos gira, então o relógio do executor vence
- * sozinho. A consulta continua aqui mesmo assim, antes de despachar cada
- * arquivo, para que a saída DIGA quantos ficaram sem checar em vez de o
- * executor só anunciar "tempo limite estourado".
+ * THE DEADLINE stopped being consulted on every turn and became a race: with
+ * async `spawn` the event loop spins, so the runner's clock wins on its own. The
+ * consultation stays here anyway, before dispatching each file, so that the
+ * output SAYS how many went unchecked instead of the runner announcing only
+ * "timeout blown".
  */
 export async function checarSintaxe({ raiz, prazo = Infinity }) {
   const arquivos = listarMjs(raiz)
@@ -345,9 +356,10 @@ export async function checarSintaxe({ raiz, prazo = Infinity }) {
   const fantasmas = []
   let semChecar = 0
 
-  // Um `node --check`, assíncrono. Nunca rejeita: o resultado do processo e a
-  // falha de spawn saem pelo MESMO canal, porque quem chama trata os dois como
-  // "este arquivo não foi dado por bom" e a diferença já está no texto.
+  // One `node --check`, async. It never rejects: the process result and the
+  // spawn failure come out through the SAME channel, because the caller treats
+  // both as "this file was not given as good" and the difference is already in
+  // the text.
   const checar = (rel) =>
     new Promise((resolver) => {
       let bruto = ''
@@ -363,11 +375,11 @@ export async function checarSintaxe({ raiz, prazo = Infinity }) {
       filho.on('close', (codigo) => resolver({ rel, ok: codigo === 0, bruto }))
     })
 
-  // A piscina: TETO_SINTAXE trabalhadores dividindo uma fila por índice. Os
-  // arquivos terminam fora de ordem, então cada um escreve num balde indexado e
-  // o relatório é montado depois, na ordem de `arquivos` — que já vem ordenada.
-  // Passo cujo diff entre duas execuções vira ruído é passo em que ninguém
-  // confia, e aqui o custo de manter a ordem é um array.
+  // The pool: TETO_SINTAXE workers sharing one queue by index. The files finish
+  // out of order, so each one writes into an indexed bucket and the report is
+  // assembled afterwards, in the order of `arquivos` — which already comes
+  // sorted. A step whose diff between two runs turns into noise is a step nobody
+  // trusts, and here the cost of keeping the order is one array.
   const baldes = new Array(arquivos.length).fill(null)
   let proximo = 0
   await Promise.all(
@@ -385,12 +397,12 @@ export async function checarSintaxe({ raiz, prazo = Infinity }) {
   for (const balde of baldes) {
     if (balde === null || balde.ok) continue
     const { rel, bruto } = balde
-    // Arquivo que o git lista e o disco não tem NÃO é erro de sintaxe: é
-    // índice fora de sincronia, quase sempre um `git rm` que faltou. Aconteceu
-    // de verdade ao dividir um caso de prova em dois — o passo gritou "Erro de
-    // sintaxe" apontando para um arquivo apagado, e a dica mandava procurar a
-    // linha errada num arquivo que não existe. É a mesma confusão entre
-    // REPROVOU e QUEBROU que o rebar-check acabou de tirar de si mesmo.
+    // A file git lists and the disk does not have is NOT a syntax error: it is
+    // an index out of sync, almost always a missing `git rm`. It happened for
+    // real when splitting a proof case in two — the step shouted "syntax error"
+    // pointing at a deleted file, and the hint told you to look for the wrong
+    // line in a file that does not exist. It is the same confusion between
+    // FAILED and BROKE that rebar-check has just taken out of itself.
     if (/Cannot find module|ENOENT/.test(bruto)) {
       fantasmas.push(rel)
       continue
@@ -400,15 +412,23 @@ export async function checarSintaxe({ raiz, prazo = Infinity }) {
       .map((l) => l.trim())
       .filter(Boolean)
     const alvo =
-      linhas.find((l) => /SyntaxError|Error:/.test(l)) || linhas[0] || 'falhou sem mensagem'
+      linhas.find((l) => /SyntaxError|Error:/.test(l)) || linhas[0] || 'failed with no message'
     erros.push(`erro ${rel}: ${alvo}`)
   }
 
+  // THIS MESSAGE STAYS IN PORTUGUESE. tooling/verify/prove-steps.mjs asserts on
+  // it verbatim — `assert.match(r.saida, /2 arquivo\(s\) ficaram sem checar/)`
+  // in the `DEADLINE` test. Translating it here alone breaks that assertion, and
+  // the deadline hole goes back to being announced as a bare timeout.
   if (semChecar) erros.push(`erro tempo limite: ${semChecar} arquivo(s) ficaram sem checar`)
 
   if (fantasmas.length) {
-    // Código 2 = a configuração/estado do repositório está torta, não o código.
-    // O executor não trata isso como reprovação de conteúdo.
+    // Code 2 = the repository's configuration/state is crooked, not the code.
+    // The runner does not treat this as a content failure.
+    //
+    // THE TWO STRINGS BELOW STAY IN PORTUGUESE: `^o git lista` and `^Índice` are
+    // literal alternatives of this step's `extrair` regex, at the bottom of this
+    // file. Translate them and the runner stops finding the lines it should show.
     return {
       codigo: 2,
       saida:
@@ -418,6 +438,8 @@ export async function checarSintaxe({ raiz, prazo = Infinity }) {
     }
   }
 
+  // The pass message stays in Portuguese for the same reason: prove-steps.mjs
+  // asserts `/2 arquivo\(s\)/` on it to prove the step says HOW MANY it checked.
   return {
     codigo: erros.length ? 1 : 0,
     saida: erros.length
@@ -426,84 +448,88 @@ export async function checarSintaxe({ raiz, prazo = Infinity }) {
   }
 }
 
-// ─────────────────────────────────────────── os blocos que o rebar EMBARCA
+// ─────────────────────────────────────────────────── the blocks rebar SHIPS
 //
-// O rebar carrega 8 arquivos `.ts`/`.tsx` em `new/site/blocks/` que vão para
-// DENTRO de todo projeto gerado. Eles estão fora do denominador do rebar-check
-// de propósito (`RAIZES_DE_MODELO`, e o porquê está em `blocos/modelo.json`:
-// cobrar script de typecheck de um repositório que só guarda o molde acusaria o
-// rebar de não ter um compilador que ele não deve ter). A exclusão está certa;
-// o que faltava era a outra metade — ninguém confere o molde antes de ele sair.
-// Um erro de tipo aqui nasce replicado em todo projeto que o gerador criar.
+// rebar carries 8 `.ts`/`.tsx` files in `new/site/blocks/` that go INSIDE every
+// generated project. They are outside the rebar-check denominator on purpose
+// (`RAIZES_DE_MODELO`, and the why is in `blocos/modelo.json`: demanding a
+// typecheck script from a repository that only keeps the template would accuse
+// rebar of not having a compiler it must not have). The exclusion is right; what
+// was missing was the other half — nobody checks the template before it ships. A
+// type error here is born replicated in every project the generator creates.
 //
-// ── O QUE NÃO DEU, COM O CUSTO MEDIDO ─────────────────────────────────────
+// ── WHAT DID NOT WORK, WITH THE MEASURED COST ─────────────────────────────
 //
-// `tsc` de verdade está fora: instalar TypeScript quebra a decisão de
-// dependência única (o prettier é a única, e é o que mantém `npx
-// github:Navesz/rebar` rodando sem instalar nada). Usar o TypeScript que o
-// PROJETO GERADO instala custa `shadcn create` + `npm install` + `next build` —
-// minutos e rede, contra um portão inteiro de 13,5 s. Não cabe, e o corte está
-// declarado aqui em vez de escondido.
+// A real `tsc` is out: installing TypeScript breaks the single-dependency
+// decision (prettier is the only one, and it is what keeps `npx
+// github:Navesz/rebar` running without installing anything). Using the
+// TypeScript the GENERATED PROJECT installs costs `shadcn create` + `npm
+// install` + `next build` — minutes and network, against a whole 13.5 s gate. It
+// does not fit, and the cut is declared here instead of hidden.
 //
-// `node --check` sobre `.ts` foi medido e REPROVADO como porta: 6 blocos em
-// 0,54 s, e ele deixa passar erro de sintaxe de verdade. Medido com três
-// arquivos plantados — `export function f( {` e `export const z: number = (`
-// saíram com exit 0, enquanto `enum` e `namespace` saíram com exit 1. Porta que
-// aprova parêntese aberto não é porta.
+// `node --check` over `.ts` was measured and FAILED as a door: 6 blocks in
+// 0.54 s, and it lets a real syntax error through. Measured with three planted
+// files — `export function f( {` and `export const z: number = (` came out with
+// exit 0, while `enum` and `namespace` came out with exit 1. A door that passes
+// an open parenthesis is not a door.
 //
-// ── O QUE DÁ, E POR QUE ESTAS TRÊS ────────────────────────────────────────
+// ── WHAT DOES WORK, AND WHY THESE THREE ───────────────────────────────────
 //
-//   1. SINTAXE E ERASABILIDADE dos `.ts`, por `stripTypeScriptTypes` do
-//      `node:module`. Zero processo, ~0 ms, e pega tudo que o `--check`
-//      deixou passar: os dois parênteses abertos acima, mais `enum` e
-//      `namespace`, que quebram o projeto gerado porque o Next roda o mesmo
-//      strip-only. Os dois `.tsx` FICAM DE FORA: nenhum built-in do Node lê
-//      JSX, e fingir que lê seria pior que dizer que não lê.
+//   1. SYNTAX AND ERASABILITY of the `.ts`, via `stripTypeScriptTypes` from
+//      `node:module`. Zero processes, ~0 ms, and it catches everything the
+//      `--check` let through: the two open parentheses above, plus `enum` and
+//      `namespace`, which break the generated project because Next runs the
+//      same strip-only. The two `.tsx` STAY OUT: no Node built-in reads JSX,
+//      and pretending it does would be worse than saying it does not.
 //
-//   2. O ESQUEMA EXECUTA, nas duas direções. `conteudo/esquema.ts` é importado
-//      de verdade (o Node tira os tipos sozinho) e é cobrado dos dois lados:
-//      recusar o `site.json` que o rebar embarca, que é todo placeholder, e
-//      ACEITAR o mesmo JSON com os placeholders trocados por valor real. A
-//      segunda metade é a que não existia: nada provava que o esquema não é
-//      estrito DEMAIS, e um aperto de regex a mais reprovaria todo projeto
-//      gerado — descoberto pelo dono, não pelo portão.
+//   2. THE SCHEMA EXECUTES, in both directions. `conteudo/esquema.ts` is
+//      imported for real (Node strips the types itself) and is held to both
+//      sides: refuse the `site.json` rebar ships, which is all placeholder, and
+//      ACCEPT that same JSON with the placeholders swapped for real values. The
+//      second half is the one that did not exist: nothing proved the schema is
+//      not TOO strict, and one regex tightening too many would fail every
+//      generated project — found by the owner, not by the gate.
 //
-//   3. TODO `site.<caminho>` USADO NOS BLOCOS EXISTE NA FORMA VALIDADA. É esta
-//      que pega erro de tipo, e ela funciona porque `Site` NÃO é declarado à
-//      mão: `esquema.ts` o deriva do validador (`Inferir<typeof formaDoSite>`).
-//      Tipo e objeto validado são a mesma forma por construção, então perguntar
-//      ao objeto é perguntar ao tipo. `site.meta.nomeCurtoo` no `manifest.ts` —
-//      exatamente o "Property 'tituloo' does not exist" do tsc — fica vermelho
-//      aqui, e fica vermelho também dentro de um `.tsx`, que é onde o item 1
-//      não alcança.
+//   3. EVERY `site.<path>` USED IN THE BLOCKS EXISTS IN THE VALIDATED SHAPE.
+//      This is the one that catches type errors, and it works because `Site` is
+//      NOT declared by hand: `esquema.ts` derives it from the validator
+//      (`Inferir<typeof formaDoSite>`). Type and validated object are the same
+//      shape by construction, so asking the object is asking the type.
+//      `site.meta.nomeCurtoo` in `manifest.ts` — exactly tsc's "Property
+//      'tituloo' does not exist" — goes red here, and goes red inside a `.tsx`
+//      too, which is where item 1 does not reach.
 //
-// O que este passo NÃO afirma, dito para ninguém confundir com typecheck: ele
-// não sabe nada dos tipos do `next` e do `react`, não confere assinatura de
-// função, e não segue variável derivada dentro de callback (`destaque.titulo`
-// no `map` do `page.tsx` passa sem ser olhado). Ele cobre o acoplamento que os
-// blocos de fato têm entre si — conteúdo validado contra código que o lê — e
-// declara o resto como buraco.
+// What this step does NOT claim, said so nobody confuses it with a typecheck: it
+// knows nothing about the types of `next` and `react`, does not check function
+// signatures, and does not follow a derived variable inside a callback
+// (`destaque.titulo` in the `map` of `page.tsx` passes without being looked at).
+// It covers the coupling the blocks actually have with each other — validated
+// content against the code that reads it — and declares the rest a hole.
 
 const RAIZ_BLOCOS = join('new', 'site', 'blocks')
 
 /**
- * Um `site.json` de mentira, porém VÁLIDO, para provar que o esquema aceita
- * negócio bem preenchido.
+ * A fake `site.json`, but a VALID one, to prove the schema accepts a
+ * well-filled-in business.
  *
- * A chave é o caminho que `acharSentinelas` devolve, e é assim que este mapa
- * não envelhece calado: campo novo com placeholder novo em `site.json` aparece
- * aqui como caminho DESCONHECIDO e reprova o passo pedindo o valor de teste. O
- * mapa não pode ser derivado do JSON porque cada campo tem formato próprio —
- * UF de dois caracteres, CEP com hífen, descrição de 50 a 160 — e é justamente
- * essa exigência que o passo existe para exercitar.
+ * The key is the path `acharSentinelas` returns, and that is how this map does
+ * not age in silence: a new field with a new placeholder in `site.json` shows up
+ * here as an UNKNOWN path and fails the step asking for the test value. The map
+ * cannot be derived from the JSON because each field has its own format — a
+ * two-character UF, a CEP with a hyphen, a description of 50 to 160 — and it is
+ * precisely that requirement the step exists to exercise.
+ *
+ * The values below stay in Portuguese: they are Brazilian business data that has
+ * to satisfy a Brazilian schema — UF, CEP, a phone in the local format. Translate
+ * them and the fixture stops matching the very formats it exists to exercise.
  */
 /**
- * O telefone de teste é MONTADO em pedaços, e não é estilo: a regra `telefone`
- * do rebar-check varre este `.mjs` como código de produção, e o último passo do
- * portão é o rebar apontado para si mesmo. Um celular escrito por extenso aqui
- * faria o repositório reprovar na própria régua — o mesmo tropeço que a nota do
- * `semComentario` registra ter acontecido duas vezes no `index.mjs`. Nenhum dos
- * pedaços abaixo casa o padrão sozinho.
+ * The test phone is ASSEMBLED in pieces, and that is not style: rebar-check's
+ * `telefone` rule scans this `.mjs` as production code, and the last step of the
+ * gate is rebar pointed at itself. A mobile number written out in full here
+ * would make the repository fail on its own ruler — the same stumble the
+ * `semComentario` note records happening twice in `index.mjs`. None of the
+ * pieces below matches the pattern on its own.
  */
 const TEL = { ddi: '55', ddd: '11', celular: ['9', '8765', '4321'] }
 
@@ -527,7 +553,7 @@ const VALOR_DE_TESTE = {
   'home.titulo': 'Padaria do Zé',
 }
 
-/** Escreve `valor` no caminho `a.b.c` de uma cópia do JSON. */
+/** Writes `valor` at the `a.b.c` path of a copy of the JSON. */
 function porNoCaminho(alvo, caminho, valor) {
   const partes = caminho.split('.')
   let atual = alvo
@@ -535,18 +561,17 @@ function porNoCaminho(alvo, caminho, valor) {
   atual[partes[partes.length - 1]] = valor
 }
 
-/** Todos os `.ts`/`.tsx` sob a raiz, em ordem estável. */
+/** Every `.ts`/`.tsx` under the root, in stable order. */
 /**
- * Os .json embarcados, coletados a parte.
+ * The shipped .json files, collected separately.
  *
- * `blocosDe` devolve so .ts/.tsx porque a contagem e as checagens de tipo
- * dependem disso. LACUNA ACHADA PELA PROPRIA PROVA deste passo, em 31/08: os
- * .json que o gerador copia — o `modelo.json`, o `site.json` — nao entravam em
- * lista nenhuma, entao um JSON quebrado passava limpo e ia inteiro para todo
- * projeto gerado, aparecendo so quando alguem tentasse le-lo. O passo dizia "os
- * blocos estao bons" sobre um conjunto que ele nao tinha olhado por completo,
- * que e a mesma classe de mentira que o gerador cometia ao dizer "projeto
- * completo".
+ * `blocosDe` returns only .ts/.tsx because the count and the type checks depend
+ * on that. GAP FOUND BY THIS STEP'S OWN PROOF, on 31/08: the .json files the
+ * generator copies — `modelo.json`, `site.json` — were in no list at all, so a
+ * broken JSON passed clean and went whole into every generated project, showing
+ * up only when someone tried to read it. The step was saying "the blocks are
+ * good" about a set it had not looked at completely, which is the same class of
+ * lie the generator was telling when it said "complete project".
  */
 function jsonsDe(dir, base = '') {
   const saida = []
@@ -563,8 +588,8 @@ function blocosDe(dir, base = '') {
   const saida = []
   for (const nome of readdirSync(dir).sort()) {
     const cheio = join(dir, nome)
-    // Barra normal no rótulo: é o formato em que o git, o modelo.json e as
-    // mensagens deste repositório falam de caminho, e misturar os dois é bug.
+    // Forward slash in the label: it is the format git, modelo.json and this
+    // repository's messages speak of paths in, and mixing the two is a bug.
     const rel = base ? `${base}/${nome}` : nome
     if (statSync(cheio).isDirectory()) saida.push(...blocosDe(cheio, rel))
     else if (/\.tsx?$/.test(nome)) saida.push({ rel, cheio })
@@ -573,29 +598,29 @@ function blocosDe(dir, base = '') {
 }
 
 /**
- * Tira comentário e literal de texto antes de procurar acesso a campo.
+ * Strips comments and text literals before looking for field access.
  *
- * É local, e não importado do rebar-check, por duas razões: o portão não deve
- * cair inteiro (erro de configuração, exit 2) quando o programa que ele audita
- * tem defeito; e o que se precisa aqui é COMENTÁRIO E STRING, que lá são duas
- * funções e nenhuma faz as duas. Sem tirar string, `esquema.ts` acusaria doze
- * caminhos inexistentes: ele escreve "conteudo/site.json" nas mensagens de erro,
- * e `site.json` casa o padrão de acesso a campo.
+ * It is local, and not imported from rebar-check, for two reasons: the gate must
+ * not fall whole (configuration error, exit 2) when the program it audits has a
+ * defect; and what is needed here is COMMENT AND STRING, which over there are
+ * two functions and neither does both. Without stripping strings, `esquema.ts`
+ * would accuse twelve nonexistent paths: it writes "conteudo/site.json" in its
+ * error messages, and `site.json` matches the field-access pattern.
  *
- * O `${…}` de template é PRESERVADO, e essa é a diferença que a prova de
- * mutação cobrou: jogar o template fora inteiro deixou passar
- * `site.metadados.urlBase` plantado no `robots.ts`, porque o único acesso do
- * arquivo mora dentro de `` `${site.meta.urlBase}/sitemap.xml` ``. Texto de
- * template é texto; o que está entre `${` e `}` é código e vai para a peneira.
+ * The template `${…}` is PRESERVED, and that is the difference the mutation
+ * proof charged for: throwing the whole template away let
+ * `site.metadados.urlBase` planted in `robots.ts` through, because the file's
+ * only access lives inside `` `${site.meta.urlBase}/sitemap.xml` ``. Template
+ * text is text; what sits between `${` and `}` is code and goes to the sieve.
  *
- * Limite conhecido: literal de expressão regular com aspas dentro
- * dessincronizaria o leitor. Nenhuma das 16 do `esquema.ts` tem, e o efeito
- * seria caminho estranho na tela — barulho, não silêncio.
+ * Known limit: a regular-expression literal with quotes inside it would put the
+ * reader out of sync. None of the 16 in `esquema.ts` has one, and the effect
+ * would be a strange path on screen — noise, not silence.
  */
 function semComentarioNemTexto(fonte) {
   let saida = ''
   let i = 0
-  // O quadro de baixo é o código do arquivo; cada `${` empilha outro.
+  // The bottom frame is the file's code; each `${` stacks another one.
   const pilha = [{ template: false, chaves: 0 }]
   const topo = () => pilha[pilha.length - 1]
 
@@ -630,8 +655,9 @@ function semComentarioNemTexto(fonte) {
       saida += ' '
       continue
     }
-    // O `[^:]` do rebar-check vira este teste: `//` precedido de `:` é o de
-    // `https://`, e comer a linha inteira ali já custou achado falso lá.
+    // The `[^:]` from rebar-check becomes this test: a `//` preceded by `:` is
+    // the one from `https://`, and eating the whole line there already cost a
+    // false finding over there.
     if (c === '/' && fonte[i + 1] === '/' && fonte[i - 1] !== ':') {
       const fim = fonte.indexOf('\n', i)
       i = fim === -1 ? fonte.length : fim
@@ -651,7 +677,8 @@ function semComentarioNemTexto(fonte) {
       i++
       continue
     }
-    // Só conta chave DENTRO de `${…}`: é ela que diz onde a interpolação fecha.
+    // Only count braces INSIDE `${…}`: they are what says where the
+    // interpolation closes.
     if (pilha.length > 1 && c === '{') {
       q.chaves++
       saida += c
@@ -674,9 +701,10 @@ function semComentarioNemTexto(fonte) {
 const ehObjeto = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 /**
- * Anda o caminho na forma validada. Para de andar assim que chega a um valor
- * que não é objeto: depois de `site.meta.idioma` vem `.replace`, que é método
- * de string e não campo — cobrar isso seria acusar código correto.
+ * Walks the path in the validated shape. Stops walking as soon as it reaches a
+ * value that is not an object: after `site.meta.idioma` comes `.replace`, which
+ * is a string method and not a field — charging for that would be accusing
+ * correct code.
  */
 function caminhoInexistente(forma, partes) {
   let atual = forma
@@ -693,7 +721,7 @@ function caminhoInexistente(forma, partes) {
 const CADEIA = '((?:\\.[A-Za-z_$][\\w$]*)+)'
 const ALIAS = new RegExp(`\\b(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*site${CADEIA}`, 'g')
 
-/** Os acessos `site.a.b` de um bloco, com apelido de um nível resolvido. */
+/** The `site.a.b` accesses of a block, with one level of alias resolved. */
 function acessosDe(fonte) {
   const limpo = semComentarioNemTexto(fonte)
   const acessos = []
@@ -714,27 +742,27 @@ function acessosDe(fonte) {
 }
 
 /**
- * O passo. `raiz` é parâmetro e não constante porque é assim que ele se prova:
- * a mutação copia `new/site/blocks/` para o `os.tmpdir()`, planta o erro de
- * tipo lá e chama esta função apontada para a cópia. Regra da casa: experimento
- * não encosta no repositório.
+ * The step. `raiz` is a parameter and not a constant because that is how it
+ * proves itself: the mutation copies `new/site/blocks/` into `os.tmpdir()`,
+ * plants the type error there and calls this function pointed at the copy. House
+ * rule: an experiment does not touch the repository.
  */
 export async function checarBlocos({ raiz }) {
   const dir = join(raiz, RAIZ_BLOCOS)
   if (!existsSync(dir)) {
-    return { codigo: 1, saida: `erro ${RAIZ_BLOCOS} não existe — os blocos do preset sumiram` }
+    return { codigo: 1, saida: `erro ${RAIZ_BLOCOS} does not exist — the preset blocks are gone` }
   }
   const blocos = blocosDe(dir)
-  if (!blocos.length) return { codigo: 1, saida: `erro nenhum .ts/.tsx em ${RAIZ_BLOCOS}` }
+  if (!blocos.length) return { codigo: 1, saida: `erro no .ts/.tsx in ${RAIZ_BLOCOS}` }
 
   const erros = []
 
-  // O aviso de experimental do strip de tipos é do Node, não do repositório, e
-  // sujaria a tela de todo mundo uma vez por rodada.
+  // The experimental warning from the type strip is Node's, not the
+  // repository's, and it would dirty everyone's screen once per run.
   const emitirAviso = process.emitWarning
   process.emitWarning = () => {}
   try {
-    // 1 ── sintaxe e erasabilidade dos .ts
+    // 1 ── syntax and erasability of the .ts
     const semJsx = blocos.filter((b) => b.rel.endsWith('.ts'))
     for (const b of semJsx) {
       try {
@@ -744,40 +772,40 @@ export async function checarBlocos({ raiz }) {
       }
     }
 
-    // 1b ── os .json embarcados parseiam
+    // 1b ── the shipped .json files parse
     //
-    // LACUNA ACHADA PELA PRÓPRIA PROVA deste passo, em 31/08: ele contava "8
-    // bloco(s) embarcado(s)" e só conferia sintaxe dos `.ts`. Um `modelo.json`
-    // quebrado passava limpo e ia inteiro para todo projeto gerado, onde só
-    // apareceria quando alguém tentasse lê-lo. O passo estava dizendo "os
-    // blocos estão bons" sobre um conjunto que ele não tinha olhado por
-    // completo — que é a mesma classe de mentira que o gerador cometia ao
-    // dizer "projeto completo".
+    // GAP FOUND BY THIS STEP'S OWN PROOF, on 31/08: it counted "8 shipped
+    // block(s)" and only checked the syntax of the `.ts`. A broken `modelo.json`
+    // passed clean and went whole into every generated project, where it would
+    // only show up when someone tried to read it. The step was saying "the
+    // blocks are good" about a set it had not looked at completely — which is
+    // the same class of lie the generator was telling when it said "complete
+    // project".
     for (const b of jsonsDe(dir)) {
       try {
         JSON.parse(readFileSync(b.cheio, 'utf8'))
       } catch (e) {
-        erros.push(`erro ${b.rel}: JSON inválido — ${primeiraLinha(e.message)}`)
+        erros.push(`erro ${b.rel}: invalid JSON — ${primeiraLinha(e.message)}`)
       }
     }
 
-    // 2 ── o esquema executa, e vale nas duas direções
+    // 2 ── the schema executes, and it holds in both directions
     const caminhoEsquema = join(dir, 'conteudo', 'esquema.ts')
     const caminhoJson = join(dir, 'conteudo', 'site.json')
     if (!existsSync(caminhoEsquema) || !existsSync(caminhoJson)) {
-      erros.push('erro conteudo/esquema.ts ou conteudo/site.json não está em blocos/')
+      erros.push('erro conteudo/esquema.ts or conteudo/site.json is not in blocos/')
       return { codigo: 1, saida: erros.join('\n') }
     }
 
     let esquema
     try {
-      // Sufixo de cache: sem ele, a segunda chamada nesta mesma execução (a
-      // prova de mutação roda o passo duas vezes) receberia o módulo velho.
+      // Cache suffix: without it, the second call in this same run (the mutation
+      // proof runs the step twice) would receive the old module.
       esquema = await import(`${pathToFileURL(caminhoEsquema).href}?v=${Date.now()}`)
     } catch (e) {
       return {
         codigo: 1,
-        saida: `erro conteudo/esquema.ts não carrega: ${String(e.message).split('\n')[0]}`,
+        saida: `erro conteudo/esquema.ts does not load: ${String(e.message).split('\n')[0]}`,
       }
     }
 
@@ -785,18 +813,18 @@ export async function checarBlocos({ raiz }) {
     const pendentes = esquema.acharSentinelas(bruto)
     if (!pendentes.length) {
       erros.push(
-        'erro conteudo/site.json não tem placeholder nenhum — ou o gerador passou a embarcar ' +
-          'dado real, ou a sentinela parou de casar. Nos dois casos o build do projeto gerado ' +
-          'deixa de reprovar por campo não preenchido, que é o §12.3 inteiro.',
+        'erro conteudo/site.json has no placeholder at all — either the generator ' +
+          'started shipping real data, or the sentinel stopped matching. In both cases the ' +
+          'generated project build stops failing on an unfilled field, which is all of §12.3.',
       )
     } else {
-      // A recusa é cobrada COM A RAZÃO, não só com o exit. Cobrar só "lançou"
-      // deixou uma mutação viva na prova: desligadas as DUAS portas de
-      // sentinela, o esquema continuava reprovando — por TAMANHO, porque
-      // "TROQUE-PELO-NUMERO-COM-DDI" tem 26 caracteres e o campo aceita 15. O
-      // build ficava vermelho e a mensagem mandava o dono ENCURTAR o
-      // placeholder em vez de trocá-lo, que é a confusão que o próprio
-      // `esquema.ts` diz existir para evitar. Mensagem errada é defeito.
+      // The refusal is demanded WITH THE REASON, not just with the exit.
+      // Demanding only "it threw" left a mutation alive in the proof: with BOTH
+      // sentinel doors switched off, the schema kept failing — by LENGTH,
+      // because "TROQUE-PELO-NUMERO-COM-DDI" is 26 characters and the field
+      // accepts 15. The build went red and the message told the owner to SHORTEN
+      // the placeholder instead of replacing it, which is the confusion
+      // `esquema.ts` itself says it exists to avoid. A wrong message is a defect.
       let mensagem = null
       try {
         esquema.esquemaSite(bruto, 'site')
@@ -804,21 +832,21 @@ export async function checarBlocos({ raiz }) {
         mensagem = String(e.message)
       }
       if (mensagem === null) {
-        erros.push('erro o esquema ACEITOU o site.json de placeholder — a porta de sentinela caiu')
+        erros.push('erro the schema ACCEPTED the placeholder site.json — the sentinel door fell')
       } else if (!/placeholder/i.test(mensagem)) {
         erros.push(
-          'erro o esquema recusa o site.json de placeholder pela razão ERRADA — a mensagem que o ' +
-            `dono lê às 23h não fala em placeholder: ${mensagem.split('\n')[0]}`,
+          'erro the schema refuses the placeholder site.json for the WRONG reason — the message ' +
+            `the owner reads at 11pm does not mention a placeholder: ${mensagem.split('\n')[0]}`,
         )
       }
     }
 
-    // A outra direção: com valor real, tem de passar.
+    // The other direction: with real values, it has to pass.
     const preenchido = JSON.parse(readFileSync(caminhoJson, 'utf8'))
     const semValor = pendentes.filter((p) => !(p.caminho in VALOR_DE_TESTE))
     if (semValor.length) {
       erros.push(
-        `erro campo(s) novo(s) com placeholder em site.json e sem valor de teste em ` +
+        `erro new field(s) with a placeholder in site.json and no test value in ` +
           `VALOR_DE_TESTE (verify.config.mjs): ${semValor.map((p) => p.caminho).join(', ')}`,
       )
     }
@@ -833,13 +861,13 @@ export async function checarBlocos({ raiz }) {
         forma = esquema.esquemaSite(preenchido, 'site')
       } catch (e) {
         erros.push(
-          `erro o esquema RECUSOU um site bem preenchido — todo projeto gerado nasceria com o ` +
-            `build vermelho: ${String(e.message).split('\n')[0]}`,
+          `erro the schema REFUSED a well-filled site — every generated project would be born ` +
+            `with a red build: ${String(e.message).split('\n')[0]}`,
         )
       }
     }
 
-    // 3 ── todo `site.<caminho>` dos blocos existe na forma validada
+    // 3 ── every `site.<path>` in the blocks exists in the validated shape
     let conferidos = 0
     if (forma) {
       for (const b of blocos) {
@@ -848,8 +876,8 @@ export async function checarBlocos({ raiz }) {
           const falta = caminhoInexistente(forma, acesso.partes)
           if (falta) {
             erros.push(
-              `erro ${b.rel}: "${acesso.texto}" — o campo "${falta.faltando}" não existe em ` +
-                `conteudo/site.json. Ali existem: ${falta.conhecidos.join(', ')}.`,
+              `erro ${b.rel}: "${acesso.texto}" — the field "${falta.faltando}" does not ` +
+                `exist in conteudo/site.json. What exists there: ${falta.conhecidos.join(', ')}.`,
             )
           }
         }
@@ -860,26 +888,27 @@ export async function checarBlocos({ raiz }) {
       codigo: erros.length ? 1 : 0,
       saida: erros.length
         ? erros.join('\n')
-        : `${blocos.length} bloco(s) embarcado(s) · ${semJsx.length} .ts sem erro de sintaxe ` +
-          `(os ${blocos.length - semJsx.length} .tsx não passam por aqui: nenhum built-in lê JSX) · ` +
-          `esquema recusa ${pendentes.length} placeholder(s) e aceita o site preenchido · ` +
-          `${conferidos} acesso(s) a site.<campo> conferidos contra a forma validada`,
+        : `${blocos.length} shipped block(s) · ${semJsx.length} .ts with no syntax error ` +
+          `(the ${blocos.length - semJsx.length} .tsx do not pass through here: no built-in reads JSX) · ` +
+          `schema refuses ${pendentes.length} placeholder(s) and accepts the filled-in site · ` +
+          `${conferidos} access(es) to site.<field> checked against the validated shape`,
     }
   } finally {
     process.emitWarning = emitirAviso
   }
 }
 
-// `process.execPath` em vez da string "node", e array em vez de linha de shell:
-// sem shell não existe regra de aspas do cmd.exe para acertar, e o node que roda
-// o passo é garantidamente o mesmo que roda o verificar.
+// `process.execPath` instead of the string "node", and an array instead of a
+// shell line: with no shell there is no cmd.exe quoting rule to get right, and
+// the node that runs the step is guaranteed to be the same one that runs the
+// verify.
 const node = (...args) => [process.execPath, ...args]
 
 export default [
   {
     nome: 'hygiene',
     funcao: checarHigiene,
-    dica: 'O estado do git contradiz o que o portão está prestes a afirmar. Nenhum veredito abaixo vale enquanto isto não estiver limpo.',
+    dica: 'The git state contradicts what the gate is about to claim. No verdict below holds while this is not clean.',
     extrair: /^erro |^ {2}[^⚠]/,
     avisar: /^\s*⚠/,
     tempoLimite: 1 * MINUTO,
@@ -888,106 +917,108 @@ export default [
   {
     nome: 'hooks',
     funcao: checarHooks,
-    dica: 'node tooling/hooks/install.mjs — sem isso, segredo e coautoria de IA passam direto no commit.',
+    dica: 'node tooling/hooks/install.mjs — without it, secrets and AI co-authorship go straight through on commit.',
     extrair: /^erro |^ {2}[^⚠]/,
     avisar: /^\s*⚠/,
     tempoLimite: 1 * MINUTO,
   },
   {
-    // O PASSO ACIMA CONFERE QUE OS HOOKS EXISTEM. Este confere o que eles fazem.
+    // THE STEP ABOVE CHECKS THAT THE HOOKS EXIST. This one checks what they do.
     //
-    // O `check-message.mjs` e a unica barreira que impede o trailer de coautoria
-    // de EXISTIR -- as outras auditam depois, e depois e tarde: trailer no
-    // historico nao se conserta com commit novo. Nada o executava, e por isso
-    // passou meses lendo a allowlist do DISCO em vez do indice, o que autorizava
-    // coautor por arquivo nunca rastreado e por linha acrescentada, usada e
-    // desfeita.
+    // `check-message.mjs` is the only barrier that stops the co-authorship
+    // trailer from EXISTING -- the others audit afterwards, and afterwards is
+    // late: a trailer in the history is not fixed with a new commit. Nothing ran
+    // it, and that is why it spent months reading the allowlist from the DISK
+    // instead of the index, which authorized a co-author by a file never tracked
+    // and by a line added, used and undone.
     nome: 'commit-msg',
     comando: node('--test', 'tooling/hooks/prove-message.mjs'),
     exige: ['tooling/hooks/prove-message.mjs', 'tooling/hooks/check-message.mjs'],
-    dica: 'A porta N5 da coautoria mudou de comportamento. Se ela afrouxou, o trailer volta a entrar no historico -- e de la nao sai.',
+    dica: 'The N5 door of co-authorship changed behavior. If it loosened, the trailer goes back into the history -- and from there it does not come out.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
     tempoLimite: 2 * MINUTO,
   },
   {
     nome: 'syntax',
     funcao: checarSintaxe,
-    dica: 'Arquivo e linha estão na mensagem. Se a mensagem falar em índice fora de sincronia, o código está bom e falta um `git add -A`.',
+    dica: 'File and line are in the message. If the message speaks of an index out of sync, the code is fine and a `git add -A` is missing.',
     extrair: /^erro |SyntaxError|^o git lista|^  \S|^Índice/,
     tempoLimite: 2 * MINUTO,
   },
   {
-    // Depois de `sintaxe` porque é da mesma família — "o código sequer é
-    // código" — e antes de `formato` porque é mais barato: 0,06 s contra 1,0 s.
+    // After `sintaxe` because it is the same family — "the code is not even
+    // code" — and before `formato` because it is cheaper: 0.06 s against 1.0 s.
     nome: 'blocks',
     funcao: checarBlocos,
-    dica: 'Os .ts/.tsx de new/site/blocks/ vão para DENTRO de todo projeto gerado. Defeito aqui nasce replicado em todos eles.',
+    dica: 'The .ts/.tsx in new/site/blocks/ go INSIDE every generated project. A defect here is born replicated in all of them.',
     extrair: /^erro /,
     tempoLimite: 1 * MINUTO,
     limite: 10,
   },
   {
-    // ── O PORTÃO DE FRESCOR DO MCP ────────────────────────────────────────
+    // ── THE MCP FRESHNESS GATE ────────────────────────────────────────────
     //
-    // O objetivo nº 5 do ESTADO.md, e o defeito concreto que o dono viveu:
+    // Goal nº 5 of ESTADO.md, and the concrete defect the owner lived:
     // "No Herz e no BMB Compras eu elaborei um MCP com todas as regras de
     // projeto (…) o MCP não era reescrito quando as regras de projeto foram
-    // modificadas". O MCP servia a versão velha e ninguém percebia — decisão
-    // que mora onde nenhuma máquina lê.
+    // modificadas" [In Herz and in BMB Compras I built an MCP with all the
+    // project rules (…) the MCP was not rewritten when the project rules were
+    // modified]. The MCP served the old version and nobody noticed — decisão que
+    // mora onde nenhuma máquina lê [a decision that lives where no machine
+    // reads].
     //
-    // A cura não é lembrar de regenerar: é tornar IMPOSSÍVEL esquecer.
-    // `mcp/generate.mjs --verificar` regenera o artefato EM MEMÓRIA a partir de
-    // `tooling/rebar-check/index.mjs` e compara com o
-    // `mcp/rules.generated.json` que está no disco. Divergiu, sai 1. Mudar uma
-    // regra e não regenerar passa a ser uma reprovação do portão, não um
-    // silêncio de meses.
+    // The cure is not remembering to regenerate: it is making it IMPOSSIBLE to
+    // forget. `mcp/generate.mjs --verificar` regenerates the artifact IN MEMORY
+    // from `tooling/rebar-check/index.mjs` and compares it against the
+    // `mcp/rules.generated.json` that is on disk. Diverged, exit 1. Changing a
+    // rule and not regenerating becomes a gate failure, not a silence of months.
     //
-    // POSIÇÃO NA LISTA, e o porquê — três restrições, nesta ordem:
+    // POSITION IN THE LIST, and the why — three constraints, in this order:
     //
-    //   1. DEPOIS de `sintaxe`, obrigatoriamente. O gerador lê o
-    //      `index.mjs` (2.292 linhas) como fonte da verdade. Com o arquivo
-    //      sem compilar, "o artefato divergiu" seria uma acusação falsa: o
-    //      defeito está uma casa acima, e o portão reporta o PRIMEIRO passo
-    //      caído como "conserte primeiro".
-    //   2. Ao lado de `blocos`, porque é a mesma pergunta. `blocos` cobra
-    //      código embarcado contra o conteúdo que ele lê; este cobra artefato
-    //      derivado contra a fonte de que ele deriva. Quem lê a lista de cima
-    //      para baixo encontra as duas juntas.
-    //   3. ANTES de `formato`, por custo medido: um processo, ~70 ms nesta
-    //      máquina (Windows 11, Node 24.13 — piso de spawn mais a leitura do
-    //      index.mjs inteiro), contra 1,0 s do prettier e os segundos de
-    //      `provas` e `auto`. A ordem barato-antes-de-caro do arquivo continua
-    //      valendo, e a mensagem que o dono precisa ver primeiro não fica
-    //      atrás de um segundo de formatação.
+    //   1. AFTER `sintaxe`, mandatorily. The generator reads `index.mjs`
+    //      (2,292 lines) as the source of truth. With the file not compiling,
+    //      "the artifact diverged" would be a false accusation: the defect is
+    //      one house above, and the gate reports the FIRST fallen step as "fix
+    //      this first".
+    //   2. Next to `blocos`, because it is the same question. `blocos` holds
+    //      shipped code to the content it reads; this one holds a derived
+    //      artifact to the source it derives from. Whoever reads the list top to
+    //      bottom finds the two together.
+    //   3. BEFORE `formato`, by measured cost: one process, ~70 ms on this
+    //      machine (Windows 11, Node 24.13 — spawn floor plus reading the whole
+    //      index.mjs), against prettier's 1.0 s and the seconds of `provas` and
+    //      `auto`. The file's cheap-before-expensive order still holds, and the
+    //      message the owner needs to see first does not sit behind a second of
+    //      formatting.
     //
-    // `exige` lista SÓ o gerador, e a omissão do artefato é deliberada. O
-    // verificar.mjs trata `exige` ausente como QUEBROU (127): "script ausente
-    // não é o repositório reprovando, é o ferramental faltando". O
-    // `rules.generated.json` é o SUJEITO da checagem, não a ferramenta — se ele
-    // sumiu, o repositório está velho da pior forma possível, e isso tem de
-    // ser exit 1 dito pelo gerador, não 127 dito pelo executor. Enquanto
-    // `mcp/generate.mjs` não existir, este passo QUEBRA com
-    // `[verificar] arquivo exigido ausente: mcp/generate.mjs` e a dica abaixo —
-    // uma linha útil, e não um rastro de pilha de módulo não encontrado.
+    // `exige` lists ONLY the generator, and the omission of the artifact is
+    // deliberate. verificar.mjs treats a missing `exige` as BROKE (127): "a
+    // missing script is not the repository failing: it is the tooling missing".
+    // `rules.generated.json` is the SUBJECT of the check, not the tool — if it
+    // vanished, the repository is stale in the worst possible way, and that has
+    // to be an exit 1 said by the generator, not a 127 said by the runner. While
+    // `mcp/generate.mjs` does not exist, this step BREAKS with
+    // `[verify] required file missing: mcp/generate.mjs` and the hint below — one
+    // useful line, and not a stack trace of a module not found.
     //
-    // Sem `extrair` preciso de propósito: o formato do diff é do gerador, e
-    // chutá-lo aqui criaria uma segunda fonte para divergir. O padrão abaixo
-    // pega "erro …" e linha de diff unificado; quando não casa nada, o
-    // executor cai nas últimas linhas da saída, que é onde o resumo de um
-    // diff mora.
+    // No precise `extrair` on purpose: the diff format belongs to the generator,
+    // and guessing it here would create a second source to diverge from. The
+    // pattern below catches "erro …" and unified diff lines; when nothing
+    // matches, the runner falls back to the last lines of the output, which is
+    // where a diff's summary lives.
     nome: 'mcp-server',
-    // O SERVIDOR PRECISA SUBIR, NAO SO EXISTIR. Achado da auditoria de 31/08:
-    // `mcp/src/prova-cliente.mjs` — 370 linhas, o UNICO teste de ponta a ponta
-    // do servidor de 937 linhas — nao era chamado por passo nenhum. Escrito e
-    // nunca executado e o estado em que este modulo passou semanas, e repetir
-    // isso na propria prova dele seria piada.
+    // THE SERVER HAS TO COME UP, NOT JUST EXIST. Finding of the 31/08 audit:
+    // `mcp/src/prova-cliente.mjs` — 370 lines, the ONLY end-to-end test of the
+    // 937-line server — was called by no step at all. Written and never run is
+    // the state this module spent weeks in, and repeating that in its own proof
+    // would be a joke.
     //
-    // O `exige` aponta para o node_modules do mcp porque o servidor tem
-    // dependencia propria (o SDK). Sem ele instalado o passo diz o que fazer em
-    // vez de estourar — e o CI instala, entao la o passo e duro.
+    // The `exige` points at the mcp's node_modules because the server has its
+    // own dependency (the SDK). Without it installed the step says what to do
+    // instead of blowing up — and CI installs it, so there the step is hard.
     comando: node('mcp/src/prova-cliente.mjs'),
     exige: ['mcp/src/prova-cliente.mjs', 'mcp/node_modules'],
-    dica: 'O servidor MCP nao respondeu ao protocolo. Se a queixa for de dependencia ausente: cd mcp && npm ci.',
+    dica: 'The MCP server did not answer the protocol. If the complaint is a missing dependency: cd mcp && npm ci.',
     extrair: /^\s*(erro|error|✗|✘|falhou)/i,
     tempoLimite: 2 * MINUTO,
     limite: 8,
@@ -996,57 +1027,60 @@ export default [
     nome: 'mcp',
     comando: node('mcp/generate.mjs', '--verificar'),
     exige: ['mcp/generate.mjs'],
-    dica: 'Divergiu: a regra mudou e o MCP ficou para trás — regenere com `node mcp/generate.mjs` e commite o mcp/rules.generated.json JUNTO com a regra, porque o artefato é gerado e não escrito à mão. Ausente: o gerador ainda não está no repositório, e sem ele nada garante que o MCP conheça as regras de hoje.',
+    dica: 'Diverged: the rule changed and the MCP fell behind — regenerate with `node mcp/generate.mjs` and commit mcp/rules.generated.json TOGETHER with the rule, because the artifact is generated, not hand-written. Missing: the generator is not in the repository yet, and without it nothing guarantees the MCP knows the rules of today.',
     extrair: /^\s*(erro|error|✗|✘|[-+] )/i,
     tempoLimite: 1 * MINUTO,
     limite: 12,
   },
   {
-    // ── O PORTÃO DE FRESCOR DOS DOCUMENTOS ────────────────────────────────
+    // ── THE DOCUMENT FRESHNESS GATE ───────────────────────────────────────
     //
-    // O mesmo defeito do passo `mcp`, no segundo lugar onde ele mora: o número
-    // escrito à mão que a fonte deixou para trás. Medido nesta árvore antes
-    // deste passo existir, só no README: `16 determinísticas` quando são 17,
-    // `50 casos` quando são 52, `21 de 21 regras com prova` quando são 22 de
-    // 22, `os 8 passos` quando são 12. E o ESTADO.md carregava QUATRO contagens
-    // diferentes de casos de prova — 13, 33, 47 e 50 — no mesmo arquivo, que
-    // abre admitindo ter errado número três vezes.
+    // The same defect as the `mcp` step, in the second place where it lives: the
+    // hand-written number the source left behind. Measured in this tree before
+    // this step existed, in the README alone: `16 deterministic` when there are
+    // 17, `50 cases` when there are 52, `21 of 21 rules with proof` when it is
+    // 22 of 22, `the 8 steps` when there are 12. And ESTADO.md carried FOUR
+    // different counts of proof cases — 13, 33, 47 and 50 — in the same file,
+    // which opens by admitting it got the number wrong three times.
     //
-    // Documentação errada não é cosmética aqui: o ESTADO.md se declara "o ponto
-    // de entrada de qualquer sessão nova", e o agente que lê "8 passos" e
-    // encontra 12 gasta a sessão descobrindo em quem acreditar — que é a mesma
-    // conta do passo `elos`, onde link quebrado faz a IA reescrever do zero.
+    // Wrong documentation is not cosmetic here: ESTADO.md declares itself "the
+    // entry point of any new session", and the agent that reads "8 steps" and
+    // finds 12 spends the session working out who to believe — which is the same
+    // bill as the `elos` step, where a broken link makes the AI rewrite from
+    // scratch.
     //
-    // POSIÇÃO NA LISTA — três restrições, na ordem em que pesam:
+    // POSITION IN THE LIST — three constraints, in the order they weigh:
     //
-    //   1. DEPOIS de `sintaxe`, obrigatoriamente. O medidor IMPORTA o
-    //      `index.mjs` e este próprio config para contar regras e passos. Com
-    //      um deles sem compilar, "o documento divergiu" seria acusação falsa:
-    //      o defeito está uma casa acima.
-    //   2. DEPOIS de `mcp`, e por um motivo concreto: um dos fatos sai de
-    //      `mcp/rules.generated.json`. Com o artefato velho, este passo acusaria
-    //      o README de estar errado quando quem está atrasado é o artefato — a
-    //      acusação apontando para quem não errou. Com `mcp` antes, o portão
-    //      reporta o PRIMEIRO passo caído, e o primeiro é o certo.
-    //   3. ANTES de `formato`, por custo medido: 335–354 ms em 5 rodadas
-    //      (mediana 348 ms, Windows 11, Node 24.13) contra 1,0 s do prettier e
-    //      os segundos de `provas` e `auto`.
+    //   1. AFTER `sintaxe`, mandatorily. The meter IMPORTS `index.mjs` and this
+    //      very config to count rules and steps. With one of them not compiling,
+    //      "the document diverged" would be a false accusation: the defect is
+    //      one house above.
+    //   2. AFTER `mcp`, and for a concrete reason: one of the facts comes out of
+    //      `mcp/rules.generated.json`. With the artifact stale, this step would
+    //      accuse the README of being wrong when the one running late is the
+    //      artifact — the accusation pointing at whoever did not err. With `mcp`
+    //      first, the gate reports the FIRST fallen step, and the first is the
+    //      right one.
+    //   3. BEFORE `formato`, by measured cost: 335–354 ms over 5 runs (median
+    //      348 ms, Windows 11, Node 24.13) against prettier's 1.0 s and the
+    //      seconds of `provas` and `auto`.
     //
-    // `avisar` NÃO É ENFEITE AQUI, e é o que impede este passo de ser um
-    // portão de mentira. Documento sem marcador nenhum é N/A, não reprovação —
-    // o mesmo `na()` do rebar-check —, então enquanto a marcação não estiver
-    // aplicada o passo passa conferindo ZERO números. A linha ⚠ do medidor diz
-    // exatamente isso, com a contagem, e `avisar` a imprime MESMO QUANDO O
-    // PASSO PASSA. O buraco aparece em toda rodada do `verificar` até alguém
-    // fechá-lo, em vez de ficar mudo atrás de um ✓ verde.
+    // `avisar` IS NOT DECORATION HERE, and it is what keeps this step from being
+    // a lying gate. A document with no marker at all is N/A, not a failure — the
+    // same `na()` of rebar-check —, so while the marking is not applied the step
+    // passes checking ZERO numbers. The meter's ⚠ line says exactly that, with
+    // the count, and `avisar` prints it EVEN WHEN THE STEP PASSES. The hole
+    // shows up on every run of `verificar` until someone closes it, instead of
+    // going mute behind a green ✓.
     //
-    // `exige` lista SÓ o medidor, e a omissão dos documentos é deliberada, pela
-    // mesma razão do passo `mcp`: README e ESTADO são o SUJEITO da checagem,
-    // não a ferramenta. Se sumirem, quem tem de falar é o medidor, com exit 1.
+    // `exige` lists ONLY the meter, and the omission of the documents is
+    // deliberate, for the same reason as the `mcp` step: README and ESTADO are
+    // the SUBJECT of the check, not the tool. If they vanish, the one who has to
+    // speak is the meter, with exit 1.
     nome: 'numbers',
     comando: node('tooling/numbers.mjs', '--verificar'),
     exige: ['tooling/numbers.mjs'],
-    dica: 'Um número do README ou do ESTADO não é mais o que a fonte diz — regenere com `node tooling/numbers.mjs` e commite o documento JUNTO com a mudança que o desatualizou. Se a queixa for de marcador malformado, o conserto é no documento: o medidor não inventa marcação.',
+    dica: 'A number in the README or in ESTADO is no longer what the source says — regenerate with `node tooling/numbers.mjs` and commit the document TOGETHER with the change that made it stale. If the complaint is a malformed marker, the fix is in the document: the meter does not invent marking.',
     extrair: /^\s*(erro|error|✗|✘|[-+] )/i,
     avisar: /^\s*⚠/,
     tempoLimite: 1 * MINUTO,
@@ -1054,17 +1088,18 @@ export default [
   },
   {
     nome: 'format',
-    // O prettier é a ÚNICA dependência do repositório, e a fronteira é
-    // deliberada: o `index.mjs` continua importando só built-ins, então
-    // `npx github:Navesz/rebar` roda sem instalar nada. Zero dependência é
-    // propriedade do que confere, não do que se confere.
+    // prettier is the ONLY dependency of the repository, and the boundary is
+    // deliberate: `index.mjs` still imports only built-ins, so
+    // `npx github:Navesz/rebar` runs without installing anything. Zero
+    // dependencies is a property of what checks, not of what is checked.
     //
-    // Chamado pelo .cjs direto, e não por `npx prettier` nem pelo .bin: no
-    // Windows o `.bin/prettier` é um `.cmd` que o CreateProcess não executa sem
-    // shell, que é exatamente o bug que quebrou o passo `fronteiras` do alicerce.
+    // Called through the .cjs directly, and not through `npx prettier` nor the
+    // .bin: on Windows `.bin/prettier` is a `.cmd` that CreateProcess does not
+    // execute without a shell, which is exactly the bug that broke the
+    // `fronteiras` step of the alicerce.
     comando: node('node_modules/prettier/bin/prettier.cjs', '--check', '.'),
     exige: ['node_modules/prettier/bin/prettier.cjs'],
-    dica: 'Formatação não se discute, se roda: `npm run format`. Se o prettier não estiver aí, `npm ci`.',
+    dica: 'Formatting is not discussed, it is run: `npm run format`. If prettier is not there, `npm ci`.',
     extrair: /^\[warn\]|^\S+\.(mjs|cjs|json|ya?ml)$/im,
     tempoLimite: 2 * MINUTO,
     limite: 12,
@@ -1073,7 +1108,7 @@ export default [
     nome: 'links',
     comando: node('tooling/links/check-links.mjs'),
     exige: ['tooling/links/check-links.mjs'],
-    dica: 'Link quebrado na documentação: a IA segue a referência, não acha, e reescreve do zero.',
+    dica: 'Broken link in the documentation: the AI follows the reference, does not find it, and rewrites from scratch.',
     extrair: /^\s*(erro|error|✗|✘)/i,
     tempoLimite: 1 * MINUTO,
   },
@@ -1081,157 +1116,161 @@ export default [
     nome: 'secret',
     comando: node('tooling/secret/scan-secret.mjs'),
     exige: ['tooling/secret/scan-secret.mjs'],
-    dica: 'Segredo não se corrige com commit novo — precisa rotacionar a credencial.',
+    dica: 'A secret is not fixed with a new commit — the credential has to be rotated.',
     extrair: /^\s*(erro|error|✗|✘)/i,
-    // FURO 4, terceira casa. Fora do `--staged` a varredura sai 0 mesmo quando
-    // pulou arquivo — truncado ou ilegível é rotina de quem edita, não
-    // reprovação. Mas "varri tudo" e "não li estes N" são alegações diferentes,
-    // e sem esta linha a segunda era impressa para ninguém: o executor descarta
-    // a stdout do passo que passa. O varredor marca essas linhas com ⚠.
+    // HOLE 4, third house. Outside `--staged` the scan exits 0 even when it
+    // skipped a file — truncated or unreadable is routine for whoever edits, not
+    // a failure. But "I scanned everything" and "I did not read these N" are
+    // different claims, and without this line the second was printed for nobody:
+    // the runner discards the stdout of a step that passes. The scanner marks
+    // those lines with ⚠.
     avisar: /^\s*⚠/,
     tempoLimite: 3 * MINUTO,
   },
   {
-    // O passo `secret` acima prova que o varredor RODA. Este prova que ele
-    // ACHA -- e a distancia entre os dois foi um P1 de auditoria externa: o
-    // mesmo token em UTF-16LE passou batido, com exit 0, zero achados e o
-    // arquivo contado como "binario varrido". O passo ficou verde a execucao
-    // inteira, porque nada perguntava se ele tinha encontrado alguma coisa.
+    // The `secret` step above proves the scanner RUNS. This one proves it FINDS
+    // -- and the distance between the two was a P1 from an external audit: the
+    // same token in UTF-16LE went by unnoticed, with exit 0, zero findings and
+    // the file counted as "binary scanned". The step stayed green the whole run,
+    // because nothing asked whether it had found anything.
     nome: 'secret-proofs',
     comando: node('--test', 'tooling/secret/prove-scan.mjs'),
     exige: ['tooling/secret/prove-scan.mjs'],
-    dica: 'O varredor de segredo parou de achar o que achava. Se a queixa for de codificacao, e o `decodificar()` -- o BOM de UTF-16 volta a virar NUL e o token sai um caractere por linha.',
+    dica: 'The secret scanner stopped finding what it used to find. If the complaint is about encoding, it is `decodificar()` -- the UTF-16 BOM goes back to being NUL and the token comes out one character per line.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {
     nome: 'steps',
-    // O PORTAO PROVANDO O PORTAO. Passo que e `comando:` ja se prova sozinho —
-    // se o script sumir, o passo cai. Passo que e `funcao:` e codigo do portao,
-    // e codigo do portao sem prova e o defeito que este repositorio persegue,
-    // cometido no lugar mais caro possivel.
+    // THE GATE PROVING THE GATE. A step that is `comando:` already proves itself
+    // — if the script vanishes, the step falls. A step that is `funcao:` is gate
+    // code, and gate code with no proof is the defect this repository chases,
+    // committed in the most expensive place possible.
     //
-    // ACHADO DA AUDITORIA DE 31/08: `checarBlocos` entrou com 410 linhas —
-    // incluindo um tokenizador de string e template escrito a mao — e ZERO
-    // teste. Trocando o corpo dele por `return { codigo: 0 }`, o verificar
-    // continuava APROVADO 9 de 9 e nada acusava. Medido depois de escrever a
-    // prova: a mesma mutacao mata 3 dos 7 testes.
+    // FINDING OF THE 31/08 AUDIT: `checarBlocos` came in with 410 lines —
+    // including a hand-written string and template tokenizer — and ZERO tests.
+    // Swapping its body for `return { codigo: 0 }`, the verify still said
+    // PASSED 9 of 9 and nothing accused it. Measured after writing the proof:
+    // the same mutation kills 3 of the 7 tests.
     //
-    // E a prova achou uma lacuna no primeiro uso: o passo contava "8 blocos" e
-    // so conferia sintaxe dos .ts — um modelo.json quebrado passava limpo e ia
-    // para todo projeto gerado.
+    // And the proof found a gap on its first use: the step counted "8 blocks"
+    // and only checked the syntax of the .ts — a broken modelo.json passed clean
+    // and went into every generated project.
     comando: node('--test', 'tooling/verify/prove-steps.mjs'),
     exige: ['tooling/verify/prove-steps.mjs'],
-    dica: 'Um passo do verificar parou de pegar o que devia. O portao nao se prova sozinho — esta suite e quem o prova.',
+    dica: 'A step of the verify stopped catching what it should. The gate does not prove itself — this suite is what proves it.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
-    // FURO 4, quarta casa. A prova `O PORTÃO NÃO ENCOLHE` avisa quando alguém
-    // acrescenta um passo sem pôr o nome em PASSOS_ESPERADOS — e esse aviso sai
-    // com a suíte VERDE, logo era descartado inteiro. Sem ele, o passo novo fica
-    // fora da lista, e apagá-lo depois volta a ser silencioso: a trava contra
-    // encolhimento se desliga sozinha, um passo de cada vez.
+    // HOLE 4, fourth house. The proof `THE GATE DOES NOT SHRINK` warns when someone
+    // adds a step without putting the name in PASSOS_ESPERADOS — and that
+    // warning comes out with the suite GREEN, so it was discarded whole. Without
+    // it, the new step stays off the list, and deleting it later goes back to
+    // being silent: the lock against shrinking switches itself off, one step at
+    // a time.
     avisar: /^\s*⚠/,
     tempoLimite: 3 * MINUTO,
     limite: 8,
   },
   {
-    // A FUNCAO DE QUE SEIS REGRAS DEPENDEM, provada sozinha pela primeira vez.
+    // THE FUNCTION SIX RULES DEPEND ON, proved on its own for the first time.
     //
-    // Antes deste passo ela era provada de lado, pelos casos das regras que a
-    // usam -- e caso de regra nao tem string com abertura de bloco dentro,
-    // porque ninguem escreve fixture pensando no removedor de comentario. O
-    // resultado: ela apagava codigo real em 9 dos 139 arquivos deste
-    // repositorio, o pior com 1.181 tokens fora do exame, e o portao ficou
-    // verde o tempo todo.
+    // Before this step it was proved sideways, by the cases of the rules that
+    // use it -- and a rule case has no string with a block opener inside it,
+    // because nobody writes a fixture thinking about the comment stripper. The
+    // result: it erased real code in 9 of the 139 files of this repository, the
+    // worst one with 1,181 tokens outside the exam, and the gate stayed green
+    // the whole time.
     //
-    // Vem ANTES de `proofs` de proposito: se os dois caem no mesmo commit, o
-    // primeiro nome que o executor imprime tem de ser a causa, nao o efeito.
+    // It comes BEFORE `proofs` on purpose: if the two fall in the same commit,
+    // the first name the runner prints has to be the cause, not the effect.
     nome: 'strip',
     comando: node('--test', 'tooling/rebar-check/prove-strip.mjs'),
     exige: ['tooling/rebar-check/prove-strip.mjs'],
-    dica: 'O removedor de comentario mudou de comportamento. Se ele passou a APAGAR mais, seis regras ficaram cegas e nao vao reclamar -- falso negativo nao aparece. Se passou a apagar menos, aparece como falso positivo nas regras.',
+    dica: 'The comment stripper changed behavior. If it started ERASING more, six rules went blind and will not complain -- a false negative does not show up. If it started erasing less, it shows up as a false positive in the rules.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {
     nome: 'proofs',
     comando: node('tooling/rebar-check/proofs/prove.mjs'),
     exige: ['tooling/rebar-check/proofs/prove.mjs'],
-    dica: 'Uma regra do rebar-check parou de reprovar o que devia, ou passou a reprovar o que é correto.',
+    dica: 'A rule of rebar-check stopped failing what it should, or started failing what is correct.',
     extrair: /^\s*(✗|✘|erro|esperado)/i,
-    // FURO 4 de novo, na segunda casa onde ele estava aberto. A suíte tem duas
-    // linhas que saem com o passo APROVADO e que o executor jogava fora:
-    //   · "⚠ N de M regras com prova · sem prova: …" — regra que subiu sem os
-    //     dois casos, que é violação da regra-mãe do repositório;
-    //   · "⚠ o instrumento está torto: o index.mjs quebrou em N caso(s)" —
-    //     esta sai com exit 1, mas o `extrair` acima não a pega, então a
-    //     reprovação chegava sem a frase que diz que NENHUM veredito da rodada
-    //     vale.
-    // Sem esta linha, acrescentar a 23ª regra sem prova nenhuma imprimia
-    // APROVADO, verde e mudo.
+    // HOLE 4 again, in the second house where it was open. The suite has two
+    // lines that come out with the step PASSED and that the runner threw away:
+    //   · "⚠ N of M rules with a proof · no proof: …" — a rule that landed
+    //     without the two cases, which is a violation of the repository's mother
+    //     rule;
+    //   · "⚠ the instrument is bent: index.mjs broke on N case(s)" — this one
+    //     comes out with exit 1, but the `extrair` above does not catch it, so
+    //     the failure arrived without the sentence saying that NO verdict of the
+    //     run holds.
+    // Without this line, adding the 23rd rule with no proof at all printed
+    // PASSED, green and mute.
     avisar: /^\s*⚠/,
     tempoLimite: 5 * MINUTO,
     limite: 8,
   },
   {
-    // ESTE PASSO E O QUE FALTAVA, e a ausencia dele custou o produto.
+    // THIS STEP IS THE ONE THAT WAS MISSING, and its absence cost the product.
     //
-    // Na traducao dos nomes o `aplicar.mjs` passou a ler `verify.yml` de uma
-    // pasta onde o arquivo se chama `verificar.yml`. `rebar novo` morreu com
-    // ENOENT, e este portao ficou 15 de 15 VERDE por seis commits: o checker se
-    // prova, as regras se provam, o MCP se prova, o portao se prova -- e o
-    // produto nao.
+    // During the rename `aplicar.mjs` started reading `verify.yml` from a folder
+    // where the file is called `verificar.yml`. `rebar new` died with ENOENT,
+    // and this gate stayed 15 of 15 GREEN for six commits: the checker proves
+    // itself, the rules prove themselves, the MCP proves itself, the gate proves
+    // itself -- and the product does not.
     //
-    // Ele confere o MAPA, nao gera projeto: geracao de verdade e `npm create
-    // vite` mais `shadcn` mais `npm install`, minutos e rede, e passo que
-    // ninguem espera e passo que alguem desliga.
+    // It checks the MAP, it does not generate a project: real generation is `npm
+    // create vite` plus `shadcn` plus `npm install`, minutes and network, and a
+    // step nobody waits for is a step somebody switches off.
     nome: 'generator-map',
     comando: node('--test', 'new/gate/prove-map.mjs'),
     exige: ['new/gate/prove-map.mjs', 'new/gate/aplicar.mjs'],
-    dica: 'O mapa de arquivos do gerador deixou de fechar: ou um molde sumiu, ou um hook chama arquivo que o gerador nao escreve. `rebar novo` quebra no primeiro projeto.',
+    dica: 'The file map of the generator stopped closing: either a template vanished, or a hook calls a file the generator does not write. `rebar new` breaks on the first project.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {
-    // O PRIMEIRO COMMIT DO PROJETO GERADO tem de sair com a MESMA identidade
-    // que foi escrita no NOTICE e na allowlist. O gerador usava `-c user.*`
-    // achando que isso fixava o autor; no git a variavel de ambiente GANHA da
-    // config, e `-c` e config. Numa maquina com `git config user.email` e
-    // `GIT_AUTHOR_EMAIL` divergentes -- runner de CI, container -- o projeto
-    // nascia com a allowlist dizendo uma pessoa e o historico tendo outra.
+    // THE FIRST COMMIT OF THE GENERATED PROJECT has to come out with the SAME
+    // identity that was written into the NOTICE and the allowlist. The generator
+    // used `-c user.*` thinking that pinned the author; in git the environment
+    // variable BEATS the config, and `-c` is config. On a machine with `git
+    // config user.email` and `GIT_AUTHOR_EMAIL` divergent -- a CI runner, a
+    // container -- the project was born with the allowlist saying one person and
+    // the history having another.
     //
-    // A primeira assercao da prova mede a PRECEDENCIA no git puro, sem passar
-    // pelo conserto: se ela cair, o conserto virou desnecessario em vez de
-    // errado em silencio.
+    // The first assertion of the proof measures the PRECEDENCE in plain git,
+    // without going through the fix: if it falls, the fix became unnecessary
+    // instead of wrong in silence.
     nome: 'generator-identity',
     comando: node('--test', 'new/prove-identidade.mjs'),
     exige: ['new/prove-identidade.mjs', 'new/identidade.mjs', 'new/index.mjs'],
-    dica: 'A identidade do primeiro commit do projeto gerado deixou de bater com a que vai no NOTICE e na allowlist. O projeto nasce com a lista dizendo uma pessoa e o historico tendo outra, e isso so aparece meses depois.',
+    dica: 'The identity of the first commit of the generated project stopped matching the one that goes into the NOTICE and the allowlist. The project is born with the list saying one person and the history having another, and that only shows up months later.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
     tempoLimite: 2 * MINUTO,
   },
   {
-    // E O MAPA AINDA NAO E O PRODUTO. O passo acima confere que o modelo do MCP
-    // e EMITIDO; o `syntax` confere que ele PARSEIA. Nenhum dos dois confere que
-    // ele RESPONDE -- e sao 800 linhas que vao para dentro de todo projeto
-    // gerado.
+    // AND THE MAP IS STILL NOT THE PRODUCT. The step above checks that the MCP
+    // template is EMITTED; `syntax` checks that it PARSES. Neither of the two
+    // checks that it ANSWERS -- and it is 800 lines that go inside every
+    // generated project.
     //
-    // Este passo fala MCP de verdade com uma copia do modelo, num projeto
-    // montado num tmpdir, e pergunta a coisa mais cara que ele responde: o
-    // portao esta armado? `core.hooksPath` e string livre, o git grava sem
-    // conferir nada, e quem le so o valor anuncia portao fechado sobre portao
-    // escancarado. Cinco estados, cinco casos.
+    // This step speaks real MCP with a copy of the template, in a project
+    // assembled in a tmpdir, and asks the most expensive thing it answers: is
+    // the gate armed? `core.hooksPath` is a free string, git writes it without
+    // checking anything, and whoever reads only the value announces a closed
+    // gate over a gate wide open. Five states, five cases.
     nome: 'mcp-template',
     comando: node('new/gate/prove-mcp-template.mjs', '--curto'),
     exige: ['new/gate/prove-mcp-template.mjs', 'new/gate/arquivos/mcp-rebar.mjs'],
-    dica: 'O MCP que o gerador escreve parou de responder, ou passou a mentir sobre o estado do portao. Rode `node new/gate/prove-mcp-template.mjs` sem --curto para ver a troca JSON-RPC inteira.',
+    dica: 'The MCP the generator writes stopped answering, or started lying about the state of the gate. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole JSON-RPC exchange.',
     extrair: /^\s*FALHA/,
     tempoLimite: 2 * MINUTO,
   },
   {
-    // O modulo de seguranca se prova pelo MESMO executor do rebar-check, com o
-    // checker e a pasta de casos passados por argumento. Duplicar mil linhas de
-    // runner seria a segunda fonte que diverge -- o defeito que este
-    // repositorio inteiro persegue.
+    // The security module proves itself through the SAME runner as rebar-check,
+    // with the checker and the case folder passed as arguments. Duplicating a
+    // thousand lines of runner would be the second source that diverges -- the
+    // defect this whole repository chases.
     //
-    // Passo proprio, e nao um `&&` dentro de `proofs`, porque os dois falham
-    // por motivos diferentes e a dica precisa dizer qual dos dois caiu.
+    // Its own step, and not an `&&` inside `proofs`, because the two fail for
+    // different reasons and the hint has to say which of the two fell.
     nome: 'security',
     comando: node(
       'tooling/rebar-check/proofs/prove.mjs',
@@ -1239,21 +1278,23 @@ export default [
       '--cases=tooling/security/proofs/cases',
     ),
     exige: ['tooling/security/index.mjs', 'tooling/security/proofs/cases'],
-    dica: 'Uma regra do rebar-security parou de reprovar o que devia, ou passou a acusar o que e correto. O lado pass/ de cada caso carrega os falsos positivos nomeados: se ele ficou vermelho, a regra afrouxou demais.',
+    dica: 'A rule of rebar-security stopped failing what it should, or started accusing what is correct. The pass/ side of each case carries the named false positives: if it went red, the rule loosened too much.',
     extrair: /^\s*(✗|✘|erro|esperado)/i,
   },
   {
     nome: 'self',
-    // O rebar na própria régua. É o passo mais caro porque lê o repositório
-    // inteiro e o histórico do git.
+    // rebar on its own ruler. It is the most expensive step because it reads the
+    // whole repository and the git history.
     comando: node('tooling/rebar-check/index.mjs', '.'),
     exige: ['tooling/rebar-check/index.mjs'],
-    dica: 'O rebar reprovou na própria régua. Cada linha é <regra> <motivo>; heurística não conta.',
+    dica: 'rebar failed on its own ruler. Each line is <rule> <reason>; heuristics do not count.',
     extrair: /^\s*(✗|⚠)/,
-    // As linhas ⚠ do rebar-check ("N arquivo(s) escondidos por .rebarignore",
-    // "N regra(s) QUEBRARAM") são o único canal que denuncia régua desligada — e
-    // saem quando o passo PASSA, com exit 0. Antes do campo `avisar` o executor
-    // jogava fora a stdout de todo passo aprovado, e esse canal era mudo.
+    // The ⚠ lines of rebar-check (quoted verbatim, because it is what the
+    // program prints today: "N file(s) hidden by .rebarignore",
+    // "N rule(s) BROKE") are the only channel that denounces a ruler
+    // switched off — and they come out when the step PASSES, with exit 0. Before
+    // the `avisar` field the runner threw away the stdout of every passing step,
+    // and that channel was mute.
     avisar: /^\s*⚠/,
     tempoLimite: 3 * MINUTO,
     limite: 8,

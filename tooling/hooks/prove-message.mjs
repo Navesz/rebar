@@ -1,19 +1,20 @@
-// A PROVA DO HOOK DE MENSAGEM — a porta N5 da coautoria, exercitada de verdade.
+// THE PROOF OF THE MESSAGE HOOK — the N5 co-authorship gate, actually exercised.
 //
-// Ele é a única barreira que impede o trailer de coautoria de EXISTIR. As
-// outras (`rebar-check`, o CI) auditam depois, e depois é tarde: trailer no
-// histórico não se conserta com commit novo.
+// It is the only barrier that stops the co-authorship trailer from EXISTING. The
+// others (`rebar-check`, the CI) audit afterwards, and afterwards is too late: a
+// trailer in history is not fixed by a new commit.
 //
-// Até 2026-09-06 nada o executava. O passo `hooks` do portão confere que os
-// arquivos estão lá e são executáveis; o caso `ai-coauthorship__allowlist`
-// prova a REGRA que audita o histórico, não este hook.
+// Until 2026-09-06 nothing ran it. The gate's `hooks` step checks that the files
+// are there and are executable; the `ai-coauthorship__allowlist` case proves the
+// RULE that audits history, not this hook.
 //
-// O QUE ESCAPOU POR ISSO (P2 #8): ele lia a allowlist do DISCO. O comentário
-// justificava — "exigir que ela já esteja em HEAD tornaria impossível o commit
-// que ADICIONA um humano à lista" — e o motivo procede; a fonte é que estava
-// errada. Entre HEAD e o disco existe o ÍNDICE, que é literalmente o que vai
-// entrar neste commit. Ler do disco autorizava coautor por um arquivo nunca
-// rastreado, e por uma linha acrescentada, usada e desfeita.
+// WHAT GOT THROUGH BECAUSE OF THAT (P2 #8): it read the allowlist from DISK. The
+// comment justified it — "demanding that it already be in HEAD would make the
+// commit that ADDS a human to the list impossible" — and the reason holds; the
+// source is what was wrong. Between HEAD and the disk there is the INDEX, which
+// is literally what goes into this commit. Reading from disk authorized a
+// co-author by a file that was never tracked, and by a line added, used and
+// undone.
 //
 //   node --test tooling/hooks/prove-message.mjs
 
@@ -32,9 +33,9 @@ const HUMANO = 'pessoa@exemplo.com'
 const AGENTE = 'noreply@algum-agente.example'
 
 /**
- * Um repositório de verdade num tmpdir. `git` de verdade porque o hook usa
- * `interpret-trailers` e `show :arquivo` — reimplementar isso na prova seria
- * provar a reimplementação.
+ * A real repository in a tmpdir. Real `git`, because the hook uses
+ * `interpret-trailers` and `show :file` — reimplementing that inside the proof
+ * would be proving the reimplementation.
  */
 function repo() {
   const dir = mkdtempSync(join(tmpdir(), 'rebar-msg-'))
@@ -52,14 +53,14 @@ function repo() {
     dir,
     env,
     git,
-    /** Escreve no disco. Sozinho não coloca nada no índice — é esse o ponto. */
+    /** Writes to disk. Alone it puts nothing in the index — that is the point. */
     escrever(rel, texto) {
       writeFileSync(join(dir, rel), texto, 'utf8')
     },
     preparar(rel) {
       git('add', '--', rel)
     },
-    /** Roda o hook sobre uma mensagem, como o `commit-msg` faria. */
+    /** Runs the hook over a message, the way `commit-msg` would. */
     checar(mensagem) {
       const arquivo = join(dir, 'MENSAGEM')
       writeFileSync(arquivo, mensagem, 'utf8')
@@ -77,21 +78,21 @@ function repo() {
   }
 }
 
-const comCoautor = (email) => `um commit qualquer\n\nCo-authored-by: Alguém <${email}>\n`
+const comCoautor = (email) => `some commit\n\nCo-authored-by: Someone <${email}>\n`
 
-test('sem trailer de coautoria o hook não tem o que dizer', () => {
+test('with no co-authorship trailer the hook has nothing to say', () => {
   const r = repo()
   try {
-    assert.equal(r.checar('um commit qualquer\n').status, 0)
+    assert.equal(r.checar('some commit\n').status, 0)
   } finally {
     r.fim()
   }
 })
 
-test('allowlist EM STAGE autoriza — inclusive no commit que a cria', () => {
-  // É o caso legítimo que a leitura do disco existia para atender, e que a
-  // leitura do índice atende igual: a adição está preparada, então vale, sem
-  // precisar já estar em HEAD.
+test('a STAGED allowlist authorizes — including in the commit that creates it', () => {
+  // It is the legitimate case that reading from disk existed to serve, and that
+  // reading the index serves just as well: the addition is staged, so it counts,
+  // without having to be in HEAD already.
   const r = repo()
   try {
     r.escrever(ALLOWLIST, `${HUMANO}\n`)
@@ -103,61 +104,61 @@ test('allowlist EM STAGE autoriza — inclusive no commit que a cria', () => {
   }
 })
 
-test('quem não está na allowlist continua barrado', () => {
+test('whoever is not in the allowlist stays blocked', () => {
   const r = repo()
   try {
     r.escrever(ALLOWLIST, `${HUMANO}\n`)
     r.preparar(ALLOWLIST)
     const saida = r.checar(comCoautor(AGENTE))
     assert.notEqual(saida.status, 0)
-    assert.match(saida.saida, /fora da allowlist/)
+    assert.match(saida.saida, /outside the human allowlist/)
   } finally {
     r.fim()
   }
 })
 
-test('ALLOWLIST NÃO RASTREADA NÃO AUTORIZA NINGUÉM', () => {
-  // O primeiro buraco. Um `.rebar-coauthors` que nunca entrou no repositório
-  // liberava coautor, e não aparecia em revisão nenhuma: quem clona não o vê e
-  // o histórico não o tem.
+test('AN UNTRACKED ALLOWLIST AUTHORIZES NOBODY', () => {
+  // The first hole. A `.rebar-coauthors` that never entered the repository
+  // cleared a co-author, and showed up in no review at all: whoever clones does
+  // not see it and history does not have it.
   const r = repo()
   try {
     r.escrever(ALLOWLIST, `${AGENTE}\n`)
-    // de propósito: NÃO preparar
+    // on purpose: do NOT stage it
     const saida = r.checar(comCoautor(AGENTE))
-    assert.notEqual(saida.status, 0, 'arquivo só no disco não pode valer como allowlist')
-    // E a mensagem tem de dizer o que fazer, porque esquecer o `git add` é o
-    // engano honesto mais provável aqui.
-    assert.match(saida.saida, /NÃO está em stage/)
+    assert.notEqual(saida.status, 0, 'a file only on disk cannot count as an allowlist')
+    // And the message has to say what to do, because forgetting the `git add` is
+    // the most likely honest mistake here.
+    assert.match(saida.saida, /is NOT staged/)
     assert.match(saida.saida, /git add/)
   } finally {
     r.fim()
   }
 })
 
-test('LINHA ACRESCENTADA SÓ NO DISCO NÃO AUTORIZA', () => {
-  // O segundo buraco, e o pior: acrescenta o e-mail no disco, comita com o
-  // coautor, desfaz a linha. O commit passava e o repositório nunca teve a
-  // linha — o trailer ficava no histórico sem nada que o justificasse.
+test('A LINE ADDED ONLY ON DISK AUTHORIZES NOBODY', () => {
+  // The second hole, and the worse one: add the e-mail on disk, commit with the
+  // co-author, undo the line. The commit passed and the repository never had the
+  // line — the trailer stayed in history with nothing justifying it.
   const r = repo()
   try {
     r.escrever(ALLOWLIST, `${HUMANO}\n`)
     r.preparar(ALLOWLIST)
-    r.escrever(ALLOWLIST, `${HUMANO}\n${AGENTE}\n`) // no disco, fora do índice
+    r.escrever(ALLOWLIST, `${HUMANO}\n${AGENTE}\n`) // on disk, outside the index
     const saida = r.checar(comCoautor(AGENTE))
-    assert.notEqual(saida.status, 0, 'a versão do índice é que decide, não a do disco')
-    assert.match(saida.saida, /fora da allowlist/)
+    assert.notEqual(saida.status, 0, 'the index version is what decides, not the disk one')
+    assert.match(saida.saida, /outside the human allowlist/)
   } finally {
     r.fim()
   }
 })
 
-test('sem allowlist nenhuma, nenhum coautor passa — fail-closed', () => {
+test('with no allowlist at all, no co-author passes — fail-closed', () => {
   const r = repo()
   try {
     const saida = r.checar(comCoautor(HUMANO))
     assert.notEqual(saida.status, 0)
-    assert.match(saida.saida, /não está no índice/)
+    assert.match(saida.saida, /is not in the git index/)
   } finally {
     r.fim()
   }

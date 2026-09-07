@@ -1,369 +1,369 @@
-# rebar — o alicerce v2
+# rebar — the alicerce v2
 
-> **O que é este arquivo.** O manuscrito único do projeto, em fase de planejamento.
-> A analogia do dono: *"é como um livro — primeiro o cara escreve tudo, depois pega o que ficou bom e publica."*
-> Planejamos tudo aqui; **depois** este arquivo vira uma árvore de arquivos no repositório.
-> Enquanto isso, nada de decisão que more só na conversa.
+> **What this file is.** The project's single manuscript, in the planning phase.
+> The owner's analogy: *"é como um livro — primeiro o cara escreve tudo, depois pega o que ficou bom e publica."* [it is like a book — first the guy writes everything, then he takes what turned out good and publishes it.]
+> We plan everything here; **afterwards** this file becomes a tree of files in the repository.
+> In the meantime, no decision that lives only in the conversation.
 >
-> **Status:** planejamento · **Atualizado:** 25/08/2026
+> **Status:** planning · **Updated:** 25/08/2026
 
 ---
 
-# 0. Objetivos do repositório
+# 0. Repository objectives
 
-1. **Fazer código errado não passar.** Tudo tipado, tudo testável, e erro que **barra** em vez de virar aviso ignorado.
-2. **`npm create rebar`** — gerar um projeto web que já nasce com a stack certa e o portão fechado, sem edição manual.
-3. **Continuar impondo depois do dia 1.** O gerador não sai de cena; ele fica no projeto como MCP e como portão de commit e CI.
-4. **Descer as regras de nível.** Tudo que hoje é pedido em prosa para a IA e caberia num compilador, lint ou teste, vira compilador, lint ou teste.
-5. **Manter o MCP vivo.** Quando a regra do projeto muda, o MCP se regenera — e o portão reprova se ele estiver velho. *(Ver §7.2 — é o defeito que o dono viveu no Herz e no BMB Compras.)*
-6. **Ser navegável por um agente novo** sem ler tudo: índice, README e MCP como pontos de entrada.
+1. **Make wrong code not pass.** Everything typed, everything testable, and an error that **blocks** instead of becoming an ignored warning.
+2. **`npm create rebar`** — generate a web project that is born with the right stack and the gate closed, with no manual editing.
+3. **Keep imposing after day 1.** The generator does not leave the stage; it stays in the project as MCP and as commit and CI gate.
+4. **Push the rules down a level.** Everything that today is asked of the AI in prose and would fit in a compiler, lint or test becomes compiler, lint or test.
+5. **Keep the MCP alive.** When the project rule changes, the MCP regenerates itself — and the gate fails if it is old. *(See §7.2 — it is the defect the owner lived through in Herz and in BMB Compras.)*
+6. **Be navigable by a new agent** without reading everything: index, README and MCP as entry points.
 
 ---
 
-# Índice
+# Index
 
-| § | Seção | Para quê |
+| § | Section | What for |
 |---|---|---|
-| [1](#1-como-trabalhamos) | Como trabalhamos | As regras desta colaboração. Ler antes de agir |
-| [2](#2-contexto) | Contexto | De onde veio o projeto e qual é a dor |
-| [3](#3-os-três-achados-que-reenquadram-o-projeto) | Os três achados | O que mudou de entendimento durante o levantamento |
-| [4](#4-a-taxonomia-n0n7--o-ativo-mais-valioso) | Taxonomia N0–N7 | A espinha de tudo. Sem isso nada faz sentido |
-| [5](#5-o-painel-completo--120-decisões) | O painel — 120 decisões | O inventário. Vira `perfil.esquema.json` |
-| [6](#6-inventário-do-aplicativo-completo) | Aplicativo completo | O que o app precisa ter, e o que falta no alicerce |
-| [7](#7-arquitetura-do-rebar) | Arquitetura | Perfil-como-compilador, MCP vivo, camadas de porta |
-| [8](#8-o-que-se-leva-de-cada-repositório) | O que se leva | Inventário de herança: alicerce e herz |
-| [9](#9-ordem-de-construção) | Ordem de construção | Sequência com critério de pronto |
-| [10](#10-verificação) | Verificação | Como saber que funcionou |
-| [11](#11-registro-de-decisões) | Registro de decisões | Log datado. **Toda mudança entra aqui** |
-| [12](#12-revisão--furos-encontrados) | **Revisão — furos** | O que a revisão adversarial derrubou. **Ler antes de implementar** |
-| [13](#13-aberto) | Aberto | O que ainda não sabemos |
+| [1](#1-how-we-work) | How we work | The rules of this collaboration. Read before acting |
+| [2](#2-context) | Context | Where the project came from and what the pain is |
+| [3](#3-the-three-findings-that-reframe-the-project) | The three findings | What changed in understanding during the survey |
+| [4](#4-the-n0n7-taxonomy--the-most-valuable-asset) | N0–N7 taxonomy | The spine of everything. Without it nothing makes sense |
+| [5](#5-the-full-panel--120-decisions) | The panel — 120 decisions | The inventory. Becomes `perfil.esquema.json` |
+| [6](#6-inventory-of-the-complete-application) | Complete application | What the app needs to have, and what is missing in the alicerce |
+| [7](#7-rebar-architecture) | Architecture | Profile-as-compiler, live MCP, gate layers |
+| [8](#8-what-we-take-from-each-repository) | What we take | Inheritance inventory: alicerce and herz |
+| [9](#9-build-order) | Build order | Sequence with a done criterion |
+| [10](#10-verification) | Verification | How to know it worked |
+| [11](#11-decision-log) | Decision log | Dated log. **Every change goes in here** |
+| [12](#12-review--holes-found) | **Review — holes** | What the adversarial review knocked down. **Read before implementing** |
+| [13](#13-open) | Open | What we still do not know |
 
-**Quando isto virar árvore de arquivos**, o corte previsto é: §4 e §5 → `manual/`; §5 → também `perfil.esquema.json`; §6 → `manual/aplicativo-completo.md`; §7 → `arquitetura/`; §11 → `adr/`.
-
----
-
-# 1. Como trabalhamos
-
-Instruções do dono, a valer durante todo o projeto. Estão aqui porque **os dois esquecem** — palavras dele: *"eu também sou igual você, cara. Eu vou esquecer de algumas coisas que estou falando, assim como você esquece."*
-
-1. **Centralizar.** Um arquivo, ou no máximo três. No começo há coisa demais e se esquece qual arquivo editar. Centralizar evita pivotar à toa.
-2. **Índice e referência cruzada.** Para nenhum dos dois precisar reler tudo, e para um agente novo se guiar sozinho.
-3. **Documento vivo.** A informação muda ao longo do tempo; o arquivo acompanha. Mudança entra no [Registro de decisões](#11-registro-de-decisões).
-4. **Planejar tudo primeiro, publicar depois.** Só transformar em árvore de arquivos quando o plano estiver fechado.
-5. **Objetivos no topo**, sempre visíveis.
-6. **O MCP é prioridade logo depois do README** — é ele que impede a IA de ignorar o que foi combinado.
-
-## 1.1 Crítica do dono ao meu trabalho, registrada
-
-> *"Eu estou vendo que você está mais arrumando o bug do que implementando novas."*
-
-Procede. Nesta sessão eu auditei, consertei `openparts`, consertei o instalador de hooks do alicerce, e licenciei cinco repositórios — muito conserto, pouca construção. Parte foi pedida, mas a observação vale como correção de rumo: **o rebar é construção, não auditoria.**
-
-Ele também aponta a causa e a cura, e as duas importam para o desenho:
-
-> *"No Herz e no BMB Compras eu não tive esse problema porque elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na memória e forçar a ser usadas."*
-
-E o defeito que sobrou:
-
-> *"O MCP não era reescrito quando as regras de projeto foram modificadas. Não tem a capacidade de reescrever o MCP em tempo real."*
-
-**Esse defeito é o requisito nº 5 do projeto.** Ver [§7.2](#72-o-mcp-que-se-regenera).
+**When this becomes a tree of files**, the planned cut is: §4 and §5 → `manual/`; §5 → also `perfil.esquema.json`; §6 → `manual/aplicativo-completo.md`; §7 → `arquitetura/`; §11 → `adr/`.
 
 ---
 
-# 2. Contexto
+# 1. How we work
 
-O dono constrói sites com ajuda de IA. Tem dois repositórios que deveriam resolver isso e não resolvem:
+The owner's instructions, in force for the whole project. They are here because **both of us forget** — his words: *"eu também sou igual você, cara. Eu vou esquecer de algumas coisas que estou falando, assim como você esquece."* [I am just like you, man. I am going to forget some of the things I am saying, just as you forget.]
 
-- **`alicerce`** — o método: painel de 120 decisões, constituição de 23 invariantes, taxonomia N0–N7, e um `ferramental/` de verificadores.
-- **`herz`** — um PCP real, com a stack mais bem pensada que ele tem e uma interface que funciona muito bem.
+1. **Centralize.** One file, or three at most. At the start there is too much and you forget which file to edit. Centralizing avoids pivoting for nothing.
+2. **Index and cross-reference.** So neither of us has to reread everything, and so a new agent can guide itself.
+3. **Living document.** Information changes over time; the file keeps up. A change goes into the [Decision log](#11-decision-log).
+4. **Plan everything first, publish afterwards.** Only turn it into a tree of files when the plan is closed.
+5. **Objectives at the top**, always visible.
+6. **The MCP is the priority right after the README** — it is what stops the AI from ignoring what was agreed.
 
-A queixa de origem: *"todos os sites que peço para usar o alicerce como referência, muita coisa é ignorada, hardcoded, esquecendo alguma coisa da stack, colocando o claude como colaborador, esquecendo do shadcn"*.
+## 1.1 The owner's criticism of my work, on the record
 
-O diagnóstico já estava escrito pelo próprio alicerce, em `perfis/herz.md:14`: **"decisão que mora onde nenhuma máquina lê"**.
+> *"Eu estou vendo que você está mais arrumando o bug do que implementando novas."* [I am seeing that you are fixing the bug more than implementing new things.]
 
-## 2.1 Decisões travadas
+It stands. In this session I audited, fixed `openparts`, fixed the alicerce hook installer, and licensed five repositories — a lot of fixing, little building. Part of it was asked for, but the observation holds as a course correction: **rebar is construction, not audit.**
 
-| Decisão | Escolha |
+He also points at the cause and the cure, and both matter for the design:
+
+> *"No Herz e no BMB Compras eu não tive esse problema porque elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na memória e forçar a ser usadas."* [In Herz and in BMB Compras I did not have this problem because I built an MCP with all the project rules, so it would always stay in memory and force them to be used.]
+
+And the defect that was left over:
+
+> *"O MCP não era reescrito quando as regras de projeto foram modificadas. Não tem a capacidade de reescrever o MCP em tempo real."* [The MCP was not rewritten when the project rules were modified. It has no capacity to rewrite the MCP in real time.]
+
+**That defect is requirement nº 5 of the project.** See [§7.2](#72-the-mcp-that-regenerates-itself).
+
+---
+
+# 2. Context
+
+The owner builds sites with AI help. He has two repositories that should solve this and do not:
+
+- **`alicerce`** — the method: a panel of 120 decisions, a constitution of 23 invariants, the N0–N7 taxonomy, and a `ferramental/` of checkers.
+- **`herz`** — a real PCP, with the best-thought-out stack he has and an interface that works very well.
+
+The complaint of origin: *"todos os sites que peço para usar o alicerce como referência, muita coisa é ignorada, hardcoded, esquecendo alguma coisa da stack, colocando o claude como colaborador, esquecendo do shadcn"* [in every site where I ask for the alicerce to be used as reference, a lot is ignored, hardcoded, forgetting something in the stack, putting claude in as co-author, forgetting about shadcn].
+
+The diagnosis was already written by the alicerce itself, in `perfis/herz.md:14`: **"decisão que mora onde nenhuma máquina lê"** [a decision that lives where no machine reads].
+
+## 2.1 Locked decisions
+
+| Decision | Choice |
 |---|---|
-| Natureza | Gera **e** fica vigiando |
-| Alvo | Presets `site` / `app` / `api`, núcleo comum |
-| Dureza | **Bloqueia commit e CI** |
-| Coautoria de IA | Bloqueada nos projetos novos; histórico do alicerce fica como está |
-| Nome | `rebar` — o vergalhão dentro do concreto |
-| Banco | **Postgres.** SQL Server exige licença; e não há migração, o backend do herz nunca foi construído |
-| Interface | **Aproveitar a do herz** — *"funciona muito bem, está bem animada, os botões estão bem legais"* |
-| Base do repo | Novo. **Não construir em cima do alicerce atual** |
-| Sequência | Inventário → revisão por agentes → README → **MCP** → resto |
+| Nature | Generates **and** keeps watching |
+| Target | Presets `site` / `app` / `api`, common core |
+| Hardness | **Blocks commit and CI** |
+| AI co-authorship | Blocked in new projects; the alicerce history stays as it is |
+| Name | `rebar` — the steel bar inside the concrete |
+| Database | **Postgres.** SQL Server requires a license; and there is no migration, the herz backend was never built |
+| Interface | **Reuse the herz one** — *"funciona muito bem, está bem animada, os botões estão bem legais"* [it works very well, it is nicely animated, the buttons are really cool] |
+| Repo base | New. **Do not build on top of the current alicerce** |
+| Sequence | Inventory → agent review → README → **MCP** → the rest |
 
 ---
 
-# 3. Os três achados que reenquadram o projeto
+# 3. The three findings that reframe the project
 
-## 3.1 A stack do herz é, em boa parte, documento — não código
+## 3.1 The herz stack is, in good part, document — not code
 
-| `Stack.md` afirma | Realidade | Evidência |
+| `Stack.md` claims | Reality | Evidence |
 |---|---|---|
-| Fastify, camadas `domain/ app/ http/ db/` | Não existe. `apps/` só tem `web` | `Stack.md:153-176` |
-| Kysely + MssqlDialect + tedious | Não instalado | `Stack.md:234` |
-| Playwright em 3 fluxos | Não instalado | `Stack.md:607` |
-| shadcn/ui + **Radix** | É **`@base-ui/react`**; Radix só transitivo via `cmdk` | `apps/web/package.json:16` |
-| `responseValidation` ligado | Ignorado com `api` custom; refeito à mão | `apps/web/src/dados/cliente.ts:8-30` |
+| Fastify, layers `domain/ app/ http/ db/` | Does not exist. `apps/` only has `web` | `Stack.md:153-176` |
+| Kysely + MssqlDialect + tedious | Not installed | `Stack.md:234` |
+| Playwright on 3 flows | Not installed | `Stack.md:607` |
+| shadcn/ui + **Radix** | It is **`@base-ui/react`**; Radix only transitively via `cmdk` | `apps/web/package.json:16` |
+| `responseValidation` on | Ignored with a custom `api`; redone by hand | `apps/web/src/dados/cliente.ts:8-30` |
 
-**Não há backend para portar.** Postgres entra sem custo de migração.
+**There is no backend to port.** Postgres comes in with zero migration cost.
 
-## 3.2 O alicerce impõe menos de 7% do que documenta
+## 3.2 The alicerce imposes less than 7% of what it documents
 
-- **120 decisões** no painel (não 117 — quatro arquivos afirmam 117).
-- **~8 decisões** têm porta real. **5 dos 23 invariantes** têm código que roda.
-- `base/`, `orquestracao/`, `adr/` estão **vazios**.
-- **`perfil.esquema.json` não existe.** O motor validador passa em 10 fixtures, mas o default aponta para arquivo ausente → exit 2.
-- `fronteiras/provas/provar.mjs` quebra no Windows: `execFileSync('npx', …)` sem `shell:true`. Derruba o passo `fronteiras` **e** o `provar-portao.mjs`. Invisível porque o CI só roda Linux.
+- **120 decisions** in the panel (not 117 — four files claim 117).
+- **~8 decisions** have a real gate. **5 of the 23 invariants** have code that runs.
+- `base/`, `orquestracao/`, `adr/` are **empty**.
+- **`perfil.esquema.json` does not exist.** The validator engine passes on 10 fixtures, but the default points at a missing file → exit 2.
+- `fronteiras/provas/provar.mjs` breaks on Windows: `execFileSync('npx', …)` without `shell:true`. It takes down the `fronteiras` step **and** `provar-portao.mjs`. Invisible because CI only runs Linux.
 
-**A inversão que define o rebar:** no alicerce o gerador é o M8, último e nunca alcançado. No rebar, **o gerador é o produto**.
+**The inversion that defines rebar:** in the alicerce the generator is M8, last and never reached. In rebar, **the generator is the product**.
 
-## 3.3 O ponto cego do alicerce é onde os projetos do dono vivem
+## 3.3 The alicerce's blind spot is where the owner's projects live
 
-O alicerce foi escrito para sistema corporativo interno. O dono constrói **sites públicos**. O painel não tem uma linha sobre:
+The alicerce was written for an internal corporate system. The owner builds **public sites**. The panel does not have one line about:
 
-> termos de uso · política de privacidade · cookies · base legal · canal do titular · DPO · DPA · SEO · `<title>`/description · favicon · `og:image` · sitemap · `robots.txt` · manifest/PWA · LICENSE · README como entregável
+> terms of use · privacy policy · cookies · legal basis · data-subject channel · DPO · DPA · SEO · `<title>`/description · favicon · `og:image` · sitemap · `robots.txt` · manifest/PWA · LICENSE · README as a deliverable
 
-Grep no repositório inteiro: **zero ocorrências**. Pelo critério do próprio painel (*o inimigo é "não perceber que havia uma escolha"*), é o modo de falha dele acontecendo nele mesmo. **Maior contribuição original do rebar.**
-
----
-
-# 4. A taxonomia N0–N7 — o ativo mais valioso
-
-De `manual/02-quem-impoe.md`. Regra-mãe (`:8`): **"Se uma regra pode descer um nível, ela deve descer."**
-
-| Nível | O que é | Falha como | Custo/sessão |
-|---|---|---|---|
-| **N0** | Compilador — tipos, contrato tipado, exaustividade | "não compila" | zero |
-| **N1** | Análise estática — lint, fronteiras, ciclos, cor literal | "não passa no lint" | zero |
-| **N2** | Contrato em runtime — Zod na borda, env no boot | "não passa na borda" | ~zero |
-| **N3** | Teste | "não passa na suíte" | zero |
-| **N4** | CI — bloqueia merge | "não entra na principal" | zero |
-| **N5** | Hook — impede **antes** de acontecer | "a ação não acontece" | ~zero |
-| **N6** | Regra de IA — `CLAUDE.md`, MCP | "depende de ler e obedecer" | **alto e recorrente** |
-| **N7** | Porta humana | "depende de alguém prestar atenção" | alto |
-
-**Fronteira do determinismo entre N5 e N6.** Acima é máquina; abaixo é pedido.
-
-1. **A conta** (`:43-54`): 100 linhas de regra ≈ 1,5k tokens. 30 sessões/semana por um ano ≈ **2,3 milhões de tokens**. *"Toda regra que mora em N6 e caberia em N0–N5 é dívida."* Alvo: instrução sempre presente **< 200 linhas**.
-2. **O limite** (`:103-114`): *"Regra automática errada custa mais que regra ausente."* **Toda regra que sobe para N1 nasce com dois casos — um que reprova, um que aprova.**
-
-**É isto que responde à queixa.** A IA ignora porque quase tudo está em N6. A resposta não é escrever melhor — é **descer de nível**.
+Grep over the whole repository: **zero occurrences**. By the panel's own criterion (*o inimigo é "não perceber que havia uma escolha"* [the enemy is "not perceiving that there was a choice"]), it is its failure mode happening to itself. **Rebar's biggest original contribution.**
 
 ---
 
-# 5. O painel completo — 120 decisões
+# 4. The N0–N7 taxonomy — the most valuable asset
 
-Transcrição de `manual/00-painel-de-decisoes.md`. ✅ padrão da casa · ⬜ o projeto decide · 🔴 caro de reverter.
+From `manual/02-quem-impoe.md`. Mother rule (`:8`): **"Se uma regra pode descer um nível, ela deve descer."** [If a rule can go down a level, it must go down.]
 
-*(Esta seção vira `perfil.esquema.json`. Cada linha ganha dois campos que o alicerce não tem: **nível N0–N7** e **artefato gerado**.)*
-
-## Eixo 0 · Produto e limites — 9
-> Antes de qualquer tecnologia. Metade dos erros de arquitetura são erros de escopo assumido.
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
+| Level | What it is | Fails as | Cost/session |
 |---|---|---|---|
-| ⬜🔴 Que problema resolve, em uma frase | — | N7 | Escopo cresce sem limite |
-| ⬜🔴 O que o sistema **não** faz | Lista explícita, versionada | N7 | Cada pedido vira feature |
-| ⬜ Atores e o que cada um pode | Lista antes do RBAC | N7 | Permissão vira remendo |
-| ⬜🔴 Criticidade: dinheiro, tempo ou vida? | — | N7 | Define o rigor de tudo abaixo |
-| ⬜ Volume esperado | Ordem de grandeza basta | N7 | Otimização inventada ou ausente |
-| ⬜🔴 Multi-tenant? | Não, salvo prova | N0/N2 | Retrofit de tenant é reescrita |
-| ✅ Idioma do código e do domínio | Português, um só | N1 | Nome duplicado em dois idiomas |
-| ⬜ Sistemas com que integra, e quem manda | Lista com dono humano | N7 | Acoplamento descoberto tarde |
-| ⬜ Prazo de vida esperado | — | N7 | Rigor desproporcional ao descartável |
+| **N0** | Compiler — types, typed contract, exhaustiveness | "does not compile" | zero |
+| **N1** | Static analysis — lint, boundaries, cycles, literal color | "does not pass lint" | zero |
+| **N2** | Runtime contract — Zod at the edge, env at boot | "does not pass at the edge" | ~zero |
+| **N3** | Test | "does not pass the suite" | zero |
+| **N4** | CI — blocks merge | "does not get into main" | zero |
+| **N5** | Hook — prevents it **before** it happens | "the action does not happen" | ~zero |
+| **N6** | AI rule — `CLAUDE.md`, MCP | "depends on reading and obeying" | **high and recurring** |
+| **N7** | Human gate | "depends on someone paying attention" | high |
 
-## Eixo 1 · Contrato — 13
-> Onde a IA mais inventa: cria `POST /pedido/iniciar` quando o servidor espera `POST /pedidos/:id/iniciar-montagem`.
+**The determinism boundary is between N5 and N6.** Above it is machine; below it is a request.
 
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ✅🔴 Fonte única, importada pelas duas pontas | Pacote `contracts`, sem geração intermediária | N0 | Divergência descoberta pelo usuário |
-| ⬜ Ferramenta de contrato | ts-rest + Zod | N0 | — |
-| ✅ Contrato descreve rota inteira | método, path, params, query, body, status, erro | N0 | Schema solto valida payload, não API |
-| ✅🔴 Validação de **resposta**, inclusive em produção | Sim | N2 | `as any` passa direto |
-| ✅ Formato de erro | Problem Details RFC 9457 | N2 | Tela casa string de mensagem |
-| ✅🔴 `commandId` gerado pelo **cliente** | Sim | N0/N2 | Retry duplica efeito |
-| ✅ `request`·`response`·`evento`·`erro` separados | Sim | N1 | Ciclos de vida no mesmo tipo |
-| ✅ `z.input` no cliente, `z.output` no servidor | Sim | N0 | Funciona por acidente |
-| ⬜ Versionamento de API | Aditivo; quebra exige ADR | N7 | Cliente antigo quebra em silêncio |
-| ✅ Paginação/filtro/ordenação | Primitivo compartilhado | N0 | Cada rota inventa a sua |
-| ✅ Zero dependência de Node no contrato | Sim | N0/N1 | Bundle do browser quebra |
-| ⬜ Data e fuso | ISO 8601 com offset, sempre | N2 | Bug de fuso é o mais caro de achar |
-| ⬜ Dinheiro | Inteiro em centavos, nunca float | N0/N2 | Erro de centavo em relatório |
+1. **The arithmetic** (`:43-54`): 100 lines of rule ≈ 1.5k tokens. 30 sessions/week for a year ≈ **2.3 million tokens**. *"Toda regra que mora em N6 e caberia em N0–N5 é dívida."* [Every rule that lives in N6 and would fit in N0–N5 is debt.] Target: always-present instruction **< 200 lines**.
+2. **The limit** (`:103-114`): *"Regra automática errada custa mais que regra ausente."* [A wrong automatic rule costs more than a missing rule.] **Every rule that goes up to N1 is born with two cases — one that fails, one that passes.**
 
-## Eixo 2 · Dados e persistência — 15
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ⬜🔴 Banco e dialeto | — | — | Reversível só cedo |
-| ✅🔴 Query builder sobre ORM que esconde SQL | Kysely | N7 | Abstração que esconde o que executa |
-| ✅ Um pool, uma API de transação | Sim | N1 | Dois modelos transacionais |
-| ✅🔴 Uma transação por caso de uso, via `UnitOfWork` | Sim | N1/N3 | Transação aberta em qualquer lugar |
-| ✅🔴 Nenhum I/O externo dentro de transação | Outbox após commit | N1/N3 | Lock segurado por HTTP de terceiro |
-| ✅ Concorrência: `UPDATE` condicional | Sim | N3 | Saldo negativo sob concorrência |
-| ✅🔴 Conflito de versão é `409`, **nunca** retry | Sim | N3 | Retry sobrescreve intenção alheia |
-| ✅ Retry só transitório, do caso de uso inteiro | No `UnitOfWork` | N3 | Retry parcial corrompe estado |
-| ⬜🔴 Migrations: ferramenta, reversibilidade | Reversível ou com ADR | N4/N7 | Migration destrutiva sem volta |
-| ✅ Migration existente nunca é editada | Nova migration | N1/N4 | Ambientes divergem em silêncio |
-| ⬜ Seed determinístico | Sim, seed fixo | N3 | Teste que passa às terças |
-| ⬜ Invariante no banco (CHECK, FK, unique) | Sim, além do código | N2 | Código é uma porta; banco é a última |
-| ⬜ Soft delete? | Não, salvo exigência legal | N7 | `WHERE deleted_at IS NULL` esquecido |
-| ⬜🔴 Backup — **quem já testou restaurar?** | Restauração testada antes do go-live | N7 | Backup nunca testado é inexistente |
-| ⬜ Retenção e expurgo | Antes da primeira gravação | N7 | LGPD e tabela de 400 GB |
-
-## Eixo 3 · Fronteiras e composição — 9
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ✅🔴 Camadas e direção de import fixa | domínio → nada; dados → sem UI; componente → sem busca | N1 | Tudo importa tudo em 3 meses |
-| ✅🔴 Fronteira imposta por ferramenta | `dependency-cruiser` no CI | N1/N4 | README é intenção |
-| ✅ Regra de negócio em código puro | Sim | N1/N3 | Regra só testável subindo o mundo |
-| ✅ Ciclo de import reprovado | Sim | N1 | Funciona até parar de funcionar |
-| ✅ Módulo órfão sinalizado | Aviso | N1 | Código não revisado no repositório |
-| ✅ Estado global mutável não existe | Dependência explícita | N1/N7 | IA não prevê efeito |
-| ⬜ Monorepo: quem depende de quem | Grafo declarado | N1 | Pacote vira lixeira comum |
-| ✅🔴 Raio de busca: feature em quantos arquivos | Alvo ≤ 10 | N6/N7 | É **a** métrica de custo de token |
-| ⬜ Organização: por camada ou por feature | Por feature onde houver domínio real | N7 | Mudar feature toca 8 pastas |
-
-## Eixo 4 · Verificação — 18
-> O eixo que se esquece. Não porque é difícil — porque se pede "testes" e se recebe teste unitário.
-
-**Colunas diferentes neste eixo.**
-
-| Verificação | Padrão da casa | O que ela pega | Gatilho |
-|---|---|---|---|
-| ✅ Tipagem estrita | `strict`, sem exceção sem ADR | Divergência de forma | Sempre |
-| ✅ Formatação | Automática, não discutida | Ruído de revisão | Sempre |
-| ✅ Estática + fronteiras | Lint + `dependency-cruiser` | Camada cruzada, ciclo, órfão | Sempre |
-| ✅ Unitário de domínio | Sim | Regra de negócio errada | Existe regra de negócio |
-| ⬜🔴 **Teste de contrato** | Sim | Handler que divergiu do schema | Existe API |
-| ⬜🔴 **Integração com banco real** | Sim | SQL, transação, índice ausente | Existe banco |
-| ⬜ **Teste de migration** (com dado existente) | Sim | Migration que quebra em produção | Existe migration |
-| ⬜ Teste de componente | Onde há lógica de interação | Estado de UI quebrado | Componente com estado |
-| ⬜ E2E do caminho crítico | 3 a 7 fluxos, não mais | Integração entre tudo | Existe usuário final |
-| ⬜ Caminho de erro (409, 422, 503, timeout) | Sim | O que só quebra quando dá errado | Sempre que houver erro previsto |
-| ⬜ Acessibilidade | Nível alvo declarado | Teclado, foco, contraste, leitor | Interface pública ou corporativa |
-| ⬜ Regressão visual | Só em design system estável | CSS que vaza | Design system compartilhado |
-| ⬜ Carga / limite | Antes do go-live | Índice ausente, N+1, pool | Volume conhecido |
-| ⬜🔴 Segurança: dependências, segredo, estática | Sim, no CI | Segredo commitado, CVE | Sempre |
-| ⬜ Smoke pós-deploy | Sim | Deploy que subiu quebrado | Existe deploy |
-| ⬜ Cobertura: alvo e onde exigir | Domínio alto; UI sem meta | Falsa sensação | Sempre declarar |
-| ✅🔴 Comando único que decide se terminou | `verificar` | — | Sempre |
-| ✅ Determinismo: relógio fake, seed fixo, sem rede | Sim | Teste intermitente | Sempre |
-
-> **Não** se exige teste por arquivo. Exige-se verificação por **comportamento importante**.
-
-## Eixo 5 · Segurança, acesso e LGPD — 12
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ⬜🔴 IdP e modelo de sessão | Hello (corporativo) | N7 | Auth caseiro é passivo |
-| ⬜ Duração de sessão, refresh, revogação | Declarados | N3 | Sessão eterna |
-| ✅🔴 Política de acesso em domínio puro e testável | Sim | N1/N3 | RBAC espalhado em `if` de rota |
-| ✅ Entrada externa validada na borda | Sim | N2 | Tipo não existe em runtime |
-| ✅🔴 Segredo nunca no repositório nem em log | Cofre + verificação no CI | N4/N5 | Rotação de tudo, e sorte |
-| ⬜🔴 Dado pessoal: campos, onde, por quanto tempo | Inventário antes da 1ª gravação | N7 | LGPD — caro depois |
-| ✅🔴 Dado pessoal não entra em log | Mascaramento na saída | N1/N3 | Vazamento por observabilidade |
-| ⬜ Auditoria: quem fez o quê, quando | Em operação sensível | N3 | Não responde à investigação |
-| ⬜ Limite de taxa e abuso | Onde houver borda pública | N3 | — |
-| ⬜ Upload: tipo, tamanho, varredura, destino | Declarado | N2 | Vetor clássico |
-| ⬜ Cabeçalhos, CORS, CSP | Restritivo por padrão | N3 | — |
-| ⬜ Dependências: política e CVE | Verificação semanal no CI | N4 | Dívida silenciosa |
-
-## Eixo 6 · Operação — 10
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ✅🔴 Config validada no boot | Schema no boot | N2 | Erro de env vira bug de meia-noite |
-| ⬜ Ambientes e como diferem | Lista explícita | N7 | "Funciona local" |
-| ✅ Log estruturado com correlação | Sim | N1/N3 | Log ilegível sob incidente |
-| ⬜ Métricas mínimas | Latência, erro, saturação | N7 | Diagnóstico por achismo |
-| ⬜ Alerta — **para quem toca o telefone** | Definido com nome | N7 | Erro que ninguém lê |
-| ⬜🔴 Deploy: como sobe e como volta | Rollback testado | N7 | Volta improvisada às 23h |
-| ⬜ Feature flag | Só onde houver risco real | N7 | Flag eterna é dívida |
-| ⬜ Assíncrono: fila, outbox, agendado | Outbox após commit | N1/N3 | Efeito perdido ou duplicado |
-| ⬜ Idempotência de consumidor | Obrigatória | N3 | Reprocessamento duplica |
-| ⬜ Janela de manutenção e degradação | Declarada | N7 | Expectativa não combinada |
-
-## Eixo 7 · Interface — 11
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ⬜🔴 Biblioteca de componentes, uma só | shadcn/ui + Radix ⚠️ | N6/N7 | Duas bibliotecas é caminho para nenhuma |
-| ✅ Componente de terceiro não editado no lugar | Camada própria por cima | N1/N6 | Atualização sobrescreve |
-| ✅🔴 Cor literal reprovada; só token semântico | Sim | N1 | Funciona no claro, quebra no escuro |
-| ✅ Ícones: uma família só | Lucide | N1 | Duas famílias, dois pesos |
-| ✅🔴 Todo componente de dado tem 4 estados | carregando·vazio·erro·com dado | N3/N6 | Tela branca em produção |
-| ✅ Componente recebe dado por prop | Sim | N1 | Deixa de ser testável |
-| ⬜ Estado de modal e filtro na URL | Validado por schema | N2 | Link não compartilhável |
-| ⬜ Formulário: validação vinda do contrato | Mesmo schema das duas pontas | N0 | Regra divergente tela/servidor |
-| ⬜ Acessibilidade: nível alvo | Declarado | N3 | Retrofit é caro |
-| ⬜ Tema claro/escuro | Ambos verificados | N6/N7 | Metade dos bugs visuais |
-| ⬜ i18n | Não, salvo necessidade | N7 | Retrofit caro; adoção prematura também |
-
-> ⚠️ **Contradição a resolver:** o painel diz Radix; o herz usa `@base-ui/react`. O rebar decide **Base UI**.
-
-## Eixo 8 · Trabalho com IA — 15
-> O eixo que não existe nos padrões de mercado, e o que decide o custo do ano dois.
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ✅🔴 Instrução sempre presente é curta | < 200 linhas | N6 | Contexto permanente gigante |
-| ✅ Regra específica carrega por caminho | Sim | N6 | Outro contexto de 20k |
-| ✅🔴 MCP de padrões do próprio projeto | Sim, **gerado do perfil** | N6 | A IA lê o repo inteiro |
-| ⬜🔴 MCP de outro projeto nunca vale como norma | Regra explícita | N6 | Custou 5 decisões revertidas no Herz |
-| ✅🔴 Protocolo de gambiarra com aprovação humana | Sim | N5/N7 | Gambiarra invisível |
-| ✅ Supressão exige justificativa | `any`, `ts-ignore`, teste pulado | N1/N4 | Ninguém sabe se foi erro ou intenção |
-| ⬜🔴 Estado de tarefa no repositório | `.ai/` | N4 | Compactar custa caro |
-| ⬜ Handoff ao fim de cada tarefa | Automático | N4 | Sessão nova relê a novela |
-| ⬜ ADR obrigatório para qual classe | Arquitetura, contrato, banco, segurança | N7 | Decisão vira folclore |
-| ✅🔴 Comentar o porquê, nunca o o quê | Sim | N6 | Comentário desatualizado mente |
-| ✅ Densidade decidida nos 1ºs arquivos | Fase 2 | N7 | A IA imita o entorno |
-| ⬜ JSDoc só na fronteira pública | Sim | N1 | Prosa repetindo assinatura |
-| ⬜ Roteamento de modelo por complexidade | Experimento medido | — | Orquestração custando mais |
-| ⬜🔴 Telemetria de token e custo por tarefa | Sim | N4 | Otimizar sem medir |
-| ✅🔴 "Terminei" = o comando de verificação passou | Sim | N4/N6 | Relato otimista |
-
-## Eixo 9 · Processo e entrega — 8
-
-| Decisão | Padrão da casa | Imposto | Custo de errar |
-|---|---|---|---|
-| ⬜🔴 CI existe e bloqueia merge | Sim | N4 | ~~"O Herz hoje não tem"~~ ⚠️ **Falso.** `herz/.github/workflows/verificar.yml` roda em push para `main` e em todo PR. O painel está desatualizado e eu copiei sem reverificar |
-| ✅ CI = o que `verificar` roda, mais o caro | Sim | N4 | Local e CI divergem |
-| ⬜ Branch e PR | PR sempre; sem push direto | N4/N5 | — |
-| ⬜🔴 Quando revisão humana é obrigatória | Migration, segurança, contrato, gambiarra | N7 | Revisão vira carimbo |
-| ✅ Commit descreve o efeito | Sim, em português | N6 | Histórico inútil como memória |
-| ⬜ Versionamento e changelog | Onde houver consumidor externo | N4 | — |
-| ⬜ Hook local antes do commit | Rápido: formato e tipo | N5 | Hook lento é hook desligado |
-| ⬜ Onboarding | Alvo: um comando | N7 | Conhecimento em uma cabeça só |
+**This is what answers the complaint.** The AI ignores because almost everything is in N6. The answer is not to write better — it is to **go down a level**.
 
 ---
 
-# 6. Inventário do aplicativo completo
+# 5. The full panel — 120 decisions
 
-## 6.1 O que o alicerce cobre bem
+Transcription of `manual/00-painel-de-decisoes.md`. ✅ house default · ⬜ the project decides · 🔴 expensive to reverse.
 
-**Dado pessoal (técnico):** inventário antes da 1ª gravação · retenção e expurgo · mascaramento em log · auditoria · soft delete só por exigência legal · segredo em cofre.
+*(This section becomes `perfil.esquema.json`. Each row gains two fields the alicerce does not have: **N0–N7 level** and **generated artifact**.)*
 
-**Operação:** config no boot · ambientes · log com correlação · métricas · alerta com dono nomeado · **health check que checa dependência** (*"saúde que responde 200 fixo mente"*) · smoke pós-deploy · **backup com restauração testada** · rollback testado · feature flag · janela de manutenção · outbox · idempotência · carga antes do go-live.
+## Axis 0 · Product and limits — 9
+> Before any technology. Half of architecture errors are errors of assumed scope.
 
-**Segurança:** cabeçalhos/CORS/CSP · upload declarado · rate limit · cofre + varredura no CI · CVE semanal · IdP · sessão/refresh/revogação · acesso em domínio puro · validação de entrada e de resposta.
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ⬜🔴 What problem it solves, in one sentence | — | N7 | Scope grows without limit |
+| ⬜🔴 What the system does **not** do | Explicit list, versioned | N7 | Every request becomes a feature |
+| ⬜ Actors and what each one can do | List before RBAC | N7 | Permission becomes a patch |
+| ⬜🔴 Criticality: money, time or life? | — | N7 | Defines the rigor of everything below |
+| ⬜ Expected volume | Order of magnitude is enough | N7 | Optimization invented or absent |
+| ⬜🔴 Multi-tenant? | No, absent proof | N0/N2 | Tenant retrofit is a rewrite |
+| ✅ Language of the code and of the domain | Portuguese, one only | N1 | Duplicated name in two languages |
+| ⬜ Systems it integrates with, and who is in charge | List with a human owner | N7 | Coupling discovered late |
+| ⬜ Expected lifetime | — | N7 | Rigor out of proportion to the disposable |
 
-**Entrega:** CI que bloqueia · `verificar` único · PR sempre · ramo protegido · revisão humana obrigatória · ADR por divergência · `CLAUDE.md` < 200 linhas · `.ai/` com handoff · MCP gerado do perfil · telemetria de token.
+## Axis 1 · Contract — 13
+> Where the AI invents most: it creates `POST /pedido/iniciar` when the server expects `POST /pedidos/:id/iniciar-montagem`.
 
-**O catálogo de 13 verificações**, cada uma com a coluna *"o que ela NÃO pega"* — que é o que ninguém escreve:
-tipagem · formatação (*"absolutamente nada de correção"*) · estática/fronteiras · unitário · contrato **nos dois sentidos** · integração com banco real (*"mock de banco testa o mock"*) · **migration com dado existente** (*"a mais esquecida do catálogo"*) · componente · E2E 3–7 fluxos · caminho de erro · acessibilidade (*"automática pega talvez metade"*) · regressão visual · carga · segurança · smoke.
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ✅🔴 Single source, imported by both ends | `contracts` package, no intermediate generation | N0 | Divergence discovered by the user |
+| ⬜ Contract tooling | ts-rest + Zod | N0 | — |
+| ✅ Contract describes the whole route | method, path, params, query, body, status, error | N0 | A loose schema validates a payload, not an API |
+| ✅🔴 **Response** validation, in production too | Yes | N2 | `as any` goes straight through |
+| ✅ Error format | Problem Details RFC 9457 | N2 | The screen matches on a message string |
+| ✅🔴 `commandId` generated by the **client** | Yes | N0/N2 | Retry duplicates the effect |
+| ✅ `request`·`response`·`event`·`error` separated | Yes | N1 | Life cycles in the same type |
+| ✅ `z.input` on the client, `z.output` on the server | Yes | N0 | Works by accident |
+| ⬜ API versioning | Additive; a break requires an ADR | N7 | Old client breaks in silence |
+| ✅ Pagination/filter/ordering | Shared primitive | N0 | Every route invents its own |
+| ✅ Zero Node dependency in the contract | Yes | N0/N1 | The browser bundle breaks |
+| ⬜ Date and time zone | ISO 8601 with offset, always | N2 | A time-zone bug is the most expensive to find |
+| ⬜ Money | Integer in cents, never float | N0/N2 | A cent error in a report |
 
-**Determinismo:** relógio injetável · `Date.now()` reprovado por lint · seed fixo explícito · rede proibida em unitário · cada teste cria e destrói o próprio dado · esperar por condição, nunca por duração · fuso fixado · quarentena **com prazo e dono**, nunca `skip` seco.
+## Axis 2 · Data and persistence — 15
 
-**Sete antipadrões vistos em projeto real:** pedir testes e receber unitário · mock de banco em integração · suíte E2E grande · teste escrito depois pelo mesmo agente que escreveu o código · `skip` sem prazo · CI que roda menos que o dev · **regra automática com falso positivo**.
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ⬜🔴 Database and dialect | — | — | Reversible only early |
+| ✅🔴 Query builder over an ORM that hides SQL | Kysely | N7 | An abstraction that hides what executes |
+| ✅ One pool, one transaction API | Yes | N1 | Two transactional models |
+| ✅🔴 One transaction per use case, via `UnitOfWork` | Yes | N1/N3 | A transaction opened anywhere |
+| ✅🔴 No external I/O inside a transaction | Outbox after commit | N1/N3 | A lock held by a third party's HTTP |
+| ✅ Concurrency: conditional `UPDATE` | Yes | N3 | Negative balance under concurrency |
+| ✅🔴 A version conflict is `409`, **never** a retry | Yes | N3 | Retry overwrites someone else's intent |
+| ✅ Retry only on transients, of the whole use case | In the `UnitOfWork` | N3 | A partial retry corrupts state |
+| ⬜🔴 Migrations: tooling, reversibility | Reversible or with an ADR | N4/N7 | A destructive migration with no way back |
+| ✅ An existing migration is never edited | A new migration | N1/N4 | Environments diverge in silence |
+| ⬜ Deterministic seed | Yes, fixed seed | N3 | A test that passes on Tuesdays |
+| ⬜ Invariant in the database (CHECK, FK, unique) | Yes, beyond the code | N2 | Code is one gate; the database is the last |
+| ⬜ Soft delete? | No, absent a legal requirement | N7 | `WHERE deleted_at IS NULL` forgotten |
+| ⬜🔴 Backup — **who has actually tested a restore?** | Restore tested before go-live | N7 | A backup never tested does not exist |
+| ⬜ Retention and purge | Before the first write | N7 | LGPD and a 400 GB table |
 
-**Bloco de gambiarra, pronto para virar regex:**
+## Axis 3 · Boundaries and composition — 9
+
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ✅🔴 Layers and fixed import direction | domain → nothing; data → no UI; component → no fetching | N1 | Everything imports everything in 3 months |
+| ✅🔴 Boundary imposed by tooling | `dependency-cruiser` in CI | N1/N4 | A README is intent |
+| ✅ Business rule in pure code | Yes | N1/N3 | A rule only testable by booting the world |
+| ✅ Import cycle failed | Yes | N1 | Works until it stops working |
+| ✅ Orphan module flagged | Warning | N1 | Unreviewed code in the repository |
+| ✅ Mutable global state does not exist | Explicit dependency | N1/N7 | The AI does not foresee the effect |
+| ⬜ Monorepo: who depends on whom | Declared graph | N1 | A package becomes the common dumpster |
+| ✅🔴 Search radius: a feature spans how many files | Target ≤ 10 | N6/N7 | It is **the** token-cost metric |
+| ⬜ Organization: by layer or by feature | By feature where there is a real domain | N7 | Changing a feature touches 8 folders |
+
+## Axis 4 · Verification — 18
+> The axis that gets forgotten. Not because it is hard — because you ask for "tests" and you get a unit test.
+
+**Different columns in this axis.**
+
+| Check | House default | What it catches | Trigger |
+|---|---|---|---|
+| ✅ Strict typing | `strict`, no exception without an ADR | Divergence of shape | Always |
+| ✅ Formatting | Automatic, not discussed | Review noise | Always |
+| ✅ Static + boundaries | Lint + `dependency-cruiser` | Crossed layer, cycle, orphan | Always |
+| ✅ Domain unit test | Yes | Wrong business rule | There is a business rule |
+| ⬜🔴 **Contract test** | Yes | A handler that diverged from the schema | There is an API |
+| ⬜🔴 **Integration with a real database** | Yes | SQL, transaction, missing index | There is a database |
+| ⬜ **Migration test** (with existing data) | Yes | A migration that breaks in production | There is a migration |
+| ⬜ Component test | Where there is interaction logic | Broken UI state | Component with state |
+| ⬜ E2E of the critical path | 3 to 7 flows, no more | Integration between everything | There is an end user |
+| ⬜ Error path (409, 422, 503, timeout) | Yes | What only breaks when things go wrong | Whenever there is a foreseen error |
+| ⬜ Accessibility | Declared target level | Keyboard, focus, contrast, reader | Public or corporate interface |
+| ⬜ Visual regression | Only on a stable design system | CSS that leaks | Shared design system |
+| ⬜ Load / limit | Before go-live | Missing index, N+1, pool | Known volume |
+| ⬜🔴 Security: dependencies, secret, static | Yes, in CI | Committed secret, CVE | Always |
+| ⬜ Post-deploy smoke | Yes | A deploy that went up broken | There is a deploy |
+| ⬜ Coverage: target and where to require it | Domain high; UI with no goal | False sense | Always declare |
+| ✅🔴 Single command that decides whether it is done | `verificar` | — | Always |
+| ✅ Determinism: fake clock, fixed seed, no network | Yes | Flaky test | Always |
+
+> A test per file is **not** required. What is required is verification per **important behavior**.
+
+## Axis 5 · Security, access and LGPD — 12
+
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ⬜🔴 IdP and session model | Hello (corporate) | N7 | Homemade auth is a liability |
+| ⬜ Session duration, refresh, revocation | Declared | N3 | Eternal session |
+| ✅🔴 Access policy in pure, testable domain code | Yes | N1/N3 | RBAC scattered across route `if`s |
+| ✅ External input validated at the edge | Yes | N2 | The type does not exist at runtime |
+| ✅🔴 Secret never in the repository nor in a log | Vault + check in CI | N4/N5 | Rotate everything, and hope |
+| ⬜🔴 Personal data: fields, where, for how long | Inventory before the 1st write | N7 | LGPD — expensive afterwards |
+| ✅🔴 Personal data does not go into a log | Masking on output | N1/N3 | A leak through observability |
+| ⬜ Audit: who did what, when | On sensitive operations | N3 | Does not answer the investigation |
+| ⬜ Rate limit and abuse | Wherever there is a public edge | N3 | — |
+| ⬜ Upload: type, size, scan, destination | Declared | N2 | Classic vector |
+| ⬜ Headers, CORS, CSP | Restrictive by default | N3 | — |
+| ⬜ Dependencies: policy and CVE | Weekly check in CI | N4 | Silent debt |
+
+## Axis 6 · Operation — 10
+
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ✅🔴 Config validated at boot | Schema at boot | N2 | An env error becomes a midnight bug |
+| ⬜ Environments and how they differ | Explicit list | N7 | "Works locally" |
+| ✅ Structured log with correlation | Yes | N1/N3 | An unreadable log during an incident |
+| ⬜ Minimum metrics | Latency, error, saturation | N7 | Diagnosis by guesswork |
+| ⬜ Alert — **for whoever the phone rings** | Defined with a name | N7 | An error nobody reads |
+| ⬜🔴 Deploy: how it goes up and how it comes back | Rollback tested | N7 | An improvised rollback at 11pm |
+| ⬜ Feature flag | Only where there is real risk | N7 | An eternal flag is debt |
+| ⬜ Async: queue, outbox, scheduled | Outbox after commit | N1/N3 | Effect lost or duplicated |
+| ⬜ Consumer idempotency | Mandatory | N3 | Reprocessing duplicates |
+| ⬜ Maintenance and degradation window | Declared | N7 | An expectation never agreed |
+
+## Axis 7 · Interface — 11
+
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ⬜🔴 Component library, one only | shadcn/ui + Radix ⚠️ | N6/N7 | Two libraries is the road to none |
+| ✅ Third-party component not edited in place | Own layer on top | N1/N6 | An update overwrites it |
+| ✅🔴 Literal color failed; semantic token only | Yes | N1 | Works in light, breaks in dark |
+| ✅ Icons: one family only | Lucide | N1 | Two families, two weights |
+| ✅🔴 Every data component has 4 states | loading·empty·error·with data | N3/N6 | A white screen in production |
+| ✅ Component receives data by prop | Yes | N1 | It stops being testable |
+| ⬜ Modal and filter state in the URL | Validated by schema | N2 | A link that cannot be shared |
+| ⬜ Form: validation coming from the contract | Same schema on both ends | N0 | A rule that diverges screen/server |
+| ⬜ Accessibility: target level | Declared | N3 | Retrofit is expensive |
+| ⬜ Light/dark theme | Both checked | N6/N7 | Half of the visual bugs |
+| ⬜ i18n | No, absent a need | N7 | Retrofit is expensive; premature adoption too |
+
+> ⚠️ **Contradiction to resolve:** the panel says Radix; herz uses `@base-ui/react`. Rebar decides **Base UI**.
+
+## Axis 8 · Working with AI — 15
+> The axis that does not exist in market standards, and the one that decides the cost of year two.
+
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ✅🔴 The always-present instruction is short | < 200 lines | N6 | A giant permanent context |
+| ✅ A specific rule loads by path | Yes | N6 | Another 20k of context |
+| ✅🔴 MCP of the project's own standards | Yes, **generated from the profile** | N6 | The AI reads the whole repo |
+| ⬜🔴 Another project's MCP never counts as norm | Explicit rule | N6 | Cost 5 reverted decisions in Herz |
+| ✅🔴 Kludge protocol with human approval | Yes | N5/N7 | An invisible kludge |
+| ✅ A suppression requires a justification | `any`, `ts-ignore`, skipped test | N1/N4 | Nobody knows if it was error or intent |
+| ⬜🔴 Task state in the repository | `.ai/` | N4 | Compacting is expensive |
+| ⬜ Handoff at the end of every task | Automatic | N4 | A new session rereads the soap opera |
+| ⬜ ADR mandatory for which class | Architecture, contract, database, security | N7 | A decision becomes folklore |
+| ✅🔴 Comment the why, never the what | Yes | N6 | An outdated comment lies |
+| ✅ Density decided in the 1st files | Phase 2 | N7 | The AI imitates its surroundings |
+| ⬜ JSDoc only on the public boundary | Yes | N1 | Prose repeating the signature |
+| ⬜ Model routing by complexity | Measured experiment | — | Orchestration costing more |
+| ⬜🔴 Token and cost telemetry per task | Yes | N4 | Optimizing without measuring |
+| ✅🔴 "Done" = the verification command passed | Yes | N4/N6 | Optimistic reporting |
+
+## Axis 9 · Process and delivery — 8
+
+| Decision | House default | Imposed at | Cost of getting it wrong |
+|---|---|---|---|
+| ⬜🔴 CI exists and blocks merge | Yes | N4 | ~~"O Herz hoje não tem"~~ [Herz today does not have one] ⚠️ **False.** `herz/.github/workflows/verificar.yml` runs on push to `main` and on every PR. The panel is out of date and I copied it without rechecking |
+| ✅ CI = what `verificar` runs, plus the expensive parts | Yes | N4 | Local and CI diverge |
+| ⬜ Branch and PR | PR always; no direct push | N4/N5 | — |
+| ⬜🔴 When human review is mandatory | Migration, security, contract, kludge | N7 | Review becomes a rubber stamp |
+| ✅ The commit describes the effect | Yes, in Portuguese | N6 | History useless as memory |
+| ⬜ Versioning and changelog | Where there is an external consumer | N4 | — |
+| ⬜ Local hook before the commit | Fast: format and type | N5 | A slow hook is a disabled hook |
+| ⬜ Onboarding | Target: one command | N7 | Knowledge in a single head |
+
+---
+
+# 6. Inventory of the complete application
+
+## 6.1 What the alicerce covers well
+
+**Personal data (technical):** inventory before the 1st write · retention and purge · masking in logs · audit · soft delete only on legal requirement · secret in a vault.
+
+**Operation:** config at boot · environments · log with correlation · metrics · alert with a named owner · **health check that checks its dependencies** (*"saúde que responde 200 fixo mente"* [a health endpoint that answers a fixed 200 lies]) · post-deploy smoke · **backup with a tested restore** · tested rollback · feature flag · maintenance window · outbox · idempotency · load before go-live.
+
+**Security:** headers/CORS/CSP · declared upload · rate limit · vault + scan in CI · weekly CVE · IdP · session/refresh/revocation · access in pure domain code · input and response validation.
+
+**Delivery:** CI that blocks · a single `verificar` · PR always · protected branch · mandatory human review · an ADR per divergence · `CLAUDE.md` < 200 lines · `.ai/` with handoff · MCP generated from the profile · token telemetry.
+
+**The catalog of 13 checks**, each with the column *"o que ela NÃO pega"* [what it does NOT catch] — which is what nobody writes:
+typing · formatting (*"absolutamente nada de correção"* [absolutely nothing about correctness]) · static/boundaries · unit · contract **in both directions** · integration with a real database (*"mock de banco testa o mock"* [a database mock tests the mock]) · **migration with existing data** (*"a mais esquecida do catálogo"* [the most forgotten one in the catalog]) · component · E2E 3–7 flows · error path · accessibility (*"automática pega talvez metade"* [automated catches maybe half]) · visual regression · load · security · smoke.
+
+**Determinism:** injectable clock · `Date.now()` failed by lint · explicit fixed seed · network forbidden in unit tests · every test creates and destroys its own data · wait for a condition, never for a duration · time zone pinned · quarantine **with a deadline and an owner**, never a bare `skip`.
+
+**Seven antipatterns seen in a real project:** asking for tests and getting unit tests · a database mock in an integration test · a large E2E suite · a test written afterwards by the same agent that wrote the code · a `skip` with no deadline · CI that runs less than the dev does · **an automatic rule with a false positive**.
+
+**Kludge block, ready to become a regex** — the field names below stay in Portuguese because they are the literal marker the regex will match in audited code, not prose:
 ```
 // @gambiarra
 // motivo: ...
@@ -373,743 +373,743 @@ tipagem · formatação (*"absolutamente nada de correção"*) · estática/fron
 // revisao-humana: obrigatória
 ```
 
-**A tabela "em vez de comentar, suba para":**
+**The "instead of commenting, promote it to" table** — the comments are quoted verbatim from the owner's requirements, so the original stands and the translation follows in brackets:
 
-| Comentário | Vira |
+| Comment | Becomes |
 |---|---|
-| "precisa continuar idempotente" | teste que envia o mesmo `commandId` duas vezes |
-| "mantenha dentro da transação" | regra `sem-io-externo-no-caso-de-uso` |
-| "não normalizar o e-mail" | teste com caso legado real |
-| "nunca revele se o e-mail existe" | teste de caminho de erro |
-| "componente não busca dado" | regra `componente-nao-busca-dado` |
+| "precisa continuar idempotente" [it has to stay idempotent] | a test that sends the same `commandId` twice |
+| "mantenha dentro da transação" [keep it inside the transaction] | the `sem-io-externo-no-caso-de-uso` rule |
+| "não normalizar o e-mail" [do not normalize the e-mail] | a test with a real legacy case |
+| "nunca revele se o e-mail existe" [never reveal whether the e-mail exists] | an error-path test |
+| "componente não busca dado" [a component does not fetch data] | the `componente-nao-busca-dado` rule |
 
-## 6.2 O que falta — o rebar acrescenta
+## 6.2 What is missing — what rebar adds
 
-**Legal e conteúdo público:** termos de uso · política de privacidade · cookies · base legal · canal do titular · DPO · DPA/subprocessador · transferência internacional · exportação de dado do titular.
+**Legal and public content:** terms of use · privacy policy · cookies · legal basis · data-subject channel · DPO · DPA/subprocessor · international transfer · export of the data subject's data.
 
-**Identidade e descoberta:** SEO · `<title>` e description por rota · favicon · `og:image` · sitemap · `robots.txt` · manifest/PWA.
+**Identity and discovery:** SEO · `<title>` and description per route · favicon · `og:image` · sitemap · `robots.txt` · manifest/PWA.
 
-**Ainda ausentes:** LICENSE · README como entregável · CHANGELOG e SemVer · e-mail transacional · notificação ao usuário · página de status · runbook · SLO/SLA · limite de custo de infra · **health check sem linha própria no painel** · **nível de acessibilidade nunca nomeado** (diz "declarado", nunca WCAG A/AA/AAA).
+**Still absent:** LICENSE · README as a deliverable · CHANGELOG and SemVer · transactional e-mail · user notification · status page · runbook · SLO/SLA · infra cost cap · **health check with no line of its own in the panel** · **accessibility level never named** (it says "declared", never WCAG A/AA/AAA).
 
-## 6.3 A forense — o que realmente falha nos seis sites
+## 6.3 The forensics — what actually fails in the six sites
 
-161 commits medidos em Galegos (GAL), decima-edicoes (DEC), navesz.github.io (NAV), openparts (OPP), hug-brasil-propostas (HUG) e constellation (CON).
+161 commits measured across Galegos (GAL), decima-edicoes (DEC), navesz.github.io (NAV), openparts (OPP), hug-brasil-propostas (HUG) and constellation (CON).
 
-### O achado central
+### The central finding
 
-**Os 3 repos sem CI são exatamente os 3 com lint quebrado agora.**
+**The 3 repos with no CI are exactly the 3 with broken lint right now.**
 
-| repo | CI roda lint? | eslint hoje |
+| repo | Does CI run lint? | eslint today |
 |---|---|---|
-| GAL | não | **3 erros, 4 avisos** |
-| OPP | não | **35 erros** + prettier falha em 3 arquivos |
-| HUG | não | **2 erros, 9 avisos** |
-| DEC | sim | gated |
-| NAV | sim (build com `tsc`) | não tem eslint |
-| CON | sim (lint+tsc+test+audit) | **0 problemas** |
+| GAL | no | **3 errors, 4 warnings** |
+| OPP | no | **35 errors** + prettier fails on 3 files |
+| HUG | no | **2 errors, 9 warnings** |
+| DEC | yes | gated |
+| NAV | yes (build with `tsc`) | has no eslint |
+| CON | yes (lint+tsc+test+audit) | **0 problems** |
 
-O caso mais eloquente é o **OPP**: único com `AGENTS.md` de verdade (39 linhas, "Hard rules", "Definition of done"), único com `SECURITY.md`/`GOVERNANCE.md`/`CONTRIBUTING.md`, único com prettier, único com um script `check` que encadeia `format:check && lint && typecheck && test:run && build`. **Nada nunca executa esse `check`.**
+The most eloquent case is **OPP**: the only one with a real `AGENTS.md` (39 lines, "Hard rules", "Definition of done"), the only one with `SECURITY.md`/`GOVERNANCE.md`/`CONTRIBUTING.md`, the only one with prettier, the only one with a `check` script that chains `format:check && lint && typecheck && test:run && build`. **Nothing ever runs that `check`.**
 
-> **Regra derivada, e é a tese do rebar em uma linha:** regra em markdown tem cumprimento próximo de zero; regra em CI tem 100%. **O scaffold gera o workflow, não o documento.**
+> **Derived rule, and it is rebar's thesis in one line:** a rule in markdown has near-zero compliance; a rule in CI has 100%. **The scaffold generates the workflow, not the document.**
 
-### Correção de duas premissas
+### Correcting two premises
 
-**1. Não é o Claude — é o Cursor.** A queixa era "colocando o claude como colaborador". Medido:
+**1. It is not Claude — it is Cursor.** The complaint was "colocando o claude como colaborador" [putting claude in as co-author]. Measured:
 
-| agente | commits |
+| agent | commits |
 |---|---|
 | Cursor | **35** |
 | Claude | 6 |
-| total com coautoria de IA | 41 de 161 (25,5%) |
+| total with AI co-authorship | 41 of 161 (25.5%) |
 
-O OPP tem 22/22 commits co-assinados pelo Cursor e **zero** do Claude. Trailers com casing diferente: `Co-authored-by: Cursor` vs `Co-Authored-By: Claude`. **Uma regex que só pegue "Claude" cobre 15% do problema.**
+OPP has 22/22 commits co-signed by Cursor and **zero** by Claude. Trailers with different casing: `Co-authored-by: Cursor` vs `Co-Authored-By: Claude`. **A regex that only catches "Claude" covers 15% of the problem.**
 
-**E os 6 do Claude são meus, desta sessão** — aparecem quase todos em commits "Adiciona LICENSE Apache-2.0", que fui eu que fiz hoje. Você tinha razão em levantar isso; eu estava produzindo exatamente o defeito enquanto o catalogava.
+**And the 6 from Claude are mine, from this session** — almost all of them show up in "Adiciona LICENSE Apache-2.0" [Adds LICENSE Apache-2.0] commits, the subject quoted as the history has it, which I made today. You were right to raise it; I was producing exactly the defect while cataloging it.
 
-**2. Nenhum segredo hardcoded nos seis.** `gh[pousr]_`, `sk-`, `AKIA`, `AIza` — zero ocorrências. Também zero `TODO/FIXME/HACK`, zero `: any`, zero `@ts-ignore`, zero artefato de build versionado. **O desleixo não é de código — é de configuração, contrato e imposição.**
+**2. No hardcoded secret in the six.** `gh[pousr]_`, `sk-`, `AKIA`, `AIza` — zero occurrences. Also zero `TODO/FIXME/HACK`, zero `: any`, zero `@ts-ignore`, zero versioned build artifact. **The sloppiness is not in the code — it is in configuration, contract and enforcement.**
 
-### Ranking por frequência
+### Ranking by frequency
 
-| # | Falha | Repos | Como detectar |
+| # | Failure | Repos | How to detect |
 |---|---|---|---|
-| 1 | sem `.editorconfig` | **6/6** | `test -f` |
-| 1 | sem dependabot/renovate | **6/6** | `test -f .github/dependabot.yml` |
-| 3 | sem `.env.example` mesmo lendo env | **5/6** | grep de `process.env` vs arquivo |
-| 3 | sem formatter | **5/6** | prettier em devDeps + script |
-| 3 | `AGENTS.md` ausente ou só boilerplate | **5/6** | linhas úteis < 15 ou marcador `BEGIN:nextjs-agent-rules` |
-| 3 | URL de produção hardcoded | **5/6** | `git grep -PE 'https?://(?!localhost…)'` |
-| 3 | hex cru em vez de token | **5/6** | `comm -12` entre hex do CSS e hex do TS |
-| 8 | sem testes | **4/6** | `git ls-files '*.test.*'` |
-| 8 | sem script `typecheck` | **4/6** | `package.json.scripts` |
-| 8 | idioma misturado no mesmo repo | **4/6** | stopwords PT/EN por arquivo |
-| 11 | **sem CI** | **3/6** | `ls .github/workflows/` |
-| 11 | **lint quebrado agora** | **3/6** (os mesmos) | `eslint . --max-warnings 0` |
-| 11 | `NOTICE` ausente com licença Apache | 3/6 | `grep Apache LICENSE && test -f NOTICE` |
-| 16 | coautoria de IA | **41/161 commits** | hook `commit-msg` |
-| 17 | identidade git inconsistente | **4 combos** do mesmo dono | `git log --format='%an <%ae>' \| sort -u` |
-| 18 | deriva de versão | TS 4 valores · `@types/node` 4 · Next 4 · React 3 · Vite 3 · eslint 3 | job agregador |
+| 1 | no `.editorconfig` | **6/6** | `test -f` |
+| 1 | no dependabot/renovate | **6/6** | `test -f .github/dependabot.yml` |
+| 3 | no `.env.example` even though it reads env | **5/6** | grep of `process.env` vs the file |
+| 3 | no formatter | **5/6** | prettier in devDeps + script |
+| 3 | `AGENTS.md` absent or boilerplate only | **5/6** | useful lines < 15 or the `BEGIN:nextjs-agent-rules` marker |
+| 3 | production URL hardcoded | **5/6** | `git grep -PE 'https?://(?!localhost…)'` |
+| 3 | raw hex instead of a token | **5/6** | `comm -12` between the CSS hex and the TS hex |
+| 8 | no tests | **4/6** | `git ls-files '*.test.*'` |
+| 8 | no `typecheck` script | **4/6** | `package.json.scripts` |
+| 8 | mixed language in the same repo | **4/6** | PT/EN stopwords per file |
+| 11 | **no CI** | **3/6** | `ls .github/workflows/` |
+| 11 | **lint broken right now** | **3/6** (the same ones) | `eslint . --max-warnings 0` |
+| 11 | `NOTICE` absent with an Apache license | 3/6 | `grep Apache LICENSE && test -f NOTICE` |
+| 16 | AI co-authorship | **41/161 commits** | `commit-msg` hook |
+| 17 | inconsistent git identity | **4 combos** from the same owner | `git log --format='%an <%ae>' \| sort -u` |
+| 18 | version drift | TS 4 values · `@types/node` 4 · Next 4 · React 3 · Vite 3 · eslint 3 | aggregator job |
 
-### A armadilha do shadcn
+### The shadcn trap
 
-**1 de 6 usa shadcn.** E a checagem ingênua reprovaria justamente o certo:
+**1 of 6 uses shadcn.** And the naive check would fail precisely the one that got it right:
 
-- **GAL usa shadcn corretamente e tem ZERO `@radix-ui`** — está no estilo `base-nova` e importa `@base-ui/react`. Igual ao herz.
-- **HUG tem um shadcn falso**: pasta `src/components/ui/` (imita a convenção) sem `components.json`, sem `cn()`, sem `cva`, sem primitiva acessível, com a mesma string Tailwind repetida 4 vezes, e `<label>` **irmão** do `<input>` sem `htmlFor` — bug de acessibilidade, não só de estilo.
+- **GAL uses shadcn correctly and has ZERO `@radix-ui`** — it is on the `base-nova` style and imports `@base-ui/react`. Same as herz.
+- **HUG has a fake shadcn**: a `src/components/ui/` folder (it imitates the convention) with no `components.json`, no `cn()`, no `cva`, no accessible primitive, with the same Tailwind string repeated 4 times, and a `<label>` that is a **sibling** of the `<input>` with no `htmlFor` — an accessibility bug, not just a styling one.
 
-> **A checagem correta é `components.json` + (`@radix-ui` **ou** `@base-ui/react`) + `cn()` resolvível pelo alias.** Nunca `@radix-ui` sozinho.
+> **The correct check is `components.json` + (`@radix-ui` **or** `@base-ui/react`) + `cn()` resolvable through the alias.** Never `@radix-ui` alone.
 
-Esse é o retrato exato de "esquecendo do shadcn": a IA reproduz a **aparência** da convenção sem nenhuma das **garantias**.
+That is the exact portrait of "esquecendo do shadcn" [forgetting about shadcn]: the AI reproduces the **appearance** of the convention with none of the **guarantees**.
 
-### Casos individuais que viram fixture de teste
+### Individual cases that become test fixtures
 
-| Caso | Repo |
+| Case | Repo |
 |---|---|
-| Dado pessoal de terceiro entrou num commit, foi removido depois e **continua no histórico** — segredo e PII não se corrigem com commit novo. O commit e os campos ficam fora deste documento de propósito: este repositório é público e o outro também, e apontar o lugar exato seria republicar o dado. Detalhe no privado, com o dono | HUG |
-| 623 linhas de catálogo e preço em `.ts`; **zero `process.env` no repo inteiro** | GAL |
-| Número de WhatsApp hardcoded em dois formatos; o README documenta o hardcode | GAL |
-| Marca em duas grafias — `Galegos` e `Gallegos` — no mesmo app, inclusive no `<title>` | GAL |
-| `userScalable: false` + `maximumScale: 1` — viola WCAG 1.4.4 | GAL |
-| JSON Schema formal em `packages/schemas/` que **nada no código lê** | OPP |
-| 3 libs de animação sobrepostas: gsap + framer-motion + lenis + r3f | DEC |
-| `vinext@0.0.50` — pré-1.0, patch 50 — em produção | CON |
-| `eslint-config-next 16.2.6` contra `next ^16.3.2` | CON |
-| e-mail pessoal (gmail) exposto em autoria de commit | HUG |
-| Actions com tag flutuante (`@v4`) em vez de SHA | NAV |
+| A third party's personal data went into a commit, was removed later and **is still in the history** — a secret and PII are not fixed by a new commit. The commit and the fields stay out of this document on purpose: this repository is public and so is the other one, and pointing at the exact spot would republish the data. Detail in private, with the owner | HUG |
+| 623 lines of catalog and prices in `.ts`; **zero `process.env` in the whole repo** | GAL |
+| WhatsApp number hardcoded in two formats; the README documents the hardcode | GAL |
+| The brand in two spellings — `Galegos` and `Gallegos` — in the same app, including in the `<title>` | GAL |
+| `userScalable: false` + `maximumScale: 1` — violates WCAG 1.4.4 | GAL |
+| A formal JSON Schema in `packages/schemas/` that **nothing in the code reads** | OPP |
+| 3 overlapping animation libs: gsap + framer-motion + lenis + r3f | DEC |
+| `vinext@0.0.50` — pre-1.0, patch 50 — in production | CON |
+| `eslint-config-next 16.2.6` against `next ^16.3.2` | CON |
+| personal e-mail (gmail) exposed in commit authorship | HUG |
+| Actions with a floating tag (`@v4`) instead of a SHA | NAV |
 
-### As três regras que a evidência impõe ao scaffold
+### The three rules the evidence imposes on the scaffold
 
-1. **Gerar o CI antes de gerar o código.** Correlação 3/3. `AGENTS.md` não impediu 35 erros no repo com mais documento de governança.
-2. **Detectar shadcn por `components.json` + primitiva + `cn()`.** Nunca por `@radix-ui`.
-3. **Barrar config-como-código no hook, não no review.** O vazamento do HUG passou num commit inicial e o dano no histórico é irreversível. Um `git grep` de telefone no `pre-commit` custaria 40 ms.
+1. **Generate the CI before generating the code.** Correlation 3/3. `AGENTS.md` did not prevent 35 errors in the repo with the most governance documentation.
+2. **Detect shadcn by `components.json` + primitive + `cn()`.** Never by `@radix-ui`.
+3. **Block config-as-code in the hook, not in review.** The HUG leak went through in an early commit and the damage in the history is irreversible. A `git grep` for a phone number in `pre-commit` would cost 40 ms.
 
-## 6.4 Inconsistências do alicerce, a não reproduzir
+## 6.4 Alicerce inconsistencies, not to be reproduced
 
-1. `04-ordem-de-construcao.md:56` diz "117 respostas"; o painel tem **120**.
-2. `03-verificacao.md:46` rotula formatação como N1; em `02-quem-impoe.md:33` N1 é análise estática.
-3. Não há tabela de correspondência painel ↔ constituição.
-4. O painel diz **Radix**; o herz usa **Base UI**.
+1. `04-ordem-de-construcao.md:56` says "117 respostas" [117 answers] — quoted as the source file has it, so the grep still finds it; the panel has **120**.
+2. `03-verificacao.md:46` labels formatting as N1; in `02-quem-impoe.md:33` N1 is static analysis.
+3. There is no correspondence table between panel ↔ constitution.
+4. The panel says **Radix**; herz uses **Base UI**.
 
 ---
 
-# 7. Arquitetura do rebar
+# 7. Rebar architecture
 
-## 7.1 O perfil é o compilador
+## 7.1 The profile is the compiler
 
 ```
-painel (§5, versionado)
-   │  respondido uma vez, no create
+panel (§5, versioned)
+   │  answered once, at create time
    ▼
-perfil.json  ─── validado contra perfil.esquema.json
+perfil.json  ─── validated against perfil.esquema.json
    │
-   ├─► tsconfig + tipos            (N0)
-   ├─► lint + depcruise            (N1)  + os DOIS casos de cada regra
-   ├─► schemas Zod de borda e env  (N2)
-   ├─► suíte-esqueleto             (N3)
-   ├─► workflow de CI              (N4)
-   ├─► hooks pre-commit            (N5)
-   ├─► CLAUDE.md / AGENTS.md       (N6, < 200 linhas)
-   ├─► servidor MCP do projeto     (N6)  ← ver §7.2
-   └─► ADR de cada divergência
+   ├─► tsconfig + types            (N0)
+   ├─► lint + depcruise            (N1)  + the TWO cases of every rule
+   ├─► Zod schemas for edge and env (N2)
+   ├─► skeleton suite              (N3)
+   ├─► CI workflow                 (N4)
+   ├─► pre-commit hooks            (N5)
+   ├─► CLAUDE.md / AGENTS.md       (N6, < 200 lines)
+   ├─► the project's MCP server    (N6)  ← see §7.2
+   └─► an ADR for every divergence
 ```
 
-Cada entrada do esquema ganha **nível N0–N7** e **artefato gerado**. É o que transforma o painel de checklist em compilador.
+Every schema entry gains an **N0–N7 level** and a **generated artifact**. That is what turns the panel from a checklist into a compiler.
 
-## 7.2 O MCP que se regenera
+## 7.2 The MCP that regenerates itself
 
-**O requisito nº 5, e o defeito concreto que o dono viveu.** No Herz e no BMB Compras o MCP funcionou para manter as regras na memória da IA — mas quando as regras mudavam, o MCP continuava servindo a versão velha, e ninguém percebia.
+**Requirement nº 5, and the concrete defect the owner lived through.** In Herz and in BMB Compras the MCP worked to keep the rules in the AI's memory — but when the rules changed, the MCP kept serving the old version, and nobody noticed.
 
-O rebar resolve isso porque o MCP **não é escrito à mão**: ele é um artefato gerado do `perfil.json`, como o `tsconfig` e o lint. E ganha o mesmo tratamento que o herz já dá aos arquivos de instrução com `.ai/gerar.mjs --verificar`:
+Rebar solves this because the MCP is **not written by hand**: it is an artifact generated from `perfil.json`, like the `tsconfig` and the lint. And it gets the same treatment herz already gives to instruction files with `.ai/gerar.mjs --verificar`:
 
-| Mecanismo | O que faz |
+| Mechanism | What it does |
 |---|---|
-| **Geração** | `rebar gerar` reescreve o servidor MCP a partir do `perfil.json` |
-| **Portão de frescor** | `verificar` roda `rebar gerar --verificar`: regenera em memória e compara com o que está em disco. **Divergiu, reprova.** É impossível mudar a regra e esquecer o MCP |
-| **Sem `dist` velho** | O MCP roda do fonte, ou o build entra no `verificar`. No herz, `dist` velho é a causa nº 1 de *"o guia não mudou"* (`pcp-herz/CLAUDE.md:147-153`) |
-| **Derivado, nunca duplicado** | O MCP não guarda cópia da regra: ele lê o `perfil.json`. Não há duas fontes para divergir |
+| **Generation** | `rebar gerar` rewrites the MCP server from `perfil.json` |
+| **Freshness gate** | `verificar` runs `rebar gerar --verificar`: it regenerates in memory and compares against what is on disk. **Diverged, it fails.** It is impossible to change the rule and forget the MCP |
+| **No stale `dist`** | The MCP runs from source, or the build goes into `verificar`. In herz, a stale `dist` is cause nº 1 of *"o guia não mudou"* [the guide did not change] (`pcp-herz/CLAUDE.md:147-153`) |
+| **Derived, never duplicated** | The MCP keeps no copy of the rule: it reads `perfil.json`. There are not two sources to diverge |
 
-Isso é o padrão `guias-vs-realidade.test.ts` do herz, generalizado: **derive o fato da fonte e reprove se a cópia divergir.**
+This is herz's `guias-vs-realidade.test.ts` pattern, generalized: **derive the fact from the source and fail if the copy diverges.**
 
-### As quatro tools
+### The four tools
 
-| Tool | Faz |
+| Tool | Does |
 |---|---|
-| `rebar_verificar` | Roda o portão, devolve achados estruturados. Mesmo comando do hook e do CI — chamar é atalho, não é a barreira |
-| `rebar_decidir` | "O que este projeto decidiu sobre X?" — lê `perfil.json`, não prosa |
-| `rebar_gerar` | Emite componente/rota/migration na stack **deste** perfil |
-| `rebar_porque` | Busca o ADR da divergência |
+| `rebar_verificar` | Runs the gate, returns structured findings. Same command as the hook and CI — calling it is a shortcut, not the barrier |
+| `rebar_decidir` | "What did this project decide about X?" — reads `perfil.json`, not prose |
+| `rebar_gerar` | Emits component/route/migration in **this** profile's stack |
+| `rebar_porque` | Fetches the ADR for the divergence |
 
-**O MCP nunca é a porta.** A porta é N0–N5. O MCP do herz tem 17 guias, 1961 linhas, 80 KB, e é comprovadamente ignorável — o próprio repositório admite: *"ferramenta MCP é discricionária, o modelo decide se chama"*. O rebar não repete: nada de guia longo, tudo derivado do perfil sob demanda.
+**The MCP is never the gate.** The gate is N0–N5. The herz MCP has 17 guides, 1961 lines, 80 KB, and is demonstrably ignorable — the repository itself admits it: *"ferramenta MCP é discricionária, o modelo decide se chama"* [an MCP tool is discretionary, the model decides whether to call it]. Rebar does not repeat that: no long guides, everything derived from the profile on demand.
 
-## 7.3 As três camadas de porta
+## 7.3 The three gate layers
 
-1. **`npm run verificar`** — comando único. Portar `verificar.mjs` do alicerce (294 linhas).
-2. **Hook `Stop` do Claude Code** — roda `verificar` ao fim de **cada turno de IA**, não só no commit.
+1. **`npm run verificar`** — single command. Port `verificar.mjs` from the alicerce (294 lines).
+2. **Claude Code's `Stop` hook** — runs `verificar` at the end of **every AI turn**, not only at commit time.
 
-   > ⚠️ **O hook do herz NÃO bloqueia, e eu afirmei o contrário.** O comando é
-   > `npm run verificar 2>&1 | tail -25`. Em pipeline POSIX o código de saída é o do **último** comando — `tail` sempre retorna 0. Verificado: `false | tail -25` → exit 0.
-   > O guia do herz chama isso de *"não é lembrete: é porta"*; na implementação é literalmente um lembrete.
-   > **No rebar:** sem pipe, ou `set -o pipefail`, ou capturar o código antes de formatar. **E uma fixture que prove que o hook reprova** — é a regra dos dois casos aplicada ao próprio portão.
+   > ⚠️ **The herz hook does NOT block, and I claimed the opposite.** The command is
+   > `npm run verificar 2>&1 | tail -25`. In a POSIX pipeline the exit code is that of the **last** command — `tail` always returns 0. Verified: `false | tail -25` → exit 0.
+   > The herz guide calls this *"não é lembrete: é porta"* [it is not a reminder: it is a gate]; in the implementation it is literally a reminder.
+   > **In rebar:** no pipe, or `set -o pipefail`, or capture the code before formatting. **And a fixture that proves the hook fails** — it is the two-case rule applied to the gate itself.
 
-3. **CI com matriz Windows + Linux.** O defeito do `npx` sobreviveu no alicerce porque o CI só roda Linux.
+3. **CI with a Windows + Linux matrix.** The `npx` defect survived in the alicerce because CI only runs Linux.
 
-4. **Branch protection.** ⚠️ Não é arquivo, é **estado do GitHub**. `npm create` não entrega isso sozinho — precisa de `gh api` no pós-create ou de um passo humano documentado. Sem isso, metade da dureza prometida não existe.
+4. **Branch protection.** ⚠️ It is not a file, it is **GitHub state**. `npm create` does not deliver it on its own — it needs `gh api` after create or a documented human step. Without it, half the promised hardness does not exist.
 
 ---
 
-# 8. O que se leva de cada repositório
+# 8. What we take from each repository
 
-## 8.1 Do alicerce — como está
+## 8.1 From the alicerce — as it is
 
-`verificar/verificar.mjs` · `segredo/varrer-segredo.mjs` · `elos/verificar-elos.mjs` · `contexto/ai.mjs` · `hooks/` · os **15 presets de fronteira** (web 7 + api 8) com as **29 fixtures** · `ci/verificar.yml` como template.
+`verificar/verificar.mjs` · `segredo/varrer-segredo.mjs` · `elos/verificar-elos.mjs` · `contexto/ai.mjs` · `hooks/` · the **15 boundary presets** (web 7 + api 8) with the **29 fixtures** · `ci/verificar.yml` as a template.
 
-## 8.2 Do alicerce — consertar ao portar
+## 8.2 From the alicerce — fix while porting
 
-- `provas/provar.mjs:39-43` → `execFileSync(process.execPath, [require.resolve('dependency-cruiser/bin/dependency-cruise.mjs'), …])`. Desbloqueia três coisas de uma vez.
-- `validar-perfil.mjs:25-27` → escrever o esquema real.
-- `verificar.config.mjs:12` → trocar `find | xargs` por Node puro.
-- `verificar.mjs:124` → distinguir "reprovou" de "quebrou".
+- `provas/provar.mjs:39-43` → `execFileSync(process.execPath, [require.resolve('dependency-cruiser/bin/dependency-cruise.mjs'), …])`. Unblocks three things at once.
+- `validar-perfil.mjs:25-27` → write the real schema.
+- `verificar.config.mjs:12` → swap `find | xargs` for pure Node.
+- `verificar.mjs:124` → distinguish "failed" from "broke".
 
-## 8.3 Do herz — stack e mecânica
+## 8.3 From herz — stack and mechanics
 
-React 19.2 · Vite 8.2 · TypeScript 6 · TanStack Router/Query/Table · Tailwind 4 CSS-first · **shadcn/ui sobre `@base-ui/react`**, style `base-nova` · Zod · react-hook-form · lucide · sonner · cmdk · TS strict com `noUncheckedIndexedAccess`.
+React 19.2 · Vite 8.2 · TypeScript 6 · TanStack Router/Query/Table · Tailwind 4 CSS-first · **shadcn/ui over `@base-ui/react`**, style `base-nova` · Zod · react-hook-form · lucide · sonner · cmdk · TS strict with `noUncheckedIndexedAccess`.
 
-Primitivos: `rowVersion` branded · dinheiro como string decimal · `commandId` · Problem Details.
+Primitives: branded `rowVersion` · money as a decimal string · `commandId` · Problem Details.
 
-Mecânica: **`.ai/gerar.mjs`** e **`guias-vs-realidade.test.ts`** — ver §7.2.
+Mechanics: **`.ai/gerar.mjs`** and **`guias-vs-realidade.test.ts`** — see §7.2.
 
-## 8.4 Do herz — a interface
+## 8.4 From herz — the interface
 
-### A animação não foi escrita à mão
+### The animation was not written by hand
 
-Zero `@keyframes`, zero `framer-motion`. Vem de três coisas, todas reprodutíveis:
+Zero `@keyframes`, zero `framer-motion`. It comes from three things, all reproducible:
 
 1. **`tw-animate-css`** (`index.css:2`)
-2. **Data-attributes do Base UI** — `data-open`, `data-closed`, `data-starting-style`, `data-ending-style`, `data-swiping`
-3. **`transition-*`** para o contínuo
+2. **Base UI data-attributes** — `data-open`, `data-closed`, `data-starting-style`, `data-ending-style`, `data-swiping`
+3. **`transition-*`** for the continuous part
 
-Padrão de popup, literal em `dialog`, `popover`, `select`, `dropdown-menu`, `tooltip`:
+Popup pattern, literal in `dialog`, `popover`, `select`, `dropdown-menu`, `tooltip`:
 ```
 duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95
              data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95
 ```
 
-Drawer, o mais sofisticado (`drawer.tsx:133`) — saída derivada da física do gesto:
+Drawer, the most sophisticated one (`drawer.tsx:133`) — exit derived from the physics of the gesture:
 ```
 duration-450 ease-[cubic-bezier(0.22,1,0.36,1)]
 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)]
 data-swiping:duration-0
 ```
 
-**Os "botões bem legais"** são `button.tsx:7`: `active:not-aria-[haspopup]:translate-y-px` — afunda 1px ao clicar, exceto quando abre menu — mais `focus-visible:ring-3` e o bloco de cursor de `index.css:198-263`.
+**The "botões bem legais"** [really cool buttons] are `button.tsx:7`: `active:not-aria-[haspopup]:translate-y-px` — sinks 1px on click, except when it opens a menu — plus `focus-visible:ring-3` and the cursor block from `index.css:198-263`.
 
-### Os 33 componentes são shadcn stock
+### The 33 components are stock shadcn
 
-Zero português, zero import de `@pcp/*`, strings em inglês. **Consequência: o scaffold roda `shadcn add`, não copia arquivo** — assim ganha atualização de graça.
+Zero Portuguese, zero `@pcp/*` imports, strings in English. **Consequence: the scaffold runs `shadcn add`, it does not copy files** — that way it gets updates for free.
 
-### Genérico, zero domínio — levar
+### Generic, zero domain — take it
 
-| Bloco | Linhas | Nota |
+| Block | Lines | Note |
 |---|---|---|
-| `components/tabela/` | 1.262 | `TabelaDados<T>` sobre TanStack Table, seis filtros, paginação. Grep por domínio: zero |
-| `components/graficos/` | 633 | 9 gráficos + `MolduraGrafico`, que embute os três estados obrigatórios |
-| `padroes/estados.tsx` | 118 | Vazio·SemResultado·Erro·Esqueleto, com `role="alert"` e `aria-busy` |
-| `padroes/secao-galeria.tsx` | 57 | Moldura de catálogo |
-| `index.css` cursor `:198-263` | 66 | **A peça de polimento mais transferível** |
+| `components/tabela/` | 1.262 | `TabelaDados<T>` over TanStack Table, six filters, pagination. Grep for domain: zero |
+| `components/graficos/` | 633 | 9 charts + `MolduraGrafico`, which embeds the three mandatory states |
+| `padroes/estados.tsx` | 118 | Empty·NoResults·Error·Skeleton, with `role="alert"` and `aria-busy` |
+| `padroes/secao-galeria.tsx` | 57 | Catalog frame |
+| `index.css` cursor `:198-263` | 66 | **The most transferable piece of polish** |
 | `main.tsx` providers | 79 | ErrorBoundary › Theme › Query › Tooltip › Router+Toaster |
-| `alternar-tema.tsx` | 38 | Troca por CSS, **não por estado** — evita o flash do primeiro quadro |
-| `dados/use-comando.ts` | 69 | Hub de mutação: toast, invalidação, 409 com botão "Atualizar" |
+| `alternar-tema.tsx` | 38 | Switches by CSS, **not by state** — avoids the first-frame flash |
+| `dados/use-comando.ts` | 69 | Mutation hub: toast, invalidation, 409 with a "Refresh" button |
 
-### As cinco famílias de cor
+### The five color families
 
-`espera` · `execucao` · `bloqueio` · `retrabalho` · `concluido`. Cada uma com `--x`, `--x-fg`, `--x-line`, nos dois temas, e `--chart-1..5` nas mesmas matizes. O **padrão** é generalizável; os **nomes** são de PCP. Renomear.
+`espera` · `execucao` · `bloqueio` · `retrabalho` · `concluido` — the token names stay in Portuguese because they are the CSS custom-property names in herz, not prose. Each one with `--x`, `--x-fg`, `--x-line`, in both themes, and `--chart-1..5` in the same hues. The **pattern** is generalizable; the **names** are PCP's. Rename them.
 
-### Defeitos a não herdar
+### Defects not to inherit
 
-- `components.json` diz `"baseColor": "neutral"`, mas o CSS é zinc — o próximo `shadcn add` reintroduz cinza.
-- `--chart-1..5` declarados **duas vezes**; `--sidebar-*` são tokens mortos.
-- `"use client"` em 12 dos 33 arquivos, num Vite sem RSC.
-- **Não existe `form.tsx`.** O padrão de formulário é RHF cru repetido — num scaffold isso se perde na primeira tela nova.
+- `components.json` says `"baseColor": "neutral"`, but the CSS is zinc — the next `shadcn add` reintroduces gray.
+- `--chart-1..5` declared **twice**; `--sidebar-*` are dead tokens.
+- `"use client"` in 12 of the 33 files, in a Vite with no RSC.
+- **There is no `form.tsx`.** The form pattern is raw RHF repeated — in a scaffold that gets lost on the first new screen.
 
-## 8.5 Não entra
+## 8.5 Does not come in
 
-Domínio PCP inteiro: `packages/dominio/`, contratos `pedido/estoque/estrutura/cotacao`, os 12 componentes de negócio (~1.411 linhas), `features/` (~2.412), `paginas/` (~2.668), `layout/` (406), guias `protheus.md`/`rbac.md`/`bloqueios.md`/`deploy.md`.
+The whole PCP domain: `packages/dominio/`, the `pedido/estoque/estrutura/cotacao` contracts, the 12 business components (~1.411 lines), `features/` (~2.412), `paginas/` (~2.668), `layout/` (406), the `protheus.md`/`rbac.md`/`bloqueios.md`/`deploy.md` guides.
 
 ---
 
-# 9. Ordem de construção
+# 9. Build order
 
-> ⚠️ **A versão anterior desta seção (7 passos, gerador + 3 presets + MCP) foi descartada pela revisão de escopo.** Motivo em **§9.1**, logo abaixo — e o corte de escopo que o acompanha está em §12.5 item 9. (Antes esta linha apontava para uma §12.9 que nunca existiu: a §12 vai de 12.8 direto para a §13.) O que segue é a versão reduzida.
+> ⚠️ **The previous version of this section (7 steps, generator + 3 presets + MCP) was discarded by the scope review.** Reason in **§9.1**, right below — and the scope cut that goes with it is in §12.5 item 9. (Before, this line pointed at a §12.9 that never existed: §12 goes from 12.8 straight to §13.) What follows is the reduced version.
 
-## 9.1 O que a revisão derrubou
+## 9.1 What the review knocked down
 
-**Passos 1–4 não cabiam numa sessão e não entregavam nada olhável.** Eram 3–4 sessões para "um projeto novo e vazio que passa no lint" — e nenhum dos seis sites existentes ganhava coisa alguma.
+**Steps 1–4 did not fit in one session and delivered nothing you could look at.** They were 3–4 sessions for "a new, empty project that passes lint" — and none of the six existing sites gained a thing.
 
-**A inversão gerador-primeiro estava errada.** A correção não é *gerar* um projeto — é **checar os que já existem**. Checar é retroativo e idempotente; gerar só serve para o projeto nº 8.
+**The generator-first inversion was wrong.** The correction is not to *generate* a project — it is to **check the ones that already exist**. Checking is retroactive and idempotent; generating only serves project nº 8.
 
-> ⚠️ **Correção de premissa, medida em 30/08.** O diagnóstico original desta seção era *"o alicerce morreu porque a imposição nunca encostou num projeto"*. **É falso.** O `ferramental/` do alicerce está instalado em dois repositórios — o próprio alicerce e o `prumo` — e no `prumo` ele gateia de verdade: `.github/workflows/ci.yml:113` roda `npm run verificar` → `node ferramental/verificar/verificar.mjs`, e a linha 207 roda `node ferramental/portao/provar-portao.mjs`. `prumo/ferramental/` tem 8 diretórios, 7 com o mesmo nome dos do alicerce, e a linha 139 do CI diz que os casos vieram do alicerce upstream. A formulação que a medição sustenta: **o rebar mede 12 repositórios e não impõe em nenhum; o alicerce mede 2 e impõe nos 2.** O problema do alicerce é escala (2 de 12), não contato. A conclusão — consumidor antes do gerador — sobrevive à correção, porque é a escala que o `rebar-check` ataca.
+> ⚠️ **Premise correction, measured on 30/08.** This section's original diagnosis was *"o alicerce morreu porque a imposição nunca encostou num projeto"* [the alicerce died because the enforcement never touched a project]. **It is false.** The alicerce's `ferramental/` is installed in two repositories — the alicerce itself and `prumo` — and in `prumo` it really gates: `.github/workflows/ci.yml:113` runs `npm run verificar` → `node ferramental/verificar/verificar.mjs`, and line 207 runs `node ferramental/portao/provar-portao.mjs`. `prumo/ferramental/` has 8 directories, 7 with the same names as the alicerce's, and line 139 of the CI says the cases came from the upstream alicerce. The formulation the measurement supports: **rebar measures 12 repositories and imposes on none; the alicerce measures 2 and imposes on both.** The alicerce's problem is scale (2 of 12), not contact. The conclusion — consumer before generator — survives the correction, because scale is what `rebar-check` attacks.
 
-> A inversão certa não é gerador-primeiro. É **consumidor-primeiro: escreva o que lê antes do que escreve.**
+> The right inversion is not generator-first. It is **consumer-first: write what reads before what writes.**
 
-## 9.2 A fatia: `rebar-check` — um arquivo, nenhum gerador
+## 9.2 The slice: `rebar-check` — one file, no generator
 
-Um `.mjs` de ~350 linhas que roda contra **qualquer repositório existente** e imprime um placar:
+A ~350-line `.mjs` that runs against **any existing repository** and prints a scoreboard — the rule ids below are identifiers, not prose, so they stay as written:
 
 ```
 rebar-check · Galegos
-  ✗ coautoria-ia          2 commits com Co-Authored-By de IA
+  ✗ coautoria-ia          2 commits with AI Co-Authored-By
   ✓ shadcn                components.json, style=base-nova
-  ✗ registry              registries: {} — a casa não tem registry publicado
-  ✗ robots.txt            ausente
-  ✗ sitemap               ausente
-  ✗ politica-privacidade  rota ausente
-  ✗ termos-de-uso         rota ausente
-  ✗ cor-literal           11 classes de cor crua em .tsx
-  ✓ LICENSE               presente
-                          4 de 12
+  ✗ registry              registries: {} — the house has no published registry
+  ✗ robots.txt            missing
+  ✗ sitemap               missing
+  ✗ politica-privacidade  route missing
+  ✗ termos-de-uso         route missing
+  ✗ cor-literal           11 raw color classes in .tsx
+  ✓ LICENSE               present
+                          4 of 12
 ```
 
-Por que esta fatia:
+Why this slice:
 
-1. **Funciona nos seis sites que já existem** — mais prumo, ducado e vectra-painel.
-2. **Produz um número no dia 1.** "Galegos: 4 de 12." **Placar é a tela do rebar** — e o preditor abaixo diz que tela é o que sobrevive.
-3. Transforma cada achado da forense (§6.3) em **uma linha de código**, não em tarefa de pesquisa.
-4. Sem esquema, sem templating, sem CLI, sem presets, sem MCP.
-5. **O gerador cai de graça depois.** Um checker que sabe dizer "falta robots.txt" está a um `--corrigir` de ser gerador. A ordem inversa não vale.
-6. Distribuição sem npm: `npx github:Navesz/rebar`.
+1. **It works on the six sites that already exist** — plus prumo, ducado and vectra-painel.
+2. **It produces a number on day 1.** "Galegos: 4 of 12." **The scoreboard is rebar's screen** — and the predictor below says a screen is what survives.
+3. It turns every finding of the forensics (§6.3) into **one line of code**, not a research task.
+4. No schema, no templating, no CLI, no presets, no MCP.
+5. **The generator falls out for free afterwards.** A checker that can say "robots.txt is missing" is one `--corrigir` away from being a generator. The reverse order does not work.
+6. Distribution without npm: `npx github:Navesz/rebar`.
 
-**O preditor que decidiu isto:** dos sete repositórios do dono, **o alicerce é o único sem tela.** ducado, vectra-painel, prumo, decima-edicoes, Galegos, openkartline — todos têm algo para olhar. n=7, mas é 7 de 7. O plano anterior não tinha tela até o passo 3.
+**The predictor that decided this:** of the owner's seven repositories, **the alicerce is the only one with no screen.** ducado, vectra-painel, prumo, decima-edicoes, Galegos, openkartline — all of them have something to look at. n=7, but it is 7 of 7. The previous plan had no screen until step 3.
 
-A meia-frase "e é o único morto" foi tirada daqui: medido, o alicerce roda no CI do `prumo` (ver a correção de premissa em §9.1). O que a tela prediz é adoção, não sobrevida — e é adoção que o placar do `rebar-check` ataca.
+The half-sentence "and it is the only dead one" was taken out of here: measured, the alicerce runs in `prumo`'s CI (see the premise correction in §9.1). What a screen predicts is adoption, not survival — and adoption is what `rebar-check`'s scoreboard attacks.
 
-## 9.3 O passo a passo numerado
+## 9.3 The numbered walkthrough
 
-> Ordem pedida pelo dono. Cada passo tem **critério de pronto verificável**. Nenhum começa antes do anterior fechar.
+> Order requested by the owner. Every step has a **verifiable done criterion**. None starts before the previous one closes.
 
-### Passo 0 · O MCP desta sessão — antes de qualquer código
+### Step 0 · This session's MCP — before any code
 
-**Por que primeiro:** o dono identificou que *"a gente não criou um MCP pra essa sessão, então pode ser que você se perca"*. Está certo — e é exatamente o que fez o `bmb-compras` funcionar: ele virou aplicação final boa e funcional porque teve MCP de regras desde o começo, com Composer 2.5.
+**Why first:** the owner identified that *"a gente não criou um MCP pra essa sessão, então pode ser que você se perca"* [we did not create an MCP for this session, so you might get lost]. He is right — and it is exactly what made `bmb-compras` work: it turned into a good, functional final application because it had a rules MCP from the start, with Composer 2.5.
 
 | | |
 |---|---|
-| **O quê** | Um MCP que serve **este documento** por seção, mais o registro de decisões (§11), para qualquer sessão futura |
-| **Tools** | `rebar_plano(secao)` · `rebar_decidido()` → lê §11 · `rebar_aberto()` → lê §13 |
-| **Fonte** | Este arquivo. Nenhuma prosa dentro do servidor |
-| **Pronto quando** | Sessão nova responde "o que já foi decidido sobre o banco?" sem ler o arquivo inteiro |
+| **What** | An MCP that serves **this document** by section, plus the decision log (§11), to any future session |
+| **Tools** | `rebar_plano(secao)` · `rebar_decidido()` → reads §11 · `rebar_aberto()` → reads §13 |
+| **Source** | This file. No prose inside the server |
+| **Done when** | A new session answers "what has already been decided about the database?" without reading the whole file |
 
-### Passo 1 · Estrutura e Vite
+### Step 1 · Structure and Vite
 
-`npm create vite` · pastas · `tsconfig` estrito · shadcn com `style: base-nova` e `baseColor: zinc` · o bloco de cursor do herz · `@fontsource-variable` (nunca CDN de fonte).
+`npm create vite` · folders · strict `tsconfig` · shadcn with `style: base-nova` and `baseColor: zinc` · the herz cursor block · `@fontsource-variable` (never a font CDN).
 
-**Pronto quando:** `npm run dev` sobe e `tsc --noEmit` passa.
+**Done when:** `npm run dev` comes up and `tsc --noEmit` passes.
 
-### Passo 2 · O CI, antes das regras
+### Step 2 · The CI, before the rules
 
-**A evidência manda isto:** 3 de 3 repos sem CI estão com lint quebrado. O `openparts` tem `AGENTS.md` com "Hard rules" e 35 erros.
+**The evidence orders this:** 3 of 3 repos with no CI have broken lint. `openparts` has an `AGENTS.md` with "Hard rules" and 35 errors.
 
-Workflow em matriz Windows + Linux · `npm run verificar` com **contagem `12/12 passos`** no cabeçalho.
+Workflow on a Windows + Linux matrix · `npm run verificar` with a **`12/12 passos` count** in the header.
 
-**Pronto quando:** um erro plantado de propósito reprova o PR.
+**Done when:** an error planted on purpose fails the PR.
 
-### Passo 3 · O portão de servidor (N4s)
+### Step 3 · The server-side gate (N4s)
 
-> **O nível que faltava na taxonomia.** Só ele resiste ao agente. Tudo em N0–N5 mora em arquivo que o agente edita; o workflow ele apaga; `core.hooksPath` ele remove **sem diff nenhum**.
+> **The level the taxonomy was missing.** Only it resists the agent. Everything in N0–N5 lives in a file the agent edits; the workflow it deletes; `core.hooksPath` it removes **with no diff at all**.
 
-Ruleset via `gh api`: status check obrigatório por nome · PR obrigatório · force-push bloqueado · `commit_message_pattern` negando coautoria de IA · `CODEOWNERS` em `perfil.json` e `adr/`.
+Ruleset via `gh api`: required status check by name · PR required · force-push blocked · `commit_message_pattern` denying AI co-authorship · `CODEOWNERS` on `perfil.json` and `adr/`.
 
-**Pronto quando:** apagar o `.yml` deixa o PR travado em "expected", não verde.
-**Se não der para instalar:** gravar `.rebar/portao-remoto.json: {estado:"ausente"}` e o `verificar` grita enquanto for verdade. **Portão aberto tem que ser fato checado, não omissão.**
+**Done when:** deleting the `.yml` leaves the PR stuck on "expected", not green.
+**If it cannot be installed:** write `.rebar/portao-remoto.json: {estado:"ausente"}` and `verificar` screams for as long as that is true. **An open gate has to be a checked fact, not an omission.**
 
-### Passo 4 · As primeiras regras — três, não trinta
+### Step 4 · The first rules — three, not thirty
 
-Cada uma nasce com **os dois casos** e rastreável a uma falha medida na forense (§6.3):
+Each one is born with **the two cases** and traceable to a failure measured in the forensics (§6.3):
 
-| Regra | Falha que ela pega | Nível |
+| Rule | Failure it catches | Level |
 |---|---|---|
-| Coautoria de IA | 41 de 161 commits | N5 + N4 + **N4s** |
-| shadcn de verdade | `components.json` + primitiva + `cn()` — nunca `@radix-ui` sozinho | N1 |
-| Presença legal/SEO | robots · sitemap · privacidade · termos · `og:image` | N1 |
+| AI co-authorship | 41 of 161 commits | N5 + N4 + **N4s** |
+| real shadcn | `components.json` + primitive + `cn()` — never `@radix-ui` alone | N1 |
+| Legal/SEO presence | robots · sitemap · privacy · terms · `og:image` | N1 |
 
-**Pronto quando:** `provar-portao` planta as três violações e as três reprovam.
+**Done when:** `provar-portao` plants the three violations and all three fail.
 
-### Passo 5 · `rebar-check` nos seis sites
+### Step 5 · `rebar-check` on the six sites
 
-Roda contra Galegos, decima, navesz.github.io, openparts, hug-brasil, constellation. Imprime o placar.
+Runs against Galegos, decima, navesz.github.io, openparts, hug-brasil, constellation. Prints the scoreboard.
 
-**Pronto quando:** os seis têm nota. É a **tela** do rebar.
+**Done when:** the six have a score. It is rebar's **screen**.
 
-### Passo 6 em diante
+### Step 6 onwards
 
-Só depois: `perfil.json` com catraca · gerador · presets `app`/`api`.
+Only afterwards: `perfil.json` with a ratchet · generator · `app`/`api` presets.
 
 ---
 
-## 9.4 Os furos de imposição que mudam o desenho
+## 9.4 The enforcement holes that change the design
 
-Verificados no código do alicerce:
+Verified in the alicerce's code:
 
-| Furo | O quê |
+| Hole | What |
 |---|---|
-| **`opcional: true`** | Uma palavra num passo do `verificar.config` faz ele **falhar e sair com código 0**. Qualquer portão vira aviso verde |
-| **`--passo=`** | Roda 1 de 12 passos e imprime `APROVADO`, sem dizer que 11 não rodaram |
-| **`perfil.json` é rota nuclear** | O plano a cria. Trocar `"acessibilidade":"AA"` por `"nenhuma"`, regenerar, e tudo fica **consistente e verde** com o portão removido. Precisa de **catraca**: cada chave com ordem declarada, e descer na ordem só com ADR no mesmo commit |
-| **`settings.local.json`** | É ignorado pelo git e **sobrepõe**. Hook vazio ali desliga tudo com zero diff |
-| **`PreToolUse` — a maior omissão** | O plano só tem hook `Stop`, que é relatório pós-fato. `PreToolUse` **impede a ação**: nega `git commit --no-verify`, nega escrita em `src/components/ui/**`. É a definição literal de N5, aplicada ao agente em vez de ao git |
-| **Coautoria: remover a fonte primeiro** | `"includeCoAuthoredBy": false` no `.claude/settings.json`. A string nunca existe. Zero atrito, zero falso positivo |
-| **Nunca varrer o histórico inteiro** | alicerce tem 11 commits com coautoria, herz 17. `git log \| grep` ingênuo deixa todo PR vermelho para sempre |
+| **`opcional: true`** | One word in a `verificar.config` step makes it **fail and exit with code 0**. Any gate turns into a green warning |
+| **`--passo=`** | Runs 1 of 12 steps and prints `APROVADO`, without saying that 11 did not run |
+| **`perfil.json` is a nuclear route** | The plan creates it. Swap `"acessibilidade":"AA"` for `"nenhuma"`, regenerate, and everything is **consistent and green** with the gate removed. It needs a **ratchet**: every key with a declared ordering, and going down that ordering only with an ADR in the same commit |
+| **`settings.local.json`** | It is git-ignored and it **overrides**. An empty hook in there turns everything off with zero diff |
+| **`PreToolUse` — the biggest omission** | The plan only has the `Stop` hook, which is an after-the-fact report. `PreToolUse` **prevents the action**: it denies `git commit --no-verify`, denies writing to `src/components/ui/**`. It is the literal definition of N5, applied to the agent instead of to git |
+| **Co-authorship: remove the source first** | `"includeCoAuthoredBy": false` in `.claude/settings.json`. The string never exists. Zero friction, zero false positives |
+| **Never scan the whole history** | the alicerce has 11 commits with co-authorship, herz 17. A naive `git log \| grep` leaves every PR red forever |
 
-## 9.5 Falsos positivos medidos — a regra que eu ia enviar e não vou
+## 9.5 Measured false positives — the rule I was going to ship and will not
 
-**"Cor literal reprovada"** parecia a regra N1 mais óbvia da lista. Medida no herz: **7 ocorrências, 5 dentro de comentários que documentam a própria regra**, 1 é `bg-black/10` de véu em código shadcn stock. **Zero verdadeiros positivos.** Uma regra ingênua seria ~100% falso positivo no repositório de referência — a definição exata de *"regra automática errada custa mais que regra ausente"*.
+**"Literal color failed"** looked like the most obvious N1 rule on the list. Measured in herz: **7 occurrences, 5 of them inside comments that document the rule itself**, 1 is a `bg-black/10` veil in stock shadcn code. **Zero true positives.** A naive rule would be ~100% false positive in the reference repository — the exact definition of *"regra automática errada custa mais que regra ausente"* [a wrong automatic rule costs more than a missing rule].
 
-**Segundo:** o varredor de segredo **vai reprovar no dia 1** com Postgres. `postgres://user:senha@host` casa `string-de-conexao`, e a lista de placeholder não tem `senha`, `postgres`, `docker` nem `local`. Colide direto com o critério de aceite do passo 1.
+**Second:** the secret scanner **is going to fail on day 1** with Postgres. `postgres://user:senha@host` matches `string-de-conexao`, and the placeholder list does not have `senha`, `postgres`, `docker` or `local`. It collides head-on with step 1's acceptance criterion.
 
-**Política, então:** toda regra nasce `warn` com contador e só vira `error` depois de N commits sem acerto novo. Escape hatch único (`// rebar-<regra>-ok: <motivo>`), contado. **Falso positivo relatado vira arquivo no `aprovar/`** — que já é a suíte de regressão de FP, porque o `provar.mjs` reprova qualquer violação ali.
+**Policy, then:** every rule is born as `warn` with a counter and only becomes `error` after N commits with no new hit. A single escape hatch (`// rebar-<regra>-ok: <motivo>` — the token stays in Portuguese because it is a contract with the user: renaming it invalidates every escape already written in the audited repositories), counted. **A reported false positive becomes a file in `aprovar/`** — which is already the FP regression suite, because `provar.mjs` fails any violation in there.
 
-## 9.6 A simplificação que elimina o apodrecimento de fixture
+## 9.6 The simplification that eliminates fixture rot
 
-> **`aprovar` = a saída do gerador. `reprovar` = mutações plantadas nessa saída, num diretório temporário.**
+> **`aprovar` = the generator's output. `reprovar` = mutations planted in that output, in a temporary directory.**
 
-Uma prova nova não cria diretório novo. Se uma regra precisa de app próprio para ser provável, a regra está com a forma errada. Isso conserta de quebra o `provar-portao.mjs`, que hoje escreve e faz `git add` **no repositório vivo**.
+A new proof does not create a new directory. If a rule needs an app of its own to be provable, the rule has the wrong shape. This fixes `provar-portao.mjs` into the bargain, which today writes and runs `git add` **in the live repository**.
 
-## 9.7 Condição de abandono
+## 9.7 Abandonment condition
 
-O dono já escreve cláusula "Reconsider if" nos ADRs do prumo. Aplicada aqui, com data:
+The owner already writes a "Reconsider if" clause in prumo's ADRs. Applied here, with dates:
 
-| Marco | Critério | Se falhar |
+| Milestone | Criterion | If it fails |
 |---|---|---|
-| **D+7** | `rebar-check` rodou contra ≥3 repositórios que não são o rebar | **Para.** O M5 do alicerce diz *"falta instalar num projeto real"* desde 12/08 e nunca mudou. É a única diferença mensurável entre os dois projetos |
-| **D+30** | ≥2 repositórios com `rebar-check` no CI **reprovando merge**, com link de execução | Vira checklist no `CLAUDE.md` e o repositório é apagado |
-| **D+60** | ≥1 checagem disparou contra algo que o dono queria fazer, **e ele consertou o código em vez de desligar a checagem** | A regra estava errada — é o *"regra automática errada custa mais que regra ausente"* |
-| **D+90** | Checagens cresceram ≤50% **e** o nº de repositórios usando cresceu | Se checagem cresce e adoção não, virou alicerce. Congela a lista |
+| **D+7** | `rebar-check` ran against ≥3 repositories that are not rebar | **Stop.** The alicerce's M5 has said *"falta instalar num projeto real"* [it still needs installing in a real project] since 12/08 and never changed. It is the only measurable difference between the two projects |
+| **D+30** | ≥2 repositories with `rebar-check` in CI **failing merges**, with a run link | It becomes a checklist in `CLAUDE.md` and the repository is deleted |
+| **D+60** | ≥1 check fired against something the owner wanted to do, **and he fixed the code instead of turning the check off** | The rule was wrong — this is the *"regra automática errada custa mais que regra ausente"* [a wrong automatic rule costs more than a missing rule] |
+| **D+90** | Checks grew ≤50% **and** the nº of repositories using it grew | If the checks grow and adoption does not, it became the alicerce. Freeze the list |
 
-**Parada dura:** dois repositórios novos iniciados sem o rebar, em sequência, **depois de
-o gerador existir**.
+**Hard stop:** two new repositories started without rebar, back to back, **after
+the generator exists**.
 
-> ⚠️ **Este critério DISPAROU em 31/08/2026, e foi emendado — não ignorado.**
+> ⚠️ **This criterion FIRED on 31/08/2026, and it was amended — not ignored.**
 >
-> A redação original era "dois repositórios novos iniciados sem o rebar, em sequência", sem
-> a última cláusula. Medido:
+> The original wording was "two new repositories started without rebar, back to back", without
+> the last clause. Measured:
 >
 > ```
-> rebar         primeiro commit  25/08 23:35
-> LinhaK        primeiro commit  29/08 18:47
-> VectraB-Lab   primeiro commit  29/08 18:48
+> rebar         first commit  25/08 23:35
+> LinhaK        first commit  29/08 18:47
+> VectraB-Lab   first commit  29/08 18:48
 > ```
 >
-> Dois repositórios novos, com **um minuto de diferença**, quatro dias depois do rebar
-> nascer, nenhum usando rebar. Pelo texto original, o repositório seria apagado hoje.
+> Two new repositories, **one minute apart**, four days after rebar was
+> born, neither using rebar. By the original text, the repository would be deleted today.
 >
-> A emenda tem um motivo e ele é verificável: **não existe comando para iniciar um
-> repositório com o rebar.** `npx github:Navesz/rebar novo` não foi escrito. O critério
-> media adoção de uma capacidade que o projeto nunca teve — mediu a ausência do gerador,
-> não a rejeição da ferramenta.
+> The amendment has a reason and it is verifiable: **there is no command to start a
+> repository with rebar.** `npx github:Navesz/rebar new` was never written. The criterion
+> was measuring adoption of a capability the project never had — it measured the absence of the generator,
+> not the rejection of the tool.
 >
-> O que a emenda NÃO faz: não suspende o relógio. D+30 e D+60 seguem nas datas originais.
-> E a partir do dia em que o gerador existir, a cláusula volta a valer com dentes — dois
-> repositórios novos sem ele, em sequência, e acabou.
+> What the amendment does NOT do: it does not stop the clock. D+30 and D+60 stand on the original dates.
+> And from the day the generator exists, the clause comes back with teeth — two
+> new repositories without it, back to back, and it is over.
 >
-> Registrado assim porque o critério existe justamente para impedir racionalização, e
-> emendar sem deixar a ata é a racionalização que ele proíbe.
+> Recorded this way because the criterion exists precisely to prevent rationalization, and
+> amending without leaving the minutes is the rationalization it forbids.
 
-**Não-escopo:** nenhum preset `app` ou `api` antes de o `site` ter sido usado **sem modificação** em dois sites.
+**Non-scope:** no `app` or `api` preset before `site` has been used **without modification** in two sites.
 
 ---
 
-# 10. Verificação
+# 10. Verification
 
-- **Do próprio rebar:** `verificar` verde em matriz Windows + Linux; `provar-portao` planta um erro por regra e exige reprovação; `rebar gerar --verificar` reprova MCP desatualizado.
-- **Do que ele gera:** `npm create rebar` em diretório limpo → `verificar` passa sem edição; depois plantar cada falha da forense e confirmar que o commit é barrado.
+- **Of rebar itself:** `verificar` green on a Windows + Linux matrix; `provar-portao` plants one error per rule and demands a failure; `rebar gerar --verificar` fails an out-of-date MCP.
+- **Of what it generates:** `npm create rebar` in a clean directory → `verificar` passes with no editing; then plant each forensic failure and confirm the commit is blocked.
 
 ---
 
-# 11. Registro de decisões
+# 11. Decision log
 
-Toda mudança de rumo entra aqui, datada. Vira `adr/` quando o arquivo virar árvore.
+Every change of course goes in here, dated. It becomes `adr/` when the file becomes a tree.
 
-| Data | Decisão | Por quê |
+| Date | Decision | Why |
 |---|---|---|
-| 25/08 | Nome `rebar` | Vergalhão dentro do concreto: imposição invisível. Sequência natural de "alicerce" |
-| 25/08 | Repo novo, não construir sobre o alicerce | Pedido do dono |
-| 25/08 | Postgres | SQL Server exige licença. E não há migração — o backend do herz nunca existiu |
-| 25/08 | Base UI, não Radix | O painel do alicerce diz Radix; o herz **usa** Base UI. Vence a realidade |
-| 25/08 | `shadcn add` em vez de copiar componente | Os 33 são stock; copiar congela e perde atualização |
-| 25/08 | Portão bloqueia commit **e** CI | Escolha do dono, nível mais duro |
-| 25/08 | O gerador é o produto, não o último módulo | Inverte o erro do alicerce, que deixou `base/` vazio |
-| 25/08 | MCP com portão de frescor | Defeito vivido no Herz e no BMB: regra mudou, MCP não |
-| 25/08 | README e MCP subiram na ordem | Pedido do dono: o MCP é o que impede a IA de ignorar o combinado |
-| 25/08 | **Gerar o CI antes do código** | Forense: 3/3 dos repos sem CI estão com lint quebrado. `AGENTS.md` não impediu 35 erros |
-| 25/08 | Regex de coautoria cobre **todos** os agentes | Cursor é 6× mais frequente que Claude (35 vs 6), com casing de trailer diferente |
-| 25/08 | Detecção de shadcn por `components.json` + primitiva + `cn()` | `@radix-ui` sozinho reprova o único repo que acertou (GAL usa Base UI) |
+| 25/08 | The name `rebar` | The steel bar inside the concrete: invisible enforcement. Natural sequel to "alicerce" |
+| 25/08 | New repo, do not build on top of the alicerce | The owner's request |
+| 25/08 | Postgres | SQL Server requires a license. And there is no migration — the herz backend never existed |
+| 25/08 | Base UI, not Radix | The alicerce panel says Radix; herz **uses** Base UI. Reality wins |
+| 25/08 | `shadcn add` instead of copying components | The 33 are stock; copying freezes them and loses updates |
+| 25/08 | The gate blocks commit **and** CI | The owner's choice, the hardest level |
+| 25/08 | The generator is the product, not the last module | Inverts the alicerce's error, which left `base/` empty |
+| 25/08 | MCP with a freshness gate | A defect lived through in Herz and in BMB: the rule changed, the MCP did not |
+| 25/08 | README and MCP moved up in the order | The owner's request: the MCP is what stops the AI from ignoring what was agreed |
+| 25/08 | **Generate the CI before the code** | Forensics: 3/3 of the repos with no CI have broken lint. `AGENTS.md` did not prevent 35 errors |
+| 25/08 | The co-authorship regex covers **every** agent | Cursor is 6× more frequent than Claude (35 vs 6), with different trailer casing |
+| 25/08 | shadcn detection by `components.json` + primitive + `cn()` | `@radix-ui` alone fails the only repo that got it right (GAL uses Base UI) |
 
 ---
 
-# 12. Revisão — furos encontrados
+# 12. Review — holes found
 
-Primeira passada de revisão adversarial. Tudo abaixo foi **verificado no disco**, não aceito do revisor.
+First adversarial review pass. Everything below was **verified on disk**, not accepted from the reviewer.
 
-## 12.1 O buraco estrutural: o N1 não tem ferramenta
+## 12.1 The structural hole: N1 has no tooling
 
-**O `ferramental/` do alicerce não tem linter nenhum.** `devDependencies` = `dependency-cruiser` + `typescript`. Zero arquivo de config de eslint/oxlint/biome. Todo o N1 que existe é **grafo de import**, e as 29 fixtures são todas de fronteira — **zero fixture de lint**.
+**The alicerce's `ferramental/` has no linter at all.** `devDependencies` = `dependency-cruiser` + `typescript`. Zero eslint/oxlint/biome config files. All the N1 that exists is the **import graph**, and the 29 fixtures are all boundary fixtures — **zero lint fixtures**.
 
-Consequência: estas dez linhas do painel dizem N1 e não têm ferramenta, implementação, nem os dois casos que a regra-mãe exige:
+Consequence: these ten panel lines say N1 and have no tooling, no implementation, and none of the two cases the mother rule demands:
 
-> cor literal · `catch` vazio · `Date.now()` solto · supressão com justificativa · JSDoc na fronteira · mascaramento de dado pessoal em log · idioma único · log com correlação · estado global mutável · migration nunca editada
+> literal color · empty `catch` · loose `Date.now()` · suppression with a justification · JSDoc on the boundary · masking of personal data in logs · single language · log with correlation · mutable global state · migration never edited
 
-**E a decisão que habilitaria tudo isso — "qual linter, com que capacidade de regra própria" — não existe no painel.** O nível N1 inteiro depende de uma decisão que ninguém tomou. É o item mais urgente do esquema.
+**And the decision that would enable all of this — "which linter, with what capacity for custom rules" — does not exist in the panel.** The entire N1 level depends on a decision nobody made. It is the most urgent item in the schema.
 
-## 12.2 ~~O preset `site` não pode usar a stack do herz como está~~ · FECHADA em 31/08
+## 12.2 ~~The `site` preset cannot use the herz stack as it is~~ · CLOSED on 31/08
 
-A stack herdada é Vite + TanStack Router = **SPA**. O buraco que o rebar existe para tapar inclui `<title>`, `og:image` e sitemap.
+The inherited stack is Vite + TanStack Router = **SPA**. The hole rebar exists to plug includes `<title>`, `og:image` and sitemap.
 
-**WhatsApp, LinkedIn, Slack e Discord não executam JavaScript.** O `og:image` de um SPA simplesmente não funciona — o preview do link vem vazio.
+**WhatsApp, LinkedIn, Slack and Discord do not execute JavaScript.** An SPA's `og:image` simply does not work — the link preview comes up empty.
 
-### A decisão: divisão de stack POR PRESET
+### The decision: stack split PER PRESET
 
-| Preset | Build e rotas | Por quê |
+| Preset | Build and routing | Why |
 |---|---|---|
-| `site` | **Next 16 App Router + `output: 'export'`** (SSG) | é o único caminho GA que entrega `og:image` em HTML |
-| `app` | Vite + TanStack Router | continua como está |
+| `site` | **Next 16 App Router + `output: 'export'`** (SSG) | it is the only GA path that delivers `og:image` in HTML |
+| `app` | Vite + TanStack Router | stays as it is |
 
-**A premissa desta seção estava errada na parte que decide.** Ela tratava "a stack herdada
-é Vite + TanStack Router" como fato do preset `site`. Medido em 31/08 nos repositórios do
-dono:
+**This section's premise was wrong in the part that decides.** It treated "the inherited stack
+is Vite + TanStack Router" as a fact about the `site` preset. Measured on 31/08 across the owner's
+repositories:
 
 ```
 SITES   Galegos 16.2.12 · decima-edicoes 16.3.2 · hug-brasil 16.2.10   → Next App Router
 APPS    ducado ^1.170.32 · LinhaK ^1.170.18                            → TanStack Router
 ```
 
-O dono **já dividiu a stack por preset na prática**. O documento é que impunha uma só. E o
-único site dele com metadado correto é o único com `output: 'export'` —
-`decima-edicoes/next.config.ts:6`, com `og.jpg` 1200×630, `sitemap.ts`, `robots.ts` e
+The owner **had already split the stack per preset in practice**. It was the document that imposed
+a single one. And the only site of his with correct metadata is the only one with `output: 'export'` —
+`decima-edicoes/next.config.ts:6`, with a 1200×630 `og.jpg`, `sitemap.ts`, `robots.ts` and
 `manifest.ts`.
 
-### O spike que fechou o furo material
+### The spike that closed the material hole
 
-Ninguém tinha verificado se as três peças funcionam JUNTAS. Rodado em 31/08, em diretório
-temporário:
+Nobody had checked whether the three pieces work TOGETHER. Run on 31/08, in a temporary
+directory:
 
 ```bash
 npx shadcn@latest create -t next -b base -p nova --pointer -n spike -y
 # → components.json  style: base-nova · rsc: true
 # → @base-ui/react ^1.7.0 · ZERO @radix-ui · React 19.2.4 · Tailwind 4 · Next 16.2.6
 
-# + output: 'export' e images.unoptimized no next.config.ts
+# + output: 'export' and images.unoptimized in next.config.ts
 npx next build
-# → ✓ todas as rotas prerendered as static content, exit 0
+# → ✓ all routes prerendered as static content, exit 0
 
 grep og:image out/index.html
 # → <meta property="og:image" content="https://exemplo.com.br/og.jpg"/>
 ```
 
-O `og:image` com URL absoluta chega num HTML estático de 12 KB, sem uma linha de
-JavaScript. É exatamente a propriedade que a seção duvidava.
+The `og:image` with an absolute URL arrives in a 12 KB static HTML, without a line of
+JavaScript. It is exactly the property the section doubted.
 
-Vale registrar que `shadcn create -d` tem como padrão `--template=next --preset=base-nova`:
-**a recomendação coincide com o default do upstream**, não briga com ele.
+Worth recording that `shadcn create -d` defaults to `--template=next --preset=base-nova`:
+**the recommendation coincides with the upstream default**, it does not fight it.
 
-### O que isso custa
+### What this costs
 
-**MAJOR na Stack, e chamar de MINOR seria conveniência.** Trocar builder e roteador do
-preset `site` é reversão de decisão fechada, e o documento existe para registrar isso. O
-que NÃO é tocado, e é a peça mais cara: `Galegos/components.json:3` prova `style: base-nova`
-com `rsc: true` rodando em Next 16 sobre `@base-ui/react`, com zero Radix. React 19,
-Tailwind 4, shadcn sobre Base UI e as libs do TanStack que não são de rota — todos intactos.
+**MAJOR on the Stack, and calling it MINOR would be convenience.** Swapping the `site` preset's
+builder and router is the reversal of a closed decision, and the document exists to record that. What
+is NOT touched, and is the most expensive piece: `Galegos/components.json:3` proves `style: base-nova`
+with `rsc: true` running on Next 16 over `@base-ui/react`, with zero Radix. React 19,
+Tailwind 4, shadcn over Base UI and the TanStack libs that are not routing — all intact.
 
-## 12.3 ~~A decisão que o painel não tem e que É a queixa original~~ · FECHADA em 31/08
+## 12.3 ~~The decision the panel does not have and that IS the original complaint~~ · CLOSED on 31/08
 
-**Origem do conteúdo: hardcode · MD/MDX no repo · CMS · banco.** É o *"hardcoded"* da queixa do dono, textualmente. O painel não tem uma linha sobre onde mora o texto do site. Sem essa decisão, o gerador produz exatamente o que existe para impedir — como o `menu.ts` de 623 linhas do Galegos.
+**Content origin: hardcode · MD/MDX in the repo · CMS · database.** It is the *"hardcoded"* from the owner's complaint, verbatim. The panel does not have one line about where the site's text lives. Without that decision, the generator produces exactly what it exists to prevent — like Galegos's 623-line `menu.ts`.
 
-### A decisão: dado tipado no repositório, validado no build
+### The decision: typed data in the repository, validated at build time
 
-Preset `site`: o conteúdo mora em `conteudo/*.json`, com um schema que **reprova o build**
-se divergir. Sem MD/MDX por padrão, sem CMS hospedado, sem banco.
+`site` preset: the content lives in `conteudo/*.json`, with a schema that **fails the build**
+if it diverges. No MD/MDX by default, no hosted CMS, no database.
 
-E a parte que não é óbvia: **identidade do negócio — telefone, nome fantasia, CNPJ,
-endereço — é CONTEÚDO validado, não variável de ambiente.**
+And the part that is not obvious: **the business's identity — phone, trade name, CNPJ,
+address — is validated CONTENT, not an environment variable.**
 
-### Por que env var é a resposta errada, e a prova é do próprio dono
+### Why an env var is the wrong answer, and the proof is the owner's own
 
-Existe um PR aberto no Galegos que tentou exatamente isso, e está estacionado de propósito.
-`Navesz/Galegos#1`, branch `chore/contact-out-of-source`, no corpo dele:
+There is an open PR in Galegos that tried exactly that, and it is parked on purpose.
+`Navesz/Galegos#1`, branch `chore/contact-out-of-source`, in its body:
 
 > *"would build a wa.me link with no recipient, so a live menu would silently stop
 > delivering orders"*
 
-Tirar o telefone do código para env var trocou **hardcode visível** por **falha invisível
-em produção**: o build passa, o deploy sobe, o cardápio abre, e o botão de pedido gera link
-sem destinatário. Ninguém vê no code review. Esse é o pior negócio possível, e o dono
-percebeu sozinho — por isso o PR não mesclou.
+Taking the phone number out of the code into an env var swapped **visible hardcode** for **invisible
+failure in production**: the build passes, the deploy goes up, the menu opens, and the order button generates a link
+with no recipient. Nobody sees it in code review. That is the worst possible trade, and the owner
+worked it out on his own — which is why the PR did not merge.
 
-O discriminador que sobrou da revisão adversarial tem dois eixos, e o dado só entra no
-repositório se os dois forem verdadeiros:
+The discriminator left over from the adversarial review has two axes, and the data only goes into the
+repository if both are true:
 
-1. **renderiza em rota pública** — se aparece na tela para qualquer visitante, não é segredo
-2. **é dado de primeira parte** — da própria empresa, não de pessoa física terceira
+1. **it renders on a public route** — if it appears on screen for any visitor, it is not a secret
+2. **it is first-party data** — the company's own, not a third-party individual's
 
-O WhatsApp do Galegos: renderiza em toda página, é da empresa. **Conteúdo.** Já o nome e o
-celular de uma funcionária que vazaram no `hug-brasil-propostas` falham o eixo 2 —
-terceiro — e não entram nem como conteúdo nem como env var: não entram.
+Galegos's WhatsApp: renders on every page, belongs to the company. **Content.** Whereas the name and
+mobile number of an employee that leaked in `hug-brasil-propostas` fail axis 2 —
+third party — and go in neither as content nor as an env var: they do not go in.
 
-### O que a medição sustenta, e o que ela NÃO sustenta
+### What the measurement supports, and what it does NOT support
 
-Sustenta: `Galegos/src/lib/menu.ts` tem **623 linhas** de catálogo dentro de `src/`, e
-0 de 4 sites usam MD/MDX, e nenhum paga fornecedor de CMS.
+It supports: `Galegos/src/lib/menu.ts` has **623 lines** of catalog inside `src/`, and
+0 of 4 sites use MD/MDX, and none pays a CMS vendor.
 
-**Não sustenta** a ideia de que trocar preço é o gargalo: dos 8 commits do Galegos, 4 tocam
-o `menu.ts` e **zero** tocam só ele. Não existe commit de conteúdo puro. Com 8 commits o
-repositório é jovem demais para provar dor de manutenção — e registrar isso importa mais
-que a conveniência de ter um número a favor.
+**It does not support** the idea that changing a price is the bottleneck: of Galegos's 8 commits, 4 touch
+`menu.ts` and **zero** touch only it. There is no pure-content commit. With 8 commits the
+repository is too young to prove maintenance pain — and recording that matters more
+than the convenience of having a number in favor.
 
-A dor medida é outra, e é literalmente a queixa: `src/lib/whatsapp.ts:7` tem o número em
-**dois formatos**, `src/lib/viacep.ts` tem URL de produção, e `process.env` aparece **zero
-vezes** em todo o `src/`. Não é "onde mora o texto" — é **configuração assada no código**.
+The measured pain is another one, and it is literally the complaint: `src/lib/whatsapp.ts:7` has the number in
+**two formats**, `src/lib/viacep.ts` has a production URL, and `process.env` appears **zero
+times** in all of `src/`. It is not "where the text lives" — it is **configuration baked into the code**.
 
-### O que falta para esta decisão ter dentes · AINDA ABERTO
+### What is missing for this decision to have teeth · STILL OPEN
 
-Fechar a §12.3 no texto não fecha nada. Faltava a regra determinística
-**`conteudo-fora-do-codigo`**, com os dois casos que a regra-mãe exige: `aprovar/` é a saída
-do gerador, `reprovar/` é a mesma saída com um preço e uma frase plantados num `.tsx`.
-Enquanto ela não existisse, isto era prosa — que é exatamente o defeito que o repositório
-inteiro existe para combater.
+Closing §12.3 in the text closes nothing. What was missing was the deterministic rule
+**`conteudo-fora-do-codigo`**, with the two cases the mother rule demands: `aprovar/` is the generator's
+output, `reprovar/` is that same output with a price and a sentence planted in a `.tsx`.
+For as long as it did not exist, this was prose — which is exactly the defect the whole
+repository exists to fight.
 
-> ⚠️ **A regra existe e está HEURÍSTICA. A §12.3 NÃO está fechada.**
+> ⚠️ **The rule exists and it is HEURISTIC. §12.3 is NOT closed.**
 >
-> Ela nasceu determinística em 30/08 e foi rebaixada em 31/08 por auditoria adversarial.
-> Três defeitos, todos medidos:
+> It was born deterministic on 30/08 and was demoted on 31/08 by an adversarial audit.
+> Three defects, all measured:
 >
-> - **As provas dela são decorativas.** Das 32 mutações aplicadas ao `index.mjs`, 16
->   sobreviveram — **nove das 16 estão nesta regra**. Apagar a exigência de dígito do padrão
->   de preço, baixar o mínimo da frase de 25 para 1 caractere, e desligar o filtro de sinal
->   de código: os três deixam a suíte 2 de 2 verde. O `aprovar/` nem contém `R$`, então a
->   discriminação que o `caso.json` diz exercitar não é exercitada.
-> - **Ela acusa vocabulário de interface**, que é o que o comentário dela promete deixar de
->   fora: 27 das 185 frases (15%) são rótulo de ação ou estado vazio/carregando/erro.
->   *"Não deu para abrir o cofre."* não vai para `conteudo/*.json`.
-> - **17 das 185 são fragmento, não literal.** O casamento corta no primeiro `<`, então
->   frase atravessada por um `<strong>` vira dois ou três achados.
+> - **Its proofs are decorative.** Of the 32 mutations applied to `index.mjs`, 16
+>   survived — **nine of the 16 are in this rule**. Deleting the digit requirement from the price
+>   pattern, dropping the sentence minimum from 25 to 1 character, and turning off the code-signal
+>   filter: all three leave the suite 2 of 2 green. `aprovar/` does not even contain `R$`, so the
+>   discrimination the `caso.json` claims to exercise is not exercised.
+> - **It accuses interface vocabulary**, which is what its own comment promises to leave
+>   out: 27 of the 185 sentences (15%) are an action label or an empty/loading/error state.
+>   *"Não deu para abrir o cofre."* [Could not open the vault.] does not go into `conteudo/*.json`.
+> - **17 of the 185 are a fragment, not a literal.** The match cuts at the first `<`, so a
+>   sentence crossed by a `<strong>` turns into two or three findings.
 >
-> Precisa subir a determinística **antes de o gerador existir** — é a saída do gerador que
-> ela existe para vigiar. Enquanto for heurística, esta decisão está tomada no texto e sem
-> dente no código.
+> The deterministic version has to go up **before the generator exists** — it is the generator's output
+> that it exists to watch. While it is heuristic, this decision is taken in the text and has no
+> teeth in the code.
 
-**A regra existe**, em `ferramental/rebar-check/index.mjs`, hoje heurística, com os dois
-casos em `provas/casos/conteudo-fora-do-codigo/` e um terceiro par para os ramos N/A em
-`conteudo-fora-do-codigo__nao-adotou/`. O gerador ainda não existe, então o `aprovar/` foi
-escrito à mão na forma decidida aqui: `conteudo/inicio.json` com o texto e o preço em
-centavos, e um `app/pagina.tsx` que só LÊ aquele arquivo.
+**The rule exists**, in `ferramental/rebar-check/index.mjs`, heuristic today, with the two
+cases in `provas/casos/conteudo-fora-do-codigo/` and a third pair for the N/A branches in
+`conteudo-fora-do-codigo__nao-adotou/`. The generator does not exist yet, so `aprovar/` was
+written by hand in the shape decided here: `conteudo/inicio.json` with the text and the price in
+cents, and an `app/pagina.tsx` that only READS that file.
 
-Duas coisas medidas que a decisão precisa carregar junto:
+Two measured things the decision has to carry along with it:
 
-**1. A definição de "literal de conteúdo" é estreita de propósito, e mesmo estreita ela
-acusa todo mundo.** Ela reconhece duas formas — `R$` seguido de dígito, e nó de texto de
-JSX com quatro palavras ou mais —, escolhidas por serem impossíveis de confundir com
-`className`, `import`, `aria-label` ou chave de objeto. Medida em 30/08 contra os 11
-repositórios da máquina, **sem** o portão de aplicabilidade, ela acha **188 literais em 45
-arquivos de 7 repositórios** (a soma 147+13+12+9+3+3+1 fecha em sete; `alicerce`,
-`navesz.github.io`, `openkartline` e `VectraB-Lab` dão zero), dos quais **147 só no `decima-edicoes`, em 15 dos 25 arquivos
-dele** — depois `ducado` 13, `hug-brasil-propostas` 12, `vectra-painel` 9, `Galegos` 3,
-`prumo` 3 e `LinhaK` 1. **A afirmação original desta linha — "nenhum dos 188 é falso" —
-não se sustenta**, e a auditoria a derrubou classificando as 185 frases uma a uma: 27 são
-vocabulário de interface, que é a quinta categoria que a própria definição promete excluir.
-O acerto que resta é real e vale registrar: não há uma única string de `className`, de
-`import`, de `aria-label` ou de chave de objeto — a exclusão de atributo por construção do
-JSX funciona. O que a tabela prova é que **todo site
-escrito à mão viola esta asserção**, e portanto a asserção não pode ser cobrada de quem não
-prometeu cumpri-la.
+**1. The definition of "content literal" is narrow on purpose, and even narrow it
+accuses everyone.** It recognizes two shapes — `R$` followed by a digit, and a JSX text
+node with four words or more —, chosen for being impossible to confuse with
+`className`, `import`, `aria-label` or an object key. Measured on 30/08 against the 11
+repositories on the machine, **without** the applicability gate, it finds **188 literals in 45
+files across 7 repositories** (the sum 147+13+12+9+3+3+1 closes at seven; `alicerce`,
+`navesz.github.io`, `openkartline` and `VectraB-Lab` give zero), of which **147 in `decima-edicoes` alone, in 15 of its 25
+files** — then `ducado` 13, `hug-brasil-propostas` 12, `vectra-painel` 9, `Galegos` 3,
+`prumo` 3 and `LinhaK` 1. **This line's original claim — "nenhum dos 188 é falso" [none of the 188 is false] —
+does not hold**, and the audit knocked it down by classifying the 185 sentences one by one: 27 are
+interface vocabulary, which is the fifth category the definition itself promises to exclude.
+The part that stands is real and worth recording: there is not a single string from `className`,
+`import`, `aria-label` or an object key — excluding attributes by construction of the
+JSX works. What the table proves is that **every hand-written site
+violates this assertion**, and therefore the assertion cannot be charged against whoever did not
+promise to meet it.
 
-**2. Daí o portão: a regra só se aplica a quem tem `conteudo/*.json` rastreado.** Mesma
-forma do `notice` (só cobra NOTICE de quem escolheu Apache) e do `ui-falso` (só cobra
-`components.json` de quem criou `components/ui/`). Com o portão, os 11 repositórios medidos
-saem N/A com o motivo impresso, e a saída do gerador é cobrada por inteiro.
+**2. Hence the gate: the rule only applies to whoever has `conteudo/*.json` tracked.** Same
+shape as `notice` (it only charges a NOTICE against whoever chose Apache) and `ui-falso` (it only charges
+`components.json` against whoever created `components/ui/`). With the gate, the 11 measured repositories
+come out N/A with the reason printed, and the generator's output is charged in full.
 
-**3. A inversão que a medição revelou, e que vale registrar contra a própria §12.3.** O
-`Galegos` — o repositório que esta seção cita como o pior caso, com as 623 linhas de
-`menu.ts` — dá apenas **3** literais nesta definição, contra 147 do `decima-edicoes`, e o
-único que toca o `menu.ts` é um **preço** (`src/lib/menu.ts:590`, `"+ R$ 4,00 para trocar o
-refri por Coca lata."`). O motivo é que o conteúdo do Galegos mora num `.ts` de DADO, não
-em JSX. A definição mede
-"prosa renderizada dentro de componente", que não é o mesmo que "conteúdo dentro de
-`src/`". Detectar catálogo em objeto literal de `.ts` é o buraco que sobra, e ele fica
-aberto de propósito: qualquer padrão que o pegue também pega toda tabela de constantes de
-todo projeto, e regra larga queima a ferramenta.
+**3. The inversion the measurement revealed, and that is worth recording against §12.3 itself.**
+`Galegos` — the repository this section cites as the worst case, with the 623 lines of
+`menu.ts` — gives only **3** literals under this definition, against 147 from `decima-edicoes`, and the
+only one that touches `menu.ts` is a **price** (`src/lib/menu.ts:590`, `"+ R$ 4,00 para trocar o
+refri por Coca lata."` [+ R$ 4.00 to swap the soda for a can of Coke.] — the source literal stays in
+Portuguese because it is measured data from a third-party repository). The reason is that Galegos's
+content lives in a DATA `.ts`, not in JSX. The definition measures "prose rendered inside a
+component", which is not the same as "content inside `src/`". Detecting a catalog in a `.ts` object
+literal is the hole that is left over, and it stays open on purpose: any pattern that catches it also
+catches every constants table of every project, and a broad rule burns the tool.
 
-O que a §12.3 também ganhou de dentes na mesma passagem: a regra `telefone` subiu de
-heurística a **determinística**, com 1 verdadeiro e 0 falsos em 417 arquivos de código
-medidos. O número do Galegos, que esta seção cita como a dor original, agora reprova merge.
+What §12.3 also gained in teeth in the same pass: the `telefone` rule went up from
+heuristic to **deterministic**, with 1 true and 0 false across 417 measured code
+files. Galegos's number, which this section cites as the original pain, now fails merges.
 
-### CMS: emitido e desconectado
+### CMS: emitted and disconnected
 
-O gerador emite `.pages.yml` (Pages CMS, MIT) **sempre, e desconectado**. São ~40 linhas de
-YAML que transformam "conectar um editor" numa decisão de cinco minutos em vez de uma
-refatoração. Conectar exige dar **acesso de escrita** ao repositório para um serviço de
-terceiro hospedado — decisão tomada em 31/08: **não conectar agora.**
+The generator emits `.pages.yml` (Pages CMS, MIT) **always, and disconnected**. It is ~40 lines of
+YAML that turn "connect an editor" into a five-minute decision instead of a
+refactor. Connecting requires giving **write access** to the repository to a hosted third-party
+service — decision taken on 31/08: **do not connect now.**
 
-## 12.4 Três níveis herdados errados, violando a regra-mãe
+## 12.4 Three levels inherited wrong, violating the mother rule
 
-| Linha | Nível no painel | Deveria ser | Como |
+| Line | Level in the panel | Should be | How |
 |---|---|---|---|
-| Query builder sobre ORM (Kysely) | **N7** | **N1** | "Não importar ORM" é import proibido. Uma linha de depcruise |
-| Biblioteca de componentes, uma só | **N6/N7** | **N1** | Proibir `@radix-ui/*`, `@mui/*`. Uma linha |
-| Todo componente de dado tem 4 estados | **N3/N6** | **N0** | União discriminada + `switch` exaustivo. **Não compila** sem tratar carregando/vazio/erro/dado |
+| Query builder over an ORM (Kysely) | **N7** | **N1** | "Do not import an ORM" is a forbidden import. One line of depcruise |
+| Component library, one only | **N6/N7** | **N1** | Forbid `@radix-ui/*`, `@mui/*`. One line |
+| Every data component has 4 states | **N3/N6** | **N0** | Discriminated union + exhaustive `switch`. It **does not compile** without handling loading/empty/error/data |
 
-Num documento cuja tese é *"se pode descer, deve descer"*, herdar esses três sem corrigir é a contradição mais direta possível.
+In a document whose thesis is *"se pode descer, deve descer"* [if it can go down, it must go down], inheriting these three without correcting them is the most direct contradiction possible.
 
-## 12.5 Outras correções
+## 12.5 Other corrections
 
-| # | Erro | Correção |
+| # | Error | Correction |
 |---|---|---|
-| 1 | **Dinheiro contraditório.** §5 Eixo 1 diz *"inteiro em centavos"*; §8.3 leva *"string decimal"* do herz | Escrevi os dois sem notar. Mesma classe do Radix/Base UI, e essa eu não peguei |
-| 2 | **`verificar.mjs` em duas listas opostas** — §8.1 "levar como está" e §8.2 "consertar ao portar" | É levar **e** consertar |
-| 3 | **Acessibilidade aparece 2× no painel** — linhas 119 e 181 | São **119 decisões distintas**, não 120. Eu corrigi 117→120 e contei linha de tabela, não decisão |
-| 4 | **CSRF ausente do painel inteiro** | Tem CORS, tem CSP, não tem CSRF |
-| 5 | **Telemetria de token por tarefa em N4** | Nenhum job de CI mede custo por tarefa. É N6/N7 rotulado de N4 |
-| 6 | **A métrica de contexto mede a coisa errada** | "< 200 linhas" conta o arquivo sempre-presente. O herz passa com 153 linhas **e serve 1961 linhas de guia por MCP na mesma sessão**. O alvo certo é o pacote de retomada em tokens, que o `contexto/ai.mjs orcamento` já mede |
-| 7 | **`shadcn add` escreve em zona sem regra** | `web-camadas.cjs` exclui `^src/components/ui/` da análise. E a prova de que a atualização volta errada já está no doc: `components.json` diz `neutral`, o CSS é zinc |
-| 8 | **`.ai/gerar.mjs` é o pipeline inverso** | No herz ele destila prosa → 3 cópias. O rebar quer respostas estruturadas → prosa. Reaproveitar só o "N cópias sincronizadas + `--verificar`" |
-| 9 | **§8 passo 1 projeta o esquema de um preset só** | Recortar o núcleo **antes** da fatia vertical, senão o núcleo nasce torto — o mesmo erro do M8 |
+| 1 | **Contradictory money.** §5 Axis 1 says *"integer in cents"*; §8.3 takes *"decimal string"* from herz | I wrote both without noticing. Same class as Radix/Base UI, and this one I did not catch |
+| 2 | **`verificar.mjs` in two opposite lists** — §8.1 "as it is" and §8.2 "fix while porting" | It is take **and** fix |
+| 3 | **Accessibility appears 2× in the panel** — lines 119 and 181 | They are **119 distinct decisions**, not 120. I corrected 117→120 and counted table rows, not decisions |
+| 4 | **CSRF absent from the whole panel** | There is CORS, there is CSP, there is no CSRF |
+| 5 | **Per-task token telemetry at N4** | No CI job measures cost per task. It is N6/N7 labeled N4 |
+| 6 | **The context metric measures the wrong thing** | "< 200 lines" counts the always-present file. Herz passes with 153 lines **and serves 1961 lines of guide by MCP in the same session**. The right target is the resumption bundle in tokens, which `contexto/ai.mjs orcamento` already measures |
+| 7 | **`shadcn add` writes into a zone with no rule** | `web-camadas.cjs` excludes `^src/components/ui/` from the analysis. And the proof that the update comes back wrong is already in the doc: `components.json` says `neutral`, the CSS is zinc |
+| 8 | **`.ai/gerar.mjs` is the inverse pipeline** | In herz it distills prose → 3 copies. Rebar wants structured answers → prose. Reuse only the "N synchronized copies + `--verificar`" |
+| 9 | **§8 step 1 designs the schema of a single preset** | Carve out the core **before** the vertical slice, otherwise the core is born crooked — the same error as M8 |
 
-## 12.6 O colapso: 120 → ~71 decisões
+## 12.6 The collapse: 120 → ~71 decisions
 
-Dezesseis grupos onde linhas separadas são **a mesma decisão**. Os quatro de maior valor:
+Sixteen groups where separate lines are **the same decision**. The four of highest value:
 
-| Grupo | Absorve | Vira |
+| Group | Absorbs | Becomes |
 |---|---|---|
-| **Fronteira** | Camadas · ferramenta · ciclo · órfão · dado por prop · terceiro não editado · monorepo · zero-Node no contrato · negócio puro · estática | **10 → 1.** Não são 10 decisões: é 1 ("qual preset de fronteira") com 10 regras dentro. O alicerce já entrega como 15 presets + 29 fixtures |
-| **Mapa de campo pessoal** | Inventário · não entra em log · retenção · soft delete · auditoria **+ os 9 itens legais faltantes** | **14 → 1.** Um artefato tipado marcando cada campo. Dele derivam o mascarador (N1), o job de expurgo (N3), o endpoint de exportação (**N0 — não compila se um campo novo não foi classificado**) e **a política de privacidade gerada**. O "buraco maior" vira mecânico |
-| **Metadado de rota** | Nenhuma hoje — absorve `<title>` · description · `og:image` · canonical · sitemap · `robots.txt` · JSON-LD · 404 · `hreflang` | **9 novas → 1.** **N0**: o tipo da rota exige `meta`. Sitemap e robots passam a ser **gerados, não decididos** |
-| **Origem de terceiro** | CORS/CSP + analytics · consentimento · fonte por CDN · vídeo · mapa | **6 → 1.** O CSP e o banner de cookie são **a mesma allowlist vista de dois ângulos** |
+| **Boundary** | Layers · tooling · cycle · orphan · data by prop · third party not edited · monorepo · zero-Node in the contract · pure business · static | **10 → 1.** They are not 10 decisions: it is 1 ("which boundary preset") with 10 rules inside. The alicerce already ships it as 15 presets + 29 fixtures |
+| **Personal-field map** | Inventory · does not go into logs · retention · soft delete · audit **+ the 9 missing legal items** | **14 → 1.** One typed artifact marking every field. From it derive the masker (N1), the purge job (N3), the export endpoint (**N0 — it does not compile if a new field was not classified**) and **the generated privacy policy**. The "bigger hole" becomes mechanical |
+| **Route metadata** | None today — it absorbs `<title>` · description · `og:image` · canonical · sitemap · `robots.txt` · JSON-LD · 404 · `hreflang` | **9 new → 1.** **N0**: the route type requires `meta`. Sitemap and robots become **generated, not decided** |
+| **Third-party origin** | CORS/CSP + analytics · consent · font by CDN · video · map | **6 → 1.** The CSP and the cookie banner are **the same allowlist seen from two angles** |
 
-Outros doze: token de design · um schema por fronteira · efeito acontece uma vez · tempo/aleatório injetados · escape declarado · um comando · fatura de contexto · localidade · transação · migration · estado de dado · superfície de segurança do CI.
+The other twelve: design token · one schema per boundary · the effect happens once · time/random injected · declared escape · one command · context invoice · locale · transaction · migration · data state · CI security surface.
 
-## 12.7 O corte dos presets, em número
+## 12.7 The preset cut, in numbers
 
-| Preset | Das 120 atuais, aplicam | Exclusivas hoje |
+| Preset | Of the current 120, how many apply | Exclusive today |
 |---|---|---|
 | `app` | **118** (98%) | 2 |
 | `api` | **105** (88%) | 2 |
 | `site` | **77** (64%) | **0** |
 
-Os eixos 8 e 9 são **100% núcleo** — 23 linhas iguais em todo preset. O eixo 7 inteiro é N/A para `api`.
+Axes 8 and 9 are **100% core** — 23 identical lines in every preset. The whole of axis 7 is N/A for `api`.
 
-> **`site` é o preset pior servido, e é o que o dono constrói.** 36% do painel não se aplica e **nada** ocupa o lugar: zero linha exclusiva em 120. É a §2.3 medida em número.
+> **`site` is the worst-served preset, and it is the one the owner builds.** 36% of the panel does not apply and **nothing** takes its place: zero exclusive lines out of 120. It is §2.3 measured in numbers.
 
-Depois do colapso e das faltas: `site` ≈ 68 · `app` ≈ 82 · `api` ≈ 64 — e `site` passa a ter o segundo maior conjunto exclusivo (~26).
+After the collapse and the gaps: `site` ≈ 68 · `app` ≈ 82 · `api` ≈ 64 — and `site` comes to have the second-largest exclusive set (~26).
 
-## 12.8 O que falta e é 🔴
+## 12.8 What is missing and is 🔴
 
-Além das duas de §12.2 e §12.3: estratégia de renderização · origem do conteúdo · onde hospeda · método de autenticação de usuário final · processador de pagamento · **deriva do scaffold** (o projeto gerado sabe de que versão do rebar nasceu, e `rebar doctor` reprova se divergir).
+Besides the two from §12.2 and §12.3: rendering strategy · content origin · where it is hosted · end-user authentication method · payment processor · **scaffold drift** (the generated project knows which version of rebar it was born from, and `rebar doctor` fails if it diverges).
 
 ---
 
-# 13. Aberto
+# 13. Open
 
-| Item | Estado |
+| Item | State |
 |---|---|
-| Revisor: completude e o que combina com o quê | Agente rodando |
-| Revisor: rigor de imposição e rotas de fuga | Agente rodando |
-| Revisor: realismo de escopo e sequência | Agente rodando |
-| Corte das 120 decisões entre `site` / `app` / `api` | Não feito |
-| Nomes neutros para as cinco famílias de cor | Não decidido |
-| Nível WCAG a adotar como padrão da casa | Não decidido |
-| Escrever as ~18 checagens da forense como regras com dois casos cada | Não feito — depende do revisor de escopo |
+| Reviewer: completeness and what fits with what | Agent running |
+| Reviewer: enforcement rigor and escape routes | Agent running |
+| Reviewer: scope realism and sequence | Agent running |
+| Cut of the 120 decisions across `site` / `app` / `api` | Not done |
+| Neutral names for the five color families | Not decided |
+| WCAG level to adopt as the house default | Not decided |
+| Write the ~18 forensic checks as rules with two cases each | Not done — depends on the scope reviewer |

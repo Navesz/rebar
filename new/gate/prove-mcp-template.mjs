@@ -1,28 +1,32 @@
 #!/usr/bin/env node
-// A PRIMEIRA PROVA DE COMPORTAMENTO DO MCP QUE O GERADOR ESCREVE.
+// THE FIRST BEHAVIOR PROOF OF THE MCP THE GENERATOR WRITES.
 //
-// Por que existe. `new/gate/arquivos/mcp-rebar.mjs` tem mais de 800 linhas e vai
-// para dentro de todo projeto gerado como `.rebar/mcp.mjs`. Até 2026-09-06 nada
-// o executava: o passo `syntax` conferia que ele PARSEIA, o `generator-map`
-// conferia que ele é EMITIDO, e nenhum dos dois conferia que ele RESPONDE. É
-// exatamente o buraco que deixou o `rebar novo` quebrado por seis commits com o
-// portão 15/15 verde — o portão provava o ferramental e nunca o produto.
+// Why it exists. `new/gate/arquivos/mcp-rebar.mjs` has more than 800 lines and
+// goes into every generated project as `.rebar/mcp.mjs`. Until 2026-09-06
+// nothing ran it: the `syntax` step checked that it PARSES, `generator-map`
+// checked that it is EMITTED, and neither of the two checked that it ANSWERS. It
+// is exactly the hole that left `rebar new` broken for six commits with the
+// gate 15/15 green — the gate proved the tooling and never the product.
 //
-// O QUE SE PROVA AQUI, e é a pergunta mais cara que este MCP responde: o portão
-// deste projeto está armado?
+// WHAT GETS PROVED HERE, and it is the most expensive question this MCP answers:
+// is the gate of this project armed?
 //
-// `core.hooksPath` é uma string livre. O git grava sem conferir nada:
+// `core.hooksPath` is a free string. Git writes it down checking nothing:
 //
-//   $ git config core.hooksPath .hooks-que-nunca-existiram   # sai 0, calado
-//   $ git commit ...                                          # nenhum hook roda
+//   $ git config core.hooksPath .hooks-que-nunca-existiram   # exits 0, silent
+//   $ git commit ...                                          # no hook runs
 //
-// Quem lê só o valor conclui "armado" e responde ao agente que o portão está
-// fechado enquanto ele está escancarado — que é pior que não saber, porque é o
-// que faz o agente parar de perguntar. São cinco estados, e cada um é um caso
-// abaixo.
+// Whoever reads only the value concludes "armed" and answers the agent that the
+// gate is closed while it stands wide open — which is worse than not knowing,
+// because it is what makes the agent stop asking. There are five states, and
+// each one is a case below.
 //
-//   node new/gate/prove-mcp-template.mjs           mostra as trocas
-//   node new/gate/prove-mcp-template.mjs --curto   só o veredito
+//   node new/gate/prove-mcp-template.mjs           shows the exchanges
+//   node new/gate/prove-mcp-template.mjs --curto   only the verdict
+//
+// `--curto` keeps its Portuguese name: `verify.config.mjs` passes that exact
+// flag on the `mcp-template` step. Rename it and the flag stops being read, and
+// the gate report fills up with the whole JSON-RPC exchange.
 
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -39,22 +43,26 @@ const CURTO = process.argv.includes('--curto')
 let falhas = 0
 const titulo = (t) => console.log(`\n${'─'.repeat(78)}\n${t}\n${'─'.repeat(78)}`)
 const ok = (t) => console.log(`  ok   ${t}`)
+// The `FALHA` prefix stays in Portuguese: it is a contract with
+// `verify.config.mjs`, whose `mcp-template` step pulls the failures out with
+// `extrair: /^\s*FALHA/`. Rename it and every failure line disappears from the
+// gate report while the step still exits 1 — a red step with nothing to read.
 const falhou = (t) => {
   falhas++
   console.log(`  FALHA ${t}`)
 }
 
 /**
- * Um projeto gerado, mínimo mas real: repositório de verdade, hooks no disco, e
- * o modelo COPIADO — não importado. Importar leria o arquivo daqui e provaria o
- * caminho errado; o que vai para o usuário é a cópia.
+ * A generated project, minimal but real: a real repository, hooks on disk, and
+ * the template COPIED — not imported. Importing would read the file from here
+ * and prove the wrong path; what goes to the user is the copy.
  */
 function montarProjeto() {
   const base = mkdtempSync(join(tmpdir(), 'rebar-mcp-'))
 
-  // Configuração global e de sistema fora do caminho: um `core.hooksPath` na
-  // máquina de quem roda esta prova decidiria o resultado dos cinco casos.
-  // Arquivo vazio de verdade, porque `/dev/null` não existe no Windows.
+  // Global and system configuration out of the way: a `core.hooksPath` on the
+  // machine running this proof would decide the result of the five cases. A
+  // genuinely empty file, because `/dev/null` does not exist on Windows.
   const vazio = join(base, 'git-config-vazio')
   writeFileSync(vazio, '', 'utf8')
   const env = { ...process.env, GIT_CONFIG_GLOBAL: vazio, GIT_CONFIG_SYSTEM: vazio }
@@ -80,7 +88,7 @@ function montarProjeto() {
   }
   writeFileSync(join(base, '.rebar-coauthors'), 'humano@exemplo.com\n', 'utf8')
 
-  // A pasta do CASO D: existe, e não é a do projeto.
+  // The folder for CASE D: it exists, and it is not the project's.
   mkdirSync(join(base, 'outros-hooks'), { recursive: true })
 
   mkdirSync(join(base, '.rebar'), { recursive: true })
@@ -90,14 +98,14 @@ function montarProjeto() {
   return { base, servidor, env, git }
 }
 
-/** Pergunta ao MCP do projeto o estado do portão, e devolve o bloco de hooks. */
+/** Asks the project's MCP for the state of the gate, and returns the hooks block. */
 async function estadoDoPortao(projeto) {
   const c = new Cliente(projeto.servidor, { cwd: projeto.base, curto: CURTO })
   try {
     await c.apresentar('prova-do-modelo')
     const r = await c.pedir('tools/call', { name: 'rebar_portao', arguments: {} })
     const t = textoDa(r)
-    if (!t) throw new Error('rebar_portao não devolveu texto')
+    if (!t) throw new Error('rebar_portao returned no text')
     return JSON.parse(t).hooks_de_git
   } finally {
     await c.fechar()
@@ -106,63 +114,68 @@ async function estadoDoPortao(projeto) {
 
 const projeto = montarProjeto()
 
+// THE REGEXES BELOW THAT MATCH `porque_nao` STAY IN PORTUGUESE — all three of
+// them. They match the reason strings that `new/gate/arquivos/mcp-rebar.mjs`
+// produces: `is not configured`, `does NOT exist on disk`, `and not to
+// .githooks/`. Translating them here does not translate the server; it only
+// breaks the match, and then every case passes for the wrong reason.
 try {
-  // ── caso A: o clone recém-feito. Nenhum hook armado, e é o normal.
-  titulo('A · sem core.hooksPath — o estado de quem acabou de clonar')
+  // ── case A: the freshly made clone. No hook armed, and that is the normal one.
+  titulo('A · no core.hooksPath — the state of someone who has just cloned')
   let h = await estadoDoPortao(projeto)
-  if (h.armado !== false) falhou(`disse armado=${h.armado} sem core.hooksPath nenhum`)
-  else if (!/não está configurado/.test(h.porque_nao ?? ''))
-    falhou(`desarmou, mas o motivo não diz que falta configurar: ${h.porque_nao}`)
+  if (h.armado !== false) falhou(`said armado=${h.armado} with no core.hooksPath at all`)
+  else if (!/is not configured/.test(h.porque_nao ?? ''))
+    falhou(`unarmed, but the reason does not say it is missing configuration: ${h.porque_nao}`)
   else ok(`armado=false · ${h.porque_nao}`)
 
-  // ── caso B: instalado de verdade. É o único que pode dizer sim.
-  titulo('B · core.hooksPath = .githooks — instalado de verdade')
+  // ── case B: really installed. It is the only one allowed to say yes.
+  titulo('B · core.hooksPath = .githooks — really installed')
   projeto.git('config', 'core.hooksPath', '.githooks')
   h = await estadoDoPortao(projeto)
-  if (h.armado !== true) falhou(`disse armado=${h.armado} com o portão instalado: ${h.porque_nao}`)
+  if (h.armado !== true) falhou(`said armado=${h.armado} with the gate installed: ${h.porque_nao}`)
   else ok(`armado=true · core.hooksPath=${h.core_hooksPath}`)
 
-  // ── caso C: O DEFEITO. Aponta para o que não existe, e o git não reclama.
-  titulo('C · core.hooksPath para pasta inexistente — o git aceita e não roda nada')
+  // ── case C: THE DEFECT. It points at what does not exist, and git says nothing.
+  titulo('C · core.hooksPath to a folder that does not exist — git accepts it and runs nothing')
   projeto.git('config', 'core.hooksPath', '.hooks-que-nunca-existiram')
   h = await estadoDoPortao(projeto)
   if (h.armado !== false)
     falhou(
-      'disse armado=true com core.hooksPath apontando para o nada — é o portão escancarado ' +
-        'sendo anunciado como fechado, que é o que faz o agente parar de perguntar',
+      'said armado=true with core.hooksPath pointing at nothing — it is the wide-open gate ' +
+        'being announced as closed, which is what makes the agent stop asking',
     )
-  else if (!/NÃO existe no disco/.test(h.porque_nao ?? ''))
-    falhou(`desarmou, mas não disse que o destino não existe: ${h.porque_nao}`)
+  else if (!/does NOT exist on disk/.test(h.porque_nao ?? ''))
+    falhou(`unarmed, but did not say the destination does not exist: ${h.porque_nao}`)
   else ok(`armado=false · ${h.porque_nao}`)
 
-  // ── caso D: aponta para uma pasta que EXISTE, e é outra.
-  titulo('D · core.hooksPath para OUTRA pasta existente — o git roda os hooks de lá')
+  // ── case D: it points at a folder that EXISTS, and it is another one.
+  titulo('D · core.hooksPath to ANOTHER existing folder — git runs the hooks from there')
   projeto.git('config', 'core.hooksPath', 'outros-hooks')
   h = await estadoDoPortao(projeto)
   if (h.armado !== false)
     falhou(
-      'disse armado=true com core.hooksPath em outra pasta — os hooks deste projeto estão no ' +
-        'disco e o git executa os de lá',
+      'said armado=true with core.hooksPath on another folder — the hooks of this project are ' +
+        'on disk and git executes the ones from over there',
     )
-  else if (!/e não para \.githooks\//.test(h.porque_nao ?? ''))
-    falhou(`desarmou, mas não disse que é outra pasta: ${h.porque_nao}`)
+  else if (!/and not to \.githooks\//.test(h.porque_nao ?? ''))
+    falhou(`unarmed, but did not say it is another folder: ${h.porque_nao}`)
   else ok(`armado=false · ${h.porque_nao}`)
 
-  // ── caso E: o caminho ABSOLUTO da pasta certa é a pasta certa.
-  //    Sem isto, um conserto que só comparasse strings passaria nos quatro
-  //    acima e reprovaria quem instalou com caminho absoluto — falso positivo,
-  //    que custa mais que regra ausente.
-  titulo('E · core.hooksPath absoluto apontando para .githooks — é a mesma pasta')
+  // ── case E: the ABSOLUTE path of the right folder is the right folder.
+  //    Without this, a fix that only compared strings would pass the four above
+  //    and fail whoever installed with an absolute path — a false positive,
+  //    which costs more than an absent rule.
+  titulo('E · absolute core.hooksPath pointing at .githooks — it is the same folder')
   projeto.git('config', 'core.hooksPath', join(projeto.base, '.githooks'))
   h = await estadoDoPortao(projeto)
   if (h.armado !== true)
-    falhou(`disse armado=false para o caminho absoluto da pasta certa: ${h.porque_nao}`)
+    falhou(`said armado=false for the absolute path of the right folder: ${h.porque_nao}`)
   else ok(`armado=true · ${h.core_hooksPath}`)
 } finally {
-  // `maxRetries` porque o antivírus e o indexador do Windows seguram handle por
-  // alguns milissegundos depois de o processo sair.
+  // `maxRetries` because the antivirus and the Windows indexer hold a handle for
+  // a few milliseconds after the process exits.
   rmSync(projeto.base, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 }
 
-titulo(falhas ? `${falhas} FALHA(S)` : 'tudo passou')
+titulo(falhas ? `${falhas} FALHA(S)` : 'everything passed')
 process.exit(falhas ? 1 : 0)

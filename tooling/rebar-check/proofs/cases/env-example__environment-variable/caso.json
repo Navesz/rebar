@@ -1,6 +1,6 @@
 {
   "rule": "env-example",
-  "why": "`.env.example` documenta o que a pessoa tem de PREENCHER, e ninguém preenche `NO_COLOR` num arquivo de exemplo: quem o define é o terminal, e quem define `CI` é o runner. Medido em 2026-08-30, dois dos seis acusados eram só isto — o `alicerce` virava \"lê 1 variável de ambiente e não tem .env.example\" tendo `NO_COLOR` como única variável do repositório, e o `prumo` era cobrado por `NO_COLOR` tendo `.env.example` com `PRUMO_KEK` e `DATABASE_URL` documentados. O lado `pass` lê SÓ variáveis do ambiente e tem de sair N/A; o lado `fail` lê as mesmas MAIS uma variável do projeto e continua reprovando, para que a peneira não vire uma saída para a regra inteira.",
+  "why": "`.env.example` documents what a person has to FILL IN, and nobody fills in `NO_COLOR` in an example file: what defines it is the terminal, and what defines `CI` is the runner. Measured on 2026-08-30, two of the six accused were only this — `alicerce` became \"reads 1 environment variable(s) and has no .env.example\" with `NO_COLOR` as the repository's only variable, and `prumo` was charged for `NO_COLOR` while having a `.env.example` with `PRUMO_KEK` and `DATABASE_URL` documented. The `pass` side reads ONLY environment variables and has to come out N/A; the `fail` side reads the same ones PLUS a project variable and keeps failing, so that the sieve does not become an escape hatch for the whole rule.",
   "pass": {
     "estado": "na"
   }

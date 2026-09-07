@@ -1,11 +1,13 @@
-# Duas ecologias, e cada uma tem um motivo separado.
+# Two ecosystems, and each one has a separate reason.
 #
-# `github-actions`: o que envelhece no CI são as versões fixadas das actions, e
-# action desatualizada é a que some sem aviso quando o runner muda.
+# `github-actions`: what ages in CI are the pinned action versions, and an
+# outdated action is the one that disappears without warning when the runner
+# changes.
 #
-# `npm`: este projeto NÃO é zero-dependência — ele é um Next com React, Tailwind
-# e shadcn, e o `npm ci` do CI instala tudo. A promessa de zero dependência é do
-# rebar-check, que roda por `npx github:Navesz/rebar` sem instalar nada.
+# `npm`: this project is NOT zero-dependency — it is a Next with React, Tailwind
+# and shadcn, and CI's `npm ci` installs all of it. The zero-dependency promise
+# belongs to rebar-check, which runs through `npx github:Navesz/rebar` without
+# installing anything.
 version: 2
 updates:
   - package-ecosystem: 'github-actions'
@@ -17,8 +19,12 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    # Agrupado para não abrir sete PRs por semana. PR de dependência que ninguém
-    # lê é ruído que ensina a fechar PR de dependência sem ler.
+    # Grouped so it does not open seven PRs a week. A dependency PR nobody reads
+    # is noise that teaches people to close dependency PRs without reading.
+    #
+    # `dependencias` is the group NAME, not prose — it is the key Dependabot uses
+    # to label the grouped PR. Renaming it is an identifier change, not a
+    # translation.
     groups:
       dependencias:
         patterns: ['*']

@@ -1,6 +1,6 @@
 {
   "rule": "env-example",
-  "why": "`.env.example` documenta o que o programa LÊ EM EXECUÇÃO, e variável citada em comentário não é lida por ninguém. Isto não é hipótese: ao escrever a nota do conserto do `url-producao` neste repositório, a frase de exemplo com `process` `.env` fez o próprio rebar reprovar em `env-example` cobrando duas variáveis que não existem em lugar nenhum. É a mesma armadilha que já custou uma regra a este arquivo — das sete ocorrências que a regra de cor literal deu no herz, cinco eram comentários documentando a própria regra. Os dois lados têm o MESMO comentário citando a MESMA variável: no lado `fail` ela também é lida de verdade.",
+  "why": "`.env.example` documents what the program READS AT RUN TIME, and a variable cited in a comment is read by nobody. This is not hypothetical: while writing the note for the `url-producao` fix in this repository, the example sentence with `process` `.env` made rebar itself fail on `env-example`, charging for two variables that exist nowhere. It is the same trap that already cost the ruler a rule — of the seven occurrences the literal-color rule turned up in herz, five were comments documenting the rule itself. Both sides have the SAME comment citing the SAME variable: on the `fail` side it is also genuinely read.",
   "pass": {
     "estado": "na"
   }

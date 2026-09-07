@@ -1,114 +1,118 @@
-# Oitava resposta — o pool era o furo, e meu conserto não alcançava
+# Eighth response — the pool was the hole, and my fix did not reach it
 
-Os três pontos procedem. O segundo revela que minha correção anterior era cosmética, e o terceiro é o mais grave da rodada: correção perfeita que ainda derruba o backend.
+The three points hold. The second reveals that my previous fix was cosmetic, and the third is the most serious of the round: perfect correctness that still takes the backend down.
 
 ---
 
-## 1. Extensões — generalizei demais, e a precisão importa
+## 1. Extensions — I over-generalized, and the precision matters
 
-Você está certo. A regra não é "objetos de extensão são do bootstrap superuser". É:
+You are right. The rule is not "extension objects belong to the bootstrap superuser". It is:
 
-> **Para extensão *trusted* instalada por role *não-superuser*,** os objetos contidos são, por padrão, do bootstrap superuser — salvo se o script da extensão os atribuir explicitamente ao chamador.
+> **For a *trusted* extension installed by a *non-superuser* role,** the contained objects belong, by default, to the bootstrap superuser — unless the extension's script explicitly assigns them to the caller.
 
-Normalmente, quem roda `CREATE EXTENSION` vira dono dos objetos. Minha frase "é o padrão, não exceção" estava errada como regra geral.
+Normally, whoever runs `CREATE EXTENSION` becomes the owner of the objects. My sentence "it is the default, not an exception" was wrong as a general rule.
 
-E você está certo sobre o `citext` — confirmei na doc:
+And you are right about `citext` — I confirmed it in the doc:
 
 > *"This module is considered **"trusted"**, that is, it can be installed by non-superusers who have `CREATE` privilege on the current database."*
 
-**Uma refinação que a correção expõe.** Nas duas configurações a auditoria continua necessária, por motivos opostos:
+**A refinement the correction exposes.** In both configurations the audit remains necessary, for opposite reasons:
 
-| Quem instala | Dono dos objetos | Problema |
+| Who installs | Owner of the objects | Problem |
 |---|---|---|
-| Superusuário (o que o compose faz hoje) | o próprio superusuário | ACL de objeto do superusuário, com `PUBLIC EXECUTE` por padrão |
-| `db_owner` não-superuser (a arquitetura-alvo) | **bootstrap superuser**, porque `citext` é trusted | `ALTER DEFAULT PRIVILEGES FOR ROLE db_owner` não alcança |
+| Superuser (what the compose file does today) | the superuser itself | superuser-owned object ACL, with `PUBLIC EXECUTE` by default |
+| non-superuser `db_owner` (the target architecture) | **bootstrap superuser**, because `citext` is trusted | `ALTER DEFAULT PRIVILEGES FOR ROLE db_owner` does not reach it |
 
-Ou seja: a auditoria de ACL pós-`CREATE EXTENSION` não é contingência de um caso — é obrigatória nos dois. Só o motivo muda. Isso reforça sua proposta em vez de enfraquecê-la.
+That is: the post-`CREATE EXTENSION` ACL audit is not contingent on one case — it is mandatory in both. Only the reason changes. That reinforces your proposal instead of weakening it.
 
 ---
 
-## 2. O envelope versionado era `result: unknown` disfarçado
+## 2. The versioned envelope was `result: unknown` in disguise
 
-Você tem razão e este é o tipo de crítica que eu não teria feito sozinho. `{ version: 1, result: … }` **não** diz ao cliente `v2` como parsear o `result`. Eu resolvi a honestidade e abri um buraco de tipo — **exatamente na idempotência**, que é o pior lugar possível para um.
+You are right and this is the kind of criticism I would not have made on my own. `{ version: 1, result: … }` does **not** tell the `v2` client how to parse the `result`. I solved the honesty and opened a type hole — **right inside the idempotency**, which is the worst possible place for one.
 
-Sua regra entra literal:
+Your rule enters verbatim:
+
+<!-- Quoted verbatim from the external reviewer: his Portuguese stays, the bracket is the translation. -->
 
 > **`version` como discriminador só funciona se o contrato contiver os schemas que esse discriminador pode selecionar.** Sem isso, é `unknown` com nome bonito.
+>
+> [`version` as a discriminator only works if the contract contains the schemas that discriminator can select. Without that, it is `unknown` with a pretty name.]
 
-### Adotada a opção B
+### Option B adopted
 
-Separar duas coisas que eu tinha fundido:
+Separate two things I had fused:
 
-| | Estável entre versões? | Conteúdo |
+| | Stable across versions? | Content |
 |---|---|---|
-| **Desfecho idempotente** | **Sim** | `commandId` · `status` · `operationVersion` · `resourceId` · `completedAt` |
-| **Resultado da operação** | Não — é tipado por versão | O objeto de resposta daquela versão |
+| **Idempotent outcome** | **Yes** | `commandId` · `status` · `operationVersion` · `resourceId` · `completedAt` |
+| **Operation result** | No — it is typed per version | The response object of that version |
 
-- **Replay na mesma versão** → desfecho estável **mais** o resultado original tipado.
-- **Replay cross-version** → **só o desfecho estável.** É suficiente para dizer *"já executou, não execute de novo, e este foi o recurso criado"*, que é a única coisa que o cliente precisa saber para não cobrar duas vezes.
+- **Replay on the same version** → the stable outcome **plus** the original typed result.
+- **Cross-version replay** → **only the stable outcome.** It is enough to say *"it already executed, do not execute it again, and this was the resource created"*, which is the only thing the client needs to know in order not to charge twice.
 
-Isso evita obrigar o cliente atual a entender toda resposta histórica, e evita manter união discriminada de schemas antigos durante o TTL inteiro — que era a opção A, rigorosa e com custo de manutenção que ninguém paga por muito tempo.
+This avoids forcing the current client to understand every historical response, and avoids maintaining a discriminated union of old schemas for the entire TTL — which was option A, rigorous and with a maintenance cost nobody pays for long.
 
-O `resourceId` no desfecho é o que faz a opção B funcionar: o cliente que precisar do estado atual do recurso **busca por ele**, na forma da versão corrente. Não há tradução de forma histórica.
+The `resourceId` in the outcome is what makes option B work: the client that needs the resource's current state **fetches it**, in the current version's shape. There is no translation of a historical shape.
 
 ---
 
-## 3. O pool — meu conserto anterior não alcançava o problema
+## 3. The pool — my previous fix did not reach the problem
 
-Este é o achado mais importante da rodada, e você está certo que eu tratei o sintoma.
+This is the most important finding of the round, and you are right that I treated the symptom.
 
-Eu escrevi "espera limitada no HTTP". Mas nós **também** decidimos que registro de idempotência, mutação de negócio e outbox vão na mesma transação. Então:
+I wrote "bounded wait at the HTTP layer". But we **also** decided that the idempotency record, the business mutation and the outbox go in the same transaction. So:
 
 ```
-A:  BEGIN · INSERT commandId=ABC · trabalha 2 s · COMMIT
-B:  INSERT commandId=ABC  →  bloqueia no unique index, esperando A terminar
+A:  BEGIN · INSERT commandId=ABC · works 2 s · COMMIT
+B:  INSERT commandId=ABC  →  blocks on the unique index, waiting for A to finish
 ```
 
-O índice único não pode decidir se há conflito antes de saber o destino da transação de A. **A conexão de B já foi consumida.** Timeout de HTTP não devolve conexão que o Postgres está segurando.
+The unique index cannot decide whether there is a conflict before knowing the fate of A's transaction. **B's connection has already been consumed.** An HTTP timeout does not give back a connection that Postgres is holding.
 
-Com 500 duplicatas: 1 trabalhando, 499 conexões do pool paradas. **O vetor de esgotamento que a espera limitada devia evitar continua aberto** — só mudou de camada.
+With 500 duplicates: 1 working, 499 pool connections stalled. **The exhaustion vector the bounded wait was supposed to prevent is still open** — it only changed layer.
 
-### A invariante, mais forte
+### The invariant, stronger
 
-> **Duplicate-in-flight nunca espera ocupando transação ou conexão do pool pela janela HTTP.**
+> **A duplicate-in-flight never waits while occupying a transaction or a pool connection for the HTTP window.**
 
-### A coordenação fail-fast
+### The fail-fast coordination
 
-Confirmei o mecanismo na doc:
+I confirmed the mechanism in the doc:
 
 > *"This will either obtain the lock immediately and return `true`, or **return `false` without waiting** if the lock cannot be acquired immediately."*
 
 ```
-A  →  pg_try_advisory_xact_lock(hash(scope, commandId))  →  true   →  executa a transação
-B  →  pg_try_advisory_xact_lock(mesma chave)             →  false  →  devolve a conexão
+A  →  pg_try_advisory_xact_lock(hash(scope, commandId))  →  true   →  runs the transaction
+B  →  pg_try_advisory_xact_lock(same key)                →  false  →  returns the connection
                                                                    →  409 · Retry-After
 ```
 
-Três premissas que precisam estar escritas, porque cada uma é um jeito de isso dar errado em silêncio:
+Three premises that need to be written down, because each one is a way for this to go wrong in silence:
 
-1. **Tem de ser a variante `_xact_`.** Ela é liberada no fim da transação, sem release manual — o mesmo instante em que a linha de idempotência fica visível. A variante de sessão vazaria entre requests na conexão reaproveitada do pool.
-2. **O lock vem antes do `INSERT`**, e é chaveado no mesmo escopo do índice único. Fora de ordem, B ainda bloqueia.
-3. **Colisão de hash é aceitável, e por que.** Advisory lock aceita `bigint`, então `commandId` precisa ser hasheado, e dois comandos distintos podem colidir. O custo é um `409` espúrio — o cliente tenta de novo. **A correção continua no índice único**, não no lock; o lock é só o caminho rápido. Quem não souber disso vai "consertar" a colisão removendo o lock, e o furo do pool volta.
+1. **It has to be the `_xact_` variant.** It is released at the end of the transaction, with no manual release — the same instant the idempotency row becomes visible. The session variant would leak across requests on the pool's reused connection.
+2. **The lock comes before the `INSERT`**, and is keyed on the same scope as the unique index. Out of order, B still blocks.
+3. **Hash collision is acceptable, and why.** An advisory lock takes a `bigint`, so `commandId` has to be hashed, and two distinct commands can collide. The cost is a spurious `409` — the client tries again. **Correctness stays in the unique index**, not in the lock; the lock is only the fast path. Whoever does not know this will "fix" the collision by removing the lock, and the pool hole comes back.
 
-### O teste, com a asserção que faltava
+### The test, with the assertion that was missing
 
 ```
-500 requests concorrentes · mesmo commandId
+500 concurrent requests · same commandId
 
-→ 1 mutação de negócio
-→ 1 linha de outbox
-→ nenhuma execução duplicada
-→ pico de conexões do banco  ≤  limite declarado     ← a que faltava
-→ duplicatas excedentes recebem replay ou 409
+→ 1 business mutation
+→ 1 outbox row
+→ no duplicated execution
+→ peak database connections  ≤  declared limit     ← the one that was missing
+→ excess duplicates receive a replay or 409
 ```
 
-Sem a linha do pico de conexões, o teste aprova uma implementação correta que derruba o processo. Com ela, o teste é sobre **correção sob concorrência**, que é o que você apontou.
+Without the peak-connections line, the test passes a correct implementation that takes the process down. With it, the test is about **correctness under concurrency**, which is what you pointed out.
 
 ---
 
-## 4. Sobre o `Retry-After`
+## 4. On `Retry-After`
 
-Aceito sua ressalva de que o RFC descreve `Retry-After` principalmente para `503` e `3xx`. Fica como **convenção de aplicação** ao lado do Problem Details, e o contrato deixa explícito que o cliente decide pelo `type`, não pelo status:
+I accept your caveat that the RFC describes `Retry-After` mainly for `503` and `3xx`. It stays as an **application convention** alongside the Problem Details, and the contract makes it explicit that the client decides by the `type`, not by the status:
 
 ```
 409 Conflict
@@ -116,29 +120,29 @@ Retry-After: 1
 type: idempotency-command-in-progress
 ```
 
-O `type` estável é o contrato; o status é cortesia para intermediário genérico.
+The stable `type` is the contract; the status is a courtesy to generic intermediaries.
 
 ---
 
-## Placar
+## Scoreboard
 
-| Item | Veredito |
+| Item | Verdict |
 |---|---|
-| "Objetos de extensão são do bootstrap superuser" | ❌ **generalizei demais** — vale para trusted + não-superuser. `citext` é trusted (confirmado) |
-| Auditoria de ACL pós-extensão | ✅ obrigatória nas **duas** configurações, por motivos opostos |
-| Envelope versionado resolve o replay tipado | ❌ era `unknown` disfarçado |
-| Desfecho idempotente estável × resultado tipado | ✅ opção B adotada |
-| Espera limitada no HTTP resolve o pool | ❌ **não alcança** — a conexão já foi consumida no índice único |
-| `pg_try_advisory_xact_lock` fail-fast | ✅ adotado, com as três premissas escritas |
-| Teste com pico de conexões | ✅ adotado — sem isso o teste aprova um DoS |
-| `Retry-After` como convenção | ✅ com o `type` como contrato |
+| "Extension objects belong to the bootstrap superuser" | ❌ **I over-generalized** — it holds for trusted + non-superuser. `citext` is trusted (confirmed) |
+| Post-extension ACL audit | ✅ mandatory in **both** configurations, for opposite reasons |
+| Versioned envelope solves the typed replay | ❌ it was `unknown` in disguise |
+| Stable idempotent outcome × typed result | ✅ option B adopted |
+| Bounded wait at the HTTP layer solves the pool | ❌ **does not reach it** — the connection was already consumed at the unique index |
+| `pg_try_advisory_xact_lock` fail-fast | ✅ adopted, with the three premises written down |
+| Test with peak connections | ✅ adopted — without it the test passes a DoS |
+| `Retry-After` as convention | ✅ with the `type` as the contract |
 
-Suas duas perguntas ficam respondidas assim:
+Your two questions are answered like this:
 
-**Como um cliente `v2` interpreta de forma tipada um resultado histórico `v1`?**
-Não interpreta. Cross-version devolve só o desfecho estável, e quem precisa do estado busca o recurso na forma corrente.
+**How does a `v2` client interpret a historical `v1` result in a typed way?**
+It does not. Cross-version returns only the stable outcome, and whoever needs the state fetches the resource in the current shape.
 
-**Como 500 retries deixam de consumir 500 conexões?**
-Não chegam ao índice único. `pg_try_advisory_xact_lock` devolve `false` sem esperar, a conexão volta ao pool, e a duplicata recebe `409`.
+**How do 500 retries stop consuming 500 connections?**
+They never reach the unique index. `pg_try_advisory_xact_lock` returns `false` without waiting, the connection goes back to the pool, and the duplicate receives a `409`.
 
-Oito rodadas. As três últimas seguiram o mesmo formato: eu corrijo o erro que você aponta, e a correção esconde outro uma camada abaixo — versão no escopo, depois envelope sem schema, depois espera no lugar errado. **É a descrição exata de por que `Assumptions` precisa existir**: cada uma dessas correções foi verdadeira sob uma premissa que eu não escrevi.
+Eight rounds. The last three followed the same format: I fix the mistake you point out, and the fix hides another one layer below — version in the scope, then an envelope with no schema, then a wait in the wrong place. **It is the exact description of why `Assumptions` needs to exist**: each of those fixes was true under a premise I did not write.

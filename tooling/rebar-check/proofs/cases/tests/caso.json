@@ -1,4 +1,4 @@
 {
   "rule": "tests",
-  "why": "Trava um dos dois falsos positivos determinísticos já medidos: a regra era cega a teste nomeado em português — 43 arquivos rastreados com `prova` no nome no alicerce e a regra enxergava ZERO, num checker escrito em português. Esta variante isola o ramo de SEGMENTO DE CAMINHO: o único arquivo de teste do lado aprovar é `provas/soma.mjs`, e nenhum nome de arquivo casaria sozinho. Se o segmento `provas` sair do reconhecedor, o lado aprovar sai 1."
+  "why": "Locks one of the two deterministic false positives already measured: the rule was blind to a test named in Portuguese — 43 tracked files with `prova` in the name in the alicerce and the rule saw ZERO, in a checker written in Portuguese. This variant isolates the PATH SEGMENT branch: the only test file on the pass side is `provas/soma.mjs`, and no file name would match on its own. If the `provas` segment leaves the recognizer, the pass side exits 1. The Portuguese folder name stays: it is PASTA_TESTE vocabulary, what the recognizer searches for inside third-party repositories."
 }

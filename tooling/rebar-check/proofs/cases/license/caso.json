@@ -1,4 +1,4 @@
 {
   "rule": "license",
-  "why": "package.json declarando \"license\" sem o arquivo LICENSE no repositorio: o metadado promete uma concessao de uso que o repositorio nao entrega, e quem clona nao recebe direito nenhum por escrito."
+  "why": "package.json declaring \"license\" without the LICENSE file in the repository: the metadata promises a grant of use the repository does not deliver, and whoever clones it receives no right in writing."
 }

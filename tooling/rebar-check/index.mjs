@@ -1,56 +1,61 @@
 #!/usr/bin/env node
-// rebar-check — roda contra QUALQUER repositório e imprime um placar.
+// rebar-check — runs against ANY repository and prints a scoreboard.
 //
-// Por que isto existe antes do gerador: o projeto anterior não escalou. A
-// versão antiga deste comentário dizia que ele "morreu porque a imposição
-// nunca encostou num projeto", e isso foi MEDIDO e é FALSO — o ferramental
-// dele gateia o CI de um repositório real, `prumo/.github/workflows/ci.yml`
-// linha 113. Encostou em 2 de 19. O que faltou foi escala, não contato.
-// Checar é retroativo e funciona nos repositórios que já existem; gerar só
-// serve para o próximo. A inversão certa não é gerador-primeiro, é
-// CONSUMIDOR-primeiro.
+// Why this exists before the generator: the previous project did not scale. The
+// old version of this comment said it "died because enforcement never touched a
+// project", and that was MEASURED and is FALSE — its tooling gates the CI of a
+// real repository, `prumo/.github/workflows/ci.yml` line 113. It touched 2 of
+// 19. What was missing was scale, not contact.
+// Checking is retroactive and works on the repositories that already exist;
+// generating only serves the next one. The right inversion is not
+// generator-first, it is CONSUMER-first.
 //
-// Zero dependência: só built-ins do Node. O que confere o build não pode
-// depender do build, e assim `npx github:Navesz/rebar` funciona sem instalar
-// — o campo `bin` do package.json é o que faz o npx resolver isto, e a
-// promessa ficou falsa desde o primeiro commit até o campo existir.
+// Zero dependencies: Node built-ins only. What checks the build cannot depend
+// on the build, and so `npx github:Navesz/rebar` works without installing
+// — the `bin` field of package.json is what makes npx resolve this, and the
+// promise stayed false from the first commit until that field existed.
 //
-// Nunca escreve nada. Lê o repositório e sai.
+// Never writes anything. Reads the repository and exits.
 //
-// Uso:
-//   node index.mjs [caminho...]        placar por repositório
-//   node index.mjs --json [caminho]    saída para CI
-//   node index.mjs --rule=<id> [dir]  uma regra só (é o que as provas usam)
-//   node index.mjs --heuristics         heurísticas também derrubam o exit code
-//   node index.mjs novo <nome> [dom]   despacha para o GERADOR, new/index.mjs
-//   node index.mjs --mcp               entrega o stdio ao SERVIDOR MCP, mcp/src/
+// Usage:
+//   node index.mjs [path...]           scoreboard per repository
+//   node index.mjs --json [path]       output for CI
+//   node index.mjs --rule=<id> [dir]  one rule only (this is what the proofs use)
+//   node index.mjs --heuristics         heuristics also drop the exit code
+//   node index.mjs novo <name> [dom]   dispatches to the GENERATOR, new/index.mjs
+//   node index.mjs --mcp               hands stdio to the MCP SERVER, mcp/src/
 //
-// O subcomando `novo` mora aqui, e não num segundo `bin`, por uma razão de
-// mecânica do npx: `npx github:Navesz/rebar novo meu-site` resolve o bin que
-// tem o NOME DO PACOTE — `rebar`, este arquivo — e passa "novo" como primeiro
-// argumento. Sem o despacho, o checker tratava "novo" como caminho a auditar e
-// saía 2 dizendo "caminho não existe". Um `bin` extra não conserta isso: ele só
-// é alcançável por `npx -p github:Navesz/rebar rebar-new …`, que ninguém
-// digita. Ele existe assim mesmo, como forma inequívoca — ver o package.json.
+// The `new` subcommand lives here, and not in a second `bin`, for a reason of
+// npx mechanics: `npx github:Navesz/rebar new meu-site` resolves the bin that
+// has the PACKAGE NAME — `rebar`, this file — and passes "new" as the first
+// argument. Without the dispatch, the checker treated "new" as a path to audit
+// and exited 2 saying "path does not exist". An extra `bin` does not fix that:
+// it is only reachable through `npx -p github:Navesz/rebar rebar-new …`, which
+// nobody types. It exists anyway, as an unambiguous form — see the package.json.
 //
-// Para auditar uma pasta que se chame literalmente `novo`, use `./novo`.
+// To audit a folder literally named `new`, use `./novo`.
 //
-// Códigos de saída — três coisas diferentes, três códigos diferentes:
-//   0    tudo que se aplica passou
-//   1    REPROVOU: violação real
-//   2    alvo inválido (não é repositório git) ou invocação errada
-//   127  QUEBROU: uma regra lançou exceção. Defeito do rebar-check, não do alvo.
+// Códigos de saída — three different things, three different codes:
+//   0    everything applicable passed
+//   1    FAILED: real violation
+//   2    invalid target (not a git repository) or wrong invocation
+//   127  BROKE: a rule threw. Defect of rebar-check, not of the target.
 //
-// A distinção do 1 contra o 127 é a §8.2 do plano ("verificar.mjs:124 →
-// distinguir reprovou de quebrou"). Sem ela o bug do verificador entra na
-// conta como se fosse defeito do repositório auditado.
+// That heading stays in Portuguese: `mcp/generate.mjs` locates this block with
+// the literal regex `// Códigos de saída` to publish the exit codes in the MCP
+// artifact. Translating it makes the generator fail.
+//
+// The 1 against the 127 is §8.2 of the plan ("verificar.mjs:124 → distinguir
+// reprovou de quebrou") [verificar.mjs:124 → distinguish failed from broke].
+// Without it the checker's own bug enters the score as if it were a defect of
+// the audited repository.
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// ─────────────────────────────────────────────────────────────── utilitários
+// ───────────────────────────────────────────────────────────────── utilities
 
 const cor = process.stdout.isTTY && !process.env.NO_COLOR
 const c = {
@@ -62,21 +67,21 @@ const c = {
 }
 
 /**
- * "Não se aplica" é um TERCEIRO estado, e criá-lo foi o conserto mais caro
- * deste arquivo. Antes, regra sem objeto para checar devolvia `null` — o mesmo
- * que "passou". Consequência medida: uma pasta VAZIA com um `.git/` vazio
- * tirava 8 de 14, empatando com o próprio rebar e tirando o DOBRO do alicerce.
- * O nada não conforma; o nada não se aplica. N/A sai do DENOMINADOR.
+ * "Not applicable" is a THIRD state, and creating it was the most expensive fix
+ * in this file. Before, a rule with no object to check returned `null` — the
+ * same as "passed". Measured consequence: an EMPTY folder with an empty `.git/`
+ * scored 8 of 14, tying with rebar itself and scoring DOUBLE the alicerce.
+ * Nothing does not conform; nothing does not apply. N/A leaves the DENOMINATOR.
  */
 const na = (motivo) => ({ na: motivo })
 
 /**
- * Roda git. Distingue as duas coisas que antes eram a mesma:
- *   { ok: true,  saida }  — rodou, pode ter saído vazio (repo sem commit é válido)
- *   { ok: false, erro }   — o git falhou ou não existe
- * O `catch { return '' }` de antes engolia "fatal: not a git repository" e
- * devolvia string vazia, então `coautoria-ia` e `identidade-git` aprovavam um
- * diretório que nem era repositório. Crash virava aprovação.
+ * Runs git. Distinguishes the two things that used to be one:
+ *   { ok: true,  saida }  — ran, may have come out empty (repo with no commit is valid)
+ *   { ok: false, erro }   — git failed or does not exist
+ * The old `catch { return '' }` swallowed "fatal: not a git repository" and
+ * returned an empty string, so `coautoria-ia` and `identidade-git` passed a
+ * directory that was not even a repository. A crash became a pass.
  */
 function git(dir, args) {
   try {
@@ -93,25 +98,27 @@ function git(dir, args) {
 }
 
 /**
- * Leitura com TRÊS estados, pelo mesmo motivo que `na()` existe: duas caixas
- * não bastam para três coisas.
+ * A read with THREE states, for the same reason `na()` exists: two boxes are
+ * not enough for three things.
  *
- *   { estado: 'ok', texto }       li
- *   { estado: 'ausente' }         não existe — N/A legítimo
- *   { estado: 'ilegivel', erro }  EXISTE e não consegui ler
+ *   { estado: 'ok', texto }       read it
+ *   { estado: 'ausente' }         does not exist — legitimate N/A
+ *   { estado: 'ilegivel', erro }  EXISTS and I could not read it
  *
- * O `catch { return null }` de antes fundia "ausente" com "ilegível", e o
- * `pkg === null` virava `na('não é projeto npm')` — que SAI DO DENOMINADOR.
- * Medido no ataque: um repositório 9 de 10 (90%) com o package.json
- * sintaticamente quebrado vira 6 de 6 (100%) — quatro regras (dependabot,
- * ci-gateia, typecheck, formatter) somem da conta e o repositório passa a
- * tirar nota MÁXIMA. Quebrar o arquivo melhorava a nota. É a mesma classe de
- * "crash virava aprovação" que o `git()` já consertou, agora no disco.
+ * The old `catch { return null }` merged "absent" with "unreadable", and
+ * `pkg === null` became `na('not an npm project')` — which LEAVES THE
+ * DENOMINATOR. Measured in the attack: a repository at 9 of 10 (90%) with a
+ * syntactically broken package.json becomes 6 of 6 (100%) — four rules
+ * (dependabot, ci-gateia, typecheck, formatter) vanish from the score and the
+ * repository starts scoring MAXIMUM. Breaking the file improved the score. It
+ * is the same class of "a crash became a pass" that `git()` already fixed, now
+ * on disk.
  *
- * `rastreado` fecha a segunda porta do mesmo ataque: `rm package.json` sem
- * commitar deixa o arquivo no índice do git e fora do disco. Para quem veio da
- * lista do `git ls-files` o índice é a verdade sobre existir, então ENOENT ali
- * é "existe e não pude ler", não "não existe".
+ * `rastreado` closes the second door of the same attack: `rm package.json`
+ * without committing leaves the file in the git index and off the disk. For
+ * anything that came from the `git ls-files` list the index is the truth about
+ * existing, so ENOENT there is "exists and I could not read it", not "does not
+ * exist".
  */
 function lerArquivo(dir, rel, rastreado = false) {
   try {
@@ -119,7 +126,7 @@ function lerArquivo(dir, rel, rastreado = false) {
   } catch (e) {
     const some = e.code === 'ENOENT' || e.code === 'ENOTDIR'
     if (some && !rastreado) return { estado: 'ausente' }
-    const erro = some ? 'rastreado pelo git e ausente do disco' : e.code || e.message
+    const erro = some ? 'tracked by git and absent from disk' : e.code || e.message
     return { estado: 'ilegivel', erro }
   }
 }
@@ -131,14 +138,14 @@ function lerJsonRastreado(dir, rel) {
   try {
     valor = JSON.parse(bruto.texto)
   } catch (e) {
-    return { estado: 'ilegivel', erro: `JSON inválido: ${e.message.split('\n')[0]}` }
+    return { estado: 'ilegivel', erro: `invalid JSON: ${e.message.split('\n')[0]}` }
   }
-  // `null`, lista e número são JSON válidos e não são manifesto. Sem esta
-  // peneira, um `package.json` com o conteúdo `null` passaria por "li" e
-  // `valor.scripts` lançaria lá na regra — exit 127, acusando o rebar-check
-  // de um defeito que é do alvo.
+  // `null`, a list and a number are valid JSON and are not a manifest. Without
+  // this sieve, a `package.json` whose content is `null` would pass as "read"
+  // and `valor.scripts` would throw over in the rule — exit 127, accusing
+  // rebar-check of a defect that belongs to the target.
   if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
-    return { estado: 'ilegivel', erro: 'JSON válido mas não é um objeto' }
+    return { estado: 'ilegivel', erro: 'valid JSON but not an object' }
   }
   return { estado: 'ok', valor }
 }
@@ -163,44 +170,48 @@ const CODIGO = /\.(ts|tsx|js|jsx|mjs|cjs|svelte|vue|astro)$/i
 const IGNORAR = /(^|\/)(node_modules|dist|build|\.next|out|coverage|vendor)\//
 
 /**
- * Variáveis que o AMBIENTE fornece, não o projeto. Saem da conta de
- * `env-example` porque `.env.example` documenta o que a pessoa tem de
- * PREENCHER, e ninguém preenche NO_COLOR num arquivo de exemplo.
+ * Variables the ENVIRONMENT supplies, not the project. They leave the
+ * `env-example` score because `.env.example` documents what a person has to
+ * FILL IN, and nobody fills in NO_COLOR in an example file.
  *
- * Medido em 2026-08-30 nos 11 repositórios: `NO_COLOR` era a ÚNICA variável do
- * alicerce (que assim virava "lê 1 variável e não tem .env.example") e a ÚNICA
- * cobrada do prumo, que tem .env.example com PRUMO_KEK e DATABASE_URL
- * documentados. Dois de seis acusados eram isto. `CI` inflava openkartline de
- * 4 para 5 — lá a acusação continua de pé porque as outras quatro são reais.
+ * Measured on 2026-08-30 across the 11 repositories: `NO_COLOR` was the ONLY
+ * variable of the alicerce (which thereby became "reads 1 environment
+ * variable(s) and has no .env.example") and the ONLY one charged against prumo,
+ * which has a .env.example with PRUMO_KEK and DATABASE_URL documented. Two of
+ * six accusations were this. `CI` inflated openkartline from 4 to 5 — there the
+ * accusation still stands, because the other four are real.
  *
- * A lista é curta de propósito, e cada nome está aqui por ser produzido por
- * quem RODA o programa (terminal, runner de CI, toolchain) e não por quem o
- * configura. Nome de plataforma (GITHUB_*, VERCEL_*) não entrou porque não
- * apareceu em nenhum dos 11 — lista maior que a medição é adivinhação.
+ * The list is short on purpose, and each name is here because it is produced by
+ * whoever RUNS the program (terminal, CI runner, toolchain) and not by whoever
+ * configures it. Platform names (GITHUB_*, VERCEL_*) did not get in because
+ * they appeared in none of the 11 — a list larger than the measurement is guesswork.
  */
 const ENV_DO_AMBIENTE = new Set(['CI', 'NO_COLOR', 'FORCE_COLOR', 'NODE_ENV'])
 
 /**
- * Um arquivo é teste se um SEGMENTO do caminho for pasta de teste, ou se o
- * NOME for de teste. Por segmento, não por substring: "pass/" contém
- * "provar" e não é pasta de teste.
+ * A file is a test if a SEGMENT of the path is a test folder, or if the NAME is
+ * a test name. By segment, not by substring: "pass/" contains "provar" and is
+ * not a test folder.
  *
- * O português entra aqui porque a versão anterior era cega a ele. Medido no
- * alicerce: 43 arquivos rastreados com "prova" no nome, e a regra enxergava
- * ZERO — um checker escrito em português que não reconhece teste nomeado em
- * português. Era um dos dois falsos positivos determinísticos provados.
+ * The Portuguese enters here because the previous version was blind to it.
+ * Measured in the alicerce: 43 tracked files with "prova" in the name, and the
+ * rule saw ZERO — a checker written in Portuguese that does not recognize a
+ * test named in Portuguese. It was one of the two proven deterministic false
+ * positives. DO NOT TRANSLATE the Portuguese entries below: they are folder and
+ * file names inside the Brazilian repositories this ruler audits, and
+ * translating them blinds the rule exactly where it exists to work.
  *
- * `_test.` e `test_` entram pela MESMA razão, uma língua abaixo: a convenção de
- * Python e de Go escreve `vectra_kw82_test.py`, e o padrão anterior só conhecia
- * o ponto (`.test.`). Medido em 2026-08-30 nos 12 repositórios: o VectraB-Lab
- * era acusado de "zero arquivo de teste" tendo TRÊS scripts `*_test.py`
- * rastreados. Reconhecer a convenção acrescenta exatamente 3 arquivos em 12
- * repositórios e ZERO arquivo de código avaliável — nenhuma regra de conteúdo
- * perde texto por causa disto, e a conta está no relatório.
+ * `_test.` and `test_` enter for the SAME reason, one language down: the Python
+ * and Go convention writes `vectra_kw82_test.py`, and the previous pattern only
+ * knew the dot (`.test.`). Measured on 2026-08-30 across the 12 repositories:
+ * VectraB-Lab was accused of "zero test files" while having THREE tracked
+ * `*_test.py` scripts. Recognizing the convention adds exactly 3 files across 12
+ * repositories and ZERO evaluable code files — no content rule loses text
+ * because of this, and the arithmetic is in the report.
  *
- * O prefixo solto (`TESTE-1-cabo-KKL.md`) fica de fora de propósito: separador
- * `-` sem ponto é nome de documento, e aceitá-lo transformaria um `.md` de
- * anotação em prova de que o repositório testa.
+ * The loose prefix (`TESTE-1-cabo-KKL.md`) stays out on purpose: a `-`
+ * separator with no dot is a document name, and accepting it would turn a `.md`
+ * of notes into proof that the repository tests.
  */
 const PASTA_TESTE = new Set([
   'test',
@@ -218,20 +229,20 @@ const PASTA_TESTE = new Set([
 const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar)[-.]|^test_/i
 
 /**
- * O que NÃO PODE ser teste, por extensão.
+ * What CANNOT be a test, by extension.
  *
- * É uma NEGATIVA, e a escolha importa. A tentação é listar as extensões que
- * VALEM como teste — `.mjs .ts .py .go` — e essa lista reprovaria `.dart`,
- * `.R`, `.jl`, `.hs` e `.bats`: linguagens cujo arquivo de teste tem nome de
- * teste e extensão que ninguém lembra de acrescentar. Falso positivo em regra
- * automática custa mais que regra ausente, e aqui o falso positivo seria dizer
- * "zero arquivo de teste" para quem escreveu testes.
+ * It is a NEGATIVE, and the choice matters. The temptation is to list the
+ * extensions that COUNT as a test — `.mjs .ts .py .go` — and that list would
+ * fail `.dart`, `.R`, `.jl`, `.hs` and `.bats`: languages whose test file has a
+ * test name and an extension nobody remembers to add. A false positive in an
+ * automatic rule costs more than a missing rule, and here the false positive
+ * would be saying "zero test files" to someone who wrote tests.
  *
- * Então a lista é do que é prosa, planilha, imagem, mídia ou pacote. Extensão
- * desconhecida continua contando como teste, que é o lado seguro desta escolha.
+ * So the list is of what is prose, spreadsheet, image, media or package. An
+ * unknown extension still counts as a test, which is the safe side of this choice.
  */
 const EXTENSAO_DE_DOCUMENTO = new Set([
-  // prosa
+  // prose
   'md',
   'markdown',
   'mdx',
@@ -247,14 +258,14 @@ const EXTENSAO_DE_DOCUMENTO = new Set([
   'odt',
   'rtf',
   'epub',
-  // planilha e apresentação
+  // spreadsheet and presentation
   'xls',
   'xlsx',
   'ods',
   'ppt',
   'pptx',
   'odp',
-  // imagem, mídia, fonte
+  // image, media, font
   'png',
   'jpg',
   'jpeg',
@@ -275,7 +286,7 @@ const EXTENSAO_DE_DOCUMENTO = new Set([
   'ttf',
   'otf',
   'eot',
-  // pacote e registro
+  // package and log
   'zip',
   'tar',
   'gz',
@@ -288,22 +299,22 @@ const EXTENSAO_DE_DOCUMENTO = new Set([
 ])
 
 /**
- * Documento é documento mesmo com nome de teste.
+ * A document is a document even with a test name.
  *
- * Sem isto, `provas/PLANO.md` satisfazia a regra `tests` — a pasta está em
- * `PASTA_TESTE` —, e `docs/PLANO.teste.md` também, por `NOME_TESTE`. Um
- * repositório com zero teste e um documento de planejamento saía APROVADO, que
- * é a direção errada de errar.
+ * Without this, `provas/PLANO.md` satisfied the `tests` rule — the folder is in
+ * `PASTA_TESTE` —, and so did `docs/PLANO.teste.md`, through `NOME_TESTE`. A
+ * repository with zero tests and a planning document came out PASSED, which is
+ * the wrong direction to be wrong in.
  *
- * O caso `tests__python-name` já tinha registrado que `TESTE-1-cabo-KKL.md` não
- * conta, mas atribuiu isso ao separador `-` em vez da extensão: bastava
- * renomear para `TESTE.1.cabo.md` e o buraco voltava.
+ * The `tests__python-name` case had already recorded that `TESTE-1-cabo-KKL.md`
+ * does not count, but attributed that to the `-` separator instead of the
+ * extension: renaming it to `TESTE.1.cabo.md` brought the hole back.
  */
 function ehDocumento(rel) {
   const nome = rel.split('/').pop() ?? ''
   const ponto = nome.lastIndexOf('.')
-  // Sem extensão não é documento: hook e script de shell moram assim, e um
-  // `tests/rodar` é teste.
+  // No extension means not a document: hooks and shell scripts live like that,
+  // and a `tests/rodar` is a test.
   if (ponto <= 0) return false
   return EXTENSAO_DE_DOCUMENTO.has(nome.slice(ponto + 1).toLowerCase())
 }
@@ -316,133 +327,135 @@ function ehTeste(rel) {
 }
 
 /**
- * Código de produção rastreado — o crivo que `fontes()` aplica ANTES de tirar
- * teste. Extraído para que a CONTAGEM do que sai por ser teste use exatamente
- * o mesmo crivo da exclusão: contagem calculada por um crivo parecido, mas
- * outro, é pior que contagem nenhuma, porque parece conferir.
+ * Tracked production code — the sieve `fontes()` applies BEFORE removing tests.
+ * Extracted so the COUNT of what leaves for being a test uses exactly the same
+ * sieve as the exclusion: a count computed by a similar but different sieve is
+ * worse than no count at all, because it looks like it checks.
  */
 const ehCodigoAvaliavel = (a) => CODIGO.test(a) && !IGNORAR.test(a)
 
 /**
- * Onde um `caso.json` tem significado de marcador. Fora daqui é arquivo comum.
+ * Where a `caso.json` has the meaning of a marker. Outside here it is an
+ * ordinary file.
  *
- * O comentário que estava neste arquivo afirmava que o marcador "não serve de
- * bypass genérico". A auditoria provou o contrário com três bytes:
+ * The comment that used to be in this file claimed the marker "is no generic
+ * bypass". The audit proved the opposite with three bytes:
  *
  *     echo "{}" > domains/caso.json && git add domains/caso.json
  *
- * A árvore inteira de `domains/` saiu da avaliação. Nenhuma validação de
- * conteúdo — `{}` bastava — e o único sinal foi a contagem de fixtures subir
- * de 63 para 70, em cinza-fraco e SEM símbolo de aviso.
+ * The whole `domains/` tree left the evaluation. No content validation — `{}`
+ * was enough — and the only signal was the fixture count going from 63 to 70,
+ * in dim grey and WITH NO warning symbol.
  *
- * Prefixo literal, e não "qualquer pasta terminada em proofs/cases/": o
- * marcador vale no lugar onde as provas DESTE repositório moram e em nenhum
- * outro. Reconhecer o caminho por forma devolveria o bypass genérico com um
- * `mkdir -p` a mais.
+ * A literal prefix, and not "any folder ending in proofs/cases/": the marker
+ * holds in the place where THIS repository's proofs live and in no other.
+ * Recognizing the path by shape would give back the generic bypass with one
+ * extra `mkdir -p`.
  */
 const RAIZES_DE_PROVA = [
   'tooling/rebar-check/proofs/cases/',
-  // O modulo de seguranca tem provas proprias, e sem esta linha as arvores
-  // dele entravam na avaliacao do rebar: o aviso "3 caso.json IGNORADO(S)"
-  // saiu no primeiro commit do modulo. Passavam por sorte -- as fixtures sao
-  // pequenas hoje --, e e exatamente a falha que quebrou nove regras durante a
-  // traducao deste repositorio, quando os 53 marcadores deixaram de ser
-  // reconhecidos e o rebar acusou o proprio material de teste.
+  // The security module has proofs of its own, and without this line its trees
+  // entered rebar's own evaluation: the warning "3 caso.json IGNORED as proof
+  // marker" came out on the module's first commit. They passed by luck — the
+  // fixtures are small today —, and it is exactly the failure that broke nine
+  // rules during the translation of this repository, when the 53 markers
+  // stopped being recognized and rebar accused its own test material.
   //
-  // LISTA, e nao "qualquer pasta terminada em proofs/cases/": reconhecer por
-  // forma devolveria o bypass generico com um `mkdir -p` a mais, que e o
-  // motivo de o prefixo ser literal desde o comeco. Raiz nova entra aqui, a
-  // mao, e quem acrescentar uma escreve por que.
+  // A LIST, and not "any folder ending in proofs/cases/": recognizing by shape
+  // would give back the generic bypass with one extra `mkdir -p`, which is why
+  // the prefix has been literal from the start. A new root goes in here, by
+  // hand, and whoever adds one writes down why.
   'tooling/security/proofs/cases/',
 ]
 
 /**
- * MODELO NÃO É PRODUTO — é a mesma lição do `caso.json`, um andar acima, e ela
- * voltou no minuto em que o gerador entrou no repositório.
+ * A TEMPLATE IS NOT A PRODUCT — it is the same lesson as `caso.json`, one floor
+ * up, and it came back the minute the generator entered the repository.
  *
- * `new/site/blocks/` e `new/gate/arquivos/` são ARQUIVOS QUE VÃO SER
- * COPIADOS para outro repositório. Rastreados aqui dentro, o rebar passou a se
- * medir por eles. Medido em 2026-08-31, com o `new/` commitado num espelho do
- * repositório em os.tmpdir() (22 arquivos):
+ * `new/site/blocks/` and `new/gate/arquivos/` are FILES THAT ARE GOING TO BE
+ * COPIED into another repository. Tracked in here, rebar started measuring
+ * itself by them. Measured on 2026-08-31, with `new/` committed into a mirror
+ * of the repository in os.tmpdir() (22 files):
  *
- *   typecheck    – não tem TypeScript   →  ✗ nenhum package.json rastreado tem
- *                                            script typecheck, …
- *   nota         11 de 11               →  11 de 13
+ *   typecheck    – no TypeScript        →  ✗ no tracked package.json has script
+ *                                            typecheck, …
+ *   score        11 of 11               →  11 of 13
  *
- * Os cinco `.tsx`/`.ts` de `new/site/blocks/app/` e `conteudo/` fizeram o
- * rebar parecer um projeto TypeScript sem compilador. Não é: o rebar não tem
- * uma linha de TypeScript própria, e esses cinco arquivos só são compilados
- * DEPOIS de copiados, pelo `tsc` do projeto gerado.
+ * The five `.tsx`/`.ts` files of `new/site/blocks/app/` and `conteudo/` made
+ * rebar look like a TypeScript project without a compiler. It is not: rebar has
+ * not one line of TypeScript of its own, and those five files are only compiled
+ * AFTER being copied, by the generated project's `tsc`.
  *
- * E aí está o argumento que autoriza a exclusão sem afrouxar nada: o modelo
- * continua sendo checado, só que ONDE ELE CAI. O passo 5 do gerador roda esta
- * mesma régua no projeto recém-criado, com o modelo já no lugar, com o
- * `tsconfig.json` e o `package.json` do Next em volta. Medir o modelo no lugar
- * errado não é rigor a mais, é uma medição de outra coisa.
+ * And there is the argument that authorizes the exclusion without loosening
+ * anything: the template goes on being checked, only WHERE IT LANDS. Step 5 of
+ * the generator runs this same ruler on the freshly created project, with the
+ * template already in place, with the Next `tsconfig.json` and `package.json`
+ * around it. Measuring the template in the wrong place is not extra rigor, it
+ * is a measurement of something else.
  *
- * A fechadura é dupla e as duas metades são obrigatórias:
- *   1. o prefixo tem de ser EXATAMENTE uma das raízes literais abaixo — não
- *      "começa com", não "qualquer pasta chamada blocos". Sem isto o marcador
- *      viraria o bypass genérico que o `caso.json` já tentou ser;
- *   2. tem de existir o `modelo.json` com `para` e `porque`, rastreado e
- *      legível. Marcador recusado vira AVISO nomeando o arquivo.
- * E a contagem sai impressa no placar, sempre, como a das provas.
+ * The lock is double and both halves are mandatory:
+ *   1. the prefix has to be EXACTLY one of the literal roots below — not
+ *      "starts with", not "any folder called blocks". Without this the marker
+ *      would become the generic bypass `caso.json` already tried to be;
+ *   2. there has to be a `modelo.json` with `for` and `why`, tracked and
+ *      readable. A refused marker becomes a WARNING naming the file.
+ * And the count is printed on the scoreboard, always, like the proofs' count.
  */
 const RAIZES_DE_MODELO = ['new/gate/arquivos/', 'new/site/blocks/']
 
 /**
- * Schema mínimo do marcador: para o `caso.json`, `rule` e `why`, os dois
- * campos que o prove.mjs exige de todo caso; para o `modelo.json`, `for` e
- * `why`. Um marcador sem eles não é marcador, é um arquivo com o nome certo
- * — e esconder árvore era exatamente o que se conseguia com um arquivo com o
- * nome certo.
+ * Minimum schema of the marker: for `caso.json`, `rule` and `why`, the two
+ * fields prove.mjs demands of every case; for `modelo.json`, `for` and `why`. A
+ * marker without them is not a marker, it is a file with the right name — and
+ * hiding a tree was exactly what a file with the right name got you.
  */
 function marcadorInvalido(dir, rel, campos = ['rule', 'why']) {
   const lido = lerJsonRastreado(dir, rel)
   if (lido.estado !== 'ok') return lido.erro
   const falta = campos.filter((k) => typeof lido.valor[k] !== 'string' || !lido.valor[k].trim())
-  return falta.length ? `sem ${falta.join(' nem ')}` : null
+  return falta.length ? `missing ${falta.join(' and ')}` : null
 }
 
 /**
- * Tira da avaliação as árvores que são MATERIAL DE PROVA, não produto.
+ * Takes out of the evaluation the trees that are PROOF MATERIAL, not product.
  *
- * Isto nasceu de uma falha real, e ela apareceu no minuto em que as provas
- * foram escritas: os casos de `ui-falso` e `schema-orfao` são, por construção,
- * repositórios defeituosos em miniatura. Rastreados dentro do rebar, eles
- * fizeram o rebar reprovar em `ui-falso`, `schema-orfao` e `typecheck` —
- * acusado pelas próprias provas. Uma ferramenta que não sabe distinguir o
- * produto do material de prova mede o material de prova.
+ * This was born of a real failure, and it showed up the minute the proofs were
+ * written: the `ui-falso` and `schema-orfao` cases are, by construction,
+ * defective repositories in miniature. Tracked inside rebar, they made rebar
+ * fail on `ui-falso`, `schema-orfao` and `typecheck` — accused by its own
+ * proofs. A tool that cannot tell the product from the proof material measures
+ * the proof material.
  *
- * Duas portas de saída, as duas VISÍVEIS na saída, e as duas com fechadura:
+ * Two exit doors, both VISIBLE in the output, and both with a lock:
  *
- *   caso.json     marca a raiz de um caso de prova. Só vale sob RAIZES_DE_PROVA e
- *                 só com o schema mínimo — ver a nota lá em cima, que registra
- *                 o ataque de três bytes que a versão anterior aceitava.
- *                 Marcador recusado vira AVISO, nomeando o arquivo.
- *   .rebarignore  prefixos de caminho, um por linha, `#` comenta. Existe para
- *                 vendor e material gerado. É bypass de verdade — por isso a
- *                 contagem do que ele escondeu vai impressa no placar, e por
- *                 isso ele tem de estar RASTREADO. Portão aberto tem de ser
- *                 fato checado, não omissão.
+ *   caso.json     marks the root of a proof case. Only holds under
+ *                 RAIZES_DE_PROVA and only with the minimum schema — see the
+ *                 note above, which records the three-byte attack the previous
+ *                 version accepted. A refused marker becomes a WARNING, naming
+ *                 the file.
+ *   .rebarignore  path prefixes, one per line, `#` comments. It exists for
+ *                 vendor and generated material. It is a real bypass — which is
+ *                 why the count of what it hid is printed on the scoreboard,
+ *                 and why it has to be TRACKED. An open gate has to be a
+ *                 checked fact, not an omission.
  */
 /**
- * Modo de cada arquivo no ÍNDICE do git, não no disco.
+ * Mode of each file in the git INDEX, not on disk.
  *
- * A distinção decide a regra `hooks-executaveis`: o `chmod` que um instalador
- * faz é local e não viaja no clone; o que viaja é o modo commitado. Num clone
- * Linux, hook com modo 100644 é ignorado pelo git EM SILÊNCIO — o instalador
- * imprime "hooks instalados" e nada roda.
+ * The distinction decides the `hooks-executaveis` rule: the `chmod` an
+ * installer does is local and does not travel in the clone; what travels is the
+ * committed mode. In a Linux clone, a hook with mode 100644 is ignored by git
+ * IN SILENCE — the installer prints "hooks installed" and nothing runs.
  */
 function modosDoIndice(dir) {
-  // `-z` pelo mesmo motivo do `lerRepo`: com nome acentuado o caminho volta
-  // citado e o modo do arquivo se perde -- a regra `hooks-executable` deixaria
-  // de ver justamente o hook cujo nome tem acento.
+  // `-z` for the same reason as `lerRepo`: with an accented name the path comes
+  // back quoted and the file mode is lost -- the `hooks-executable` rule would
+  // stop seeing precisely the hook whose name has an accent.
   const r = git(dir, ['ls-files', '--stage', '-z'])
   if (!r.ok || !r.saida) return new Map()
   const mapa = new Map()
   for (const linha of r.saida.split('\0')) {
-    // "<modo> <sha> <estagio>\t<caminho>"
+    // "<mode> <sha> <stage>\t<path>"
     const tab = linha.indexOf('\t')
     if (tab === -1) continue
     mapa.set(linha.slice(tab + 1), linha.slice(0, linha.indexOf(' ')))
@@ -455,19 +468,20 @@ function semFixtures(dir, todos) {
   const marcadoresRecusados = []
   for (const a of todos.filter((x) => basename(x) === 'caso.json')) {
     const prefixo = a.slice(0, -'caso.json'.length)
-    // Raiz vazia é o pior caso do ataque: um `caso.json` na RAIZ do repositório
-    // produz prefixo '' e `''.startsWith` casa com TUDO — o repositório inteiro
-    // desapareceria da avaliação com um arquivo de três bytes.
+    // An empty root is the worst case of the attack: a `caso.json` at the ROOT
+    // of the repository produces prefix '' and `''.startsWith` matches
+    // EVERYTHING — the whole repository would vanish from the evaluation with a
+    // three-byte file.
     if (!prefixo) {
-      marcadoresRecusados.push(`${a} — na raiz do repositório, esconderia o repositório inteiro`)
+      marcadoresRecusados.push(`${a} — at the repository root, it would hide the whole repository`)
       continue
     }
-    // `prefixo === <raiz>` é a mesma armadilha um nível abaixo: um
-    // marcador posto na pasta que CONTÉM os casos apagaria todos de uma vez.
+    // `prefixo === <raiz>` is the same trap one level down: a marker placed in
+    // the folder that CONTAINS the cases would erase them all at once.
     const sobRaiz = RAIZES_DE_PROVA.some((raiz) => prefixo.startsWith(raiz) && prefixo !== raiz)
     if (!sobRaiz) {
       marcadoresRecusados.push(
-        `${a} — fora de ${RAIZES_DE_PROVA.map((r) => `${r}<caso>/`).join(' e ')}`,
+        `${a} — outside ${RAIZES_DE_PROVA.map((r) => `${r}<case>/`).join(' and ')}`,
       )
       continue
     }
@@ -479,20 +493,21 @@ function semFixtures(dir, todos) {
     raizes.push(prefixo)
   }
 
-  // A árvore de MODELOS do gerador — ver RAIZES_DE_MODELO. Fechadura dupla:
-  // prefixo idêntico a uma raiz literal E marcador com schema.
+  // The generator's TEMPLATE tree — see RAIZES_DE_MODELO. Double lock: prefix
+  // identical to a literal root AND a marker with a schema.
   const raizesDeModelo = []
   const modelosRecusados = []
   for (const a of todos.filter((x) => basename(x) === 'modelo.json')) {
-    // Marcador DENTRO de um caso de prova não é marcador deste repositório: é o
-    // conteúdo do caso, e o caso inteiro já saiu da avaliação um laço acima.
-    // Sem esta linha, os três `modelo.json` dos casos `typecheck__modelo-*`
-    // saíam como "3 modelo.json IGNORADO(S)" no placar do próprio rebar —
-    // aviso verdadeiro sobre um arquivo que ninguém ia ler como bypass.
+    // A marker INSIDE a proof case is not a marker of this repository: it is
+    // the case's content, and the whole case already left the evaluation one
+    // loop above. Without this line, the three `modelo.json` files of the
+    // `typecheck__modelo-*` cases came out as "3 modelo.json IGNORED" on
+    // rebar's own scoreboard — a true warning about a file nobody was going to
+    // read as a bypass.
     if (raizes.some((p) => a.startsWith(p))) continue
     const prefixo = a.slice(0, -'modelo.json'.length)
     if (!RAIZES_DE_MODELO.includes(prefixo)) {
-      modelosRecusados.push(`${a} — não é uma das raízes de modelo`)
+      modelosRecusados.push(`${a} — not one of the template roots`)
       continue
     }
     const invalido = marcadorInvalido(dir, a, ['for', 'why'])
@@ -503,11 +518,11 @@ function semFixtures(dir, todos) {
     raizesDeModelo.push(prefixo)
   }
 
-  // Lido do GIT, não do disco. Um `.rebarignore` não rastreado — inclusive um
-  // escondido atrás de `.git/info/exclude` — cegava o checker sem existir para
-  // o git: não entra em diff, não entra em review, não aparece no `git status`.
-  // Bypass que não está sob revisão é porta dos fundos, então aqui ele é
-  // ignorado por inteiro e o fato vira aviso.
+  // Read from GIT, not from disk. An untracked `.rebarignore` — including one
+  // hidden behind `.git/info/exclude` — blinded the checker without existing
+  // for git: it does not enter a diff, does not enter a review, does not show
+  // up in `git status`. A bypass that is not under review is a back door, so
+  // here it is ignored entirely and the fact becomes a warning.
   const ignoreRastreado = todos.includes('.rebarignore')
   const ignoreNoDisco = ler(dir, '.rebarignore')
   const ignoreClandestino = ignoreNoDisco !== null && !ignoreRastreado
@@ -552,18 +567,19 @@ function semFixtures(dir, todos) {
 }
 
 /**
- * Conteúdo dos arquivos de código rastreados, com teto de tamanho, separado nas
- * duas pilhas que as regras de fato querem: `producao` e `teste`.
+ * Content of the tracked code files, with a size ceiling, split into the two
+ * piles the rules actually want: `producao` and `teste`.
  *
- * A separação sai daqui, e não de um segundo laço, porque a peneira tem de ser
- * a MESMA nas duas pontas — o arquivo lá em cima já registra que contagem
- * calculada por um crivo parecido, mas outro, é pior que contagem nenhuma.
+ * The split comes out of here, and not of a second loop, because the sieve has
+ * to be the SAME at both ends — the file above already records that a count
+ * computed by a similar but different sieve is worse than no count at all.
  *
- * `teste` existe porque quase toda regra de conteúdo quer olhar só produção, e
- * UMA não quer: `schema-orfao` pergunta se alguém LÊ o schema, e um teste de
- * contrato que o importa é a prova mais forte possível de que alguém lê.
- * Medido: `openkartline` era acusado de dois schemas "definidos e nunca lidos"
- * com `apps/web/src/services/schemaContract.test.ts` importando os dois.
+ * `teste` exists because almost every content rule wants to look at production
+ * only, and ONE does not: `schema-orfao` asks whether anyone READS the schema,
+ * and a contract test that imports it is the strongest possible proof that
+ * someone reads it. Measured: `openkartline` was accused of two schemas
+ * "defined and never read" with `apps/web/src/services/schemaContract.test.ts`
+ * importing both.
  */
 function fontes(dir, arquivos) {
   const producao = []
@@ -574,35 +590,36 @@ function fontes(dir, arquivos) {
       if (statSync(join(dir, a)).size > 512 * 1024) continue
       ;(ehTeste(a) ? teste : producao).push([a, readFileSync(join(dir, a), 'utf8')])
     } catch {
-      /* arquivo sumiu entre o ls-files e a leitura */
+      /* the file vanished between the ls-files and the read */
     }
   }
   return { producao, teste }
 }
 
-// ─────────────────────────────── defesa procurada onde o defeito foi achado
+// ──────────────────────────── defense looked for where the defect was found
 //
-// Classe inteira de falso positivo consertada aqui: DEFEITO PROCURADO
-// RECURSIVAMENTE, DEFESA PROCURADA SÓ NA RAIZ. `ui-falso` varria
-// `components/ui/` em qualquer profundidade e conferia `components.json` só em
-// `r.dir`; `formatter`, `typecheck` e `shadcn-completo` liam só o package.json
-// da raiz. Cinco dos doze repositórios medidos são monorepo, e a acusação caía
-// em cima justamente deles. Medido: prumo, ducado e LinhaK acusados de
-// "components/ui/ sem components.json" tendo os três o arquivo rastreado
-// (apps/web/, apps/web/, web/); openkartline acusado de "sem prettier" com
-// prettier declarado em apps/web/package.json. Cinco achados, cinco falsos.
+// A whole class of false positive fixed here: DEFECT LOOKED FOR RECURSIVELY,
+// DEFENSE LOOKED FOR ONLY AT THE ROOT. `ui-falso` swept `components/ui/` at any
+// depth and checked `components.json` only in `r.dir`; `formatter`, `typecheck`
+// and `shadcn-completo` read only the root package.json. Five of the twelve
+// measured repositories are monorepos, and the accusation landed on exactly
+// those. Measured: prumo, ducado and LinhaK accused of "components/ui/ imitating
+// the convention, with no components.json in any directory above" while all
+// three had the file tracked (apps/web/, apps/web/, web/); openkartline accused
+// of "no prettier" with prettier declared in apps/web/package.json. Five
+// findings, five false.
 
 const RE_MANIFESTO = /(^|\/)package\.json$/
 const RE_COMPONENTS_JSON = /(^|\/)components\.json$/
-// Prefixo do diretório de um arquivo, no formato do git: '' na raiz,
-// 'apps/web/' com barra no fim. O git SEMPRE devolve barra normal, inclusive no
-// Windows; `join`/`sep` aqui produziriam 'apps\web\' e nada casaria com nada.
+// A file's directory prefix, in git's format: '' at the root, 'apps/web/' with
+// a trailing slash. Git ALWAYS returns a forward slash, including on Windows;
+// `join`/`sep` here would produce 'apps\web\' and nothing would match anything.
 const pastaDe = (rel) => rel.slice(0, rel.lastIndexOf('/') + 1)
 
 /**
- * Todo package.json RASTREADO, lido, com o estado da leitura preservado.
- * `arquivos` já veio filtrado por `semFixtures`, então os manifestos dos casos
- * de prova do próprio rebar ficam de fora — como têm de ficar.
+ * Every TRACKED package.json, read, with the state of the read preserved.
+ * `arquivos` already came filtered by `semFixtures`, so the manifests of
+ * rebar's own proof cases stay out — as they have to.
  */
 function manifestosNpm(dir, arquivos) {
   return arquivos
@@ -611,38 +628,39 @@ function manifestosNpm(dir, arquivos) {
 }
 
 /**
- * Porta única das regras que dependem de manifesto: devolve string de
- * REPROVAÇÃO quando existe package.json rastreado que não pôde ser lido, e
- * null quando dá para seguir. Reprovação e não `na()`, porque N/A sai do
- * denominador e era exatamente por aí que o ataque entrava; reprovação e não
- * exceção, porque um package.json quebrado é defeito do ALVO, e o 127 está
- * reservado para defeito do rebar-check.
+ * Single door for the rules that depend on a manifest: returns a FAIL string
+ * when there is a tracked package.json that could not be read, and null when it
+ * is possible to go on. A fail and not `na()`, because N/A leaves the
+ * denominator and that was exactly where the attack got in; a fail and not an
+ * exception, because a broken package.json is a defect of the TARGET, and the
+ * 127 is reserved for a defect of rebar-check.
  */
 function manifestoIlegivel(r, sePresta = () => true) {
   const maus = r.manifestos.filter((m) => m.estado !== 'ok' && sePresta(m))
   if (!maus.length) return null
   const lista = maus.slice(0, 3).map((m) => `${m.rel} (${m.erro})`)
-  return `package.json ilegível, impossível avaliar: ${lista.join('; ')}`
+  return `package.json unreadable, impossible to evaluate: ${lista.join('; ')}`
 }
 
 /**
- * A guarda restrita ao manifesto da RAIZ, para as regras cuja aplicabilidade é
- * do repositório e não do pacote. Precisa ser restrita: com a guarda ampla,
- * um pacote ilegível em `web/` faria `dependabot` REPROVAR um repositório que
- * nem tem package.json na raiz — trocaria um falso negativo por um falso
- * positivo, que é a troca que este passo inteiro existe para não fazer.
+ * The guard restricted to the ROOT manifest, for the rules whose applicability
+ * belongs to the repository and not to the package. It has to be restricted:
+ * with the wide guard, an unreadable package in `web/` would make `dependabot`
+ * FAIL a repository that has no package.json at the root at all — it would
+ * trade a false negative for a false positive, which is the trade this whole
+ * step exists not to make.
  */
 const raizIlegivel = (r) => manifestoIlegivel(r, (m) => m.rel === 'package.json')
 
 /**
- * União de dependencies + devDependencies de TODOS os manifestos.
+ * Union of dependencies + devDependencies of ALL manifests.
  *
- * Aqui a união crua é o casamento certo, e em `ui-falso` não é — a diferença é
- * o que cada defesa defende. Formatador e primitiva de UI são resolvidos pelo
- * gerenciador de pacotes do WORKSPACE INTEIRO (npm/pnpm/yarn içam para a raiz),
- * então declarar prettier num pacote formata o repositório todo. Já um
- * `components.json` configura os aliases de UM projeto e não alcança o pacote
- * vizinho.
+ * Here the raw union is the right match, and in `ui-falso` it is not — the
+ * difference is what each defense defends. A formatter and a UI primitive are
+ * resolved by the package manager of the WHOLE WORKSPACE (npm/pnpm/yarn hoist
+ * to the root), so declaring prettier in one package formats the entire
+ * repository. A `components.json`, on the other hand, configures the aliases of
+ * ONE project and does not reach the neighboring package.
  */
 function dependenciasDeTodos(r) {
   const d = {}
@@ -653,7 +671,7 @@ function dependenciasDeTodos(r) {
   return d
 }
 
-/** Nomes de script declarados em qualquer manifesto do repositório. */
+/** Script names declared in any manifest of the repository. */
 function scriptsDeTodos(r) {
   const nomes = new Set()
   for (const m of r.manifestos) {
@@ -666,22 +684,23 @@ function scriptsDeTodos(r) {
 }
 
 /**
- * A pasta e todos os diretórios acima dela, até a raiz: 'apps/web/src/' vira
- * ['apps/web/src/', 'apps/web/', 'apps/', ''].
+ * The folder and every directory above it, up to the root: 'apps/web/src/'
+ * becomes ['apps/web/src/', 'apps/web/', 'apps/', ''].
  *
- * É a regra de casamento por PROXIMIDADE de `ui-falso`. Subir é o único
- * caminho que reproduz como a ferramenta real resolve: o `components.json`
- * mora na raiz do PROJETO e os aliases dele apontam para baixo. Por isso
- * `apps/web/components.json` defende `apps/web/src/components/ui/` (está
- * acima) e NÃO defende `packages/outro/components/ui/` (é irmão, não
- * ancestral) — que era o risco de trocar "só na raiz" por "existe em qualquer
- * lugar", uma troca de falso positivo por falso negativo.
+ * It is `ui-falso`'s match-by-PROXIMITY rule. Going up is the only path that
+ * reproduces how the real tool resolves: `components.json` lives at the root of
+ * the PROJECT and its aliases point downward. That is why
+ * `apps/web/components.json` defends `apps/web/src/components/ui/` (it is
+ * above) and does NOT defend `packages/outro/components/ui/` (it is a sibling,
+ * not an ancestor) — which was the risk of trading "only at the root" for
+ * "exists anywhere", a trade of a false positive for a false negative.
  *
- * A subida vai até a raiz de propósito, sem parar na fronteira do pacote: um
- * `components.json` na raiz de monorepo de app único é configuração legítima
- * do app aninhado, e o arquivo não diz para quem ele aponta. Entre acusar
- * quem não deve e calar sobre quem deve, uma regra determinística escolhe
- * calar — é a mesma conta que rebaixou a regra de cor literal a heurística.
+ * The climb goes to the root on purpose, without stopping at the package
+ * boundary: a `components.json` at the root of a single-app monorepo is
+ * legitimate configuration of the nested app, and the file does not say who it
+ * points at. Between accusing someone who should not be accused and staying
+ * quiet about someone who should, a deterministic rule chooses to stay quiet —
+ * it is the same arithmetic that demoted the literal-color rule to a heuristic.
  */
 function ancestrais(pasta) {
   const saida = [pasta]
@@ -694,55 +713,55 @@ function ancestrais(pasta) {
 }
 
 /**
- * Um runner chamado por um script: `node ci/verificar.mjs`, `tsx scripts/x.ts`.
- * Só o caminho, sem `..` — o alvo tem de ser um arquivo DO repositório, e a
- * conferência final é a lista do `git ls-files`, não este padrão.
+ * A runner called by a script: `node ci/verificar.mjs`, `tsx scripts/x.ts`.
+ * Only the path, no `..` — the target has to be a file OF the repository, and
+ * the final check is the `git ls-files` list, not this pattern.
  */
 const RE_RUNNER =
   /(?:^|[\s;&|])(?:node|tsx|ts-node|bun)\s+(?:--?[\w-]+(?:=\S+)?\s+)*([\w./-]+\.[cm]?[jt]s)\b/g
 
 /**
- * Expande o que o CI de fato executa. Um workflow que roda `npm run verificar`
- * está rodando o corpo de `verificar` — e, se aquele corpo chamar outro script,
- * está rodando aquele também.
+ * Expands what the CI actually executes. A workflow that runs `npm run
+ * verificar` is running the body of `verificar` — and, if that body calls
+ * another script, it is running that one too.
  *
- * Sem isto, `ci-gateia` procurava as palavras lint/typecheck/test literais no
- * YAML e reprovava todo repositório que agrega a verificação num comando só.
- * Era o segundo falso positivo determinístico provado.
+ * Without this, `ci-gateia` looked for the literal words lint/typecheck/test in
+ * the YAML and failed every repository that aggregates verification into a
+ * single command. It was the second proven deterministic false positive.
  *
- * A segunda perna — seguir `node <arquivo>` para DENTRO do arquivo — fecha o
- * mesmo furo um degrau adiante, e ele foi medido: o `ducado` era acusado de "o
- * CI não alcança: lint" com `.github/workflows/verificar.yml` rodando
- * `npm run verificar`, o script `verificar` sendo `node ci/verificar.mjs`, e
- * aquele arquivo rodando `npm run --silent lint` na linha 21. A cadeia real
- * tem três elos e a expansão só percorria dois; parar no `node` era declarar
- * que o CI não alcança o lint que ele alcança em toda execução.
+ * The second leg — following `node <file>` INTO the file — closes the same hole
+ * one step further on, and it was measured: `ducado` was accused of "the CI
+ * does not reach: lint" with `.github/workflows/verificar.yml` running
+ * `npm run verificar`, the `verificar` script being `node ci/verificar.mjs`, and
+ * that file running `npm run --silent lint` on line 21. The real chain has three
+ * links and the expansion walked only two; stopping at the `node` was declaring
+ * that the CI does not reach the lint it reaches on every run.
  *
- * A expansão só ACRESCENTA texto, então só pode transformar reprovação em
- * aprovação — nunca inventar acusação. O teto é `profundidade` e cada nome e
- * cada arquivo entram uma vez só, senão um script que chama a si mesmo faria
- * o laço crescer para sempre.
+ * The expansion only ADDS text, so it can only turn a fail into a pass — never
+ * invent an accusation. The ceiling is `profundidade` and each name and each
+ * file enter only once, otherwise a script that calls itself would make the
+ * loop grow forever.
  */
 /**
- * Só o que o workflow EXECUTA: os valores de `run:`.
+ * Only what the workflow EXECUTES: the values of `run:`.
  *
- * P1 de auditoria externa, reproduzido: com `scripts.test` definido e um
- * workflow que só faz `echo ok`, a regra reprovava — e acrescentar a linha
- * `# TODO: run test later` virava o veredito para APROVADO. O texto-base era o
- * YAML cru, então qualquer aparição da palavra em qualquer lugar do arquivo
- * satisfazia a regra.
+ * P1 of an external audit, reproduced: with `scripts.test` defined and a
+ * workflow that only does `echo ok`, the rule failed — and adding the line
+ * `# TODO: run test later` flipped the verdict to PASSED. The base text was the
+ * raw YAML, so any appearance of the word anywhere in the file satisfied the
+ * rule.
  *
- * POR QUE EXTRAIR EM VEZ DE SUBTRAIR. Tirar comentário consertaria só o caso
- * relatado, e o mesmo relatório nomeia dois vizinhos: nome de job e mensagem de
- * `echo`. Subtrair não-execução é uma lista que nunca fecha — `name:`,
- * `echo`, `if:`, `env:`, chave de job, `with:`, o `on:`. Extrair execução
- * é uma lista de um item, e ela é a definição do que a regra pergunta: o CI
- * ALCANÇA a verificação, e alcançar é rodar.
+ * WHY EXTRACT INSTEAD OF SUBTRACT. Removing comments would fix only the
+ * reported case, and the same report names two neighbors: job name and `echo`
+ * message. Subtracting non-execution is a list that never closes — `name:`,
+ * `echo`, `if:`, `env:`, job key, `with:`, the `on:`. Extracting execution is a
+ * list of one item, and it is the definition of what the rule asks: the CI
+ * REACHES the verification, and to reach is to run.
  *
- * O que continua fora do alcance, e é honesto dizer: um `uses:` de ação
- * composta pode rodar o script sem um `run:` visível aqui. Nesse caso a regra
- * reprova um CI que de fato verifica — falso positivo, e o repositório escolhe
- * o falso positivo sobre o falso negativo quando o assunto é portão.
+ * What stays out of reach, and it is honest to say so: a `uses:` of a composite
+ * action can run the script with no `run:` visible here. In that case the rule
+ * fails a CI that does verify — a false positive, and the repository chooses
+ * the false positive over the false negative when the subject is a gate.
  */
 function comandosDoCi(yml) {
   const linhas = yml.split('\n')
@@ -751,7 +770,7 @@ function comandosDoCi(yml) {
     const m = linhas[i].match(/^(\s*)-?\s*run\s*:\s*(.*)$/)
     if (!m) continue
     const [, recuo, resto] = m
-    // Escalar de bloco: `run: |` ou `run: >`, e o comando vem indentado abaixo.
+    // Block scalar: `run: |` or `run: >`, and the command comes indented below.
     if (/^[|>][-+]?\s*$/.test(resto)) {
       const base = recuo.length
       for (let j = i + 1; j < linhas.length; j++) {
@@ -787,8 +806,8 @@ function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
       }
     }
     for (const m of [...texto.matchAll(RE_RUNNER)]) {
-      // Normalizado para barra normal e sem `./`: o git devolve
-      // `ci/verificar.mjs` e o YAML pode escrever `./ci/verificar.mjs`.
+      // Normalized to a forward slash and without `./`: git returns
+      // `ci/verificar.mjs` and the YAML may write `./ci/verificar.mjs`.
       const rel = m[1].replace(/\\/g, '/').replace(/^\.\//, '')
       if (lidos.has(rel) || !r.arquivos.includes(rel)) continue
       lidos.add(rel)
@@ -802,80 +821,85 @@ function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
   return texto
 }
 
-// ──────────────────────────────────────────────────────────────── as regras
+// ──────────────────────────────────────────────────────────────── the rules
 //
-// classe: 'determinística' derruba o exit code · 'heurística' só informa.
-// A distinção não é estética: a regra de cor literal, quando medida no herz,
-// deu SETE ocorrências e ZERO verdadeiros positivos — cinco eram comentários
-// documentando a própria regra. Regra automática errada custa mais que regra
-// ausente, e heurística que barra ensina a desligar a saída inteira.
+// classe: 'determinística' drops the exit code · 'heurística' only informs.
+// (Both values stay in Portuguese: they are the discriminator this file, the
+// MCP generator and the proofs all compare with `===`, not prose.)
+// The distinction is not cosmetic: the literal-color rule, when measured on
+// herz, gave SEVEN occurrences and ZERO true positives — five were comments
+// documenting the rule itself. A wrong automatic rule costs more than a missing
+// rule, and a heuristic that blocks teaches people to turn the whole output off.
 //
-// `checar` devolve UMA de quatro coisas:
-//   null            passou
-//   'motivo'        reprovou
-//   na('motivo')    não se aplica — sai do denominador
-//   (lança)         quebrou — exit 127, defeito do rebar-check
+// `checar` returns ONE of four things:
+//   null            passed
+//   'reason'        failed
+//   na('reason')    not applicable — leaves the denominator
+//   (throws)        broke — exit 127, defect of rebar-check
 
 /**
- * Bot commita, e commitar não faz dele uma identidade inconsistente do dono.
+ * A bot commits, and committing does not make it an inconsistent identity of
+ * the owner.
  *
- * Sem esta lista, o merge commit que o GitHub cria em `refs/pull/N/merge` —
- * autorado por `GitHub <noreply@github.com>` — conta como segunda pessoa E como
- * "e-mail pessoal exposto", dois falsos positivos de uma vez. Medido: com isso
- * TODO pull request nascia reprovado, o que tornava fisicamente impossível
- * ligar o rebar como check obrigatório de merge em qualquer repositório.
+ * Without this list, the merge commit GitHub creates at `refs/pull/N/merge` —
+ * authored by `GitHub <noreply@github.com>` — counts as a second person AND as
+ * "personal e-mail exposed", two false positives at once. Measured: with that,
+ * EVERY pull request was born failed, which made it physically impossible to
+ * turn rebar on as a required merge check in any repository.
  */
 const EH_BOT =
   /<[^>]*(noreply@github\.com|\[bot\]@|@bots\.|dependabot|renovate|github-actions)[^>]*>|\[bot\]\s*</i
 
-// ─────────────────────────────────── coautoria: allowlist de humanos
+// ──────────────────────────────── co-authorship: allowlist of humans
 
 /**
- * Onde mora a allowlist de coautores humanos, na raiz do repositório AUDITADO.
+ * Where the allowlist of human co-authors lives, at the root of the AUDITED
+ * repository.
  *
- * Caminho único e sem pasta a criar porque o rebar-check roda contra
- * repositório de terceiro: `tooling/` é layout do rebar, `.rebar-coauthors`
- * é convenção que qualquer repositório consegue adotar com um arquivo — mesma
- * família do `.rebarignore`.
+ * A single path with no folder to create, because rebar-check runs against a
+ * third party's repository: `tooling/` is rebar's layout, `.rebar-coauthors` is
+ * a convention any repository can adopt with one file — same family as
+ * `.rebarignore`.
  */
 const ALLOWLIST_COAUTORES = '.rebar-coauthors'
 
 /**
- * A lista de agentes de IA, usada SÓ quando o repositório auditado não tem
- * allowlist. Está aqui documentada como o que é: uma corrida perdida.
+ * The list of AI agents, used ONLY when the audited repository has no
+ * allowlist. It is documented here as what it is: a lost race.
  *
- * A versão anterior tinha 9 nomes. O ataque de 2026-08-30 montou um repositório
- * em tmpdir e passou seis agentes atuais de uma vez — Windsurf, ChatGPT, Cody,
- * Codeium, Amazon Q, Tabnine —, todos com trailer que o
- * `git log --format=%(trailers:key=Co-authored-by)` reconheceu, e a regra acusou
- * "1 de 9 commits" num histórico onde 8 commits tinham trailer de coautoria.
- * Esta lista tem quatro vezes mais nomes e vai envelhecer do mesmo jeito; é por
- * isso que ela é o PLANO B, e não a política.
+ * The previous version had 9 names. The 2026-08-30 attack built a repository in
+ * tmpdir and pushed six current agents through at once — Windsurf, ChatGPT,
+ * Cody, Codeium, Amazon Q, Tabnine —, all with a trailer that
+ * `git log --format=%(trailers:key=Co-authored-by)` recognized, and the rule
+ * accused "1 of 9 commits" in a history where 8 commits had a co-authorship
+ * trailer. This list has four times as many names and will age the same way;
+ * that is why it is PLAN B, and not the policy.
  *
- * Nome de agente que também é nome de gente (Cody, Jules) entra pelo domínio, e
- * não solto: acusar `Cody Silva <cody@empresa.com>` de ser IA seria transformar
- * a lista perdida numa lista perdida E injusta.
+ * An agent name that is also a person's name (Cody, Jules) gets in through the
+ * domain, and not loose: accusing `Cody Silva <cody@empresa.com>` of being AI
+ * would turn the lost list into a lost AND unfair list.
  */
 const AGENTES_ENUMERADOS =
   /(claude|anthropic|cursor\.(com|sh)|cursoragent|copilot|codex|openai|chatgpt|devin|cognition|aider|gemini|google-labs-jules|jules@google|windsurf|codeium|sourcegraph|tabnine|amazon\s*q|amazonaws|codewhisperer|q-developer|replit|bolt\.new|v0\.dev|lovable|cline|roo-?code|kilo-?code|continue\.dev|sweep(ai|\.dev)|qodo|codium|coderabbit|greptile|ellipsis\.dev|korbit|bito\.ai|blackbox|phind|supermaven|augmentcode|zencoder|refact\.ai|sourcery|openhands|opendevin|all-hands|swe-agent|gpt-engineer|mentat|trae\.ai|marscode|comate)/i
 
 /**
- * Automação que NÃO escreve código a partir de um enunciado: bumpador de
- * dependência, formatador de imagem, robô de release. Sai do bolo ANTES de
- * classificar, porque coautoria de robô de manutenção não é coautoria de IA.
+ * Automation that does NOT write code from a prompt: dependency bumper, image
+ * formatter, release robot. It leaves the pot BEFORE classification, because
+ * co-authorship by a maintenance robot is not co-authorship by AI.
  *
- * Isto existe porque a lista acima terminava num `\[bot\]` solto, e aquele
- * curinga afirmava uma coisa falsa: que todo App do GitHub que assina um
- * trailer é agente de IA. Medido em 2026-08-30: o `ducado` era acusado de "1 de
- * 25 commits com coautoria de IA" e o ÚNICO trailer do histórico inteiro é
- * `dependabot[bot]`. No `openkartline` o curinga inflava a acusação de 2 para
- * 6 — 4 dos 6 eram dependabot e só 2 eram Claude, então o número impresso era
- * o triplo do verdadeiro.
+ * This exists because the list above ended in a loose `\[bot\]`, and that
+ * wildcard asserted something false: that every GitHub App that signs a trailer
+ * is an AI agent. Measured on 2026-08-30: `ducado` was accused of "1 of 25
+ * commits with AI co-authorship" and the ONLY trailer in the whole history is
+ * `dependabot[bot]`. On `openkartline` the wildcard inflated the accusation
+ * from 2 to 6 — 4 of the 6 were dependabot and only 2 were Claude, so the
+ * printed number was triple the true one.
  *
- * É o mesmo julgamento que `EH_BOT` já faz uma regra abaixo, com a mesma frase:
- * bot commita, e commitar não faz dele autor de IA. E é o oposto do que o
- * curinga fazia — enumerar quem NÃO é IA aqui é seguro porque errar para menos
- * cai no ramo N/A ("não dá para classificar"), e não numa aprovação silenciosa.
+ * It is the same judgment `EH_BOT` already makes one rule below, with the same
+ * sentence: a bot commits, and committing does not make it an AI author. And it
+ * is the opposite of what the wildcard did — enumerating who is NOT AI is safe
+ * here because erring short lands in the N/A branch ("cannot be classified"),
+ * and not in a silent pass.
  */
 const AUTOMACAO_NAO_IA =
   /(dependabot|renovate|greenkeeper|snyk-bot|imgbot|allcontributors|pre-commit-ci|mergify|semantic-release|release-please|github-actions)/i
@@ -887,12 +911,12 @@ const emailDeCoautor = (valor) => {
 }
 
 /**
- * A allowlist tem de estar RASTREADA, não só existir no disco.
+ * The allowlist has to be TRACKED, not just exist on disk.
  *
- * É a mesma porta que o `.rebarignore` clandestino já teve, e aqui seria pior:
- * um arquivo de dois bytes largado no disco desligaria a regra inteira do
- * repositório auditado sem aparecer em diff nenhum. `r.arquivos` vem do
- * `git ls-files`, então quem não está lá não existe para esta regra.
+ * It is the same door the clandestine `.rebarignore` already had, and here it
+ * would be worse: a two-byte file dropped on disk would turn off the whole rule
+ * for the audited repository without showing up in any diff. `r.arquivos` comes
+ * from `git ls-files`, so what is not there does not exist for this rule.
  */
 function lerAllowlistCoautores(r) {
   if (!r.arquivos.includes(ALLOWLIST_COAUTORES)) return { estado: 'ausente' }
@@ -909,17 +933,17 @@ function lerAllowlistCoautores(r) {
 }
 
 /**
- * Os trailers de coautoria do histórico, perguntados AO GIT.
+ * The co-authorship trailers of the history, asked OF GIT.
  *
- * `%(trailers:key=Co-authored-by)` é o mesmo parser que decide o que é trailer
- * de verdade — resolve dobramento de linha e não confunde uma linha solta no
- * meio do corpo com um trailer. Ler `%B` e passar regex era reimplementar isso
- * à mão, e à mão o `Co-authored-by:` contrabandeado abaixo da linha de tesoura
- * do `git commit -v` já entrou uma vez.
+ * `%(trailers:key=Co-authored-by)` is the same parser that decides what is a
+ * real trailer — it resolves line folding and does not mistake a loose line in
+ * the middle of the body for a trailer. Reading `%B` and running a regex over
+ * it was reimplementing that by hand, and by hand a `Co-authored-by:` smuggled
+ * below the `git commit -v` scissors line has already got in once.
  *
- * O plano B existe para git anterior ao 2.22, que não conhece o placeholder e o
- * devolve literal. Quando ele roda, o motivo impresso diz que rodou: veredito
- * lido por instrumento pior tem de aparecer como tal.
+ * Plan B exists for git older than 2.22, which does not know the placeholder
+ * and returns it literally. When it runs, the printed reason says it ran: a
+ * verdict read by a worse instrument has to show up as such.
  */
 function coautoresDoHistorico(r) {
   const SEP_COMMIT = '\x00'
@@ -933,7 +957,7 @@ function coautoresDoHistorico(r) {
 
   if (suportado) {
     const registros = log.saida.split(SEP_COMMIT)
-    // O último pedaço depois do %x00 final é resto vazio, não commit.
+    // The last chunk after the final %x00 is empty leftover, not a commit.
     for (const reg of registros.slice(0, -1)) {
       for (const v of reg.split(SEP_TRAILER)) {
         const valor = v.trim()
@@ -950,145 +974,172 @@ function coautoresDoHistorico(r) {
   return {
     coautores,
     total: r.commits.length,
-    porEnumeracaoDoTexto: log.ok ? 'git sem %(trailers)' : log.erro || 'git log falhou',
+    porEnumeracaoDoTexto: log.ok ? 'git without %(trailers)' : log.erro || 'git log failed',
   }
 }
 
 /**
- * O que conta como "existe uma checagem de tipo que dá para chamar sozinha".
+ * What counts as "there is a type check that can be called on its own".
  *
- * Exigir o nome literal `typecheck` cobrava do repositório o VOCABULÁRIO, não
- * a prática — o mesmo erro que a regra `testes` cometia com nome de arquivo em
- * português. Medido: prumo (`"tipos": "tsc -b"`) e ducado (`"tipos"` na raiz e
- * `"typecheck"` em três pacotes) eram acusados de não ter typecheck tendo os
- * dois o script.
+ * Demanding the literal name `typecheck` charged the repository for the
+ * VOCABULARY, not the practice — the same mistake the `testes` rule made with
+ * file names in Portuguese. Measured: prumo (`"tipos": "tsc -b"`) and ducado
+ * (`"tipos"` at the root and `"typecheck"` in three packages) were accused of
+ * having no typecheck while both had the script. `tipos` stays in Portuguese
+ * below for that reason: it is a script name written inside the Brazilian
+ * repositories this ruler audits, not prose.
  *
- * A lista é de NOMES de script, e isso é deliberado: o que a regra quer é um
- * alvo que o CI consiga invocar. `navesz.github.io` tem `tsc --noEmit` DENTRO
- * do `build` e continua reprovando — corretamente, porque é exatamente a falha
- * que a prova desta regra descreve, "o único contato com o compilador é o
- * build".
+ * The list is of script NAMES, and that is deliberate: what the rule wants is a
+ * target the CI can invoke. `navesz.github.io` has `tsc --noEmit` INSIDE the
+ * `build` and still fails — correctly, because it is exactly the failure this
+ * rule's proof describes, "the only contact with the compiler is the build".
  */
 const NOMES_TYPECHECK = ['typecheck', 'type-check', 'check-types', 'tipos', 'tsc']
 
-// ───────────────────────────────── o que é, e o que NÃO é, literal de conteúdo
+// ───────────────────────────────── what is, and what is NOT, a content literal
 //
-// A §12.3 do plano fechou que o conteúdo do preset `site` mora em
-// `conteudo/*.json` e que identidade do negócio — telefone, preço, endereço —
-// é conteúdo validado, não código. A regra `conteudo-fora-do-codigo` cobra isso.
+// §12.3 of the plan settled that the content of the `site` preset lives in
+// `conteudo/*.json` and that business identity — phone, price, address — is
+// validated content, not code. The `conteudo-fora-do-codigo` rule enforces it.
 //
-// A parte difícil não é a asserção, é a DEFINIÇÃO. String de `className`, de
-// `import`, de `aria-label` e de chave de objeto não são conteúdo, e a versão
-// larga desta regra acusaria todas. Por isso ela reconhece só DUAS formas, as
-// duas escolhidas por serem impossíveis de confundir com as quatro de cima:
+// The hard part is not the assertion, it is the DEFINITION. A `className`
+// string, an `import`, an `aria-label` and an object key are not content, and
+// the wide version of this rule would accuse them all. So it recognizes only
+// TWO shapes, both chosen for being impossible to confuse with the four above:
 //
-//   1. PREÇO — `R$` seguido de dígito. Não existe em nome de classe, em
-//      caminho de import, em chave de objeto nem em rótulo de acessibilidade.
-//      Repare que a exigência é o DÍGITO: `` `R$ ${valor}` `` não casa, e é o
-//      certo — formatador de moeda é código, valor de moeda é conteúdo.
+//   1. PRICE — `R$` followed by a digit. It does not exist in a class name, in
+//      an import path, in an object key or in an accessibility label. Note the
+//      requirement is the DIGIT: `` `R$ ${valor}` `` does not match, and that is
+//      right — a currency formatter is code, a currency value is content.
+//      `R$` stays as it is: it is the Brazilian currency marker the rule hunts
+//      for inside audited repositories, not prose.
 //
-//   2. FRASE RENDERIZADA — texto entre `>` e `<`, isto é, nó de texto de JSX.
-//      Por construção do JSX, className/import/aria-label/chave vivem em
-//      ATRIBUTO ou fora da marcação, e nó de texto é o que o visitante lê.
+//   2. RENDERED SENTENCE — text between `>` and `<`, that is, a JSX text node.
+//      By construction of JSX, className/import/aria-label/key live in an
+//      ATTRIBUTE or outside the markup, and a text node is what the visitor reads.
 //
-// Quanto isso pega: medido em 2026-08-30 nos 11 repositórios, IGNORANDO o
-// portão de aplicabilidade, a definição acha 188 ocorrências em 45 arquivos de 7
-// repositórios — 147 só no decima-edicoes, em 15 dos 25 arquivos dele, depois
-// ducado 13, hug-brasil-propostas 12, vectra-painel 9, Galegos 3, prumo 3 e
-// LinhaK 1. Nenhum dos 188 é falso; abri a lista e são todos conteúdo mesmo,
-// sem uma única string de className, de import, de aria-label ou de chave. O
-// que a tabela prova é outra coisa — que TODO site escrito à mão viola esta
-// asserção, e portanto a asserção não pode ser cobrada de quem não prometeu
-// cumpri-la.
+// How much this catches: measured on 2026-08-30 across the 11 repositories,
+// IGNORING the applicability gate, the definition finds 188 occurrences in 45
+// files of 7 repositories — 147 in decima-edicoes alone, in 15 of its 25 files,
+// then ducado 13, hug-brasil-propostas 12, vectra-painel 9, Galegos 3, prumo 3
+// and LinhaK 1. None of the 188 is false; I opened the list and they are all
+// content indeed, without a single className, import, aria-label or key string.
+// What the table proves is something else — that EVERY hand-written site
+// violates this assertion, and therefore the assertion cannot be charged to
+// someone who never promised to keep it.
 //
-// Vale registrar a inversão que a mesma tabela mostrou, porque ela é um limite
-// da definição e não um elogio a ela: o Galegos, que a §12.3 cita como o pior
-// caso com as 623 linhas de `menu.ts`, dá 3 — e o que o pega lá é o PREÇO
-// (`src/lib/menu.ts` linha 590), não a frase. Catálogo em objeto literal de
-// `.ts` continua invisível, e continua de propósito: o padrão que o pegasse
-// pegaria junto toda tabela de constantes de todo projeto.
+// Worth recording the inversion the same table showed, because it is a limit of
+// the definition and not a compliment to it: Galegos, which §12.3 cites as the
+// worst case with the 623 lines of `menu.ts`, gives 3 — and what catches it
+// there is the PRICE (`src/lib/menu.ts` line 590), not the sentence. A catalog
+// in a `.ts` object literal stays invisible, and stays so on purpose: the
+// pattern that caught it would catch every constant table of every project.
 //
-// É daí que sai o portão: a regra só se aplica ao repositório que ADOTOU a
-// convenção, ou seja, que tem `conteudo/*.json` rastreado. Mesma forma do
-// `notice` (só cobra NOTICE de quem escolheu Apache) e do `ui-falso` (só cobra
-// components.json de quem criou components/ui/). Com o portão, os 11
-// repositórios medidos dão N/A com o motivo impresso, e a saída do gerador —
-// que nasce com `conteudo/` — é cobrada por inteiro.
+// That is where the gate comes from: the rule only applies to the repository
+// that ADOPTED the convention, that is, that has `conteudo/*.json` tracked.
+// Same shape as `notice` (only charges NOTICE to whoever chose Apache) and
+// `ui-falso` (only charges components.json to whoever created components/ui/).
+// With the gate, the 11 measured repositories come out N/A with the reason
+// printed, and the generator's output — which is born with `conteudo/` — is
+// charged in full.
 
 const RE_CONTEUDO_JSON = /^((?:.*\/)?)conteudo\/[^/]+\.json$/
 export const PRECO_BRL = /R\$\s?\d[\d.,]*/
 export const RE_JSX = /\.(tsx|jsx)$/i
 
 /**
- * Um `/` abre expressão regular, ou divide? Decide o último caractere de código
- * antes dele — e nas palavras-chave decide a palavra, porque `return /x/` é
- * regex e `total / 2` é divisão com `total` terminando em letra igual a `return`.
+ * Does a `/` open a regular expression, or divide? The last code character
+ * before it decides — and for keywords the word decides, because `return /x/`
+ * is a regex and `total / 2` is a division with `total` ending in a letter just
+ * like `return`.
  */
 const ABRE_REGEX = /[(,=:[!&|?{};+\-*%~^<>]$/
 const PALAVRA_ANTES_DE_REGEX =
   /\b(return|typeof|instanceof|in|of|case|do|else|yield|await|new|delete|void|throw)$/
 
 /**
- * Tira comentário — e SÓ comentário.
+ * Strips comments — and ONLY comments.
  *
- * Existe fora da regra de conteúdo porque seis lugares dependem dele pelo mesmo
- * motivo, e o motivo está registrado neste arquivo desde a primeira medição:
- * das SETE ocorrências que a regra de cor literal deu no herz, CINCO eram
- * comentários documentando a própria regra. Comentário que aciona a regra que
- * ele explica é a forma mais barata de queimar a ferramenta — e ela quase
- * aconteceu de novo aqui: escrever o número do Galegos por extenso na nota do
- * `telefone` fez o rebar acusar o próprio index.mjs, e escrever
- * `process` `.env.X` na nota do `url-producao` fez o `env-example` cobrar
- * `.env.example` para uma variável que não existe.
+ * It lives outside the content rule because six places depend on it for the
+ * same reason, and the reason has been recorded in this file since the first
+ * measurement: of the SEVEN occurrences the literal-color rule gave on herz,
+ * FIVE were comments documenting the rule itself. A comment that trips the rule
+ * it explains is the cheapest way to burn the tool — and it almost happened
+ * again here: writing the Galegos number out in full in the `telefone` note
+ * made rebar accuse its own index.mjs, and writing `process` `.env.X` in the
+ * `url-producao` note made `env-example` charge a `.env.example` for a variable
+ * that does not exist.
  *
- * ── POR QUE NÃO SÃO DUAS REGEX, que era o que estava aqui até 2026-09-06 ─────
+ * ── WHY IT IS NOT TWO REGEXES, which is what was here until 2026-09-06 ───────
  *
- *   t.replace(<bloco>, ' ').replace(<linha>, '$1 ')
+ *   t.replace(<block>, ' ').replace(<line>, '$1 ')
  *
- * onde <bloco> casava de `/`+`*` ate o proximo `*`+`/`, sem parar em nada, e
- * <linha> casava de `//` ate o fim da linha desde que o caractere anterior nao
- * fosse `:`. (Escritos assim, e nao literais, porque um `*`+`/` literal aqui
- * dentro fecharia este comentario -- que e a mesma cegueira que o texto abaixo
- * descreve, acontecendo neste paragrafo.)
+ * where <block> matched from `/`+`*` to the next `*`+`/`, stopping at nothing,
+ * and <line> matched from `//` to the end of the line as long as the preceding
+ * character was not `:`. (Written that way, and not literally, because a
+ * literal `*`+`/` in here would close this comment -- which is the same
+ * blindness the text below describes, happening in this paragraph.)
  *
- * Regex não sabe o que é string. Uma abertura de bloco DENTRO de uma string
- * abria um comentário que só fechava no próximo fecha-bloco do arquivo, e tudo
- * no meio era
- * APAGADO — sem limite de linhas e sem deixar rastro. O `//` dentro de string
- * comia o resto da linha.
+ * A regex does not know what a string is. A block opener INSIDE a string opened
+ * a comment that only closed at the file's next block closer, and everything in
+ * between was ERASED — with no line limit and leaving no trace. A `//` inside a
+ * string ate the rest of the line.
  *
- * Apagar é o desfecho errado. A função existe para tirar do exame o que não
- * roda; o que ela fazia era tirar do exame o que roda, e seis regras julgavam o
- * que sobrou. Uma delas é a de SEGURANÇA: `rejectUnauthorized: false` escrito
- * depois de uma string que contenha uma abertura de bloco saía da auditoria
- * calado. Falso
- * negativo não aparece em lugar nenhum — é a pior coisa que uma régua faz.
+ * Erasing is the wrong outcome. The function exists to take out of the exam
+ * what does not run; what it did was take out of the exam what does run, and
+ * six rules judged the leftovers. One of them is the SECURITY rule:
+ * `rejectUnauthorized: false` written after a string containing a block opener
+ * left the audit in silence. A false negative shows up nowhere — it is the
+ * worst thing a ruler does.
  *
- * ── A PROPRIEDADE QUE DECIDE O DESENHO ───────────────────────────────────────
+ * ── THE PROPERTY THAT DECIDES THE DESIGN ─────────────────────────────────────
  *
- * SÓ O RAMO DE COMENTÁRIO APAGA. String, template e expressão regular são
- * COPIADOS caractere por caractere; eles existem aqui apenas para que o `//` e a
- * abertura de bloco de dentro deles não sejam lidos como comentário. Então errar a detecção
- * de string nunca apaga código — no máximo deixa um comentário passar, que é
- * falso positivo, e falso positivo aparece na cara de quem roda. O jeito antigo
- * errava para o outro lado.
+ * ONLY THE COMMENT BRANCH ERASES. String, template and regular expression are
+ * COPIED character by character; they exist here only so that the `//` and the
+ * block opener inside them are not read as a comment. So getting string
+ * detection wrong never erases code — at most it lets a comment through, which
+ * is a false positive, and a false positive shows up in the face of whoever
+ * runs it. The old way erred toward the other side.
  *
- * E string termina na quebra de linha, de propósito: aspa não fechada — ou
- * apóstrofo de prosa, se um dia isto encostar em texto — contamina uma linha e
- * nunca o arquivo inteiro. Mesma coisa para a expressão regular.
+ * And a string ends at the line break, on purpose: an unclosed quote — or a
+ * prose apostrophe, if this ever touches text — contaminates one line and never
+ * the whole file. Same for the regular expression.
  *
- * O `:` antes de `//` continua protegido, que é o `https://` de sempre; agora
- * dentro de string ele já estaria protegido, mas o corpo de script de shell que
- * o `ci-gates` monta chega aqui sem aspas.
+ * The `:` before `//` is still protected, which is the usual `https://`; inside
+ * a string it would already be protected now, but the body of the shell script
+ * `ci-gates` assembles arrives here without quotes.
  */
-// Exportada para `prove-strip.mjs`: seis regras julgam o que esta funcao
-// devolve, e ate 2026-09-06 nada a exercitava sozinha.
+// Exported for `prove-strip.mjs`: six rules judge what this function returns,
+// and until 2026-09-06 nothing exercised it on its own.
 export function semComentario(t) {
+  return partirComentario(t).codigo
+}
+
+/**
+ * The comments only, from the SAME machine.
+ *
+ * It exists because the `single-language` rule extracted comments with the same
+ * naive `t.match(...)` pair that `semComentario` stopped being — written out here
+ * rather than pasted, because a literal close-block inside this doc would end it.
+ * Same reason as before: a regex does not know what a string is.
+ * Measured in `new/gate/aplicar.mjs`: a block-opener inside a string literal
+ * opened a bogus comment and dragged code into the text the rule was about to
+ * judge.
+ *
+ * Two extractions of the same concept are two sources to diverge, and these did.
+ * Now there is one.
+ */
+export function soComentario(t) {
+  return partirComentario(t).comentarios
+}
+
+function partirComentario(t) {
   let saida = ''
-  let anterior = '' // último caractere de código emitido, ignorando espaço
-  let palavra = '' // e a última palavra, para `return /x/`
-  // Um item por template aberto. `chaves` é a profundidade de `${...}` dentro
-  // dele: 0 significa que estamos no corpo do template, e não no código.
+  let notas = ''
+  let anterior = '' // last code character emitted, ignoring whitespace
+  let palavra = '' // and the last word, for `return /x/`
+  // One item per open template. `chaves` is the depth of `${...}` inside it: 0
+  // means we are in the body of the template, and not in the code.
   const templates = []
   let i = 0
 
@@ -1105,7 +1156,7 @@ export function semComentario(t) {
     const c = t[i]
     const d = t[i + 1] ?? ''
 
-    // ── corpo de template: só `\`, `${` e a crase encerram
+    // ── template body: only `\`, `${` and the backtick end it
     if (topo && topo.chaves === 0) {
       if (c === '\\') {
         saida += t.slice(i, i + 2)
@@ -1129,16 +1180,19 @@ export function semComentario(t) {
       continue
     }
 
-    // ── comentário de linha. O `:` antes é o `https://`.
+    // ── line comment. The `:` before it is the `https://`.
     if (c === '/' && d === '/' && anterior !== ':') {
+      const de = i
       while (i < t.length && t[i] !== '\n') i += 1
+      notas += `${t.slice(de, i)}\n`
       saida += ' '
       continue
     }
 
-    // ── comentário de bloco. As quebras de linha ficam: sem elas o texto
-    //    encolhe e toda regra que conta linha passa a apontar para a errada.
+    // ── block comment. The line breaks stay: without them the text shrinks and
+    //    every rule that counts lines starts pointing at the wrong one.
     if (c === '/' && d === '*') {
+      const de = i
       i += 2
       while (i < t.length) {
         if (t[i] === '*' && t[i + 1] === '/') {
@@ -1148,11 +1202,12 @@ export function semComentario(t) {
         if (t[i] === '\n') saida += '\n'
         i += 1
       }
+      notas += `${t.slice(de, i)}\n`
       saida += ' '
       continue
     }
 
-    // ── string. Copiada inteira; termina na aspa ou na quebra de linha.
+    // ── string. Copied whole; ends at the quote or at the line break.
     if (c === '"' || c === "'") {
       codigo(c)
       i += 1
@@ -1178,7 +1233,7 @@ export function semComentario(t) {
       continue
     }
 
-    // ── expressão regular. Também copiada, e também presa a uma linha.
+    // ── regular expression. Also copied, and also confined to one line.
     if (
       c === '/' &&
       (anterior === '' || ABRE_REGEX.test(anterior) || PALAVRA_ANTES_DE_REGEX.test(palavra))
@@ -1203,7 +1258,7 @@ export function semComentario(t) {
       continue
     }
 
-    // ── chaves, que é o que devolve o template ao corpo dele
+    // ── braces, which is what returns the template to its own body
     if (topo && c === '{') topo.chaves += 1
     if (topo && c === '}' && topo.chaves > 0) topo.chaves -= 1
 
@@ -1211,74 +1266,79 @@ export function semComentario(t) {
     i += 1
   }
 
-  return saida
+  return { codigo: saida, comentarios: notas }
 }
 
-/** Sem comentário e sem linha de import: nenhum dos dois é renderizado. */
+/** No comments and no import lines: neither of the two is rendered. */
 export function semComentarioNemImport(t) {
   return semComentario(t).replace(/^\s*import[^\n]*$/gm, ' ')
 }
 
 /**
- * ── O DISCRIMINADOR: quem é o DONO do nó de texto ────────────────────────────
+ * ── THE DISCRIMINATOR: who OWNS the text node ────────────────────────────────
  *
- * A pergunta que separa CONTEÚDO de VOCABULÁRIO DE INTERFACE não é de tamanho.
- * Medido nos 11 repositórios: "Imprimir ou salvar em PDF" tem 5 palavras e 24
- * caracteres, "Nossa cozinha abre às 18h" tem 5 e 25 — nenhum limiar de
- * comprimento passa entre os dois. O que passa é a SEMÂNTICA DO ELEMENTO que
- * carrega o texto: aquele "Imprimir ou salvar em PDF" mora dentro de um
- * `<button>` (`decima-edicoes/app/components/print-button.tsx:8`), e `<button>`
- * não é elemento de prosa — é controle, e o texto de um controle é o NOME DELE.
+ * Every quoted sample below is EVIDENCE copied verbatim out of the audited
+ * repositories, which are Brazilian. It stays in Portuguese: translating a
+ * measurement rewrites the measurement.
  *
- * Daí a regra só afirmar sobre nó de texto cujo DONO é elemento de prosa
- * (`PROSA` abaixo). Três consequências medidas, todas contra os 11:
+ * The question that separates CONTENT from INTERFACE VOCABULARY is not one of
+ * length. Measured across the 11 repositories: "Imprimir ou salvar em PDF" has
+ * 5 words and 24 characters, "Nossa cozinha abre às 18h" has 5 and 25 — no
+ * length threshold passes between the two. What does pass is the SEMANTICS OF
+ * THE ELEMENT carrying the text: that "Imprimir ou salvar em PDF" lives inside
+ * a `<button>` (`decima-edicoes/app/components/print-button.tsx:8`), and
+ * `<button>` is not a prose element — it is a control, and the text of a
+ * control is its NAME.
  *
- *   · rótulo de ação sai por construção — `<button>`, `<a>` e `<label>` não
- *     estão em `PROSA`, e não é preciso enumerar verbo nenhum para isso;
- *   · a exclusão é pelo DONO, não pelo ancestral. Procurar `<a>` na cadeia
- *     removeria ZERO acusações nesta amostra e removeria conteúdo real assim
- *     que aparecesse um cartão-link (`<a><h3>título</h3></a>`), onde o título é
- *     conteúdo e o `<a>` é só a área clicável;
- *   · o portão custa 38 acusações das 300 e nenhuma delas é conteúdo: são
- *     `<div>`, `<span>` e componente de terceiro, onde o checker NÃO SABE o que
- *     o elemento significa. Mesma disciplina do `na()`: o que não dá para
- *     decidir sai, e sai calado.
+ * Hence the rule only asserts about a text node whose OWNER is a prose element
+ * (`PROSA` below). Three measured consequences, all against the 11:
  *
- * ── O CASAMENTO: corrida de texto, não pedaço entre dois `<` ─────────────────
+ *   · an action label leaves by construction — `<button>`, `<a>` and `<label>`
+ *     are not in `PROSA`, and no verb has to be enumerated for that;
+ *   · the exclusion is by the OWNER, not by the ancestor. Looking for `<a>` in
+ *     the chain would remove ZERO accusations in this sample and would remove
+ *     real content the moment a link-card appeared (`<a><h3>title</h3></a>`),
+ *     where the title is content and the `<a>` is only the clickable area;
+ *   · the gate costs 38 accusations out of the 300 and none of them is content:
+ *     they are `<div>`, `<span>` and third-party components, where the checker
+ *     DOES NOT KNOW what the element means. Same discipline as `na()`: what
+ *     cannot be decided leaves, and leaves quietly.
  *
- * O casamento anterior cortava no primeiro `<`, então frase atravessada por um
- * `<strong>` virava dois ou três achados. Medido: 17 das 185 frases começavam
- * com ponto, com travessão ou no meio da oração — eram FRAGMENTO, não literal.
- * E o estrago era maior que o cosmético: a frase que se parte em pedaços de
- * menos de 4 palavras SOME. `nosDeTexto()` monta a corrida atravessando os
- * elementos inline e a fecha em fronteira de bloco. Fragmento medido depois
- * disso: ZERO de 258.
+ * ── THE MATCH: a run of text, not a chunk between two `<` ────────────────────
  *
- * O `{…}` em posição de filho vira BARREIRA: o texto solto dele é código e
- * some, o JSX aberto lá dentro continua sendo lido, e no lugar dele fica um
- * marcador. É o que faz `<p>Faltam {n} dias para o milhão</p>` ser enxergado —
- * o casamento antigo descartava a frase inteira por causa da chave.
+ * The previous match cut at the first `<`, so a sentence crossed by a
+ * `<strong>` became two or three findings. Measured: 17 of the 185 sentences
+ * started with a period, with a dash or in the middle of the clause — they were
+ * FRAGMENTS, not literals. And the damage was more than cosmetic: a sentence
+ * that breaks into pieces of fewer than 4 words VANISHES. `nosDeTexto()`
+ * assembles the run across the inline elements and closes it at a block
+ * boundary. Fragments measured after that: ZERO of 258.
  *
- * ── AS DUAS GUARDAS QUE MORRERAM, com o número que as matou ─────────────────
+ * A `{…}` in child position becomes a BARRIER: its loose text is code and goes
+ * away, the JSX opened in there is still read, and a marker stays in its place.
+ * That is what makes `<p>Faltam {n} dias para o milhão</p>` visible — the old
+ * match discarded the whole sentence because of the brace.
  *
- * São exatamente duas das mutações que a auditoria viu sobreviver, e elas
- * sobreviveram porque as constantes não tinham serviço:
+ * ── THE TWO GUARDS THAT DIED, with the number that killed them ───────────────
  *
- *   MÍNIMO DE 25 CARACTERES — morto. Medido: custava 13 acusações VERDADEIRAS
+ * They are exactly two of the mutations the audit saw survive, and they
+ * survived because the constants had no job:
+ *
+ *   MINIMUM OF 25 CHARACTERS — dead. Measured: it cost 13 TRUE accusations
  *     ("Este carro fala KW82.", "Esta edição não existe.", "Suas chaves de
- *     API") e não comprava nenhuma. Quem faz esse serviço é o mínimo de
- *     PALAVRAS, e esse tem número: baixado de 4 para 1 a definição salta de
- *     262 para 481 achados, e os 219 a mais são rótulo de campo ("Forma de
- *     pagamento", "Informe a rua"), nome de seção ("Cardápio") e nó feito só
- *     de interpolação.
- *   SINAL_DE_CODIGO como CLASSE DE CARACTERES — morto na forma antiga. Ele
- *     existia para matar o que atravessava o `>` de uma seta ou de uma
- *     comparação; com a corrida montada por `nosDeTexto()`, expressão é
- *     barreira e isso não chega mais aqui. O que sobrava dele era dano: 51
- *     acusações VERDADEIRAS caíam só porque a prosa tinha um `;` ou um `:`
+ *     API") and bought none. What does that job is the minimum number of
+ *     WORDS, and that one has a number: lowered from 4 to 1 the definition
+ *     jumps from 262 to 481 findings, and the extra 219 are field labels
+ *     ("Forma de pagamento", "Informe a rua"), section names ("Cardápio") and
+ *     nodes made only of interpolation.
+ *   SINAL_DE_CODIGO as a CHARACTER CLASS — dead in its old form. It existed to
+ *     kill what crossed the `>` of an arrow or of a comparison; with the run
+ *     assembled by `nosDeTexto()`, an expression is a barrier and that no
+ *     longer reaches here. What was left of it was damage: 51 TRUE accusations
+ *     fell only because the prose had a `;` or a `:`
  *     ("Madeira real continua se movendo. Plano, umidade e integridade
- *     precisam ser medidos no recebimento…"). O nome fica e o corpo muda: o
- *     sinal de que não é prosa passou a ser a PROPORÇÃO de letras.
+ *     precisam ser medidos no recebimento…"). The name stays and the body
+ *     changes: the sign that it is not prose became the PROPORTION of letters.
  */
 const PROSA = new Set([
   'p',
@@ -1301,7 +1361,7 @@ const PROSA = new Set([
   'address',
 ])
 
-/** Elementos inline: a corrida de texto os atravessa, eles não a interrompem. */
+/** Inline elements: the run of text crosses them, they do not interrupt it. */
 const INLINE = new Set([
   'strong',
   'b',
@@ -1328,7 +1388,7 @@ const INLINE = new Set([
   'br',
 ])
 
-/** Elementos sem filho: `<br/>` vira espaço, o resto é fronteira de bloco. */
+/** Childless elements: `<br/>` becomes a space, the rest is a block boundary. */
 const VAZIO = new Set([
   'br',
   'hr',
@@ -1345,9 +1405,9 @@ const VAZIO = new Set([
 ])
 
 /**
- * Nomes de elemento HTML que o leitor reconhece. É a FECHADURA do parser: sem
- * ela, o `<b)` de um `if (a<b)` viraria tag. Com ela ainda é preciso que a tag
- * feche num `>` sem `;` nem outro `<` no caminho.
+ * HTML element names the reader recognizes. It is the parser's LOCK: without
+ * it, the `<b)` of an `if (a<b)` would become a tag. With it the tag still has
+ * to close on a `>` with no `;` and no other `<` on the way.
  */
 const HTML = new Set([
   ...PROSA,
@@ -1416,16 +1476,17 @@ const PALAVRA = /[\p{L}][\p{L}'’-]*/gu
 const LETRA_OU_PONTUACAO = /[\p{L} ,.;:!?'’…·—–-]/gu
 
 /**
- * O mínimo que separa FRASE de RÓTULO, e o único limiar de tamanho que sobrou.
- * O número está no bloco acima: baixada de 4 para 1, a definição vai de 262 para
- * 481 achados nos 11 repositórios, e os 219 a mais são rótulo, não conteúdo.
+ * The minimum that separates SENTENCE from LABEL, and the only length threshold
+ * left. The number is in the block above: lowered from 4 to 1, the definition
+ * goes from 262 to 481 findings across the 11 repositories, and the extra 219
+ * are labels, not content.
  */
 const MIN_PALAVRAS = 4
 
-/** Abaixo disto o nó é tabela de números, não prosa — ver `sinalDeCodigo`. */
+/** Below this the node is a table of numbers, not prose — see `sinalDeCodigo`. */
 const MIN_LETRAS = 0.9
 
-/** Pula string ou template a partir da aspa em `i`. */
+/** Skips a string or template starting from the quote at `i`. */
 function pularAspas(t, i) {
   const aspa = t[i]
   i++
@@ -1438,8 +1499,8 @@ function pularAspas(t, i) {
 }
 
 /**
- * Monta as CORRIDAS de texto de um JSX: cada uma é o texto que um elemento
- * carrega entre duas fronteiras de bloco, com os inline atravessados.
+ * Assembles the RUNS of text of a JSX file: each one is the text an element
+ * carries between two block boundaries, with the inline elements crossed.
  */
 function nosDeTexto(fonte) {
   const saida = []
@@ -1449,8 +1510,8 @@ function nosDeTexto(fonte) {
 
   function fecharCorrida(q) {
     if (!q) return
-    // Expressão e inline não EMITEM: a primeira porque o texto solto dela é
-    // código, o segundo porque o texto dele pertence à corrida do pai.
+    // Expression and inline do not EMIT: the first because its loose text is
+    // code, the second because its text belongs to the parent's run.
     if (q.expressao || q.inline) {
       q.partes = []
       return
@@ -1489,7 +1550,7 @@ function nosDeTexto(fonte) {
       if (fechamento) j++
       let nome = ''
       while (j < fonte.length && /[\w.:-]/.test(fonte[j])) nome += fonte[j++]
-      // Componente (maiúscula) e `Namespace.Tag` valem; minúscula só se for HTML.
+      // A component (uppercase) and `Namespace.Tag` count; lowercase only if HTML.
       if (!nome || !(/^[A-Z]/.test(nome) || nome.includes('.') || HTML.has(nome))) {
         i++
         continue
@@ -1546,7 +1607,7 @@ function nosDeTexto(fonte) {
       continue
     }
 
-    // `{…}` em posição de filho: barreira. Ver a nota do casamento lá em cima.
+    // `{…}` in child position: barrier. See the note on the match above.
     if (c === '{' && pilha.length) {
       if (topo()) topo().partes.push(MARCA_EXPR)
       pilha.push({ nome: '{}', partes: [], inline: false, expressao: true })
@@ -1561,8 +1622,8 @@ function nosDeTexto(fonte) {
       i++
       continue
     }
-    // Dentro de expressão, string é código: pular inteira impede que um `<` ou
-    // um `{` escrito entre aspas desmonte a pilha.
+    // Inside an expression a string is code: skipping it whole keeps a `<` or a
+    // `{` written between quotes from tearing down the stack.
     if ((c === '"' || c === "'" || c === '`') && topo() && topo().expressao) {
       i = pularAspas(fonte, i)
       continue
@@ -1575,13 +1636,13 @@ function nosDeTexto(fonte) {
   return saida
 }
 
-/** O que faz um nó NÃO ser prosa: proporção de letras abaixo de MIN_LETRAS. */
+/** What makes a node NOT prose: a letter ratio below MIN_LETRAS. */
 function sinalDeCodigo(frase) {
   const letras = (frase.match(LETRA_OU_PONTUACAO) || []).length
   return letras / frase.length < MIN_LETRAS
 }
 
-/** As frases de CONTEÚDO de um arquivo JSX, pela definição do bloco acima. */
+/** The CONTENT sentences of a JSX file, by the definition in the block above. */
 export function frasesDeConteudo(t) {
   const achadas = []
   for (const no of nosDeTexto(t)) {
@@ -1596,46 +1657,52 @@ export function frasesDeConteudo(t) {
   return achadas
 }
 
-// EXPORTADO para o gerador do MCP (`mcp/generate.mjs`), e essa é a única razão do
-// `export` aqui: o artefato que o servidor MCP lê é DERIVADO desta lista, nunca
-// uma cópia dela. Sem o export, o gerador teria de adivinhar `id`, `classe`,
-// `nivel` e `titulo` por regex no texto do arquivo — e regex que erra some com a
-// regra em silêncio, que é exatamente o defeito que o MCP existe para não
-// repetir. Com o export, o gerador COMPARA o que leu no texto com o que o módulo
-// entrega, e diverge alto.
+// EXPORTED for the MCP generator (`mcp/generate.mjs`), and that is the only
+// reason for the `export` here: the artifact the MCP server reads is DERIVED
+// from this list, never a copy of it. Without the export, the generator would
+// have to guess `id`, `classe`, `nivel` and `titulo` by regex over the file's
+// text — and a regex that errs makes the rule vanish in silence, which is
+// exactly the defect the MCP exists not to repeat. With the export, the
+// generator COMPARES what it read in the text with what the module hands over,
+// and diverges loudly.
 //
-// O `EH_PROGRAMA` logo abaixo é o que torna isto seguro: importar este arquivo
-// não dispara o CLI, porque `process.argv[1]` é o outro programa.
+// The `EH_PROGRAMA` just below is what makes this safe: importing this file
+// does not fire the CLI, because `process.argv[1]` is the other program.
 export const REGRAS = [
-  // ── determinísticas ─────────────────────────────────────────────────────
+  // ── deterministic ───────────────────────────────────────────────────────
 
   {
     id: 'editorconfig',
     classe: 'determinística',
     nivel: 'N1',
+    // Portuguese on purpose: tooling/verify/prove-steps.mjs matches the line
+    // below byte for byte — the `titulo` key plus this exact title — to plant
+    // its sentinel and prove the MCP freshness gate. Translating it drops that
+    // proof in silence, and repeating the literal up here would make the
+    // proof's `replace` hit this comment instead of the title.
     titulo: 'tem .editorconfig',
-    checar: (r) => (existe(r.dir, '.editorconfig') ? null : 'ausente'),
+    checar: (r) => (existe(r.dir, '.editorconfig') ? null : 'absent'),
   },
 
   {
     id: 'dependabot',
     classe: 'determinística',
     nivel: 'N4',
-    titulo: 'atualização de dependência automatizada',
+    titulo: 'automated dependency updates',
     checar: (r) => {
-      // Guarda de leitura só: a aplicabilidade continua sendo o package.json da
-      // RAIZ, porque dependabot e renovate são configuração de repositório e
-      // não de pacote. Sem a guarda, quebrar o package.json tirava esta regra
-      // do denominador junto com as outras três.
+      // A read guard only: applicability is still the ROOT package.json,
+      // because dependabot and renovate are repository configuration and not
+      // package configuration. Without the guard, breaking the package.json
+      // took this rule out of the denominator along with the other three.
       const ilegivel = raizIlegivel(r)
       if (ilegivel) return ilegivel
-      if (!r.pkg) return na('não é projeto npm')
+      if (!r.pkg) return na('not an npm project')
       return existe(r.dir, '.github/dependabot.yml') ||
         existe(r.dir, '.github/dependabot.yaml') ||
         existe(r.dir, 'renovate.json') ||
         existe(r.dir, '.github/renovate.json')
         ? null
-        : 'sem dependabot nem renovate'
+        : 'no dependabot and no renovate'
     },
   },
 
@@ -1643,31 +1710,31 @@ export const REGRAS = [
     id: 'ci',
     classe: 'determinística',
     nivel: 'N4',
-    titulo: 'tem CI',
-    checar: (r) => (r.workflows.length ? null : 'nenhum workflow em .github/workflows/'),
+    titulo: 'has CI',
+    checar: (r) => (r.workflows.length ? null : 'no workflow in .github/workflows/'),
   },
 
   {
     id: 'ci-gates',
     classe: 'determinística',
     nivel: 'N4',
-    titulo: 'o CI alcança a verificação que o repositório tem',
+    titulo: 'the CI reaches the verification the repository has',
     checar: (r) => {
-      // Mesma guarda de leitura das outras: com o package.json quebrado,
-      // `r.pkg?.scripts` virava `{}`, `alvos` ficava vazio e a regra saía do
-      // denominador. Quatro regras sumindo é o que fazia 9 de 10 virar 6 de 6.
+      // Same read guard as the others: with a broken package.json,
+      // `r.pkg?.scripts` became `{}`, `alvos` came out empty and the rule left
+      // the denominator. Four rules vanishing is what turned 9 of 10 into 6 of 6.
       const ilegivel = raizIlegivel(r)
       if (ilegivel) return ilegivel
-      if (!r.workflows.length) return na('sem CI — quem cobra isso é a regra `ci`')
+      if (!r.workflows.length) return na('no CI — the `ci` rule is the one that demands it')
       const scripts = r.pkg?.scripts || {}
-      // Só cobra o que o repositório POSSUI. Exigir `lint` de um repo sem lint
-      // é exigir que ele adote uma ferramenta — decisão de outro nível.
+      // Charges only what the repository HAS. Demanding `lint` of a repo with
+      // no lint is demanding it adopt a tool — a decision of another level.
       const alvos = ['lint', 'typecheck', 'test'].filter((g) => scripts[g])
-      if (!alvos.length) return na('package.json não tem script lint, typecheck nem test')
+      if (!alvos.length) return na('package.json has no lint, typecheck or test script')
       const yml = r.workflows.map((w) => ler(r.dir, w) || '').join('\n')
       const efetivo = textoEfetivoDoCi(yml, scripts, r)
       const faltam = alvos.filter((g) => !new RegExp(`\\b${g}\\b`).test(efetivo))
-      return faltam.length ? `o CI não alcança: ${faltam.join(', ')}` : null
+      return faltam.length ? `the CI does not reach: ${faltam.join(', ')}` : null
     },
   },
 
@@ -1675,24 +1742,24 @@ export const REGRAS = [
     id: 'tests',
     classe: 'determinística',
     nivel: 'N3',
-    titulo: 'tem teste',
-    checar: (r) => (r.arquivos.some(ehTeste) ? null : 'zero arquivo de teste'),
+    titulo: 'has tests',
+    checar: (r) => (r.arquivos.some(ehTeste) ? null : 'zero test files'),
   },
 
   {
     id: 'typecheck',
     classe: 'determinística',
     nivel: 'N0',
-    titulo: 'tem script de typecheck',
+    titulo: 'has a typecheck script',
     checar: (r) => {
       const ilegivel = manifestoIlegivel(r)
       if (ilegivel) return ilegivel
-      if (!r.manifestos.length) return na('não é projeto npm')
-      if (!r.arquivos.some((a) => /\.(ts|tsx)$/i.test(a))) return na('não tem TypeScript')
+      if (!r.manifestos.length) return na('not an npm project')
+      if (!r.arquivos.some((a) => /\.(ts|tsx)$/i.test(a))) return na('no TypeScript')
       const nomes = scriptsDeTodos(r)
       return NOMES_TYPECHECK.some((n) => nomes.has(n))
         ? null
-        : `nenhum package.json rastreado tem script ${NOMES_TYPECHECK.join(', ')}`
+        : `no tracked package.json has script ${NOMES_TYPECHECK.join(', ')}`
     },
   },
 
@@ -1700,13 +1767,13 @@ export const REGRAS = [
     id: 'formatter',
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'tem formatador',
+    titulo: 'has a formatter',
     checar: (r) => {
       const ilegivel = manifestoIlegivel(r)
       if (ilegivel) return ilegivel
-      if (!r.manifestos.length) return na('não é projeto npm')
+      if (!r.manifestos.length) return na('not an npm project')
       const d = dependenciasDeTodos(r)
-      return d.prettier || d['@biomejs/biome'] || d.dprint ? null : 'sem prettier, biome ou dprint'
+      return d.prettier || d['@biomejs/biome'] || d.dprint ? null : 'no prettier, biome or dprint'
     },
   },
 
@@ -1714,15 +1781,15 @@ export const REGRAS = [
     id: 'env-example',
     classe: 'determinística',
     nivel: 'N2',
-    titulo: 'lê env e documenta em .env.example',
+    titulo: 'reads env and documents it in .env.example',
     checar: (r) => {
-      if (!r.varsEnv.size) return na('não lê variável de ambiente')
+      if (!r.varsEnv.size) return na('does not read environment variables')
       if (!r.envExample)
-        return `lê ${r.varsEnv.size} variável(is) de ambiente e não tem .env.example`
+        return `reads ${r.varsEnv.size} environment variable(s) and has no .env.example`
       const faltando = [...r.varsEnv].filter(
         (v) => !new RegExp(`^${v}\\s*=`, 'm').test(r.envExample),
       )
-      return faltando.length ? `não documentadas: ${faltando.slice(0, 4).join(', ')}` : null
+      return faltando.length ? `not documented: ${faltando.slice(0, 4).join(', ')}` : null
     },
   },
 
@@ -1730,50 +1797,51 @@ export const REGRAS = [
     id: 'license',
     classe: 'determinística',
     nivel: 'N7',
-    titulo: 'tem LICENSE',
-    checar: (r) => (r.arquivos.some((a) => /^LICEN[CS]E/i.test(a)) ? null : 'ausente'),
+    titulo: 'has a LICENSE',
+    checar: (r) => (r.arquivos.some((a) => /^LICEN[CS]E/i.test(a)) ? null : 'absent'),
   },
 
   {
     id: 'readme',
     classe: 'determinística',
     nivel: 'N7',
-    titulo: 'tem README',
-    // ESTA REGRA PEGA ZERO HOJE, e isso fica escrito aqui de propósito.
+    titulo: 'has a README',
+    // THIS RULE CATCHES ZERO TODAY, and that is written here on purpose.
     //
-    // Medido em 31/08/2026 nos 12 repositórios da máquina: TODOS têm README,
-    // de 25 a 282 linhas úteis, e NENHUM é boilerplate de framework (procurei
-    // por "bootstrapped with create-next-app", "npm create vite", "Getting
-    // Started with Create React App" e afins — zero ocorrências).
+    // Measured on 31/08/2026 across the 12 repositories on this machine: ALL
+    // have a README, from 25 to 282 useful lines, and NONE is framework
+    // boilerplate (I searched for "bootstrapped with create-next-app", "npm
+    // create vite", "Getting Started with Create React App" and the like — zero
+    // occurrences).
     //
-    // Então por que existe. Primeiro: duas horas antes de esta linha ser
-    // escrita, o próprio rebar era o único repositório sem README, e foi a
-    // público assim — enquanto o docs/PLANO.md listava "README como
-    // entregável" DUAS VEZES como buraco que este projeto existe para tapar.
-    // A régua não enxergava o buraco que o plano dela nomeava.
-    // Segundo: o gerador vai produzir repositório novo, e repositório novo
-    // nasce sem README por padrão.
+    // So why it exists. First: two hours before this line was written, rebar
+    // itself was the only repository with no README, and it went public that
+    // way — while docs/PLANO.md listed "README como entregável" [README as a
+    // deliverable] TWICE as a hole this project exists to fill. The ruler could
+    // not see the hole its own plan named.
+    // Second: the generator is going to produce a new repository, and a new
+    // repository is born without a README by default.
     //
-    // Só PRESENÇA, sem piso de tamanho. Um limite de linhas reprovaria
-    // `navesz.github.io` (25 linhas) e `VectraB-Lab` (31), que são projetos
-    // pequenos com README proporcional — e regra automática errada custa mais
-    // que regra ausente.
+    // PRESENCE only, with no size floor. A line limit would fail
+    // `navesz.github.io` (25 lines) and `VectraB-Lab` (31), which are small
+    // projects with a proportional README — and a wrong automatic rule costs
+    // more than a missing rule.
     checar: (r) =>
       r.arquivos.some((a) => /^readme(\.[a-z]+)?$/i.test(a))
         ? null
-        : 'ausente — é a primeira coisa que se vê num repositório público',
+        : 'absent — it is the first thing anyone sees in a public repository',
   },
 
   {
     id: 'notice',
     classe: 'determinística',
     nivel: 'N7',
-    titulo: 'Apache-2.0 acompanhado de NOTICE',
+    titulo: 'Apache-2.0 accompanied by a NOTICE',
     checar: (r) => {
       const lic = r.arquivos.find((a) => /^LICEN[CS]E/i.test(a))
-      if (!lic) return na('sem LICENSE — quem cobra isso é a regra `licenca`')
-      if (!/Apache License/i.test(ler(r.dir, lic) || '')) return na('a licença não é Apache')
-      return r.arquivos.some((a) => /^NOTICE/i.test(a)) ? null : 'licença Apache sem NOTICE'
+      if (!lic) return na('no LICENSE — the `licenca` rule is the one that demands it')
+      if (!/Apache License/i.test(ler(r.dir, lic) || '')) return na('the license is not Apache')
+      return r.arquivos.some((a) => /^NOTICE/i.test(a)) ? null : 'Apache license with no NOTICE'
     },
   },
 
@@ -1781,25 +1849,25 @@ export const REGRAS = [
     id: 'hooks-executable',
     classe: 'determinística',
     nivel: 'N5',
-    titulo: 'hook de git commitado com bit de execução',
-    // ACHADO DE AUDITORIA, 31/08: o modo 100755 era garantido UMA VEZ, na
-    // criação, e nada o mantinha. Um `git update-index --chmod=-x` — ou um
-    // arquivo criado no Windows, onde o bit não existe — devolve o hook para
-    // 100644, e em Linux o git passa a IGNORÁ-LO em silêncio. O portão se
-    // declara ligado e não faz nada, que é o pior estado possível.
+    titulo: 'git hook committed with the execute bit',
+    // AUDIT FINDING, 31/08: mode 100755 was guaranteed ONCE, at creation, and
+    // nothing kept it. A `git update-index --chmod=-x` — or a file created on
+    // Windows, where the bit does not exist — returns the hook to 100644, and
+    // on Linux git starts IGNORING IT in silence. The gate declares itself on
+    // and does nothing, which is the worst possible state.
     //
-    // O modo lido é o do ÍNDICE, não o do disco: `chmod` local não viaja no
-    // clone, e é o clone que chega na máquina de quem for usar.
+    // The mode read is the INDEX's, not the disk's: a local `chmod` does not
+    // travel in the clone, and it is the clone that lands on the user's machine.
     checar: (r) => {
       const nomes =
         /(^|\/)(pre-commit|commit-msg|pre-push|prepare-commit-msg|post-checkout|pre-rebase)$/
       const hooks = r.arquivos.filter((a) => nomes.test(a))
-      if (!hooks.length) return na('nenhum arquivo com nome de hook de git')
+      if (!hooks.length) return na('no file with a git hook name')
       const modos = modosDoIndice(r.dir)
       const mudos = hooks.filter((h) => modos.get(h) !== '100755')
       return mudos.length
-        ? `sem bit de execução no índice, o git os ignora em Linux: ${mudos.join(', ')}` +
-            ` — conserte com: git update-index --chmod=+x ${mudos.join(' ')}`
+        ? `no execute bit in the index, git ignores them on Linux: ${mudos.join(', ')}` +
+            ` — fix with: git update-index --chmod=+x ${mudos.join(' ')}`
         : null
     },
   },
@@ -1808,31 +1876,35 @@ export const REGRAS = [
     id: 'gate-with-placeholder',
     classe: 'determinística',
     nivel: 'N5',
-    titulo: 'o portão não ficou com placeholder de instalação',
-    // ACHADO USANDO O GERADOR DE VERDADE, 02/09. O dono pediu um site real, e
-    // gerar um expôs isto: o placeholder do CONTEÚDO é inerte e barulhento — o
-    // build reprova enquanto sobrar `TROQUE-…`. O placeholder do PORTÃO era
-    // inerte e MUDO.
+    titulo: 'the gate was not left with an install placeholder',
+    // FINDING FROM USING THE GENERATOR FOR REAL, 02/09. The owner asked for a
+    // real site, and generating one exposed this: the CONTENT placeholder is
+    // inert and loud — the build fails while a `TROQUE-…` is left. The GATE
+    // placeholder was inert and MUTE.
     //
-    // A identidade do git desta máquina é local do repositório do rebar, não
-    // global. O gerador não achou nenhuma, escreveu `DONO NÃO CONFIGURADO` em
-    // NOTICE, README e `.rebar-coauthors`, e o rebar-check deu 13 de 13, exit 0
-    // em cima disso.
+    // The git identity on this machine is local to the rebar repository, not
+    // global. The generator found none, wrote `DONO NÃO CONFIGURADO` in NOTICE,
+    // README and `.rebar-coauthors`, and rebar-check gave 13 of 13, exit 0 on
+    // top of that.
     //
-    // O pior dos três é o `.rebar-coauthors`: ele vira a allowlist de quem pode
-    // assinar commit, com um e-mail `@exemplo.invalido` dentro. Ninguém casa
-    // com aquele e-mail, então a regra `coautoria-ia` passa a reprovar todo
-    // commit — ou, dependendo de como for lida, nenhum. Portão instalado com
-    // placeholder é portão que se aprende a desligar na primeira semana.
+    // The worst of the three is `.rebar-coauthors`: it becomes the allowlist of
+    // who may sign a commit, with an `@exemplo.invalido` e-mail inside. Nobody
+    // matches that e-mail, so the `coautoria-ia` rule starts failing every
+    // commit — or, depending on how it is read, none. A gate installed with a
+    // placeholder is a gate people learn to switch off in the first week.
     checar: (r) => {
+      // The Portuguese in MARCA is a CONTRACT with the generator, not prose:
+      // `new/index.mjs` writes `DONO NÃO CONFIGURADO` and
+      // `configure-git-user-email@exemplo.invalido`, and the site templates
+      // write `TROQUE-…`. Translating it makes the gate stop seeing them.
       const MARCA = /(NÃO|NAO) CONFIGURADO|@exemplo\.invalido|TROQUE-[A-Z-]{3,}/
       const ONDE = /^(NOTICE|README\.md|\.rebar-coauthors|LICENSE)$/i
       const alvos = r.arquivos.filter((a) => ONDE.test(a))
-      if (!alvos.length) return na('nenhum arquivo de identidade do portão')
+      if (!alvos.length) return na('no gate identity file')
       const sujos = alvos.filter((a) => MARCA.test(ler(r.dir, a) || ''))
       return sujos.length
-        ? `o gerador não achou a identidade e deixou marcador em ${sujos.join(', ')}` +
-            ` — configure o git e refaça, ou corrija à mão`
+        ? `the generator found no identity and left a marker in ${sujos.join(', ')}` +
+            ` — configure git and redo it, or fix it by hand`
         : null
     },
   },
@@ -1841,66 +1913,68 @@ export const REGRAS = [
     id: 'ai-coauthorship',
     classe: 'determinística',
     nivel: 'N5',
-    titulo: 'coautoria só de humanos da allowlist',
+    titulo: 'co-authorship only by humans from the allowlist',
     checar: (r) => {
-      if (!r.commits.length) return na('repositório sem commit')
+      if (!r.commits.length) return na('repository with no commit')
 
       const { coautores: brutos, total, porEnumeracaoDoTexto } = coautoresDoHistorico(r)
-      // Automação de manutenção sai antes de qualquer contagem, para que ela não
-      // apareça nem no veredito nem no NÚMERO impresso — ver AUTOMACAO_NAO_IA.
+      // Maintenance automation leaves before any count, so that it appears
+      // neither in the verdict nor in the printed NUMBER — see AUTOMACAO_NAO_IA.
       const coautores = brutos.filter((x) => !AUTOMACAO_NAO_IA.test(x.valor))
 
-      // Zero trailer de coautoria é o único veredito que NÃO depende de saber
-      // quem é IA e quem é gente: não há coautor nenhum, logo não há coautor de
-      // IA. Vale com allowlist e sem, e é o caso dos 11 commits deste
-      // repositório. Sai antes de tudo para que o ramo N/A abaixo nunca engula
-      // um repositório que está genuinamente limpo.
+      // Zero co-authorship trailers is the only verdict that does NOT depend on
+      // knowing who is AI and who is a person: there is no co-author at all,
+      // therefore no AI co-author. It holds with and without an allowlist, and
+      // it is the case of this repository's 11 commits. It leaves before
+      // everything else so the N/A branch below never swallows a repository
+      // that is genuinely clean.
       if (!coautores.length) return null
 
       const lista = lerAllowlistCoautores(r)
       if (lista.estado === 'ilegivel')
-        return `${ALLOWLIST_COAUTORES} está rastreada e não pude ler: ${lista.erro}`
+        return `${ALLOWLIST_COAUTORES} is tracked and I could not read it: ${lista.erro}`
 
       const fonte = porEnumeracaoDoTexto
-        ? ' (trailers lidos do texto: ' + porEnumeracaoDoTexto + ')'
+        ? ' (trailers read from the text: ' + porEnumeracaoDoTexto + ')'
         : ''
 
       if (lista.estado === 'ok') {
         const forasteiros = coautores.filter((x) => !x.email || !lista.emails.has(x.email))
         if (!forasteiros.length) return null
         return (
-          `${forasteiros.length} de ${total} commits com coautor fora de ${ALLOWLIST_COAUTORES}: ` +
+          `${forasteiros.length} of ${total} commits with a co-author outside ${ALLOWLIST_COAUTORES}: ` +
           [...new Set(forasteiros.map((x) => x.valor))].slice(0, 3).join(' · ') +
           fonte
         )
       }
 
-      // Sem allowlist só resta ENUMERAR, e enumeração é a forma que este
-      // conserto existe para abandonar: medido em 2026-08-30, a lista de 9
-      // agentes deixou passar Windsurf, ChatGPT, Cody, Codeium, Amazon Q e
-      // Tabnine de uma só vez. Aqui ela sobrevive por um motivo estreito: o
-      // rebar-check roda contra repositório de TERCEIRO, que não tem a
-      // allowlist do rebar, e desligar a regra ali seria trocar um portão
-      // furado por portão nenhum.
+      // Without an allowlist only ENUMERATION is left, and enumeration is the
+      // form this fix exists to abandon: measured on 2026-08-30, the list of 9
+      // agents let Windsurf, ChatGPT, Cody, Codeium, Amazon Q and Tabnine
+      // through in one go. Here it survives for a narrow reason: rebar-check
+      // runs against a THIRD PARTY's repository, which does not have rebar's
+      // allowlist, and turning the rule off there would trade a leaky gate for
+      // no gate at all.
       //
-      // O que muda é o que a enumeração tem direito de AFIRMAR. Achou um agente
-      // conhecido, reprova — enumeração prova presença. Não achou, NÃO passa:
-      // vira N/A dizendo que há coautor que não dá para classificar. Enumeração
-      // não prova ausência, e um "✓" ali seria o checker afirmando o que não
-      // sabe. É a mesma disciplina do `na()` no alto deste arquivo: o que não dá
-      // para decidir sai do denominador, com o motivo impresso.
+      // What changes is what enumeration has the right to ASSERT. Found a known
+      // agent, it fails — enumeration proves presence. Found none, it does NOT
+      // pass: it becomes N/A saying there is a co-author that cannot be
+      // classified. Enumeration does not prove absence, and a "✓" there would
+      // be the checker asserting what it does not know. Same discipline as the
+      // `na()` at the top of this file: what cannot be decided leaves the
+      // denominator, with the reason printed.
       const suspeitos = coautores.filter((x) => AGENTES_ENUMERADOS.test(x.valor))
       if (suspeitos.length) {
         return (
-          `${suspeitos.length} de ${total} commits com coautoria de IA, por ENUMERAÇÃO ` +
-          `(sem ${ALLOWLIST_COAUTORES} rastreada): ` +
+          `${suspeitos.length} of ${total} commits with AI co-authorship, by ENUMERATION ` +
+          `(no ${ALLOWLIST_COAUTORES} tracked): ` +
           [...new Set(suspeitos.map((x) => x.valor))].slice(0, 3).join(' · ') +
           fonte
         )
       }
       return na(
-        `${coautores.length} coautor(es) e nenhuma ${ALLOWLIST_COAUTORES} rastreada — ` +
-          'só dá para enumerar agentes conhecidos, e enumeração não prova ausência',
+        `${coautores.length} co-author(s) and no ${ALLOWLIST_COAUTORES} tracked — ` +
+          'only known agents can be enumerated, and enumeration does not prove absence',
       )
     },
   },
@@ -1909,19 +1983,19 @@ export const REGRAS = [
     id: 'git-identity',
     classe: 'determinística',
     nivel: 'N4',
-    titulo: 'identidade de autor consistente',
+    titulo: 'consistent author identity',
     checar: (r) => {
-      if (!r.autores.length) return na('repositório sem commit')
+      if (!r.autores.length) return na('repository with no commit')
       const humanos = r.autores.filter((a) => !EH_BOT.test(a))
-      if (!humanos.length) return na('só há commit de bot')
+      if (!humanos.length) return na('only bot commits')
       const ids = new Set(humanos)
       if (ids.size <= 1) return null
 
-      // CONTAR COMBINAÇÕES ERA O DEFEITO. Dois humanos num repositório são duas
-      // combinações, e a regra reprovava — falso positivo contra um time, que é
-      // a coisa que esta casa mais evita: regra automática errada custa mais que
-      // regra ausente. O que segue separa o que a régua PROVA do que ela só
-      // suspeita.
+      // COUNTING COMBINATIONS WAS THE DEFECT. Two humans in a repository are
+      // two combinations, and the rule failed — a false positive against a
+      // team, which is the thing this house avoids most: a wrong automatic rule
+      // costs more than a missing rule. What follows separates what the ruler
+      // PROVES from what it merely suspects.
       const partes = [...ids].map((i) => {
         const m = /^(.*?)\s*<([^<>]*)>\s*$/.exec(i)
         return {
@@ -1941,42 +2015,43 @@ export const REGRAS = [
         return [...mapa].filter(([, s]) => s.size > 1)
       }
 
-      // 1 · COLISÃO — o núcleo determinístico. Um nome com dois e-mails, ou um
-      //     e-mail com dois nomes, não é "duas pessoas": é uma identidade
-      //     inconsistente, que é o nome da regra. É o caso medido na forense —
-      //     a mesma pessoa ora como `Leonardo Naves <…noreply>`, ora como
-      //     `leona <leonardo@empresa.com.br>`, e o `git shortlog` contando dois.
+      // 1 · COLLISION — the deterministic core. One name with two e-mails, or
+      //     one e-mail with two names, is not "two people": it is an
+      //     inconsistent identity, which is the name of the rule. It is the
+      //     case measured in the forensics — the same person now as
+      //     `Leonardo Naves <…noreply>`, now as `leona
+      //     <leonardo@empresa.com.br>`, and `git shortlog` counting two.
       const nomesComVariosEmails = agrupar('nome', 'email')
       const emailsComVariosNomes = agrupar('email', 'nome')
       if (nomesComVariosEmails.length || emailsComVariosNomes.length) {
         const partesDoTexto = [
           ...nomesComVariosEmails.map(
-            ([nome, emails]) => `"${nome}" commitou com ${emails.size} e-mails`,
+            ([nome, emails]) => `"${nome}" committed with ${emails.size} e-mails`,
           ),
           ...emailsComVariosNomes.map(
-            ([email, nomes]) => `<${email}> commitou com ${nomes.size} nomes`,
+            ([email, nomes]) => `<${email}> committed with ${nomes.size} names`,
           ),
         ]
         const pessoal = partes.filter(
           (p) => p.email && !/@users\.noreply\.github\.com$/.test(p.email),
         )
-        const extra = pessoal.length ? ` (e-mail pessoal exposto: ${pessoal.length})` : ''
+        const extra = pessoal.length ? ` (personal e-mail exposed: ${pessoal.length})` : ''
         return `${partesDoTexto.slice(0, 3).join('; ')}${extra}`
       }
 
-      // 1b · O LOGIN DO GITHUB APARECENDO DUAS VEZES. Este é o caso que a
-      //      colisão não pega e que a forense mediu: `Leonardo Naves
-      //      <12345+leona@users.noreply.github.com>` e `leona
-      //      <leonardo@empresa.com.br>` são a mesma pessoa, e nome e e-mail
-      //      diferem nos dois.
+      // 1b · THE GITHUB LOGIN SHOWING UP TWICE. This is the case collision does
+      //      not catch and the forensics measured: `Leonardo Naves
+      //      <12345+leona@users.noreply.github.com>` and `leona
+      //      <leonardo@empresa.com.br>` are the same person, and name and
+      //      e-mail differ in both.
       //
-      //      O elo está escrito no endereço. O formato é
-      //      `<id>+<login>@users.noreply.github.com`, então o login é `leona` —
-      //      identificador da plataforma, não apelido inventado. Quando ele
-      //      reaparece como o NOME de outra identidade ou como a parte local do
-      //      e-mail dela, é a mesma pessoa com duas identidades, e o efeito é o
-      //      que a regra existe para impedir: o e-mail pessoal entra no
-      //      histórico público e o `git shortlog` conta duas pessoas onde há uma.
+      //      The link is written in the address. The format is
+      //      `<id>+<login>@users.noreply.github.com`, so the login is `leona` —
+      //      a platform identifier, not an invented nickname. When it reappears
+      //      as the NAME of another identity or as the local part of its
+      //      e-mail, it is the same person with two identities, and the effect
+      //      is what the rule exists to prevent: the personal e-mail enters the
+      //      public history and `git shortlog` counts two people where there is one.
       const logins = new Map()
       for (const p of partes) {
         const m = /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/.exec(p.email)
@@ -1993,46 +2068,48 @@ export const REGRAS = [
       }
       if (mesmaPessoa.length) {
         return (
-          `o login do GitHub reaparece em outra identidade: ` +
+          `the GitHub login reappears in another identity: ` +
           `${mesmaPessoa
             .slice(0, 3)
             .map(
               (p) =>
-                `${p.id} é o mesmo "${logins.get(logins.has(p.nome) ? p.nome : p.email.replace(/@.*$/, '')).id}"`,
+                `${p.id} is the same "${logins.get(logins.has(p.nome) ? p.nome : p.email.replace(/@.*$/, '')).id}"`,
             )
-            .join('; ')} (e-mail pessoal no histórico público)`
+            .join('; ')} (personal e-mail in the public history)`
         )
       }
 
-      // 2 · SEM COLISÃO, MAS O REPOSITÓRIO JÁ DECLAROU QUEM É HUMANO. A lista é
-      //     a MESMA da regra de coautoria, de propósito: a pergunta é a mesma —
-      //     "quem é humano deste projeto?" — e duas listas divergem. O cabeçalho
-      //     dela já diz que quem responde pelo commit é o dono do e-mail.
+      // 2 · NO COLLISION, BUT THE REPOSITORY ALREADY DECLARED WHO IS HUMAN. The
+      //     list is the SAME one the co-authorship rule uses, on purpose: the
+      //     question is the same — "who is human on this project?" — and two
+      //     lists diverge. Its header already says that whoever answers for the
+      //     commit is the owner of the e-mail.
       const lista = lerAllowlistCoautores(r)
       if (lista.estado === 'ok') {
         const forasteiros = partes.filter((p) => !p.email || !lista.emails.has(p.email))
         return forasteiros.length
-          ? `${forasteiros.length} autor(es) fora de ${ALLOWLIST_COAUTORES}: ` +
+          ? `${forasteiros.length} author(s) outside ${ALLOWLIST_COAUTORES}: ` +
               `${forasteiros
                 .slice(0, 3)
                 .map((p) => p.id)
                 .join(', ')} — ` +
-              `se é gente do projeto, acrescente o e-mail lá`
+              `if they are people on the project, add the e-mail there`
           : null
       }
 
-      // 3 · SEM COLISÃO E SEM LISTA. A régua não tem como saber se são N pessoas
-      //     ou uma pessoa com N identidades, e inventar uma resposta é o que ela
-      //     fazia. `na` sai do denominador com o motivo na cara: não-medição
-      //     declarada vale mais que palpite, e o motivo aponta o conserto.
+      // 3 · NO COLLISION AND NO LIST. The ruler has no way of knowing whether
+      //     these are N people or one person with N identities, and inventing
+      //     an answer is what it used to do. `na` leaves the denominator with
+      //     the reason in plain sight: a declared non-measurement is worth more
+      //     than a guess, and the reason points at the fix.
       const pessoal = partes.filter(
         (p) => p.email && !/@users\.noreply\.github\.com$/.test(p.email),
       )
-      const extra = pessoal.length ? `; ${pessoal.length} com e-mail pessoal exposto` : ''
+      const extra = pessoal.length ? `; ${pessoal.length} with a personal e-mail exposed` : ''
       return na(
-        `${ids.size} identidades sem colisão de nome nem de e-mail${extra} — ` +
-          `ou são ${ids.size} pessoas, ou uma com ${ids.size} identidades, e sem ` +
-          `${ALLOWLIST_COAUTORES} rastreado não há como decidir`,
+        `${ids.size} identities with no name and no e-mail collision${extra} — ` +
+          `either they are ${ids.size} people, or one with ${ids.size} identities, and with no ` +
+          `${ALLOWLIST_COAUTORES} tracked there is no way to decide`,
       )
     },
   },
@@ -2041,21 +2118,21 @@ export const REGRAS = [
     id: 'fake-ui',
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'components/ui/ acompanhado de components.json',
+    titulo: 'components/ui/ accompanied by components.json',
     checar: (r) => {
-      // A BASE de uma pasta de UI é o diretório que contém `components/`:
-      // `apps/web/src/components/ui/botao.tsx` tem base `apps/web/src/`. É de
-      // lá que a busca pela defesa sobe.
+      // The BASE of a UI folder is the directory that contains `components/`:
+      // `apps/web/src/components/ui/botao.tsx` has base `apps/web/src/`. That
+      // is where the search for the defense climbs from.
       const bases = new Set()
       for (const a of r.arquivos) {
         const m = /^((?:.*?\/)?)components\/ui\//.exec(a)
         if (m) bases.add(m[1])
       }
-      if (!bases.size) return na('não tem pasta components/ui/')
+      if (!bases.size) return na('no components/ui/ folder')
       const defesas = new Set(r.componentsJson.map(pastaDe))
       const orfas = [...bases].filter((b) => !ancestrais(b).some((p) => defesas.has(p)))
       return orfas.length
-        ? `components/ui/ imitando a convenção, sem components.json em nenhum diretório acima: ` +
+        ? `components/ui/ imitating the convention, with no components.json in any directory above: ` +
             orfas
               .slice(0, 3)
               .map((b) => `${b}components/ui/`)
@@ -2068,171 +2145,182 @@ export const REGRAS = [
     id: 'orphan-schema',
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'nenhum JSON Schema órfão',
+    titulo: 'no orphan JSON Schema',
     checar: (r) => {
       const schemas = r.arquivos.filter((a) => /\.schema\.json$/.test(a))
-      if (!schemas.length) return na('nenhum .schema.json no repositório')
-      // Teste CONTA como leitor, e é o único lugar do arquivo onde ele conta.
+      if (!schemas.length) return na('no .schema.json in the repository')
+      // A test COUNTS as a reader, and this is the only place in the file where
+      // it counts.
       //
-      // As outras regras de conteúdo perguntam o que o produto FAZ, e teste não
-      // é produto. Esta pergunta é outra: existe alguém que lê este schema? Um
-      // teste de contrato que o importa responde SIM da forma mais forte que
-      // existe — se o schema mudar, o teste quebra. Medido: o `openkartline`
-      // era acusado de dois schemas "definidos e nunca lidos" com
-      // `apps/web/src/services/schemaContract.test.ts` importando os dois nas
-      // linhas 2 e 3. Era a única acusação desta regra nos 11 repositórios, e
-      // era falsa.
+      // The other content rules ask what the product DOES, and a test is not
+      // product. This question is another one: is there anyone who reads this
+      // schema? A contract test that imports it answers YES in the strongest
+      // form there is — if the schema changes, the test breaks. Measured:
+      // `openkartline` was accused of two schemas "defined and never read" with
+      // `apps/web/src/services/schemaContract.test.ts` importing both on lines
+      // 2 and 3. It was this rule's only accusation across the 11 repositories,
+      // and it was false.
       const todo = [...r.fontes, ...r.fontesTeste].map(([, t]) => t).join('\n')
       const orfaos = schemas.filter((s) => !todo.includes(basename(s)))
-      return orfaos.length ? `definido e nunca lido: ${orfaos.slice(0, 3).join(', ')}` : null
+      return orfaos.length ? `defined and never read: ${orfaos.slice(0, 3).join(', ')}` : null
     },
   },
 
   {
     id: 'content-outside-code',
-    // CONTINUA HEURÍSTICA — e agora com o número que RECUSA a promoção, não
-    // com uma lista de pendências. Três dos quatro defeitos apontados na
-    // auditoria de 31/08 estão consertados e medidos; o quarto não cedeu, e é
-    // ele que segura a regra aqui.
+    // STILL A HEURISTIC — and now with the number that REFUSES the promotion,
+    // not with a list of pending items. Three of the four defects named in the
+    // 31/08 audit are fixed and measured; the fourth did not give, and it is
+    // the one holding the rule here.
     //
-    // 1. FRAGMENTO — CONSERTADO. O casamento cortava no primeiro `<`, e 18 das
-    //    185 frases começavam com ponto, travessão ou no meio da oração.
-    //    `nosDeTexto()` remonta a corrida atravessando os elementos inline:
-    //    ZERO de 262 agora começam fora do começo da oração. As 6 que começam
-    //    em minúscula foram conferidas uma a uma na fonte: quatro são `<li>` de
-    //    uma lista "Nunca:", uma é legenda escrita assim, e a sexta é sobra de
-    //    depuração (`esperado 0x… · recebido 0x…`) — nenhuma é pedaço de frase.
+    // Every quoted sentence below is EVIDENCE copied verbatim out of the
+    // audited Brazilian repositories, and stays in Portuguese for that reason.
     //
-    // 2. RÓTULO DE AÇÃO — CONSERTADO, e sem enumerar verbo. O discriminador é
-    //    o DONO do nó de texto: `<button>`, `<a>` e `<label>` não são elemento
-    //    de prosa, e o texto de um controle é o NOME dele. Ver o bloco de
-    //    `PROSA`. Dos rótulos que a auditoria nomeou, saíram quatro:
+    // 1. FRAGMENT — FIXED. The match cut at the first `<`, and 18 of the 185
+    //    sentences started with a period, a dash or in the middle of the
+    //    clause. `nosDeTexto()` reassembles the run across the inline elements:
+    //    ZERO of 262 now start away from the start of the clause. The 6 that
+    //    start in lowercase were checked one by one in the source: four are
+    //    `<li>` items of a "Nunca:" list, one is a caption written that way,
+    //    and the sixth is debugging leftover (`esperado 0x… · recebido 0x…`) —
+    //    none is a piece of a sentence.
+    //
+    // 2. ACTION LABEL — FIXED, and without enumerating verbs. The discriminator
+    //    is the OWNER of the text node: `<button>`, `<a>` and `<label>` are not
+    //    prose elements, and the text of a control is its NAME. See the `PROSA`
+    //    block. Of the labels the audit named, four left:
     //    "Imprimir ou salvar em PDF" (`<button>`), "Arraste pela grade ou use
     //    ‹ › para percorrer." (`<span>`), "Não deu para abrir o cofre."
-    //    (`<AlertTitle>`) e "Carregando o índice de preços…" (`<div>`).
+    //    (`<AlertTitle>`) and "Carregando o índice de preços…" (`<div>`).
     //
-    // 3. PROVA DECORATIVA — CONSERTADA. Das nove mutações que sobreviviam
-    //    nesta regra, as três nomeadas eram: apagar o dígito do padrão de
-    //    preço, baixar o mínimo da frase e desligar o filtro de sinal de
-    //    código. As três agora DIVERGEM, e o `pass/` do caso principal
-    //    existe para isso: ele contém `R$` SEM dígito, um rótulo de campo de
-    //    três palavras, uma linha de tabela com menos de 90% de letras, um
-    //    `<button>` com rótulo de quatro palavras e um estado em `<div>`. Cada
-    //    um deles fica vermelho se a guarda correspondente for afrouxada.
+    // 3. DECORATIVE PROOF — FIXED. Of the nine mutations that survived in this
+    //    rule, the three named were: erasing the digit from the price pattern,
+    //    lowering the sentence minimum and turning off the code-signal filter.
+    //    All three now DIVERGE, and the main case's `pass/` exists for that: it
+    //    contains `R$` WITHOUT a digit, a three-word field label, a table row
+    //    with fewer than 90% letters, a `<button>` with a four-word label and a
+    //    state in a `<div>`. Each of them turns red if the corresponding guard
+    //    is loosened.
     //
-    // 4. VOCABULÁRIO DE INTERFACE EM `<p>` — NÃO CEDEU, e é o que recusa a
-    //    promoção. Medido antes: 27 de 185 (14,6%). Medido depois: 31 de 262
-    //    (11,8%), e este número é RECONTÁVEL — `node measure-content.mjs <repos>`
-    //    imprime a tabela e a classificação. O 14,1% que esta linha publicava
-    //    até 31/08 vinha de contagem à mão e não se reproduzia; o instrumento
-    //    foi escrito justamente porque este repositório já publicou número
-    //    errado quatro vezes, e ele desmentiu o primeiro número que checou —
-    //    o mais caro do arquivo, o que RECUSA a promoção desta regra.
-    //    A estrutura não moveu o número porque os que restam moram em
-    //    elemento de prosa de verdade: "Nenhuma proposta salva ainda." é um
-    //    `<p>` sob `history.length === 0` e "Clique para enviar a logo da
-    //    empresa" é um `<p>` ao lado de um `<input type="file">`. Separá-los de
-    //    "Nossa cozinha abre às 18h" exigiria ENUMERAR verbo de instrução e
-    //    palavra de estado — e enumeração aqui falha para o lado errado: a
-    //    lista incompleta não deixa de excluir, ela ACUSA. É a inversão exata
-    //    do argumento do `coautoria-ia`: lá a enumeração prova presença e por
-    //    isso pode reprovar; aqui ela precisaria provar AUSÊNCIA de instrução
-    //    para não acusar, e não prova. Com ~12% de ruído, determinística barra
-    //    merge por rótulo de campo — e regra que barra merge por rótulo de
-    //    campo ensina a desligar a saída inteira.
+    // 4. INTERFACE VOCABULARY IN `<p>` — DID NOT GIVE, and it is what refuses
+    //    the promotion. Measured before: 27 of 185 (14.6%). Measured after: 31
+    //    of 262 (11.8%), and this number is RECOUNTABLE —
+    //    `node measure-content.mjs <repos>` prints the table and the
+    //    classification. The 14.1% this line published until 31/08 came from a
+    //    hand count and did not reproduce; the instrument was written precisely
+    //    because this repository has already published a wrong number four
+    //    times, and it contradicted the first number it checked — the most
+    //    expensive one in the file, the one that REFUSES this rule's promotion.
+    //    The structure did not move the number because the ones that remain
+    //    live in real prose elements: "Nenhuma proposta salva ainda." is a
+    //    `<p>` under `history.length === 0` and "Clique para enviar a logo da
+    //    empresa" is a `<p>` next to an `<input type="file">`. Separating them
+    //    from "Nossa cozinha abre às 18h" would require ENUMERATING instruction
+    //    verbs and state words — and enumeration here fails toward the wrong
+    //    side: the incomplete list does not merely stop excluding, it ACCUSES.
+    //    It is the exact inversion of the `coautoria-ia` argument: there
+    //    enumeration proves presence and can therefore fail; here it would have
+    //    to prove the ABSENCE of instruction in order not to accuse, and it
+    //    does not. With ~12% noise, a deterministic rule blocks merges over a
+    //    field label — and a rule that blocks merges over a field label teaches
+    //    people to turn the whole output off.
     //
-    // A §12.3 do plano continua aberta por causa do item 4, e não por causa do
-    // 1, do 2 e do 3. O que falta não é engenharia de casamento: é um
-    // discriminador de VOZ — texto que fala do negócio contra texto que fala
-    // do programa — e ele não sai da árvore de elementos.
+    // §12.3 of the plan stays open because of item 4, and not because of 1, 2
+    // and 3. What is missing is not matching engineering: it is a discriminator
+    // of VOICE — text that speaks of the business against text that speaks of
+    // the program — and it does not come out of the element tree.
     classe: 'heurística',
     nivel: 'N1',
-    titulo: 'conteúdo em conteudo/*.json, não dentro de src/ nem de app/',
-    // O motivo do portão de aplicabilidade está no bloco de comentário acima de
-    // `RE_CONTEUDO_JSON`; a definição de "literal de conteúdo" e o número que
-    // ela dá nos 11 repositórios estão no bloco de `PROSA`, logo abaixo dele.
+    titulo: 'content in conteudo/*.json, not inside src/ or app/',
+    // The reason for the applicability gate is in the comment block above
+    // `RE_CONTEUDO_JSON`; the definition of "content literal" and the number it
+    // gives across the 11 repositories are in the `PROSA` block, just below it.
     checar: (r) => {
-      // A base é o diretório que contém `conteudo/`: em monorepo,
-      // `apps/site/conteudo/menu.json` tem base `apps/site/`. A asserção fica
-      // presa àquela base, e não ao repositório inteiro, pelo mesmo motivo que
-      // `ui-falso` casa por proximidade: um `apps/painel/` vizinho que nunca
-      // prometeu nada não pode ser acusado pela promessa do `apps/site/`.
+      // The base is the directory that contains `conteudo/`: in a monorepo,
+      // `apps/site/conteudo/menu.json` has base `apps/site/`. The assertion
+      // stays tied to that base, and not to the whole repository, for the same
+      // reason `ui-falso` matches by proximity: a neighboring `apps/painel/`
+      // that never promised anything cannot be accused by `apps/site/`'s promise.
       const bases = new Set()
       for (const a of r.arquivos) {
         const m = RE_CONTEUDO_JSON.exec(a)
         if (m) bases.add(m[1])
       }
       if (!bases.size) {
-        return na(
-          'nenhum conteudo/*.json rastreado — o repositório não adotou a convenção da §12.3',
-        )
+        return na('no conteudo/*.json tracked — the repository did not adopt the §12.3 convention')
       }
       const sob = (a) =>
         [...bases].some((b) => a.startsWith(`${b}src/`) || a.startsWith(`${b}app/`))
       const alvos = r.fontes.filter(([a]) => sob(a))
-      if (!alvos.length) return na('há conteudo/*.json e nenhum código em src/ nem em app/ ao lado')
+      if (!alvos.length) return na('there is conteudo/*.json and no code in src/ or app/ beside it')
 
       const achados = []
       for (const [a, bruto] of alvos) {
         const t = semComentarioNemImport(bruto)
         const preco = PRECO_BRL.exec(t)
-        if (preco) achados.push(`${a}: preço ${JSON.stringify(preco[0])}`)
-        // Frase só em arquivo com JSX. Num `.ts` puro não existe nó de texto, e
-        // procurar marcação lá seria ler operador de comparação como prosa.
+        if (preco) achados.push(`${a}: price ${JSON.stringify(preco[0])}`)
+        // Sentences only in files with JSX. In a plain `.ts` there is no text
+        // node, and looking for markup there would read a comparison operator
+        // as prose.
         if (!RE_JSX.test(a)) continue
         const frases = frasesDeConteudo(t)
         if (frases.length) {
-          achados.push(`${a}: frase ${JSON.stringify(frases[0].slice(0, 60))}`)
+          achados.push(`${a}: sentence ${JSON.stringify(frases[0].slice(0, 60))}`)
         }
       }
       return achados.length
-        ? `${achados.length} literal(is) de conteúdo fora de conteudo/: ${achados.slice(0, 3).join(' · ')}`
+        ? `${achados.length} content literal(s) outside conteudo/: ${achados.slice(0, 3).join(' · ')}`
         : null
     },
   },
 
   {
     id: 'phone',
-    // SOBE DE HEURÍSTICA A DETERMINÍSTICA, e o número que decidiu está aqui.
+    // PROMOTED FROM HEURISTIC TO DETERMINISTIC, and the number that decided it
+    // is here.
     //
-    // Medido em 2026-08-30 nos 11 repositórios + o rebar: 417 arquivos de
-    // código de produção varridos, UMA acusação — `Galegos/src/lib/whatsapp.ts`
-    // linha 7, um `const WHATSAPP_NUMBER` com o celular da pizzaria em treze
-    // dígitos —, e ela é verdadeira. Um verdadeiro, zero falsos, em 417
-    // arquivos. (O número não é transcrito aqui de propósito: ver a nota do
-    // `semComentario`, onde está o que acontece quando ele é.)
+    // Measured on 2026-08-30 across the 11 repositories + rebar: 417 production
+    // code files swept, ONE accusation — `Galegos/src/lib/whatsapp.ts` line 7,
+    // a `const WHATSAPP_NUMBER` with the pizzeria's mobile in thirteen digits
+    // —, and it is true. One true, zero false, in 417 files. (The number is not
+    // transcribed here on purpose: see the `semComentario` note, which holds
+    // what happens when it is.)
     //
-    // A §12.3 do plano fechou a decisão que dá o dente: telefone, CNPJ e
-    // endereço são CONTEÚDO validado, não código e não variável de ambiente. E
-    // o custo do erro está documentado no próprio Galegos: `Navesz/Galegos#1`
-    // tentou mover o número para env var e o dono parou o PR, porque o build
-    // passa e o `wa.me` sobe sem destinatário. Determinística é o que faz a
-    // decisão valer.
+    // §12.3 of the plan settled the decision that gives this its teeth: phone,
+    // CNPJ and address are validated CONTENT, not code and not an environment
+    // variable. And the cost of the mistake is documented in Galegos itself:
+    // `Navesz/Galegos#1` tried to move the number into an env var and the owner
+    // stopped the PR, because the build passes and the `wa.me` ships with no
+    // recipient. Deterministic is what makes the decision hold.
     //
-    // O padrão foi APERTADO junto com a promoção, e essa é a metade cara. O
-    // antigo `\(?\d{2}\)?\s?9\d{4}-?\d{4}` aceitava ONZE DÍGITOS SEGUIDOS sem
-    // pontuação nenhuma, com um `9` na terceira casa: um EAN-13 de produto
-    // (`7891234599999`) casava. Aceitável numa heurística que só informa;
-    // inaceitável numa regra que reprova merge. Agora só conta o que traz
-    // MARCA de telefone brasileiro — link `wa.me`, código de país 55, ou a
-    // pontuação de DDD. O mesmo Galegos continua sendo pego (`55` + `24` + `9`
-    // + oito dígitos) e os outros 416 arquivos continuam limpos: o aperto não
-    // custou nem um verdadeiro positivo.
+    // The pattern was TIGHTENED along with the promotion, and that is the
+    // expensive half. The old `\(?\d{2}\)?\s?9\d{4}-?\d{4}` accepted ELEVEN
+    // DIGITS IN A ROW with no punctuation at all, with a `9` in the third
+    // place: a product EAN-13 (`7891234599999`) matched. Acceptable in a
+    // heuristic that only informs; unacceptable in a rule that fails merges.
+    // Now only what carries a MARK of a Brazilian phone counts — a `wa.me`
+    // link, country code 55, or the DDD punctuation. The same Galegos is still
+    // caught (`55` + `24` + `9` + eight digits) and the other 416 files stay
+    // clean: the tightening did not cost a single true positive.
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'sem telefone brasileiro no código',
+    titulo: 'no Brazilian phone number in the code',
     checar: (r) => {
+      // The patterns below describe the shape of a BRAZILIAN phone number — the
+      // `wa.me` link, the 55 country code, the DDD in parentheses. They are the
+      // subject of the rule, not prose, and there is nothing in them to
+      // translate.
       const re =
         /wa\.me\/\d{8,}|\+?55\s?\(?\d{2}\)?\s?9\d{4}-?\d{4}|\(\d{2}\)\s?9\d{4}-?\d{4}|\b\d{2}\s9\d{4}-\d{4}\b/
-      // Comentário fora: ver a nota do `semComentario`. O que a §12.3 proíbe é
-      // o número que o programa USA — o que sobe no `wa.me` e no `tel:` —, e
-      // esse mora em código executado, não em nota de rodapé.
-      // ONZE DÍGITOS CRUS contam SÓ quando o arquivo monta um `wa.me` ou um
-      // `tel:`. É o conserto de uma regressão que o aperto acima causou e que a
-      // auditoria pegou: o MESMO celular do Galegos escrito sem o DDI, no mesmo
-      // arquivo, montando o mesmo link, passava limpo. O contexto é o que
-      // separa telefone de código de barras: um EAN-13 não vira link de
-      // WhatsApp, e por isso o dígito cru só conta acompanhado.
+      // Comments out: see the `semComentario` note. What §12.3 forbids is the
+      // number the program USES — the one that ships in the `wa.me` and in the
+      // `tel:` —, and that one lives in executed code, not in a footnote.
+      // ELEVEN RAW DIGITS count ONLY when the file assembles a `wa.me` or a
+      // `tel:`. It is the fix for a regression the tightening above caused and
+      // the audit caught: the SAME Galegos mobile written without the country
+      // code, in the same file, assembling the same link, passed clean. Context
+      // is what separates a phone from a barcode: an EAN-13 does not become a
+      // WhatsApp link, and that is why the raw digits only count accompanied.
       const cru = /\b\d{2}9\d{8}\b/
       const usaContato = /wa\.me|tel:|whatsapp/i
       const hits = r.fontes
@@ -2242,111 +2330,114 @@ export const REGRAS = [
         })
         .map(([a]) => a)
       return hits.length
-        ? `telefone é conteúdo, não código (§12.3) — ${hits.length} arquivo(s): ${hits.slice(0, 3).join(', ')}`
+        ? `a phone is content, not code (§12.3) — ${hits.length} file(s): ${hits.slice(0, 3).join(', ')}`
         : null
     },
   },
 
-  // ── heurísticas ─────────────────────────────────────────────────────────
+  // ── heuristics ──────────────────────────────────────────────────────────
 
   {
     id: 'shadcn-complete',
     classe: 'heurística',
     nivel: 'N1',
-    titulo: 'shadcn com o aparato, não só a pasta',
+    titulo: 'shadcn with the apparatus, not just the folder',
     checar: (r) => {
-      // Mesmo conserto do `ui-falso` e do `formatter`: o `components.json`
-      // procurado em qualquer profundidade, o aparato procurado em todos os
-      // manifestos. Antes, monorepo nenhum chegava a ser avaliado por esta
-      // heurística — prumo, ducado e LinhaK saíam por `na('não usa shadcn')`
-      // tendo os três o arquivo rastreado numa subpasta.
-      if (!r.componentsJson.length) return na('não usa shadcn')
-      // A guarda de leitura vem DEPOIS do N/A: quem não usa shadcn não deve
-      // ganhar aviso por causa de um package.json quebrado. Aqui isso é seguro
-      // porque heurística não entra no denominador — não há N/A a lavar.
+      // Same fix as `ui-falso` and `formatter`: `components.json` looked for at
+      // any depth, the apparatus looked for in every manifest. Before, no
+      // monorepo ever got evaluated by this heuristic — prumo, ducado and
+      // LinhaK left through `na('does not use shadcn')` while all three had the
+      // file tracked in a subfolder.
+      if (!r.componentsJson.length) return na('does not use shadcn')
+      // The read guard comes AFTER the N/A: whoever does not use shadcn should
+      // not earn a warning because of a broken package.json. Here that is safe
+      // because a heuristic does not enter the denominator — there is no N/A to
+      // launder.
       const ilegivel = manifestoIlegivel(r)
       if (ilegivel) return ilegivel
       const d = dependenciasDeTodos(r)
-      // ATENÇÃO: @radix-ui sozinho reprova o único repo que acertou. O Galegos
-      // usa shadcn correto no estilo base-nova, com @base-ui/react e ZERO Radix.
+      // WATCH OUT: @radix-ui alone fails the one repo that got it right.
+      // Galegos uses shadcn correctly in the base-nova style, with
+      // @base-ui/react and ZERO Radix.
       //
-      // `radix-ui` sem barra é o pacote unificado que substituiu os
-      // `@radix-ui/react-*` avulsos, e a ausência dele aqui era um falso
-      // positivo latente que este passo destapou: passando a enxergar
-      // `apps/web/components.json`, a heurística acusou o ducado de
-      // "components.json sem primitiva" com `"radix-ui": "^1.6.7"` declarado e
-      // `import { Select as SelectPrimitive } from 'radix-ui'` em oito
-      // componentes. Defesa procurada com nome velho é a mesma classe de erro
-      // que defesa procurada só na raiz.
+      // `radix-ui` without a slash is the unified package that replaced the
+      // separate `@radix-ui/react-*`, and its absence here was a latent false
+      // positive this step uncovered: once it started seeing
+      // `apps/web/components.json`, the heuristic accused ducado of
+      // "components.json with no primitive" with `"radix-ui": "^1.6.7"`
+      // declared and `import { Select as SelectPrimitive } from 'radix-ui'` in
+      // eight components. A defense looked for by its old name is the same
+      // class of error as a defense looked for only at the root.
       const primitiva = Object.keys(d).some(
         (k) => k.startsWith('@radix-ui/') || k === 'radix-ui' || k === '@base-ui/react',
       )
       const faltam = []
-      if (!primitiva) faltam.push('primitiva (@radix-ui/*, radix-ui ou @base-ui/react)')
+      if (!primitiva) faltam.push('a primitive (@radix-ui/*, radix-ui or @base-ui/react)')
       if (!d['class-variance-authority']) faltam.push('cva')
       if (!d['tailwind-merge']) faltam.push('tailwind-merge')
-      return faltam.length ? `components.json sem ${faltam.join(', ')}` : null
+      return faltam.length ? `components.json with no ${faltam.join(', ')}` : null
     },
   },
 
   {
     id: 'production-url',
     classe: 'heurística',
-    // POR QUE CONTINUA HEURÍSTICA, com o número na mão.
+    // WHY IT STAYS A HEURISTIC, with the number in hand.
     //
-    // Depois dos dois consertos abaixo a regra passou de 12 arquivos acusados
-    // em 7 repositórios para 6 arquivos em 5, e os 6 são literalmente
-    // verdadeiros — nenhum é falso positivo. Mesmo assim ela NÃO sobe a
-    // determinística, e o motivo é o nome dela: 4 dos 6 são endereço de API
-    // PÚBLICA DE TERCEIRO (`viacep.com.br`, `api.bcb.gov.br`,
-    // `api.deepinfra.com`, `api.replicate.com`) e só 2 são a origem de produção
-    // do próprio site (`decima-edicoes/scripts/verify-static.mjs`,
-    // `navesz.github.io/scripts/fetch-data.mjs`). Fixar o endereço de uma API
-    // pública é engenharia normal, não defeito; o defeito é fixar PARA ONDE
-    // ESTE site sobe. Separar os dois exige saber a origem do deploy, e o
-    // checker não sabe. Barrar merge com 2 de 6 de precisão sobre o defeito que
-    // a regra nomeia é punir comportamento correto — e regra que pune
-    // comportamento correto ensina a desligar a saída inteira.
+    // After the two fixes below the rule went from 12 accused files in 7
+    // repositories to 6 files in 5, and the 6 are literally true — none is a
+    // false positive. Even so it does NOT get promoted to deterministic, and
+    // the reason is its own name: 4 of the 6 are the address of a THIRD PARTY's
+    // PUBLIC API (`viacep.com.br`, `api.bcb.gov.br`, `api.deepinfra.com`,
+    // `api.replicate.com`) and only 2 are the production origin of the site
+    // itself (`decima-edicoes/scripts/verify-static.mjs`,
+    // `navesz.github.io/scripts/fetch-data.mjs`). Pinning the address of a
+    // public API is normal engineering, not a defect; the defect is pinning
+    // WHERE THIS site ships to. Separating the two requires knowing the deploy
+    // origin, and the checker does not know it. Blocking merges at 2-of-6
+    // precision on the defect the rule names is punishing correct behavior —
+    // and a rule that punishes correct behavior teaches people to turn the
+    // whole output off.
     nivel: 'N2',
-    titulo: 'sem URL de produção fora de configuração',
+    titulo: 'no production URL outside configuration',
     checar: (r) => {
-      // CONSERTO 1 — o padrão env-fallback, que é o padrão CERTO.
+      // FIX 1 — the env-fallback pattern, which is the RIGHT pattern.
       //
-      // `process.env.X ?? 'https://…'` é exatamente o que se quer que a pessoa
-      // escreva: variável de ambiente com padrão sensato. Medido:
-      // `decima-edicoes/app/lib/site.ts:5` acusado por
+      // `process.env.X ?? 'https://…'` is exactly what you want a person to
+      // write: an environment variable with a sensible default. Measured:
+      // `decima-edicoes/app/lib/site.ts:5` accused over
       // `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`,
-      // e `hug-brasil-propostas` acusado DUAS vezes pela mesma forma
-      // (`scripts/check-access.js:3` e `src/lib/accessControl.ts:6`). Três das
-      // doze acusações eram a régua batendo em quem acertou.
+      // and `hug-brasil-propostas` accused TWICE over the same shape
+      // (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three
+      // of the twelve accusations were the ruler hitting whoever got it right.
       //
-      // O fallback é apagado do texto ANTES da busca, e não o arquivo inteiro:
-      // um arquivo pode ter o padrão certo numa linha e o endereço cru na
-      // outra, e absolver o arquivo por causa da linha boa seria trocar este
-      // falso positivo por um falso negativo.
+      // The fallback is erased from the text BEFORE the search, and not the
+      // whole file: a file can have the right pattern on one line and the raw
+      // address on another, and absolving the file because of the good line
+      // would trade this false positive for a false negative.
       const ENV_FALLBACK =
         /(?:process|import\.meta)\.env(?:\.[A-Za-z_$][\w$]*|\[\s*['"][^'"]+['"]\s*\])\s*(?:\?\?|\|\|)\s*(['"`])[^'"`]*\1/g
 
-      // CONSERTO 2 — endereço só conta quando é usado COMO endereço.
+      // FIX 2 — an address only counts when it is used AS an address.
       //
-      // O literal tem de ABRIR uma string e vir logo depois de uma chamada de
-      // requisição ou de um nome de endereço. Medido, três acusações caíram e
-      // as três não se sustentavam ao abrir o arquivo:
+      // The literal has to OPEN a string and come right after a request call or
+      // an address name. Measured, three accusations fell and none of the three
+      // held up once the file was opened:
       //   openkartline/apps/web/src/App.tsx:521 — `href="https://github.com/…"`,
-      //     um link do rodapé para o próprio repositório. Link é link.
-      //   prumo/…/migrations/20260825_0003_credentials.ts — vinte campos
-      //     `doc: 'https://docs.fal.ai'`, catálogo de documentação semeado em
-      //     tabela. É DADO, e dado é o lugar certo dele.
-      //   prumo/…/collectors/index.ts:76 — o endereço dentro da string de
-      //     `User-Agent`. Não abre string nenhuma, então nem chega a ser testado.
+      //     a footer link to the repository itself. A link is a link.
+      //   prumo/…/migrations/20260825_0003_credentials.ts — twenty
+      //     `doc: 'https://docs.fal.ai'` fields, a documentation catalog seeded
+      //     into a table. It is DATA, and a table is the right place for data.
+      //   prumo/…/collectors/index.ts:76 — the address inside the `User-Agent`
+      //     string. It opens no string, so it never even gets tested.
       const ABERTURA =
         /(['"`])(https?:\/\/(?!localhost|127\.0\.0\.1|www\.w3\.org|schema\.org|json-schema\.org|fonts\.(?:googleapis|gstatic)\.com|registry\.npmjs)[a-z0-9.-]+\.(?:com|com\.br|br|app|dev|io|net|site)[^'"`]*)/gi
       const CHAMADA = /(?:fetch|axios(?:\.\w+)?|request|createClient|connect|new\s+URL)\s*\(\s*$/i
-      // Português na lista pela mesma razão de `NOMES_TYPECHECK` e de
-      // `NOME_TESTE`: régua escrita em português que só reconhece nome de
-      // variável em inglês é cega ao repositório que ela existe para medir.
-      // `origem`, `endereco` e `servidor` são o que um projeto daqui escreve
-      // onde o `decima-edicoes` escreveu `origin`.
+      // Portuguese in the list for the same reason as `NOMES_TYPECHECK` and
+      // `NOME_TESTE`, and it must NOT be translated: a ruler that only
+      // recognizes English variable names is blind to the repository it exists
+      // to measure. `origem`, `endereco` and `servidor` are what a project from
+      // here writes where `decima-edicoes` wrote `origin`.
       const NOME_ENDERECO =
         /[A-Za-z0-9_$]*(?:url|uri|endpoint|origin|origem|host|base|site|api|endereco|endereço|servidor)\s*[:=]\s*$/i
 
@@ -2355,8 +2446,8 @@ export const REGRAS = [
         if (/config|\.d\.ts$/i.test(a)) continue
         const t = bruto.replace(ENV_FALLBACK, ' ')
         for (const m of t.matchAll(ABERTURA)) {
-          // 60 caracteres bastam para o `const NOME_LONGO =` mais folgado e
-          // impedem que uma linha vizinha empreste o veredito à seguinte.
+          // 60 characters are enough for the roomiest `const LONG_NAME =` and
+          // keep a neighboring line from lending its verdict to the next one.
           const antes = t.slice(Math.max(0, m.index - 60), m.index)
           if (CHAMADA.test(antes) || NOME_ENDERECO.test(antes)) {
             hits.push(a)
@@ -2364,7 +2455,7 @@ export const REGRAS = [
           }
         }
       }
-      return hits.length ? `${hits.length} arquivo(s): ${hits.slice(0, 3).join(', ')}` : null
+      return hits.length ? `${hits.length} file(s): ${hits.slice(0, 3).join(', ')}` : null
     },
   },
 
@@ -2372,25 +2463,26 @@ export const REGRAS = [
     id: 'raw-hex',
     classe: 'heurística',
     nivel: 'N1',
-    titulo: 'sem hex duplicando token do CSS',
+    titulo: 'no hex duplicating a CSS token',
     checar: (r) => {
-      // Só acusa hex que JÁ EXISTE como token no CSS. Hex solto tem contexto
-      // legítimo demais — material de three.js, véu de overlay — e a versão
-      // ingênua desta regra deu 100% de falso positivo quando medida.
+      // Only accuses hex that ALREADY EXISTS as a token in the CSS. A loose hex
+      // has too many legitimate contexts — three.js material, overlay veil —
+      // and the naive version of this rule gave 100% false positives when
+      // measured.
       const css = r.arquivos.filter((a) => /\.css$/.test(a))
-      if (!css.length) return na('nenhum .css no repositório')
+      if (!css.length) return na('no .css in the repository')
       const noCss = new Set()
       for (const a of css)
         for (const m of (ler(r.dir, a) || '').matchAll(/#[0-9a-f]{6}/gi))
           noCss.add(m[0].toLowerCase())
-      if (!noCss.size) return na('nenhuma cor hex no CSS')
+      if (!noCss.size) return na('no hex color in the CSS')
       const dup = new Set()
       for (const [, t] of r.fontes)
         for (const m of t.matchAll(/#[0-9a-f]{6}/gi)) {
           if (noCss.has(m[0].toLowerCase())) dup.add(m[0].toLowerCase())
         }
       return dup.size
-        ? `${dup.size} cor(es) definidas nos dois lugares: ${[...dup].slice(0, 3).join(', ')}`
+        ? `${dup.size} color(s) defined in both places: ${[...dup].slice(0, 3).join(', ')}`
         : null
     },
   },
@@ -2399,48 +2491,71 @@ export const REGRAS = [
     id: 'single-language',
     classe: 'heurística',
     nivel: 'N1',
-    titulo: 'um idioma só no repositório',
+    titulo: 'one language only in the repository',
     checar: (r) => {
+      // The Portuguese stopwords below are the DETECTOR, not prose. Translating
+      // them makes the rule stop detecting Portuguese, which is the one thing
+      // it exists to do. Leave both lists exactly as they are.
       const pt = /\b(não|para|então|função|usuário|configuração|arquivo)\b/i
       const en = /\b(the|this|should|configuration|file|user)\b/i
       let ptN = 0,
         enN = 0
       for (const [, t] of r.fontes) {
-        const com = t.match(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g) || []
-        // Trecho entre crases é CÓDIGO CITADO, não prosa, e sai antes do teste
-        // de idioma. Identificador em inglês dentro de um comentário em
-        // português não é troca de idioma, é o nome da coisa — ninguém traduz
-        // `User-Agent`, `<input type="file">` ou `cat-file --batch`.
+        // `soComentario` AND NOT A REGEX OF ITS OWN. Until 2026-09-07 this rule
+        // pulled the comments out with the same naive pair that `semComentario`
+        // stopped being — and it had the same defect, measured here: a
+        // block-opener inside a string literal in `new/gate/aplicar.mjs` opened a
+        // bogus comment and dragged `destino: 'preservado', porque:` into the
+        // text about to be judged. Two extractions of one concept are two sources
+        // to diverge, and these did.
         //
-        // Medido em 2026-08-31 no espelho do rebar com `new/` rastreado: a
-        // contagem `en` caía de 3 para 0, e esses 3 eram exatamente estes três
-        // arquivos, todos com prosa em português — `index.mjs`,
-        // `scan-secret.mjs` e `new/index.mjs`. Com min(pt,en) >= 3 sendo o
-        // piso, os três davam a acusação inteira. O caso de prova
-        // `idioma-unico` não tem uma crase e continua igual pelos dois lados.
-        const txt = com.join('\n').replace(/`[^`]*`/g, ' ')
+        // A span between backticks is CODE QUOTED, not prose, and leaves before
+        // the language test. An identifier in English inside a Portuguese comment
+        // is not a language switch, it is the name of the thing — nobody
+        // translates `User-Agent`, `<input type="file">` or `cat-file --batch`.
+        //
+        // Measured on 2026-08-31 on the rebar mirror with `new/` tracked: the
+        // `en` count fell from 3 to 0, and those 3 were exactly these three files,
+        // all with Portuguese prose — `index.mjs`, `scan-secret.mjs` and
+        // `new/index.mjs`. With min(pt,en) >= 3 as the floor, those three carried
+        // the whole accusation.
+        //
+        // A span between QUOTES leaves for the same reason, and the reason is
+        // stronger: quoted speech is not the writer's prose, and translating what
+        // somebody said is rewriting it, not translating. This repository is full
+        // of the owner's words kept verbatim with the English in brackets after
+        // them, and of sample strings measured in Brazilian repositories — the
+        // measurement IS the Portuguese. Measured on 2026-09-07, after the
+        // translation: 9 of the 11 files the rule was accusing were quotation
+        // only. Without this the rule fails on the very repository it is the
+        // reference for, which is how the naive colour rule died.
+        const txt = soComentario(t)
+          .replace(/`[^`]*`/g, ' ')
+          .replace(/["\u201C][^"\u201D]*["\u201D]/g, ' ')
         if (pt.test(txt)) ptN++
         if (en.test(txt)) enN++
       }
+
       const menor = Math.min(ptN, enN)
-      return menor >= 3 ? `comentários em pt (${ptN}) e en (${enN}) no mesmo repositório` : null
+      return menor >= 3 ? `comments in pt (${ptN}) and en (${enN}) in the same repository` : null
     },
   },
 ]
 
-// ────────────────────────────────────────────────────────── leitura do repo
+// ─────────────────────────────────────────────────────── reading the repo
 
 export function lerRepo(dir) {
-  // Não basta existir `.git/`: uma pasta `.git/` VAZIA passa no existsSync e
-  // faz todo comando git falhar. Pergunte ao git, não ao disco.
+  // A `.git/` existing is not enough: an EMPTY `.git/` folder passes existsSync
+  // and makes every git command fail. Ask git, not the disk.
   const raiz = git(dir, ['rev-parse', '--git-dir'])
-  if (!raiz.ok) return { erro: raiz.erro || 'git indisponível' }
+  if (!raiz.ok) return { erro: raiz.erro || 'git unavailable' }
 
-  // `-z` e obrigatorio: sem ele o git aplica `core.quotePath` e um nome
-  // acentuado volta C-quoted entre aspas. Toda regra abaixo receberia um
-  // caminho que nao existe, a leitura falharia calada, e o arquivo sairia do
-  // placar sem ter sido olhado. Ver o FURO 7 em tooling/secret/scan-secret.mjs,
-  // onde isto ja custou uma AWS key passando VERDE.
+  // `-z` is mandatory: without it git applies `core.quotePath` and an accented
+  // name comes back C-quoted between quotes. Every rule below would receive a
+  // path that does not exist, the read would fail in silence, and the file
+  // would leave the scoreboard without having been looked at. See HOLE 7 in
+  // tooling/secret/scan-secret.mjs, where this already cost an AWS key passing
+  // GREEN.
   const ls = git(dir, ['ls-files', '-z'])
   if (!ls.ok) return { erro: ls.erro }
   const todos = ls.saida ? ls.saida.split('\0').filter(Boolean) : []
@@ -2448,28 +2563,28 @@ export function lerRepo(dir) {
 
   const manifestos = manifestosNpm(dir, arquivos)
   const componentsJson = arquivos.filter((a) => RE_COMPONENTS_JSON.test(a) && !IGNORAR.test(a))
-  // `pkg` continua sendo só o manifesto da RAIZ, e só para quem depende dele
-  // por razão própria (`ci-gateia` lê os scripts que o workflow invoca,
-  // `dependabot` decide aplicabilidade). Quem pergunta sobre o repositório
-  // inteiro usa `manifestos`.
+  // `pkg` is still only the ROOT manifest, and only for those that depend on it
+  // for a reason of their own (`ci-gateia` reads the scripts the workflow
+  // invokes, `dependabot` decides applicability). Whoever asks about the whole
+  // repository uses `manifestos`.
   const raiz_ = manifestos.find((m) => m.rel === 'package.json')
   const pkg = raiz_?.estado === 'ok' ? raiz_.valor : null
   const { producao: fs_, teste: fsTeste } = fontes(dir, arquivos)
-  // `ehTeste` serve nas DUAS pontas: define o que satisfaz a regra `testes` e
-  // filtra o que entra em `fontes()`. Medido no ataque, com os mesmos bytes:
-  // renomear uma pasta para `proofs/` tirou o conteúdo dela de env-example,
-  // schema-orfao, telefone, url-producao e idioma-unico E ainda satisfez
-  // `testes` — "2 de 8 + 2 avisos" virou "3 de 7 + 0 avisos", sem uma linha
-  // dizendo o que sumiu. A contagem é o que transforma esse portão aberto em
-  // fato checado, do mesmo jeito que já se faz com o .rebarignore.
+  // `ehTeste` serves BOTH ends: it defines what satisfies the `testes` rule and
+  // filters what enters `fontes()`. Measured in the attack, with the same
+  // bytes: renaming a folder to `proofs/` took its content out of env-example,
+  // schema-orfao, telefone, url-producao and idioma-unico AND still satisfied
+  // `testes` — "2 of 8 + 2 warnings" became "3 of 7 + 0 warnings", without one
+  // line saying what had vanished. The count is what turns that open gate into
+  // a checked fact, the same way it is already done with the .rebarignore.
   const excluidosPorTeste = arquivos.filter((a) => ehCodigoAvaliavel(a) && ehTeste(a))
   ignorados.testes = excluidosPorTeste.length
   ignorados.amostraTestes = excluidosPorTeste.slice(0, 3)
 
-  // Comentário fora ANTES da varredura: `.env.example` documenta o que o
-  // programa LÊ EM EXECUÇÃO, e variável citada em comentário não é lida por
-  // ninguém. Sem isto, uma nota explicando o padrão env-fallback fazia o
-  // próprio rebar reprovar em `env-example` por duas variáveis inexistentes.
+  // Comments out BEFORE the sweep: `.env.example` documents what the program
+  // READS AT RUNTIME, and a variable quoted in a comment is read by nobody.
+  // Without this, a note explaining the env-fallback pattern made rebar itself
+  // fail `env-example` over two variables that do not exist.
   const varsEnv = new Set()
   for (const [, t] of fs_) {
     for (const m of semComentario(t).matchAll(
@@ -2479,9 +2594,9 @@ export function lerRepo(dir) {
     }
   }
 
-  // \x00 separa commits: mensagem de commit contém \n à vontade.
-  // Repositório sem nenhum commit faz `git log` sair 128 — é estado válido,
-  // e vira lista vazia, que as regras tratam como N/A.
+  // \x00 separates commits: a commit message contains \n freely.
+  // A repository with no commit at all makes `git log` exit 128 — that is a
+  // valid state, and it becomes an empty list, which the rules treat as N/A.
   const logBruto = git(dir, ['log', '--format=%B%x00'])
   const commits =
     logBruto.ok && logBruto.saida
@@ -2490,9 +2605,10 @@ export function lerRepo(dir) {
           .map((s) => s.trim())
           .filter(Boolean)
       : []
-  // --no-merges: em pull request o GitHub cria um merge commit autorado por
-  // `GitHub <noreply@github.com>`. Sem isto, TODO PR nasce reprovado nesta regra
-  // — medido, e era o que impedia fisicamente ligar o rebar num PR de verdade.
+  // --no-merges: on a pull request GitHub creates a merge commit authored by
+  // `GitHub <noreply@github.com>`. Without this, EVERY PR is born failed on
+  // this rule — measured, and it was what physically prevented turning rebar on
+  // in a real PR.
   const logAutores = git(dir, ['log', '--no-merges', '--format=%an <%ae>'])
   const autores =
     logAutores.ok && logAutores.saida ? logAutores.saida.split('\n').filter(Boolean) : []
@@ -2516,7 +2632,7 @@ export function lerRepo(dir) {
 }
 
 function avaliar(dir, filtro) {
-  if (!existsSync(dir)) return { dir, nome: basename(dir) || dir, erro: 'caminho não existe' }
+  if (!existsSync(dir)) return { dir, nome: basename(dir) || dir, erro: 'path does not exist' }
   const r = lerRepo(dir)
   if (r.erro) return { dir, nome: basename(dir) || dir, erro: r.erro }
 
@@ -2527,7 +2643,7 @@ function avaliar(dir, filtro) {
     try {
       saida = regra.checar(r)
     } catch (e) {
-      // QUEBROU é defeito do rebar-check. Nunca entra na nota do alvo.
+      // BROKE is a defect of rebar-check. It never enters the target's score.
       return { ...base, estado: 'quebrou', motivo: `${e.message}` }
     }
     if (saida === null || saida === undefined) return { ...base, estado: 'passou' }
@@ -2537,7 +2653,7 @@ function avaliar(dir, filtro) {
   return { dir, nome: r.nome, ignorados: r.ignorados, resultados }
 }
 
-// ────────────────────────────────────────────────────────────────── saída
+// ───────────────────────────────────────────────────────────────── output
 
 const MARCA = {
   passou: () => c.verde('✓'),
@@ -2574,7 +2690,7 @@ function imprimir(a) {
   }
   const heuVisiveis = heu.filter((x) => x.estado === 'reprovou' || x.estado === 'quebrou')
   if (heuVisiveis.length) {
-    console.log(c.fraco('  ── heurísticas (não entram na nota, não derrubam o CI)'))
+    console.log(c.fraco('  ── heuristics (they do not enter the score, they do not drop the CI)'))
     for (const x of heuVisiveis) {
       console.log(`  ${MARCA[x.estado]()} ${x.id.padEnd(18)} ${c.fraco(x.motivo)}`)
     }
@@ -2582,54 +2698,54 @@ function imprimir(a) {
 
   const n = nota(a.resultados)
   if (n.total === 0) {
-    console.log(`  ${c.fraco('nada avaliável neste repositório')}`)
+    console.log(`  ${c.fraco('nothing evaluable in this repository')}`)
   } else {
-    const txt = `${n.ok} de ${n.total}`
+    const txt = `${n.ok} of ${n.total}`
     console.log(
       `  ${n.ok === n.total ? c.verde(txt) : c.vermelho(txt)}` +
-        (n.na ? c.fraco(`  ·  ${n.na} não se aplica`) : '') +
-        (heuVisiveis.length ? c.fraco(`  ·  ${heuVisiveis.length} aviso(s)`) : ''),
+        (n.na ? c.fraco(`  ·  ${n.na} not applicable`) : '') +
+        (heuVisiveis.length ? c.fraco(`  ·  ${heuVisiveis.length} warning(s)`) : ''),
     )
   }
   if (n.quebrou) {
     console.log(
-      `  ${c.amarelo(`⚠ ${n.quebrou} regra(s) QUEBRARAM — defeito do rebar-check, fora da nota`)}`,
+      `  ${c.amarelo(`⚠ ${n.quebrou} rule(s) BROKE — defect of rebar-check, outside the score`)}`,
     )
   }
   const ig = a.ignorados
-  // Cada portão de exclusão imprime uma linha, mesmo quando não escondeu nada
-  // de errado. Bypass A e B eram invisíveis: um subia um número em cinza-fraco
-  // sem símbolo, o outro não subia nada. Aviso com a LISTA, não só a contagem —
-  // número sozinho não dá para conferir.
+  // Every exclusion gate prints a line, even when it hid nothing wrong. Bypass
+  // A and B were invisible: one raised a number in dim grey with no symbol, the
+  // other raised nothing. A warning with the LIST, not just the count — a
+  // number on its own cannot be checked.
   if (ig?.marcadoresRecusados?.length) {
     console.log(
-      `  ${c.amarelo(`⚠ ${ig.marcadoresRecusados.length} caso.json IGNORADO(S) como marcador de prova:`)}`,
+      `  ${c.amarelo(`⚠ ${ig.marcadoresRecusados.length} caso.json IGNORED as proof marker:`)}`,
     )
     for (const m of ig.marcadoresRecusados) console.log(`      ${c.amarelo(m)}`)
   }
   if (ig?.modelosRecusados?.length) {
     console.log(
-      `  ${c.amarelo(`⚠ ${ig.modelosRecusados.length} modelo.json IGNORADO(S) como marcador de modelo:`)}`,
+      `  ${c.amarelo(`⚠ ${ig.modelosRecusados.length} modelo.json IGNORED as template marker:`)}`,
     )
     for (const m of ig.modelosRecusados) console.log(`      ${c.amarelo(m)}`)
   }
   if (ig?.rebarignoreClandestino) {
     console.log(
-      `  ${c.amarelo('⚠ .rebarignore existe no disco e NÃO está rastreado — ignorado por inteiro')}`,
+      `  ${c.amarelo('⚠ .rebarignore exists on disk and is NOT tracked — ignored entirely')}`,
     )
   }
   if (ig?.rebarignore) {
-    console.log(`  ${c.amarelo(`⚠ ${ig.rebarignore} arquivo(s) escondidos por .rebarignore`)}`)
+    console.log(`  ${c.amarelo(`⚠ ${ig.rebarignore} file(s) hidden by .rebarignore`)}`)
   }
   if (ig?.provas) {
-    // Agrupado POR RAIZ. Enquanto havia uma só, o prefixo saía fatorado para
-    // não repetir 40 caracteres por linha e esconder a lista dentro do próprio
-    // comprimento dela. Com duas raízes, fatorar um prefixo comum que não
-    // existe mais imprimiria caso do módulo de segurança como se morasse sob o
-    // rebar-check — cada raiz sai com os seus.
-    // Agrupado POR RAIZ desde que existe mais de uma: fatorar um prefixo comum
-    // que nao existe mais imprimiria nome de caso do modulo de seguranca como
-    // se morasse sob o rebar-check.
+    // Grouped BY ROOT. While there was only one, the prefix came out factored
+    // so as not to repeat 40 characters per line and hide the list inside its
+    // own length. With two roots, factoring a common prefix that no longer
+    // exists would print a case from the security module as if it lived under
+    // rebar-check — each root comes out with its own.
+    // Grouped BY ROOT ever since there is more than one: factoring a common
+    // prefix that no longer exists would print a case name from the security
+    // module as if it lived under rebar-check.
     const porRaiz = RAIZES_DE_PROVA.map((raiz) => {
       const nomes = (ig.raizesDeProva || [])
         .filter((p) => p.startsWith(raiz))
@@ -2638,17 +2754,17 @@ function imprimir(a) {
     }).filter(Boolean)
     console.log(
       c.fraco(
-        `  ${ig.provas} arquivo(s) de caso de prova, fora da avaliação  ·  ${porRaiz.join('  ·  ')}`,
+        `  ${ig.provas} proof case file(s), outside the evaluation  ·  ${porRaiz.join('  ·  ')}`,
       ),
     )
   }
   if (ig?.modelos) {
-    // A contagem sai mesmo quando é benigna, e nomeia as raízes: exclusão que
-    // não se vê é exclusão que ninguém confere. É a mesma regra da linha das
-    // provas, logo acima.
+    // The count comes out even when it is benign, and it names the roots: an
+    // exclusion nobody sees is an exclusion nobody checks. It is the same rule
+    // as the proofs line, just above.
     console.log(
       c.fraco(
-        `  ${ig.modelos} arquivo(s) de modelo do gerador, fora da avaliação` +
+        `  ${ig.modelos} generator template file(s), outside the evaluation` +
           `  ·  ${(ig.raizesDeModelo || []).join(', ')}`,
       ),
     )
@@ -2656,36 +2772,35 @@ function imprimir(a) {
   if (ig?.testes) {
     const amostra = ig.amostraTestes?.length ? `: ${ig.amostraTestes.join(', ')}` : ''
     console.log(
-      c.fraco(
-        `  ${ig.testes} arquivo(s) de código fora das regras de conteúdo por serem teste${amostra}`,
-      ),
+      c.fraco(`  ${ig.testes} code file(s) outside the content rules for being tests${amostra}`),
     )
   }
 }
 
 // ─────────────────────────────────────────────────────────────────── main
 //
-// A linha de comando só roda quando ESTE arquivo é o PROGRAMA. Importado como
-// biblioteca — é o que `measure-content.mjs` faz para reusar a definição de
-// literal de conteúdo em vez de reimplementá-la — o módulo entrega só os
-// símbolos exportados e não avalia, não imprime e não sai.
+// The command line only runs when THIS file is the PROGRAM. Imported as a
+// library — which is what `measure-content.mjs` does to reuse the definition of
+// a content literal instead of reimplementing it — the module hands over only
+// the exported symbols and does not evaluate, does not print and does not exit.
 //
-// `realpathSync` nos DOIS lados porque o npx instala o bin como LINK: no Linux
-// `node_modules/.bin/rebar` é um symlink para este arquivo, e comparar caminho
-// cru daria falso justo no caminho quente. Também é o que faz a caixa do
-// Windows não decidir nada: `c:/USERS/...` e `C:/Users/...` voltam iguais do
-// realpath, e conferido — as duas formas rodam a linha de comando.
+// `realpathSync` on BOTH sides because npx installs the bin as a LINK: on Linux
+// `node_modules/.bin/rebar` is a symlink to this file, and comparing raw paths
+// would give false exactly on the hot path. It is also what makes the Windows
+// case fold decide nothing: `c:/USERS/...` and `C:/Users/...` come back equal
+// from realpath, and it was checked — both forms run the command line.
 //
-// Os dois casos de borda, e por que caem para lados OPOSTOS:
-//   · SEM `argv[1]` — `node -e`, `--input-type=module`, REPL. Aí nenhum arquivo
-//     é o programa, então este também não é: devolve FALSE e o embutidor recebe
-//     só os símbolos. Sem esta linha, `node -e "import('…/index.mjs')"` fazia o
-//     checker auditar o diretório corrente e sair 2 — medido.
-//   · REALPATH FALHA num caminho que EXISTE como argumento. Aí não dá para
-//     saber, e devolve TRUE: o arquivo volta a se comportar como programa, que
-//     é o que ele fazia antes deste guarda. Errar para "programa" é errar alto
-//     (imprime e sai com código); errar para "biblioteca" seria um `npx` que
-//     não faz nada e sai 0.
+// The two edge cases, and why they fall to OPPOSITE sides:
+//   · NO `argv[1]` — `node -e`, `--input-type=module`, REPL. There no file is
+//     the program, so this one is not either: it returns FALSE and the embedder
+//     receives only the symbols. Without this line, `node -e
+//     "import('…/index.mjs')"` made the checker audit the current directory and
+//     exit 2 — measured.
+//   · REALPATH FAILS on a path that EXISTS as an argument. There it cannot be
+//     known, and it returns TRUE: the file goes back to behaving like a
+//     program, which is what it did before this guard. Erring toward "program"
+//     is erring loudly (it prints and exits with a code); erring toward
+//     "library" would be an `npx` that does nothing and exits 0.
 const EH_PROGRAMA = (() => {
   if (!process.argv[1]) return false
   try {
@@ -2698,74 +2813,86 @@ const EH_PROGRAMA = (() => {
 if (EH_PROGRAMA) {
   const args = process.argv.slice(2)
 
-  // ─── despacho do subcomando `novo`, ANTES de qualquer parse de opção
+  // ─── dispatch of the `new` subcommand, BEFORE any option parsing
   //
-  // Vem primeiro de propósito: o gerador tem a linha de comando dele (`<nome>
-  // [dominio]`), e deixar o parser do checker olhar para ela produziria "opção
-  // desconhecida" em bandeira que é do outro programa.
+  // It comes first on purpose: the generator has its own command line (`<nome>
+  // [dominio]`), and letting the checker's parser look at it would produce
+  // "unknown option" on a flag that belongs to the other program.
   //
-  // O import é DINÂMICO e só acontece aqui. Assim `npx github:Navesz/rebar .`
-  // — o caminho quente, o que roda em CI — não paga nada por o gerador existir,
-  // e continua funcionando num checkout onde `new/` não veio junto.
-  if (args[0] === 'novo') {
+  // The import is DYNAMIC and only happens here. That way `npx
+  // github:Navesz/rebar .` — the hot path, the one that runs in CI — pays
+  // nothing for the generator existing, and keeps working in a checkout where
+  // `new/` did not come along.
+  // THE FOLDER IS `new/`, AND THE SUBCOMMAND IS `new`. They were `new` and
+  // `new/` respectively until 2026-09-07, and that mismatch was not cosmetic: it
+  // made this branch always take the `exit(2)` below. `rebar new` was DEAD, and
+  // the gate was green the whole time, because nothing runs it.
+  //
+  // Second time for this exact class. On 2026-09-05 `aplicar.mjs` read
+  // `verify.yml` from a folder where the file is called `verificar.yml`, and the
+  // gate stayed 15/15 green for six commits. Both are leftovers from the same
+  // rename, and both survived for the same reason: the gate proved the tooling
+  // and never the product. `prove-map.mjs` now runs this dispatch.
+  if (args[0] === 'new') {
     const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-    const gerador = join(RAIZ, 'novo', 'index.mjs')
+    const gerador = join(RAIZ, 'new', 'index.mjs')
     if (!existsSync(gerador)) {
-      console.error(`rebar: subcomando "novo" pede ${gerador}, que não está neste checkout.`)
-      console.error('       Para auditar uma pasta chamada "novo", escreva ./novo')
+      console.error(`rebar: subcommand "new" needs ${gerador}, which is not in this checkout.`)
+      console.error('       To audit a folder named "new", write ./new')
       process.exit(2)
     }
-    console.log(`rebar: subcomando "novo" → gerador (para auditar a pasta "novo", use ./novo)`)
-    // O gerador chama `process.exit` por conta própria no fim do main dele, então
-    // este import não retorna. Se um dia retornar, o exit 0 abaixo é o certo:
-    // significa que o módulo carregou e terminou sem reclamar.
+    console.log(`rebar: subcommand "new" → generator (to audit the "new" folder, use ./new)`)
+    // The generator calls `process.exit` on its own at the end of its main, so
+    // this import does not return. If it ever does return, the exit 0 below is
+    // the right one: it means the module loaded and finished without complaining.
     await import(pathToFileURL(gerador).href)
     process.exit(0)
   }
 
-  // ─── despacho de `--mcp`, também ANTES do parse de opção
+  // ─── dispatch of `--mcp`, also BEFORE option parsing
   //
-  // Esta bandeira NÃO audita nada: ela entrega o processo ao servidor MCP, que
-  // fala JSON-RPC no stdio. Por isso vem antes, junto do `novo` — o parser
-  // abaixo recusaria `--mcp` como opção desconhecida, e era exatamente isso que
-  // acontecia até hoje: todo projeto gerado por `rebar novo` escreve um
-  // `.mcp.json` que roda `.rebar/mcp.mjs`, que chama `rebar --mcp`. O ponteiro
-  // existia dos dois lados e o alvo não respondia — `rebar-check: opção
-  // desconhecida: --mcp`, saída 2, em todo projeto gerado.
+  // This flag audits NOTHING: it hands the process to the MCP server, which
+  // speaks JSON-RPC over stdio. That is why it comes first, next to `new` —
+  // the parser below would refuse `--mcp` as an unknown option, and that is
+  // exactly what happened until today: every project generated by `rebar new`
+  // writes a `.mcp.json` that runs `.rebar/mcp.mjs`, which calls `rebar --mcp`.
+  // The pointer existed on both sides and the target did not answer —
+  // `rebar-check: unknown option: --mcp`, exit 2, in every generated project.
   //
-  // É PROCESSO FILHO, e não import dinâmico como o `novo`, por causa do stdio.
-  // O transporte do MCP é JSON-RPC puro no stdout: uma única linha estranha ali
-  // derruba a sessão inteira. Com `stdio: 'inherit'` o filho fica dono dos três
-  // canais e nada que este arquivo já carregou tem como escrever no meio.
+  // It is a CHILD PROCESS, and not a dynamic import like `new`, because of
+  // stdio. The MCP transport is pure JSON-RPC on stdout: a single stray line
+  // there brings down the whole session. With `stdio: 'inherit'` the child owns
+  // all three channels and nothing this file already loaded can write in
+  // between.
   //
-  // Os dois erros abaixo são separados de propósito, porque o conserto é
-  // diferente: o primeiro é checkout sem o módulo, o segundo é o módulo sem as
-  // dependências dele. `mcp/` é pacote SEPARADO justamente para a raiz seguir
-  // com zero dependência — o preço é este `npm install`, e ele é dito por
-  // extenso em vez de aparecer como um ERR_MODULE_NOT_FOUND cru.
+  // The two errors below are separate on purpose, because the fix is different:
+  // the first is a checkout without the module, the second is the module
+  // without its dependencies. `mcp/` is a SEPARATE package precisely so the
+  // root can carry on with zero dependencies — the price is this `npm install`,
+  // and it is spelled out instead of showing up as a raw ERR_MODULE_NOT_FOUND.
   if (args.includes('--mcp')) {
     const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
     const servidor = join(RAIZ, 'mcp', 'src', 'index.mjs')
     const semMcp = (motivo, conserto) => {
-      console.error(`rebar: --mcp pede ${motivo}`)
+      console.error(`rebar: --mcp needs ${motivo}`)
       console.error(`       ${conserto}`)
-      console.error('       Sem MCP as regras continuam alcançáveis pelo comando do CI:')
+      console.error('       Without MCP the rules are still reachable by the CI command:')
       console.error('         npx --yes github:Navesz/rebar . --json')
       process.exit(2)
     }
     if (!existsSync(servidor)) {
-      semMcp(`${servidor}, que não está neste checkout.`, 'Clone o rebar inteiro.')
+      semMcp(`${servidor}, which is not in this checkout.`, 'Clone the whole rebar.')
     }
     if (!existsSync(join(RAIZ, 'mcp', 'node_modules'))) {
       semMcp(
-        'as dependências do pacote mcp/, que não estão instaladas.',
-        'Instale uma vez: cd mcp && npm install',
+        'the dependencies of the mcp/ package, which are not installed.',
+        'Install them once: cd mcp && npm install',
       )
     }
-    // `process.execPath` e um .mjs: executável de verdade nos dois sistemas, sem
-    // shell. É a mesma razão pela qual o `.mcp.json` do projeto gerado chama
-    // `node` e não `npx` — no Windows o `npx` é `.cmd` e o CreateProcess não o
-    // executa sem interpretador.
+    // `process.execPath` and a .mjs: a real executable on both systems, with no
+    // shell. It is the same reason the generated project's `.mcp.json` calls
+    // `node` and not `npx` — on Windows `npx` is a `.cmd` and CreateProcess
+    // does not execute it without an interpreter.
     const filho = spawnSync(process.execPath, [servidor], { stdio: 'inherit' })
     process.exit(filho.status ?? 1)
   }
@@ -2779,12 +2906,16 @@ if (EH_PROGRAMA) {
     (a) => a.startsWith('--') && !/^--(json|heuristics|rule=)/.test(a),
   )
   if (desconhecidas.length) {
-    console.error(`rebar-check: opção desconhecida: ${desconhecidas.join(', ')}`)
+    console.error(`rebar-check: unknown option: ${desconhecidas.join(', ')}`)
     process.exit(2)
   }
 
   if (filtro && !REGRAS.some((x) => x.id === filtro)) {
-    console.error(`rebar-check: regra desconhecida: ${filtro}`)
+    console.error(`rebar-check: unknown rule: ${filtro}`)
+    // `disponíveis:` stays in Portuguese: it is the line prefix
+    // tooling/rebar-check/proofs/prove.mjs reads back with startsWith() to
+    // discover the rule ids without importing this CLI. Translating it here
+    // makes that discovery return null and the up-front validation vanish.
     console.error(`disponíveis: ${REGRAS.map((x) => x.id).join(', ')}`)
     process.exit(2)
   }
@@ -2805,7 +2936,7 @@ if (EH_PROGRAMA) {
   } else {
     for (const a of avaliacoes) imprimir(a)
     if (avaliacoes.length > 1) {
-      console.log(`\n${c.forte('resumo')}`)
+      console.log(`\n${c.forte('summary')}`)
       for (const a of avaliacoes) {
         if (a.erro) {
           console.log(`  ${a.nome.padEnd(24)} ${c.vermelho(a.erro)}`)
@@ -2813,12 +2944,12 @@ if (EH_PROGRAMA) {
         }
         const n = nota(a.resultados)
         if (!n.total) {
-          console.log(`  ${a.nome.padEnd(24)} ${c.fraco('nada avaliável')}`)
+          console.log(`  ${a.nome.padEnd(24)} ${c.fraco('nothing evaluable')}`)
           continue
         }
-        // Barra de LARGURA FIXA. Com o N/A saindo do denominador cada repositório
-        // tem um total diferente, e uma barra de comprimento variável faria 2/6
-        // parecer pior que 3/11 — comparação que a régua não sustenta.
+        // A FIXED-WIDTH bar. With N/A leaving the denominator each repository
+        // has a different total, and a variable-length bar would make 2/6 look
+        // worse than 3/11 — a comparison the ruler does not support.
         const pct = n.ok / n.total
         const cheio = Math.round(pct * 10)
         const barra = '█'.repeat(cheio) + '·'.repeat(10 - cheio)
@@ -2832,8 +2963,9 @@ if (EH_PROGRAMA) {
     }
   }
 
-  // Ordem dos códigos: QUEBROU domina REPROVOU. Um defeito no verificador
-  // invalida o veredito — não se acusa um repositório com uma régua que quebrou.
+  // Order of the codes: BROKE dominates FAILED. A defect in the checker
+  // invalidates the verdict — you do not accuse a repository with a ruler that
+  // broke.
   const quebrou = avaliacoes.some((a) => a.resultados?.some((x) => x.estado === 'quebrou'))
   const alvoInvalido = avaliacoes.some((a) => a.erro)
   const reprovou = avaliacoes.some((a) =>

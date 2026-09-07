@@ -1,4 +1,4 @@
 {
   "rule": "fake-ui",
-  "why": "A falha real é a pasta `components/ui/` criada à mão para PARECER shadcn sem nunca ter passado pelo CLI: sem `components.json`, `npx shadcn add` não sabe onde escrever, os aliases não existem e a próxima pessoa acha que pode atualizar um componente que ninguém gera. As duas árvores têm o mesmo `components/ui/botao.tsx`; só o `components.json` muda, então se a regra parar de olhar para ele o lado reprovar sai 0 e a prova acusa."
+  "why": "The real failure is the `components/ui/` folder made by hand to LOOK like shadcn without ever having gone through the CLI: with no `components.json`, `npx shadcn add` does not know where to write, the aliases do not exist and the next person thinks they can update a component nobody generates. Both trees have the same `components/ui/botao.tsx`; only the `components.json` changes, so if the rule stops looking at it the fail side exits 0 and the proof accuses."
 }

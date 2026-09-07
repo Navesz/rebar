@@ -3,38 +3,43 @@ import type { ReactNode } from 'react'
 import { linkWhatsapp, site, type Contato } from '@/conteudo/carregar'
 
 /**
- * NENHUM LITERAL DE CONTEÚDO DENTRO. Todo texto visível é `{expressão}` lida de
- * `conteudo/site.json`; o que sobra em `.tsx` é estrutura e classe do Tailwind.
+ * NO CONTENT LITERAL INSIDE. Every visible text is an `{expression}` read from
+ * `conteudo/site.json`; what is left in the `.tsx` is structure and Tailwind
+ * classes.
  *
- * O link do WhatsApp é o caso que dá nome à §12.3: o FORMATO do link é código
- * (não muda de negócio para negócio), o DESTINATÁRIO é conteúdo validado. O PR
- * `Navesz/Galegos#1` errou o corte ao mandar o destinatário para env var — o
- * build passava e o link subia sem ninguém do outro lado.
+ * The WhatsApp link is the case that gives §12.3 its name: the link FORMAT is
+ * code (it does not change from business to business), the RECIPIENT is
+ * validated content. The `Navesz/Galegos#1` PR missed the cut by sending the
+ * recipient to an env var — the build passed and the link shipped with nobody
+ * on the other side.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * ESTE ARQUIVO RENDERIZA O QUE FOI DECLARADO, E NÃO QUEBRA COM O QUE FALTOU.
+ * THIS FILE RENDERS WHAT WAS DECLARED, AND DOES NOT BREAK ON WHAT IS MISSING.
  *
- * Até 02/09 ele assumia que telefone, e-mail e endereço existiam sempre, e o
- * esquema os exigia de todo site para que a suposição fosse verdade. Era a
- * §12.3 lida errado: ela decidiu que o telefone MORA aqui e é validado, não que
- * todo negócio TENHA telefone. Agora os três são blocos condicionais, e a
- * declaração é a presença da chave em `conteudo/site.json`.
+ * Until 02/09 it assumed phone, e-mail and address always existed, and the
+ * schema demanded them of every site so the assumption would be true. That was
+ * §12.3 read wrong: it decided that the phone LIVES here and is validated, not
+ * that every business HAS a phone. Now the three are conditional blocks, and
+ * the declaration is the presence of the key in `conteudo/site.json`.
  *
- * O MAPA `CONTATOS` É O DENTE, e ele fecha as duas direções do defeito de uma
- * vez, sem regra nova, sem heurística e sem varrer arquivo:
+ * THE `CONTATOS` MAP IS THE TOOTH, and it closes both directions of the defect
+ * at once, with no new rule, no heuristic and no file scanning:
  *
- *   · bloco DECLARADO e não renderizado — alguém escreve o WhatsApp, a home não
- *     tem o botão, e a pessoa acha que publicou o contato. Apagar a entrada
- *     daqui deixa o mapa incompleto perante o `satisfies` abaixo: NÃO COMPILA.
- *   · bloco RENDERIZADO e vazio — o desastre do Galegos, link `wa.me` sem
- *     destinatário. O valor é `T | null` e `linkWhatsapp` recebe o bloco, não o
- *     site: sem estreitar o `null`, NÃO COMPILA.
- *   · bloco NOVO no esquema — um Instagram, um horário — sem lugar na home:
- *     falta a chave no mapa e o `satisfies` reprova. NÃO COMPILA.
+ *   · block DECLARED and not rendered — somebody writes the WhatsApp, the home
+ *     has no button, and the person thinks they published the contact. Deleting
+ *     the entry here leaves the map incomplete before the `satisfies` below: IT
+ *     DOES NOT COMPILE.
+ *   · block RENDERED and empty — the Galegos disaster, a `wa.me` link with no
+ *     recipient. The value is `T | null` and `linkWhatsapp` takes the block, not
+ *     the site: without narrowing the `null`, IT DOES NOT COMPILE.
+ *   · NEW block in the schema — an Instagram, a set of opening hours — with no
+ *     place on the home: the key is missing from the map and the `satisfies`
+ *     fails. IT DOES NOT COMPILE.
  *
- * O limite, dito de frente: apagar a seção inteira do JSX abaixo, mapa
- * incluído, não é pego por tipo nenhum. Isso é o dono removendo a home, não uma
- * deriva silenciosa — e o `npm run lint` do projeto acusa o que ficar sem uso.
+ * The limit, said to your face: deleting the whole JSX section below, map
+ * included, is caught by no type at all. That is the owner removing the home,
+ * not a silent drift — and the project's `npm run lint` reports whatever is
+ * left unused.
  * ─────────────────────────────────────────────────────────────────────────
  */
 const CONTATOS = {
@@ -61,22 +66,22 @@ const CONTATOS = {
         {endereco.cep}
       </address>
     ),
-  // `satisfies`, e não anotação de tipo: anotação aceitaria o mapa a MENOS
-  // (o objeto seria só um `Renderizadores` incompleto na hora de escrever) e
-  // apagaria os tipos de retorno de cada entrada. `satisfies` cobra a chave que
-  // falta E a chave que sobra — bloco apagado do esquema com renderizador
-  // esquecido aqui também não compila.
+  // `satisfies`, and not a type annotation: an annotation would accept the map
+  // SHORT (the object would be just an incomplete `Renderizadores` at writing
+  // time) and would erase each entry's return type. `satisfies` charges for the
+  // key that is missing AND the key that is extra — a block deleted from the
+  // schema with a renderer forgotten here does not compile either.
   //
-  // Sem `-?` de propósito: as chaves de `Contato` são OBRIGATÓRIAS com valor
-  // `T | null`, nunca `?`, porque `objeto()` do esquema sempre escreve todas.
-  // O `-?` estava aqui e foi medido em 02/09: com ele fora, apagar um
-  // renderizador continua dando TS1360. Modificador que não muda nada é
-  // comentário mentindo que é código.
+  // No `-?`, on purpose: the keys of `Contato` are MANDATORY with value
+  // `T | null`, never `?`, because the schema's `objeto()` always writes all of
+  // them. The `-?` was here and was measured on 02/09: with it gone, deleting a
+  // renderer still gives TS1360. A modifier that changes nothing is a comment
+  // lying that it is code.
 } satisfies { [Bloco in keyof Contato]: (contato: Contato) => ReactNode }
 
 export default function Pagina() {
-  // Apelido de um nível só, que é o que o passo `blocos` do rebar sabe
-  // resolver ao conferir todo `site.<campo>` contra a forma validada.
+  // A one-level alias, which is what rebar's `blocos` step knows how to resolve
+  // when it checks every `site.<field>` against the validated shape.
   const zap = site.identidade.whatsapp
 
   return (
@@ -84,10 +89,11 @@ export default function Pagina() {
       <header className="flex flex-col gap-4">
         <h1 className="text-4xl font-semibold tracking-tight">{site.home.titulo}</h1>
         <p className="text-muted-foreground text-lg leading-relaxed">{site.home.subtitulo}</p>
-        {/* A chamada principal É o botão de WhatsApp, então ela existe exatamente
-            quando o bloco existe. Sem o bloco a home fica sem botão de propósito:
-            inventar uma chamada para o e-mail seria o gerador escrevendo copy que
-            ninguém aprovou, e copy que ninguém aprovou é o que vira link morto. */}
+        {/* The main call to action IS the WhatsApp button, so it exists exactly
+            when the block exists. Without the block the home has no button, on
+            purpose: inventing a call to action for the e-mail would be the
+            generator writing copy nobody approved, and copy nobody approved is
+            what turns into a dead link. */}
         {zap && (
           <a
             className="bg-primary text-primary-foreground inline-flex w-fit items-center rounded-md px-5 py-2.5 text-sm font-medium"
@@ -113,8 +119,9 @@ export default function Pagina() {
         <p>{site.identidade.nome}</p>
         {Object.entries(CONTATOS).map(([bloco, montar]) => {
           const linha = montar(site.identidade)
-          // Bloco ausente devolve `null` e não vira parágrafo vazio: o rodapé de
-          // um site só com e-mail tem uma linha, não três com dois buracos.
+          // An absent block returns `null` and does not become an empty
+          // paragraph: the footer of a site with only an e-mail has one line,
+          // not three with two holes.
           return linha ? <p key={bloco}>{linha}</p> : null
         })}
       </footer>

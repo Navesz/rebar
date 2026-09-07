@@ -1,18 +1,18 @@
-// O portão testando a si mesmo.
+// The gate testing itself.
 //
-// POR QUE ESTE ARQUIVO EXISTE, e por que ele não é teste de fachada. A régua do
-// rebar tem uma regra `testes` que só pergunta se existe arquivo de teste, e
-// seria trivial satisfazê-la com um `assert.ok(true)`. Isso é exatamente a
-// fraude que a regra `ui-falso` existe para pegar em outra forma: o aparato sem
-// a coisa.
+// WHY THIS FILE EXISTS, and why it is not a facade test. The rebar ruler has a
+// `testes` rule that only asks whether a test file exists, and satisfying it
+// with an `assert.ok(true)` would be trivial. That is exactly the fraud the
+// `ui-falso` rule exists to catch in another shape: the apparatus without the
+// thing.
 //
-// O que ele afere é o único invariante que este repositório não pode perder sem
-// avisar: as peças do portão continuam no lugar. Apagar o .gitattributes,
-// remover o hook, tirar o script `verificar` do package.json — cada uma dessas
-// coisas passa despercebida num diff grande e só aparece meses depois, como
-// ruído de CRLF ou como segredo commitado. Aqui elas viram vermelho na hora.
+// What it measures is the one invariant this repository cannot lose without
+// warning: the gate's pieces are still in place. Deleting the .gitattributes,
+// removing the hook, dropping the `verificar` script from package.json — each of
+// those slips past unnoticed in a big diff and only shows up months later, as
+// CRLF noise or as a committed secret. Here they go red on the spot.
 //
-// Roda com built-in do Node, sem uma dependência: node --test testes/
+// Runs on Node's built-in, without a single dependency: node --test testes/
 
 import { strict as assert } from 'node:assert'
 import { spawnSync } from 'node:child_process'
@@ -22,12 +22,12 @@ import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-// fileURLToPath, não .pathname: no Windows o pathname vem "/C:/Users/...".
+// fileURLToPath, not .pathname: on Windows the pathname comes as "/C:/Users/...".
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
 const ler = (rel) => readFileSync(join(RAIZ, rel), 'utf8')
 const tem = (rel) => existsSync(join(RAIZ, rel))
 
-test('os arquivos do portão estão no lugar', () => {
+test('the gate files are in place', () => {
   for (const arquivo of [
     '.editorconfig',
     '.gitattributes',
@@ -43,85 +43,85 @@ test('os arquivos do portão estão no lugar', () => {
     'AGENTS.md',
     '.mcp.json',
   ]) {
-    assert.ok(tem(arquivo), `faltando: ${arquivo}`)
+    assert.ok(tem(arquivo), `missing: ${arquivo}`)
   }
 })
 
-// ─────────────────────────────────────── o MCP deste projeto, e o frescor dele
+// ─────────────────────────────────────── this project's MCP, and its freshness
 //
-// ESTE PROJETO NÃO GUARDA CÓPIA DAS REGRAS, e isso é a decisão, não um
-// esquecimento. Ele tem um SERVIDOR MCP próprio — `.rebar/mcp.mjs`, zero
-// dependência — e esse servidor não recita nada de dentro de si: cada resposta é
-// DERIVADA dos arquivos deste projeto no disco, na hora da chamada. Não há
-// artefato para regenerar, então não há portão de frescor a construir.
+// THIS PROJECT KEEPS NO COPY OF THE RULES, and that is the decision, not an
+// oversight. It has an MCP SERVER of its own — `.rebar/mcp.mjs`, zero
+// dependencies — and that server recites nothing from inside itself: every
+// answer is DERIVED from this project's files on disk, at call time. There is no
+// artifact to regenerate, so there is no freshness gate to build.
 //
-// A consequência ruim, e são duas, é que as duas quebram CALADAS. Um `.mcp.json`
-// que aponta para um arquivo inexistente aparece no cliente de IA como uma linha
-// cinza que ninguém lê. E um servidor que recita a regra depois de o arquivo que
-// a impõe ter sumido soa exatamente igual a um portão em vigor. Nas duas o
-// agente segue SEM SABER, que é a classe de defeito que este repositório inteiro
-// existe para não repetir.
+// The bad consequence, and there are two, is that both break SILENTLY. A
+// `.mcp.json` pointing at a file that does not exist shows up in the AI client
+// as a gray line nobody reads. And a server that recites the rule after the file
+// enforcing it is gone sounds exactly like a gate in force. In both the agent
+// carries on WITHOUT KNOWING, which is the class of defect this whole repository
+// exists not to repeat.
 //
-// Então os quatro testes abaixo aferem, nesta ordem: que o `.mcp.json` aponta
-// para algo que existe; que o que ele aponta não corrompe o canal do protocolo;
-// que o servidor SOBE de verdade, faz o handshake e publica as cinco ferramentas
-// que o `AGENTS.md` manda chamar; e que ele responde DESARMADA em vez de recitar
-// regra sem guarda. Rodam no `npm test`, dentro do `npm run verificar`, dentro do
-// CI, nos dois sistemas, e SEM REDE.
+// So the four tests below measure, in this order: that the `.mcp.json` points at
+// something that exists; that what it points at does not corrupt the protocol
+// channel; that the server actually COMES UP, does the handshake and publishes
+// the five tools `AGENTS.md` tells the agent to call; and that it answers
+// DESARMADA instead of reciting a rule with no guard. They run in `npm test`,
+// inside `npm run verificar`, inside CI, on both systems, and WITHOUT NETWORK.
 
-/** O caminho do servidor é LIDO do `.mcp.json`, nunca repetido aqui. */
+/** The server path is READ from `.mcp.json`, never repeated here. */
 function lancadorDeclarado() {
   const conf = JSON.parse(ler('.mcp.json'))
   const servidor = conf?.mcpServers?.rebar
-  assert.ok(servidor, '.mcp.json não declara o servidor `rebar`')
+  assert.ok(servidor, '.mcp.json does not declare the `rebar` server')
   const alvo = (servidor.args || []).find((a) => a.endsWith('.mjs'))
-  assert.ok(alvo, '.mcp.json declara o servidor `rebar` sem apontar para nenhum .mjs')
+  assert.ok(alvo, '.mcp.json declares the `rebar` server without pointing at any .mjs')
   return alvo
 }
 
-test('o .mcp.json aponta para um servidor que existe', () => {
+test('the .mcp.json points at a server that exists', () => {
   const conf = JSON.parse(ler('.mcp.json'))
-  // `node` e não `npx`: no Windows o `npx` é `npx.cmd`, um roteiro de lote, e o
-  // cliente de MCP sobe o servidor SEM shell — daria ENOENT em toda máquina
-  // Windows e em nenhuma Linux. É o defeito que matou o projeto anterior, e ele
-  // volta na hora em que alguém "simplifica" este arquivo.
-  assert.equal(conf.mcpServers.rebar.command, 'node', '.mcp.json tem de chamar `node`')
+  // `node` and not `npx`: on Windows `npx` is `npx.cmd`, a batch script, and the
+  // MCP client starts the server WITHOUT a shell — it would be ENOENT on every
+  // Windows machine and on no Linux one. It is the defect that killed the
+  // previous project, and it comes back the moment someone "simplifies" this file.
+  assert.equal(conf.mcpServers.rebar.command, 'node', '.mcp.json has to call `node`')
   const alvo = lancadorDeclarado()
-  assert.ok(tem(alvo), `.mcp.json aponta para ${alvo}, que não está no disco`)
+  assert.ok(tem(alvo), `.mcp.json points at ${alvo}, which is not on disk`)
 })
 
-test('o servidor escreve no stdout por UM caminho só, que é o do JSON-RPC', () => {
-  // O transporte stdio do MCP é JSON-RPC puro no stdout. Uma linha de prosa lá
-  // não vira aviso: vira mensagem malformada, e o cliente derruba a sessão sem
-  // dizer por quê. Um `console.log` de depuração esquecido é o jeito mais fácil
-  // de quebrar isso, e o mais difícil de diagnosticar depois.
+test('the server writes to stdout by ONE path only, and it is the JSON-RPC one', () => {
+  // The MCP stdio transport is pure JSON-RPC on stdout. A line of prose there
+  // does not become a warning: it becomes a malformed message, and the client
+  // drops the session without saying why. A forgotten debug `console.log` is the
+  // easiest way to break this, and the hardest to diagnose afterwards.
   //
-  // A régua NÃO é "zero escrita no stdout" — o servidor precisa escrever, é o
-  // canal dele. É "uma escrita só", concentrada na função de envio, para que
-  // não exista um segundo lugar de onde prosa possa sair.
+  // The ruler is NOT "zero writes to stdout" — the server has to write, it is its
+  // channel. It is "one write only", concentrated in the send function, so that
+  // there is no second place prose could come out of.
   const fonte = ler(lancadorDeclarado())
   const escritas = (fonte.match(/process\.stdout\.write/g) || []).length
-  // `assert.equal` sobre o número, e não `assert.doesNotMatch` sobre o texto: o
-  // segundo despeja o arquivo INTEIRO na saída quando reprova, e a mensagem que
-  // interessa fica soterrada. A régua tem de ser legível na hora em que fecha.
-  assert.equal(
-    escritas,
-    1,
-    `o servidor tem ${escritas} escritas em stdout; tem de haver exatamente 1`,
+  // `assert.equal` on the number, and not `assert.doesNotMatch` on the text: the
+  // second dumps the WHOLE file into the output when it fails, and the message
+  // that matters gets buried. The ruler has to be readable at the moment it shuts.
+  assert.equal(escritas, 1, `the server has ${escritas} writes to stdout; there must be exactly 1`)
+  assert.ok(
+    !/console\.log/.test(fonte),
+    'there is a console.log in the server, and that corrupts the JSON-RPC',
   )
-  assert.ok(!/console\.log/.test(fonte), 'há console.log no servidor, e isso corrompe o JSON-RPC')
-  assert.ok(fonte.includes('github:Navesz/rebar'), 'o servidor não nomeia a régua publicada')
+  assert.ok(fonte.includes('github:Navesz/rebar'), 'the server does not name the published ruler')
 })
 
 /**
- * Sobe o servidor MCP de um projeto, faz o handshake e chama ferramentas.
+ * Starts a project's MCP server, does the handshake and calls tools.
  *
- * SEM REDE e sem dependência: o servidor lê o disco e nada mais. É o que
- * separa esta prova da anterior — a versão antiga deste arquivo era um lançador
- * que chamava `npx github:Navesz/rebar --mcp`, e essa cadeia saía 2 em toda
- * máquina, sempre, porque o SDK do MCP mora num pacote separado do rebar que o
- * `npx` nunca instala. Prova que precisa de rede é prova que não roda no CI de
- * um cliente.
+ * WITHOUT NETWORK and without a dependency: the server reads the disk and
+ * nothing else. That is what separates this proof from the previous one — the
+ * old version of this file was a launcher that called
+ * `npx github:Navesz/rebar --mcp`, and that chain exited 2 on every machine,
+ * always, because the MCP SDK lives in a package separate from rebar that `npx`
+ * never installs. A proof that needs network is a proof that does not run in a
+ * client's CI.
  */
 function conversarComOMcp(raizProjeto, chamadas) {
   const conf = JSON.parse(readFileSync(join(raizProjeto, '.mcp.json'), 'utf8'))
@@ -146,9 +146,9 @@ function conversarComOMcp(raizProjeto, chamadas) {
       params: { name: c.name, arguments: c.args || {} },
     })),
   ]
-  // Tudo de uma vez no stdin e o cano fecha: o servidor processa linha a linha e
-  // sai no `end`. Não há espera por relógio, então o teste não fica lento nem
-  // instável em máquina carregada.
+  // Everything at once into stdin and the pipe closes: the server processes line
+  // by line and exits on `end`. There is no waiting on the clock, so the test is
+  // neither slow nor flaky on a loaded machine.
   const r = spawnSync(s.command, s.args, {
     cwd: raizProjeto,
     input: pedidos.map((p) => JSON.stringify(p)).join('\n') + '\n',
@@ -160,40 +160,40 @@ function conversarComOMcp(raizProjeto, chamadas) {
     try {
       return JSON.parse(l)
     } catch {
-      // A prosa no canal do protocolo é O defeito que este servidor não pode
-      // ter. Ela vira falha nomeada, e não um JSON.parse estourando cru.
-      assert.fail(`o servidor escreveu prosa no stdout, que é o canal do JSON-RPC: ${l}`)
+      // Prose in the protocol channel is THE defect this server cannot have. It
+      // becomes a named failure, and not a raw JSON.parse blowing up.
+      assert.fail(`the server wrote prose to stdout, which is the JSON-RPC channel: ${l}`)
     }
   })
   return { r, respostas }
 }
 
-test('o servidor MCP sobe do .mcp.json, faz o handshake e responde às ferramentas', () => {
-  // POR QUE ESTE TESTE EXECUTA, em vez de só ler o arquivo. Servidor que nunca
-  // rodou é exatamente o que o requisito nº 5 do rebar reclama: código no disco
-  // que nenhuma máquina executou — e um MCP que não sobe aparece no cliente
-  // como uma linha cinza que ninguém lê.
+test('the MCP server comes up from .mcp.json, handshakes and answers the tools', () => {
+  // WHY THIS TEST EXECUTES, instead of only reading the file. A server that never
+  // ran is exactly what rebar's requirement nº 5 complains about: code on disk
+  // that no machine executed — and an MCP that does not come up shows up in the
+  // client as a gray line nobody reads.
   const { r, respostas } = conversarComOMcp(RAIZ, [
     { name: 'rebar_regras' },
     { name: 'rebar_verificar' },
   ])
 
   const ini = respostas.find((m) => m.id === 1)
-  assert.ok(ini?.result, `o handshake não voltou: ${r.stderr}`)
+  assert.ok(ini?.result, `the handshake did not come back: ${r.stderr}`)
   assert.equal(ini.result.serverInfo.name, 'rebar')
-  assert.ok(ini.result.capabilities?.tools, 'o servidor não anuncia a capacidade `tools`')
-  // As instruções são o único texto que chega ao agente sem ele chamar nada. Se
-  // elas não mandarem chamar a régua, o servidor sobe e não ensina ninguém — que
-  // é o defeito que este arquivo inteiro existe para não repetir.
+  assert.ok(ini.result.capabilities?.tools, 'the server does not announce the `tools` capability')
+  // The instructions are the only text that reaches the agent without it calling
+  // anything. If they do not order the ruler to be called, the server comes up
+  // and teaches nobody — which is the defect this whole file exists not to repeat.
   assert.match(
     ini.result.instructions,
     /rebar_regras/,
-    'as instruções não mandam chamar rebar_regras',
+    'the instructions do not order rebar_regras to be called',
   )
 
   const lista = respostas.find((m) => m.id === 2)
   const nomes = (lista?.result?.tools || []).map((t) => t.name)
-  // Os nomes são contrato com o AGENTS.md: é ele que manda o agente chamá-los.
+  // The names are a contract with AGENTS.md: it is what tells the agent to call them.
   for (const esperado of [
     'rebar_regras',
     'rebar_porque',
@@ -203,43 +203,52 @@ test('o servidor MCP sobe do .mcp.json, faz o handshake e responde às ferrament
   ]) {
     assert.ok(
       nomes.includes(esperado),
-      `o servidor não publica \`${esperado}\`, que o AGENTS.md manda chamar`,
+      `the server does not publish \`${esperado}\`, which AGENTS.md orders to be called`,
     )
   }
 
   const regras = respostas.find((m) => m.id === 10)
   const texto = regras?.result?.content?.[0]?.text || ''
+  // The strings below are RULE IDS, not prose — they stay as they are written in
+  // the ruler. Translating one here stops the match without failing anything.
   assert.ok(
     texto.includes('conteudo-fora-do-codigo'),
-    'rebar_regras não fala de onde mora o conteúdo',
+    'rebar_regras says nothing about where the content lives',
   )
   assert.ok(
     texto.includes('placeholder-barra-o-build'),
-    'rebar_regras não fala do build que reprova no placeholder',
+    'rebar_regras says nothing about the build that fails on the placeholder',
   )
   assert.ok(
     texto.includes('segredo-nao-entra-no-commit'),
-    'rebar_regras não fala do segredo barrado no commit',
+    'rebar_regras says nothing about the secret blocked at the commit',
   )
-  assert.ok(texto.includes('coautoria-e-de-humano'), 'rebar_regras não fala da coautoria de IA')
-  assert.ok(texto.includes('pilha-fechada'), 'rebar_regras não fala da pilha')
+  assert.ok(
+    texto.includes('coautoria-e-de-humano'),
+    'rebar_regras says nothing about AI co-authorship',
+  )
+  assert.ok(texto.includes('pilha-fechada'), 'rebar_regras says nothing about the stack')
 
-  assert.ok(respostas.find((m) => m.id === 11)?.result, 'rebar_verificar não respondeu')
+  assert.ok(respostas.find((m) => m.id === 11)?.result, 'rebar_verificar did not answer')
 })
 
-test('o servidor MCP responde DESARMADA em vez de recitar regra sem guarda', () => {
-  // O CASO INVERSO, e é o que dá valor ao de cima. Uma resposta que recita a
-  // regra sempre — inclusive quando o arquivo que a impõe foi apagado — é pior
-  // que silêncio: soa igual a regra em vigor, e o agente segue confiando num
-  // portão que não existe mais.
+test('the MCP server answers DESARMADA instead of reciting a rule with no guard', () => {
+  // THE INVERSE CASE, and it is what gives the one above its value. An answer
+  // that recites the rule always — including when the file enforcing it was
+  // deleted — is worse than silence: it sounds like a rule in force, and the
+  // agent goes on trusting a gate that no longer exists.
   //
-  // A mutação é feita numa CÓPIA em tmpdir, nunca neste repositório.
+  // The mutation is made on a COPY in tmpdir, never in this repository.
+  //
+  // `DESARMADA` and `Avise o usuário` below stay Portuguese: they are the
+  // literal state string and the literal warning the MCP server emits, matched
+  // verbatim. Translating them here stops the match without failing anything.
   const copia = mkdtempSync(join(tmpdir(), 'rebar-mcp-mutado-'))
   mkdirSync(join(copia, '.rebar'), { recursive: true })
   writeFileSync(join(copia, '.mcp.json'), ler('.mcp.json'), 'utf8')
   writeFileSync(join(copia, '.rebar', 'mcp.mjs'), ler(lancadorDeclarado()), 'utf8')
-  // package.json mínimo: o projeto existe, e nenhum dos arquivos que impõem as
-  // regras foi copiado. É a mutação.
+  // Minimal package.json: the project exists, and none of the files that enforce
+  // the rules were copied. That is the mutation.
   writeFileSync(join(copia, 'package.json'), '{"name":"mutado"}\n', 'utf8')
 
   const { respostas } = conversarComOMcp(copia, [{ name: 'rebar_regras' }])
@@ -247,118 +256,123 @@ test('o servidor MCP responde DESARMADA em vez de recitar regra sem guarda', () 
   assert.match(
     texto,
     /DESARMADA/,
-    'o servidor recitou as regras num projeto sem nenhum arquivo que as imponha',
+    'the server recited the rules in a project with no file that enforces them',
   )
   assert.match(
     texto,
     /Avise o usuário/,
-    'o servidor não manda avisar o usuário quando o portão está desarmado',
+    'the server does not order the user to be warned when the gate is unarmed',
   )
 })
 
-test('o AGENTS.md manda derivar as regras, e não repete nenhuma', () => {
+test('AGENTS.md orders the rules derived, and repeats none', () => {
   const agents = ler('AGENTS.md')
-  assert.match(agents, /npx --yes github:Navesz\/rebar \./, 'AGENTS.md não traz a régua derivada')
-  assert.match(agents, /\.mcp\.json/, 'AGENTS.md não menciona o ponteiro de MCP')
-  // Comparação por texto, e não por regex montada na hora: o caminho tem ponto
-  // e barra, e uma regex mal escapada aqui casaria por acaso e não provaria nada.
+  assert.match(agents, /npx --yes github:Navesz\/rebar \./, 'AGENTS.md has no derived ruler')
+  assert.match(agents, /\.mcp\.json/, 'AGENTS.md does not mention the MCP pointer')
+  // Comparison by text, and not by a regex built on the spot: the path has a dot
+  // and a slash, and a badly escaped regex here would match by accident and prove
+  // nothing.
   const alvo = lancadorDeclarado()
-  assert.ok(agents.includes(alvo), `AGENTS.md não cita ${alvo}, que é o que o .mcp.json executa`)
+  assert.ok(agents.includes(alvo), `AGENTS.md does not cite ${alvo}, which .mcp.json executes`)
 })
 
-test('o AGENTS.md fala deste projeto, e não só do framework', () => {
-  // POR QUE ESTE TESTE. O `shadcn create` entrega um AGENTS.md de 5 linhas em
-  // inglês, que só avisa sobre breaking change do Next. Ele atravessa as 22
-  // regras do rebar-check sem encostar em nenhuma — a `idioma-unico` só lê
-  // comentário de CÓDIGO, e a `readme` só olha o README. A forense original
-  // catalogou "AGENTS.md ausente ou só boilerplate" com frequência 5 em 6.
-  // Sem este teste, desfazer a decisão do portão não acende nada.
+test('AGENTS.md speaks of this project, and not only of the framework', () => {
+  // WHY THIS TEST. `shadcn create` hands over a 5-line AGENTS.md in English that
+  // only warns about a Next breaking change. It crosses all 22 rebar-check rules
+  // without touching one — `idioma-unico` only reads CODE comments, and `readme`
+  // only looks at the README. The original forensics catalogued "AGENTS.md
+  // missing or boilerplate only" with frequency 5 in 6. Without this test,
+  // undoing the gate's decision lights up nothing.
   const agents = ler('AGENTS.md')
-  assert.match(agents, /<!-- rebar:agentes -->/, 'AGENTS.md não passou pelo portão')
-  // As duas âncoras que a decisão prometeu: para onde o agente é mandado ler, e
-  // onde está a allowlist que diz que ele não assina o commit.
-  assert.match(agents, /README\.md/, 'AGENTS.md não aponta para o README')
-  assert.match(agents, /\.rebar-coauthors/, 'AGENTS.md não aponta para a allowlist de coautores')
-  assert.match(agents, /português do Brasil/i, 'AGENTS.md não declara o idioma do projeto')
+  assert.match(agents, /<!-- rebar:agentes -->/, 'AGENTS.md did not go through the gate')
+  // The two anchors the decision promised: where the agent is sent to read, and
+  // where the allowlist is that says it does not sign the commit.
+  assert.match(agents, /README\.md/, 'AGENTS.md does not point at the README')
+  assert.match(agents, /\.rebar-coauthors/, 'AGENTS.md does not point at the co-author allowlist')
+  // `português do Brasil` stays Portuguese: it is the phrase AGENTS.md itself
+  // uses to declare the project language, and the project language IS Brazilian
+  // Portuguese. Translating the pattern makes it match nothing.
+  assert.match(agents, /português do Brasil/i, 'AGENTS.md does not declare the project language')
 })
 
-test('o bloco do shadcn no AGENTS.md fica intacto, se ele veio', () => {
-  // Informação de terceiro sobre a versão do Next instalada AQUI. Ela envelhece
-  // com o Next e não é nossa para reescrever; o portão a extrai pelos
-  // marcadores e a recoloca. Se o bloco existe, tem de estar fechado — meio
-  // bloco é bloco truncado pela reescrita, e é o defeito que este teste caça.
+test('the shadcn block in AGENTS.md stays intact, if it came', () => {
+  // Third-party information about the Next version installed HERE. It ages with
+  // Next and is not ours to rewrite; the gate pulls it out by the markers and
+  // puts it back. If the block exists, it has to be closed — half a block is a
+  // block truncated by the rewrite, and that is the defect this test hunts.
   const agents = ler('AGENTS.md')
   const abre = agents.includes('BEGIN:nextjs-agent-rules')
   const fecha = agents.includes('END:nextjs-agent-rules')
-  assert.equal(abre, fecha, 'o bloco `nextjs-agent-rules` ficou pela metade no AGENTS.md')
+  assert.equal(abre, fecha, 'the `nextjs-agent-rules` block was left half-written in AGENTS.md')
   if (abre) {
     assert.match(
       agents,
       /node_modules\/next\/dist\/docs/,
-      'o bloco do shadcn perdeu o conteúdo dele na reescrita',
+      'the shadcn block lost its content in the rewrite',
     )
   }
 })
 
-test('o fim de linha está normalizado em LF', () => {
+test('the line ending is normalized to LF', () => {
   const attrs = ler('.gitattributes')
-  assert.match(attrs, /^\*\s+text=auto\s+eol=lf$/m, '.gitattributes sem `* text=auto eol=lf`')
-  // Os dois hooks são lidos pelo /bin/sh. CRLF no shebang faz o interpretador
-  // não ser encontrado, e a mensagem de erro não diz isso.
+  assert.match(attrs, /^\*\s+text=auto\s+eol=lf$/m, '.gitattributes without `* text=auto eol=lf`')
+  // Both hooks are read by /bin/sh. CRLF in the shebang makes the interpreter not
+  // be found, and the error message does not say so.
   assert.match(attrs, /\.githooks\/pre-commit\s+text\s+eol=lf/)
   assert.match(attrs, /\.githooks\/commit-msg\s+text\s+eol=lf/)
 })
 
-test('o package.json declara o que o CI invoca', () => {
+test('package.json declares what CI invokes', () => {
   const pkg = JSON.parse(ler('package.json'))
   const scripts = pkg.scripts || {}
   for (const nome of ['verificar', 'typecheck', 'test', 'build']) {
-    assert.ok(scripts[nome], `package.json sem script \`${nome}\``)
+    assert.ok(scripts[nome], `package.json without a \`${nome}\` script`)
   }
-  // A regra `ci-gateia` do rebar cobra que o CI ALCANCE o que o repositório
-  // tem. O CI roda um comando só, `npm run verificar`; se este script deixar
-  // de encadear os outros, o CI passa a aprovar sem ter olhado.
+  // rebar's `ci-gateia` rule demands that CI REACH what the repository has. CI
+  // runs one command only, `npm run verificar`; if this script stops chaining the
+  // others, CI starts passing without having looked.
   for (const nome of ['lint', 'typecheck', 'test']) {
     if (!scripts[nome]) continue
-    // Dentro de template literal, `\b` é o caractere BACKSPACE, não a borda de
-    // palavra — a regex vira /<bs>lint<bs>/ e nunca casa. Custou uma execução
-    // vermelha para aparecer, e é exatamente o tipo de defeito que só a
-    // execução acha: o código lê certo e faz outra coisa. String comum, com a
-    // barra dobrada, é o conserto.
+    // Inside a template literal, `\b` is the BACKSPACE character, not the word
+    // boundary — the regex becomes /<bs>lint<bs>/ and never matches. It cost a
+    // red run to show up, and it is exactly the kind of defect only execution
+    // finds: the code reads right and does something else. A plain string, with
+    // the backslash doubled, is the fix.
     assert.match(
       scripts.verificar,
       new RegExp('\\b' + nome + '\\b'),
-      `o script \`verificar\` não alcança \`${nome}\``,
+      `the \`verificar\` script does not reach \`${nome}\``,
     )
   }
 })
 
-test('a licença Apache vem acompanhada do NOTICE', () => {
+test('the Apache license comes with the NOTICE', () => {
   assert.match(ler('LICENSE'), /Apache License/)
-  assert.ok(ler('NOTICE').trim().length > 0, 'NOTICE vazio')
+  assert.ok(ler('NOTICE').trim().length > 0, 'empty NOTICE')
 })
 
-test('a allowlist de coautores tem ao menos um humano', () => {
+test('the co-author allowlist has at least one human', () => {
   const linhas = ler('.rebar-coauthors')
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith('#'))
-  assert.ok(linhas.length >= 1, '.rebar-coauthors sem nenhuma identidade')
+  assert.ok(linhas.length >= 1, '.rebar-coauthors with no identity at all')
   assert.ok(
     linhas.every((l) => /@/.test(l)),
-    'toda linha da allowlist precisa de e-mail — o que é comparado é o e-mail',
+    'every allowlist line needs an e-mail — the e-mail is what gets compared',
   )
 })
 
-test('o site exporta estático, que é o que o GitHub Pages publica', () => {
-  // A §12.2 do plano fechou: preset `site` é Next App Router com
-  // output:"export". Sem isto o `next build` gera servidor, e o Pages publica
-  // uma pasta vazia — falha que só aparece no deploy, nunca no build.
+test('the site exports static, which is what GitHub Pages publishes', () => {
+  // §12.2 of the plan settled it: the `site` preset is Next App Router with
+  // output:"export". Without this `next build` generates a server, and Pages
+  // publishes an empty folder — a failure that only shows at deploy, never at
+  // build.
   const config = ler('next.config.ts')
-  assert.match(config, /output:\s*['"]export['"]/, 'next.config.ts sem output: "export"')
+  assert.match(config, /output:\s*['"]export['"]/, 'next.config.ts without output: "export"')
   assert.match(
     config,
     /unoptimized:\s*true/,
-    'next.config.ts sem images.unoptimized — o otimizador exige servidor',
+    'next.config.ts without images.unoptimized — the optimizer requires a server',
   )
 })

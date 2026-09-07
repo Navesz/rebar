@@ -1,6 +1,6 @@
 {
   "rule": "ai-coauthorship",
-  "why": "Repositório recém-iniciado, com a árvore no índice e nenhum commit, é estado legítimo — e faz o `git log` sair 128. O ramo N/A existe porque a alternativa é o `catch` que engolia o erro e devolvia string vazia, e string vazia não tem trailer de coautoria: o repositório sem histórico APROVAVA numa regra sobre histórico. Crash virando aprovação é a mesma classe de defeito que o `git()` deste arquivo documenta. O lado `pass` declara `\"commits\": []` e tem de sair N/A; o lado `fail` tem o trailer e continua reprovando, então a guarda não desligou a regra.",
+  "why": "A freshly initialized repository, with the tree in the index and no commit, is a legitimate state — and it makes `git log` exit 128. The N/A branch exists because the alternative is the `catch` that swallowed the error and returned an empty string, and an empty string has no co-authorship trailer: the repository with no history PASSED a rule about history. A crash becoming a pass is the same class of defect that `git()` documents. The `pass` side declares `\"commits\": []` and has to come out N/A; the `fail` side has the trailer and keeps failing, so the guard did not switch the rule off.",
   "pass": {
     "estado": "na",
     "commits": []

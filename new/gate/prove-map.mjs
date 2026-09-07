@@ -1,67 +1,70 @@
 #!/usr/bin/env node
-// As provas do MAPA DE ARQUIVOS do gerador.
+// The proofs of the generator's FILE MAP.
 //
-// POR QUE ESTE ARQUIVO EXISTE, e é a lição mais cara desta árvore.
+// WHY THIS FILE EXISTS, and it is the most expensive lesson in this tree.
 //
-// Durante a tradução dos nomes para o inglês, um `sed` trocou as referências
-// que tinham forma de caminho e nenhum arquivo de molde. O `aplicar.mjs` passou
-// a ler `verify.yml` de uma pasta onde o arquivo se chama `verificar.yml`, e os
-// hooks emitidos passaram a chamar `.githooks/varrer-segredo.mjs` enquanto o
-// arquivo copiado se chamava `scan-secret.mjs`.
+// During the translation of the names into English, a `sed` swapped the
+// references that had the shape of a path and no template file. `aplicar.mjs`
+// started reading `verify.yml` from a folder where the file is called
+// `verificar.yml`, and the emitted hooks started calling
+// `.githooks/varrer-segredo.mjs` while the copied file was called
+// `scan-secret.mjs`.
 //
-// `rebar novo` morreu com ENOENT no quarto estático. E o `npm run verify`
-// FICOU 15 DE 15 VERDE a renomeação inteira, por seis commits, porque nenhum
-// passo do portão gera um projeto. O checker se prova, as regras se provam, o
-// MCP se prova, o portão se prova — e o produto não.
+// `rebar new` died with ENOENT on the fourth static file. And `npm run verify`
+// STAYED 15 OF 15 GREEN through the entire renaming, for six commits, because no
+// gate step generates a project. The checker proves itself, the rules prove
+// themselves, the MCP proves itself, the gate proves itself — and the product
+// does not.
 //
-// POR QUE NÃO GERAR UM PROJETO INTEIRO AQUI. A geração de verdade roda
-// `npm create vite`, `shadcn` e `npm install`: minutos, rede, e um passo de
-// portão que ninguém espera é um passo que alguém desliga. O que quebrou não
-// foi a geração, foi o MAPA — nomes que deixaram de casar. Então o que se prova
-// é o mapa, em milissegundos e sem rede.
+// WHY NOT GENERATE A WHOLE PROJECT HERE. Real generation runs `npm create vite`,
+// `shadcn` and `npm install`: minutes, network, and a gate step nobody expects
+// is a step somebody turns off. What broke was not the generation, it was the
+// MAP — names that stopped matching. So what gets proved is the map, in
+// milliseconds and with no network.
 //
-// Uso:  node --test new/gate/prove-map.mjs
+// Usage:  node --test new/gate/prove-map.mjs
 
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import test, { describe } from 'node:test'
 
-import { ESTATICOS, COPIADOS_DO_REBAR, EXECUTAVEIS } from './aplicar.mjs'
+import { ESTATICOS, COPIADOS_DO_REBAR, EXECUTAVEIS, moldeAgents } from './aplicar.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..', '..')
 const MOLDES = join(AQUI, 'arquivos')
 
-/** O conjunto de caminhos que o gerador ESCREVE no projeto criado. */
+/** The set of paths the generator WRITES into the created project. */
 const emitidos = new Set([...ESTATICOS, ...COPIADOS_DO_REBAR].map(([, destino]) => destino))
 
-describe('o mapa de arquivos do gerador', { concurrency: 4 }, () => {
-  test('toda fonte de ESTATICOS existe em new/gate/arquivos/', () => {
+describe('the file map of the generator', { concurrency: 4 }, () => {
+  test('every ESTATICOS source exists in new/gate/arquivos/', () => {
     const faltando = ESTATICOS.filter(([fonte]) => !existsSync(join(MOLDES, fonte))).map(([f]) => f)
     assert.deepEqual(
       faltando,
       [],
-      `o gerador lê molde que não existe — é o ENOENT que matou o \`rebar novo\`:\n  ${faltando.join('\n  ')}`,
+      `the generator reads a template that does not exist — it is the ENOENT that killed \`rebar new\`:\n  ${faltando.join('\n  ')}`,
     )
   })
 
-  test('toda fonte de COPIADOS_DO_REBAR existe no rebar', () => {
+  test('every COPIADOS_DO_REBAR source still exists in rebar', () => {
     const faltando = COPIADOS_DO_REBAR.filter(([fonte]) => !existsSync(join(RAIZ, fonte))).map(
       ([f]) => f,
     )
     assert.deepEqual(
       faltando,
       [],
-      `o gerador copia arquivo do rebar que não está mais lá (renomeado?):\n  ${faltando.join('\n  ')}`,
+      `the generator copies a file from rebar that is no longer there (renamed?):\n  ${faltando.join('\n  ')}`,
     )
   })
 
-  // O DEFEITO QUE PASSOU DESPERCEBIDO POR MAIS TEMPO. Os dois lados estavam
-  // certos separados: o arquivo era copiado com nome inglês, e o hook chamava o
-  // nome português. Cada arquivo existia; o par é que não fechava.
-  test('todo .githooks/*.mjs que um molde CHAMA é um arquivo que o gerador EMITE', () => {
+  // THE DEFECT THAT WENT UNNOTICED THE LONGEST. Both sides were right apart:
+  // the file was copied under the English name, and the hook called the
+  // Portuguese name. Each file existed; it was the pair that did not close.
+  test('every .githooks/*.mjs a template CALLS is a file the generator EMITS', () => {
     const chamados = new Set()
     for (const nome of readdirSync(MOLDES)) {
       const t = readFileSync(join(MOLDES, nome), 'utf8')
@@ -71,59 +74,70 @@ describe('o mapa de arquivos do gerador', { concurrency: 4 }, () => {
     assert.deepEqual(
       orfaos,
       [],
-      `molde chama arquivo que o gerador não escreve — o hook do projeto criado quebra no primeiro commit:\n  ${orfaos.join('\n  ')}`,
+      `a template calls a file the generator does not write — the hook of the created project breaks on the first commit:\n  ${orfaos.join('\n  ')}`,
     )
   })
 
-  test('os arquivos marcados como executáveis estão entre os emitidos', () => {
+  test('the files marked executable are among the emitted ones', () => {
     const orfaos = EXECUTAVEIS.filter((e) => !emitidos.has(e))
     assert.deepEqual(
       orfaos,
       [],
-      `marca 100755 em arquivo que não é emitido:\n  ${orfaos.join('\n  ')}`,
+      `marks 100755 on a file that is not emitted:\n  ${orfaos.join('\n  ')}`,
     )
   })
 
-  // Contra-isca: uma fonte que existe mas nunca é emitida é molde morto, e
-  // molde morto envelhece sem ninguém notar. `agentes.md` é a exceção
-  // declarada — passa por `moldeAgents` em vez de ser copiado, e o próprio
-  // `aplicar.mjs` explica por quê.
-  test('nenhum molde fica órfão em new/gate/arquivos/', () => {
+  // Counter-bait: a source that exists but is never emitted is a dead template,
+  // and a dead template ages without anyone noticing. `agentes.md` is the
+  // declared exception — it goes through `moldeAgents` instead of being copied,
+  // and `aplicar.mjs` itself explains why.
+  test('no template is left orphaned in new/gate/arquivos/', () => {
     const usados = new Set(ESTATICOS.map(([fonte]) => fonte))
     const EXCECOES = new Set(['agentes.md', 'modelo.json'])
     const orfaos = readdirSync(MOLDES).filter((n) => !usados.has(n) && !EXCECOES.has(n))
     assert.deepEqual(
       orfaos,
       [],
-      `molde que ninguém copia — ou entra em ESTATICOS, ou sai da pasta:\n  ${orfaos.join('\n  ')}`,
+      `a template nobody copies — either it goes into ESTATICOS, or it leaves the folder:\n  ${orfaos.join('\n  ')}`,
     )
   })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// O PROJETO GERADO TEM DE TER COMO PUBLICAR — e não por fora do portão
+// THE GENERATED PROJECT HAS TO HAVE A WAY TO PUBLISH — and not around the gate
 //
-// P2 #9. O gerador entrega um Next configurado para export estático
-// (`output: "export"`, `trailingSlash`, `images.unoptimized`) e um `.pages.yml`
-// para o Pages CMS: tudo apontando para GitHub Pages, e nenhum job que
-// publicasse. O projeto nascia com tudo para publicar e nada que publique.
+// P2 #9. The generator ships a Next configured for static export
+// (`output: "export"`, `trailingSlash`, `images.unoptimized`) and a `.pages.yml`
+// for the Pages CMS: everything pointing at GitHub Pages, and no job that would
+// publish. The project was born with everything to publish and nothing that
+// publishes.
 //
-// Foi medido no `rebar-site`, que este gerador gerou: publicar exigiu escrever
-// o job à mão lá dentro, e a solução ficou no projeto em vez de voltar ao
-// molde. "Derivado, nunca duplicado" existe exatamente para isso.
+// It was measured in `rebar-site`, which this generator generated: publishing
+// required writing the job by hand in there, and the solution stayed in the
+// project instead of coming back to the template. "Derivado, nunca duplicado"
+// [derived, never duplicated] — the principle as docs/PLANO.md words it, kept in
+// Portuguese so the phrase still leads there — exists for exactly this.
 //
-// A segunda asserção é a que importa mais que a primeira. Ter deploy não vale
-// nada se ele puder rodar com o portão vermelho: um job de publicação sem
-// `needs` é um caminho paralelo ao portão, e o portão vira relatório.
-describe('publicação', () => {
+// The second assertion is the one that matters more than the first. Having a
+// deploy is worth nothing if it can run with the gate red: a publishing job with
+// no `needs` is a path parallel to the gate, and the gate turns into a report.
+describe('the workflow the generator emits', () => {
+  // COMMENTS OUT BEFORE LOOKING, and the reason showed up on the first run of
+  // these tests: the comment that EXPLAINS why the `.nvmrc` went away contains
+  // the string `.nvmrc`, and the test read the explanation as a directive —
+  // failing the very fix. It is the same trap that rebar-check's `ci-gates` had
+  // already solved by extracting only the values of `run:`. A comment does not
+  // execute.
   const yml = readFileSync(join(MOLDES, 'verificar.yml'), 'utf8')
+    .split(/\r?\n/)
+    .filter((l) => !/^\s*#/.test(l))
+    .join(String.fromCharCode(10))
 
-  /** Os jobs do workflow, com o corpo de cada um. Indentação de dois espaços. */
+  /** The workflow jobs, with the body of each one. Two-space indentation. */
   const jobs = () => {
-    const corpo = yml.slice(yml.indexOf('\njobs:') + 1)
+    const corpo = yml.slice(yml.indexOf(String.fromCharCode(10) + 'jobs:') + 1)
     const achados = []
-    const re = /^ {2}([a-z][a-z0-9-]*):$/gm
-    const marcas = [...corpo.matchAll(re)]
+    const marcas = [...corpo.matchAll(/^ {2}([a-z][a-z0-9-]*):$/gm)]
     marcas.forEach((m, i) => {
       const fim = i + 1 < marcas.length ? marcas[i + 1].index : corpo.length
       achados.push({ nome: m[1], corpo: corpo.slice(m.index, fim) })
@@ -131,37 +145,230 @@ describe('publicação', () => {
     return achados
   }
 
-  test('o workflow emitido tem um job que publica', () => {
+  // ── that it publishes
+  //
+  // The generator ships a Next with `output: "export"` and a `.pages.yml`:
+  // everything pointing at GitHub Pages, and until 2026-09-06 nothing that would
+  // publish. It was measured in rebar-site, which this generator generated —
+  // publishing required writing the job by hand in there, and the solution
+  // stayed in the project instead of coming back to the template.
+  test('the emitted workflow has a job that publishes', () => {
     const publica = jobs().filter((j) => /actions\/deploy-pages/.test(j.corpo))
     assert.equal(
       publica.length,
       1,
-      'o preset `site` nasce pronto para GitHub Pages e sem nada que o publique — ' +
-        'foi assim que o rebar-site precisou do job escrito à mão em vez de gerado',
+      'the `site` preset is born ready for GitHub Pages and with nothing that publishes it',
     )
   })
 
-  test('E ELE NÃO CORRE POR FORA DO PORTÃO · todo deploy depende de `verificar`', () => {
+  test('AND IT DOES NOT RUN AROUND THE GATE · every deploy depends on `verificar`', () => {
     for (const j of jobs().filter((x) =>
       /actions\/deploy-pages|upload-pages-artifact/.test(x.corpo),
     )) {
       assert.match(
         j.corpo,
         /^\s+needs: verificar$/m,
-        `o job "${j.nome}" publica sem depender do portão — deploy paralelo sobe a página com o ` +
-          `lint quebrado, e aí o portão é relatório, não porta`,
+        `job "${j.nome}" publishes without depending on the gate — a parallel deploy ships the ` +
+          `page with the lint broken, and then the gate is a report, not a door`,
       )
     }
   })
 
-  test('a permissão de escrever no Pages fica SÓ no job que publica', () => {
-    // `permissions: pages: write` no topo daria a chave a todo job do arquivo,
-    // inclusive ao que roda código de PR de terceiro.
-    const topo = yml.slice(0, yml.indexOf('\njobs:'))
+  test('the permission to write to Pages stays ONLY in the job that publishes', () => {
+    // `permissions: pages: write` at the top would hand the key to every job in
+    // the file, including the one that runs code from a third-party PR.
+    const topo = yml.slice(0, yml.indexOf(String.fromCharCode(10) + 'jobs:'))
     assert.doesNotMatch(
       topo,
       /pages:\s*write/,
-      'a permissão de Pages vazou para o escopo do arquivo',
+      'the Pages permission leaked into the scope of the file',
     )
   })
+
+  // ── and that it does not cite a file that does not exist
+  //
+  // Same test that already existed for the hooks — "every `.githooks/*.mjs` a
+  // template CALLS is a file the generator EMITS" — applied to the workflow,
+  // which is where it was missing and where it cost: the `publicar` job came
+  // pasted over from rebar-site with `node-version-file` pointing at a `.nvmrc`
+  // the generator does not write. The only job with `pages: write` died in
+  // setup-node, and `generator-map` stayed green because it checked the STRUCTURE
+  // of the job, never its dependencies.
+  const noProjeto = new Set([...emitidos, 'AGENTS.md', '.rebar-coauthors', 'package.json'])
+
+  test('`node-version-file` points at an emitted file, or does not exist', () => {
+    for (const m of yml.matchAll(/node-version-file:\s*['"]?([^'"\s]+)/g)) {
+      assert.ok(
+        noProjeto.has(m[1]),
+        `the workflow asks for "${m[1]}" and the generator does not write that file — setup-node ` +
+          `dies and the whole job never runs. Either emit the file, or pin the version with \`node-version:\``,
+      )
+    }
+  })
+
+  test('every file path cited in `run:` is emitted', () => {
+    // Only a path with a folder and a known extension: `npm run x` is not a file.
+    for (const m of yml.matchAll(/^\s*(?:- )?run:\s*(.+)$/gm)) {
+      for (const alvo of m[1].matchAll(
+        /(?:^|\s)([\w.-]+\/[\w.\/-]+\.(?:mjs|js|cjs|json|yml|yaml))/g,
+      )) {
+        assert.ok(
+          noProjeto.has(alvo[1]),
+          `the workflow runs "${alvo[1]}", which the generator does not write`,
+        )
+      }
+    }
+  })
+})
+
+// The AGENTS.md of the GENERATED PROJECT — and it is the generated one, not the
+// template.
+//
+// The `portao.test.mjs` the generator emits makes seven assertions about that
+// file, and until 2026-09-07 nothing ran them here. Two divergences lived off
+// that:
+//
+//   · the template sent the reader to `.rebar-coautores`, under the old name,
+//     and the emitted test checks `.rebar-coauthors`. The project's `npm test`
+//     failed on day one — the day the owner trusts what he received the most.
+//   · the first version of THIS test grabbed one assertion only, with `.exec()`,
+//     and claimed it was the allowlist one. There are seven, and `.exec()`
+//     returns the first: it checked the `npx` and passed with the wrong
+//     allowlist name. A test that passes for the wrong reason is worse than no
+//     test, because it takes up its place.
+//
+// The target is the output of `moldeAgents`, which is what goes to disk. One of
+// the seven lives inside `if (abre)` and only holds when the shadcn block was
+// inserted — that is why the block comes in here, and why it comes in with the
+// content the emitted test looks for.
+//
+// The block below stays in Portuguese on purpose: it is a fixture standing in
+// for what the third-party scaffold writes, not prose of this repository.
+const BLOCO_DO_SHADCN = [
+  '<!-- BEGIN:nextjs-agent-rules -->',
+  'Consulte a documentação em node_modules/next/dist/docs quando precisar.',
+  '<!-- END:nextjs-agent-rules -->',
+].join(String.fromCharCode(10))
+
+describe('the AGENTS.md the generator writes', () => {
+  const teste = readFileSync(join(MOLDES, 'portao.test.mjs'), 'utf8')
+  // Non-greedy up to the slash followed by a comma or a parenthesis: that is the
+  // end of the regex literal, and only that. The naive version `[^/]+` cut
+  // `github:Navesz\/rebar` in half, and the truncated piece matched almost
+  // everything.
+  const exigidos = [...teste.matchAll(/assert\.match\(\s*agents,\s*\/(.+?)\/[,)]/g)].map(
+    (m) => m[1],
+  )
+
+  test('the emitted test still demands something of the AGENTS.md', () => {
+    assert.ok(
+      exigidos.length >= 5,
+      `portao.test.mjs checks ${exigidos.length} thing(s) in the AGENTS.md — if it dropped to ` +
+        `fewer, somebody took an assertion out of the test that goes to the user`,
+    )
+  })
+
+  test('AND THE GENERATED FILE SATISFIES EVERY ONE OF THEM', () => {
+    const agents = moldeAgents('padaria-do-ze', BLOCO_DO_SHADCN)
+    const faltando = exigidos.filter((fonte) => !new RegExp(fonte).test(agents))
+    assert.deepEqual(
+      faltando,
+      [],
+      `the test the generator EMITS demands this of the AGENTS.md and the generated file does ` +
+        `not have it: ${faltando.join(' · ')}. The \`npm test\` of the project fails on day one.`,
+    )
+  })
+
+  test('the shadcn block passes through intact — it is what the `if (abre)` talks about', () => {
+    const agents = moldeAgents('padaria-do-ze', BLOCO_DO_SHADCN)
+    assert.ok(
+      agents.includes(BLOCO_DO_SHADCN),
+      'the third-party block was altered on the way. The template says it stays INTACT on ' +
+        'purpose: it talks about the installed Next version and ages along with it',
+    )
+  })
+
+  test('with no third-party block no orphan heading is left over', () => {
+    const agents = moldeAgents('padaria-do-ze', '')
+    assert.doesNotMatch(
+      agents,
+      // Portuguese on purpose: this matches the heading `aplicar.mjs` writes
+      // into the generated AGENTS.md. Translating it here stops the match.
+      /Aviso do scaffold/,
+      'with no block, the section that wraps it cannot appear — a heading pointing at nothing would be left',
+    )
+    assert.equal(
+      agents.includes('BEGIN:nextjs-agent-rules'),
+      agents.includes('END:nextjs-agent-rules'),
+      'the `nextjs-agent-rules` block was left half done',
+    )
+  })
+
+  test('the project name goes in, and no template marker is left raw', () => {
+    const agents = moldeAgents('padaria-do-ze', BLOCO_DO_SHADCN)
+    assert.match(agents, /padaria-do-ze/, 'the project name was not substituted in the template')
+    assert.doesNotMatch(
+      agents,
+      /{{\s*nome\s*}}/,
+      'a raw `{{nome}}` marker was left in the generated file',
+    )
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE SUBCOMMAND THAT HANDS OVER THE GENERATOR HAS TO ACTUALLY DISPATCH
+//
+// The file existing is not enough: the dispatcher builds its path in code, and a
+// path built wrong is invisible to every structural test.
+//
+// That was the defect. `join(RAIZ, 'novo', 'index.mjs')`, and the folder has
+// been called `new/` since the rename: `rebar novo` ALWAYS exited 2 saying the
+// generator was "not in this checkout", and the gate was green the whole time
+// because nothing ran it. Second time for this exact class — on 2026-09-05
+// `aplicar.mjs` read `verify.yml` from a folder where the file is
+// `verificar.yml`, and the gate stayed 15/15 green for six commits.
+//
+// This test runs the real binary. It does not generate a project — generation is
+// `npm create vite` plus network, minutes, and a step somebody switches off —
+// but it reaches the exact point where both defects lived: the generator import.
+test('`rebar new` reaches the generator instead of saying it is not here', () => {
+  const r = spawnSync(
+    process.execPath,
+    [join(RAIZ, 'tooling', 'rebar-check', 'index.mjs'), 'new'],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+    },
+  )
+  const saida = `${r.stdout ?? ''}${r.stderr ?? ''}`
+
+  assert.doesNotMatch(
+    saida,
+    /not in this checkout/,
+    `the dispatcher built a path that does not exist. It is the 2026-09-07 defect coming ` +
+      `back: the folder is \`new/\` and the path pointed at \`novo/\`.\n\n${saida}`,
+  )
+  // With no project name the generator complains about the NAME — and complaining
+  // about the name proves it loaded. That is the positive assertion: without it, a
+  // dispatcher that died silently would pass.
+  assert.match(
+    saida,
+    /project name|nome do projeto|usage:/i,
+    `the generator never got as far as complaining about the missing name, so it ` +
+      `probably did not load:\n\n${saida}`,
+  )
+})
+
+// The path the dispatcher builds, checked against disk. It is the cheap half of
+// the test above, and it gives the right message when the `spawnSync` fails for
+// some other reason.
+test('the generator path named in the dispatcher exists on disk', () => {
+  const checker = readFileSync(join(RAIZ, 'tooling', 'rebar-check', 'index.mjs'), 'utf8')
+  const m = /const gerador = join\(RAIZ, '([^']+)', '([^']+)'\)/.exec(checker)
+  assert.ok(m, 'the generator dispatcher changed shape — this test went blind, fix it')
+  assert.ok(
+    existsSync(join(RAIZ, m[1], m[2])),
+    `the dispatcher points at ${m[1]}/${m[2]}, which is not on disk`,
+  )
 })

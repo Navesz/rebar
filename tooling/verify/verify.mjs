@@ -1,67 +1,71 @@
 #!/usr/bin/env node
-// verificar — o comando único do rebar. Roda a sequência declarada em
-// verify.config.mjs e devolve UM veredito, com saída curta o bastante para
-// caber num contexto de IA sem custar uma leitura inteira.
+// verify — rebar's single command. Runs the sequence declared in
+// verify.config.mjs and returns ONE verdict, with output short enough to fit
+// in an AI context without costing a whole read.
 //
-// Zero dependência, de propósito: o que confere o build não pode depender do
-// build. Roda com `node tooling/verify/verify.mjs` em qualquer
-// máquina com Node >= 18 e git, antes de existir toolchain.
+// Zero dependencies, on purpose: what checks the build cannot depend on the
+// build. Runs with `node tooling/verify/verify.mjs` on any
+// machine with Node >= 18 and git, before a toolchain exists.
 //
-// Uso:
-//   node tooling/verify/verify.mjs             roda TUDO
-//   node tooling/verify/verify.mjs --json      saída para máquina
-//   node tooling/verify/verify.mjs --step=X   recorte de diagnóstico
-//   node tooling/verify/verify.mjs --config=<caminho>
+// Usage:
+//   node tooling/verify/verify.mjs             runs EVERYTHING
+//   node tooling/verify/verify.mjs --json      machine output
+//   node tooling/verify/verify.mjs --step=X   diagnostic slice
+//   node tooling/verify/verify.mjs --config=<path>
 //
-// CÓDIGOS DE SAÍDA — cinco coisas diferentes, cinco códigos diferentes:
-//   0    todos os passos rodaram e todos passaram. Só aqui existe APROVADO.
-//   1    REPROVOU: um passo rodou até o fim e disse não.
-//   2    erro de configuração, ou invocação errada.
-//   3    PARCIAL: rodou um recorte (--step=). Não é aprovação.
-//   127  QUEBROU: não deu para EXECUTAR um passo — comando ausente, falha de
-//        spawn, tempo limite. Defeito do ferramental, não do repositório.
+// EXIT CODES — five different things, five different codes:
+//   0    every step ran and every step passed. PASSED exists only here.
+//   1    FAILED: a step ran to the end and said no.
+//   2    configuration error, or wrong invocation.
+//   3    PARTIAL: ran a slice (--step=). Not a pass.
+//   127  BROKE: a step could not be EXECUTED — missing command, spawn
+//        failure, timeout. Defect of the tooling, not of the repository.
 //
-// A distinção entre 1 e 127 é a mesma do rebar-check: sem ela, o bug do
-// verificador entra na conta como se fosse defeito do repositório auditado.
+// The distinction between 1 and 127 is the same one rebar-check makes: without
+// it, the verifier's bug goes on the bill as if it were a defect of the audited
+// repository.
 //
-// ─── AS DUAS PORTAS QUE O ALICERCE DEIXOU DESTRANCADAS, aqui trancadas ───
+// ─── THE TWO DOORS THE FOUNDATION LEFT UNLOCKED, locked here ───
 //
-// FURO 1 — o campo `opcional`. No alicerce a decisão de reprovar era
-// `resultados.some(r => !r.ok && !r.opcional && !r.pulado)`. Consequência: um
-// passo com `opcional:true` que FALHAVA imprimia "VERIFICAR — APROVADO" e saía
-// 0. Uma palavra transformava qualquer portão em aviso verde. Aqui `opcional`
-// não é ignorado: é ERRO DE CONFIGURAÇÃO (exit 2), recusado pelo nome em
-// validarPassos(). Passo que não deve bloquear não é passo do verificar.
+// HOLE 1 — the `opcional` field. In the foundation the decision to fail was
+// `resultados.some(r => !r.ok && !r.opcional && !r.pulado)`. Consequence: a
+// step with `opcional:true` that FAILED printed "VERIFY — PASSED" and exited
+// 0. One word turned any gate into a green warning. Here `opcional` is not
+// ignored: it is a CONFIGURATION ERROR (exit 2), refused by name in
+// validarPassos(). A step that must not block is not a step of verify.
 //
-// FURO 2 — `--step=<nome>`. Medido no alicerce: `node verificar.mjs
-// --step=links` imprimiu "VERIFICAR — APROVADO", exit 0, tendo rodado 1 de 6
-// passos, sem uma palavra sobre os 5 que não rodaram. Qualquer CI fica verde de
-// graça. Aqui o recorte imprime "PARCIAL — 1 de N passos · NÃO É APROVAÇÃO",
-// lista nominalmente quem não rodou, e sai 3. Aprovação só existe quando o
-// denominador inteiro rodou.
+// HOLE 2 — `--step=<name>`. Measured in the foundation: `node verificar.mjs
+// --step=links` printed "VERIFY — PASSED", exit 0, having run 1 of 6
+// steps, without a word about the 5 that did not run. Any CI goes green for
+// free. Here the slice prints "PARTIAL — 1 of N steps · NOT A PASS",
+// names who did not run, and exits 3. A pass exists only when the whole
+// denominator ran.
 //
-// Terceira porta, fechada de nascença: não existe abortar-no-primeiro-erro.
-// Pular passo é a mecânica que produz falso verde; aqui todo passo selecionado
-// sempre roda até o fim. A ordem barato-antes-de-caro do config continua
-// valendo — ela decide qual falha é reportada como "conserte primeiro".
+// Third door, shut at birth: there is no abort-on-first-error. Skipping a step
+// is the mechanic that produces a false green; here every selected step always
+// runs to the end. The config's cheap-before-expensive order still holds — it
+// decides which failure is reported as "fix this first".
 //
-// FURO 3 — a forja de config. Auditoria de 2026-08-30: escrevi em
-// $TEMP/forja.config.mjs seis passos com `funcao: () => ({ codigo: 0 })` e rodei
-// `verify.mjs --config=$TEMP/forja.config.mjs`. Saída: "VERIFICAR — APROVADO
-// 6 de 6 passos · 1 ms", exit 0 — byte-indistinguível de uma aprovação real,
-// porque NENHUM campo, nem no texto nem no --json, dizia qual config tinha
-// rodado. Duas trancas aqui: (1) o caminho do config e a raiz resolvida são
-// SEMPRE impressos, em toda saída, aprovada ou não; (2) config que não é um
-// arquivo rastreado dentro da árvore de trabalho do git vira CONFIG EXTERNO e
-// nunca sai 0 — cai no 3, a mesma lógica do PARCIAL. `--config=` vazio, que
-// antes caía em silêncio na busca automática, agora é exit 2.
+// HOLE 3 — the config forgery. Audit of 2026-08-30: I wrote into
+// $TEMP/forja.config.mjs six steps with `funcao: () => ({ codigo: 0 })` and ran
+// `verify.mjs --config=$TEMP/forja.config.mjs`. Output: "VERIFY — PASSED
+// 6 of 6 steps · 1 ms", exit 0 — byte-indistinguishable from a real pass,
+// because NO field, neither in the text nor in --json, said which config had
+// run. Two locks here: (1) the config path and the resolved root are ALWAYS
+// printed, in every output, passed or not; (2) a config that is not a file
+// tracked inside git's working tree becomes EXTERNAL CONFIG and never
+// exits 0 — it falls to 3, the same logic as PARTIAL. An empty `--config=`,
+// which used to fall silently into the automatic search, is now exit 2.
 //
-// FURO 4 — o portão emudecia o único canal que denuncia bypass. `extrairErros`
-// só rodava quando o passo NÃO passava, então a stdout de um passo aprovado era
-// descartada inteira — inclusive as linhas "⚠ N arquivo(s) escondidos por
-// .rebarignore" do rebar-check, que são justamente o aviso de que alguém
-// escondeu arquivo da régua. Daí o campo `avisar`: uma RegExp por passo, extraída
-// e impressa MESMO quando o passo passa, numa seção "avisos" abaixo do placar.
+// HOLE 4 — the gate muted the one channel that denounces bypass. `extrairErros`
+// only ran when the step did NOT pass, so the stdout of a passing step was
+// discarded whole — including rebar-check's "⚠ N arquivo(s) escondidos por
+// .rebarignore" lines [N file(s) hidden by .rebarignore — quoted verbatim
+// because that is the literal rebar-check prints, and it still prints it in
+// Portuguese], which are exactly the warning that someone hid a file
+// from the ruler. Hence the `avisar` field: one RegExp per step, extracted
+// and printed EVEN when the step passes, in a "warnings" section below the
+// scoreboard.
 
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, realpathSync } from 'node:fs'
@@ -72,12 +76,13 @@ const LIMITE_LINHAS_PADRAO = 6
 const LARGURA_MAXIMA_LINHA = 160
 const TEMPO_LIMITE_PADRAO = 5 * 60 * 1000
 
-// ── invocação ───────────────────────────────────────────────────────────────
+// ── invocation ──────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2)
-// `?.slice()` devolvia '' para `--config=`, e '' é falsy: o executor caía na
-// busca automática e rodava OUTRO config sem dizer nada. A presença do flag e o
-// valor dele são duas perguntas diferentes, então são duas variáveis.
+// `?.slice()` returned '' for `--config=`, and '' is falsy: the runner fell
+// into the automatic search and ran ANOTHER config without saying so. Whether
+// the flag is present and what its value is are two different questions, so
+// they are two variables.
 const argConfig = args.find((a) => a.startsWith('--config='))
 const opcoes = {
   json: args.includes('--json'),
@@ -96,22 +101,23 @@ const c = {
 
 class ErroDeConfiguracao extends Error {}
 
-// Separada de ErroDeConfiguracao porque o código de saída é outro, e a diferença
-// importa: config torto é exit 2 ("conserte a invocação"); config adulterado é
-// exit 1, uma REPROVAÇÃO do repositório — alguém escondeu uma alteração do git.
+// Separate from ErroDeConfiguracao because the exit code is another one, and
+// the difference matters: a crooked config is exit 2 ("fix the invocation"); a
+// tampered config is exit 1, a FAIL of the repository — someone hid a change
+// from git.
 class ErroDeIntegridade extends Error {}
 
-// Argumento posicional silenciosamente ignorado é como se pede uma coisa e se
-// recebe outra com exit 0. Aqui qualquer coisa fora do vocabulário sai 2.
+// A positional argument silently ignored is how you ask for one thing and get
+// another with exit 0. Here anything outside the vocabulary exits 2.
 const desconhecidos = args.filter((a) => !/^--(json|passo=|config=)/.test(a))
 if (desconhecidos.length) {
-  console.error(`\n${c.vermelho('VERIFICAR — INVOCAÇÃO ERRADA')}\n`)
-  console.error(`  não reconheço: ${desconhecidos.join(', ')}`)
-  console.error(`  aceito: --json · --step=<nome> · --config=<caminho>\n`)
+  console.error(`\n${c.vermelho('VERIFY — WRONG INVOCATION')}\n`)
+  console.error(`  I do not recognize: ${desconhecidos.join(', ')}`)
+  console.error(`  I accept: --json · --step=<name> · --config=<path>\n`)
   process.exit(2)
 }
 
-// ── configuração ────────────────────────────────────────────────────────────
+// ── configuration ───────────────────────────────────────────────────────────
 
 const CHAVES_VALIDAS = new Set([
   'nome',
@@ -125,10 +131,10 @@ const CHAVES_VALIDAS = new Set([
   'avisar',
 ])
 
-// git é o único juiz de "este arquivo pertence a este repositório". Silencioso
-// porque toda falha aqui (git ausente, diretório fora de repositório, arquivo
-// não rastreado) tem o mesmo significado para quem chama: não deu para provar a
-// procedência. Quem chama decide o que fazer com o null.
+// git is the only judge of "this file belongs to this repository". Silent
+// because every failure here (git missing, directory outside a repository,
+// file not tracked) means the same thing to the caller: the provenance could
+// not be proven. The caller decides what to do with the null.
 function gitSilencioso(argumentos, cwd) {
   try {
     const saida = execFileSync('git', argumentos, {
@@ -143,10 +149,10 @@ function gitSilencioso(argumentos, cwd) {
   }
 }
 
-// No Windows o tmpdir costuma vir em nome 8.3 (C:\Users\LEONA~1\...) enquanto o
-// git devolve o nome longo. Comparar as duas formas dá "fora da raiz" para
-// caminho que está dentro. realpathSync normaliza as duas pontas; se o caminho
-// não existir mais, o resolve cru já serve.
+// On Windows the tmpdir usually comes as an 8.3 name (C:\Users\LEONA~1\...)
+// while git returns the long name. Comparing the two forms gives "outside the
+// root" for a path that is inside. realpathSync normalizes both ends; if the
+// path no longer exists, the raw resolve is enough.
 function caminhoReal(p) {
   try {
     return realpathSync(p)
@@ -155,14 +161,15 @@ function caminhoReal(p) {
   }
 }
 
-// O repositório do PRÓPRIO verificar.mjs, resolvido a partir do diretório do
-// script e nunca do cwd — mesma razão do instalar.mjs: rodar de dentro de outro
-// clone não pode mudar qual repositório está em jogo.
+// The repository of verificar.mjs ITSELF, resolved from the script's directory
+// and never from the cwd — same reason as instalar.mjs: running from inside
+// another clone cannot change which repository is at stake.
 const DIRETORIO_DESTE_SCRIPT = dirname(fileURLToPath(import.meta.url))
 
 function topoGit(dir) {
   const bruto = gitSilencioso(['rev-parse', '--show-toplevel'], dir)
-  // git devolve barra normal mesmo no Windows; resolve() põe no formato do SO.
+  // git returns forward slashes even on Windows; resolve() puts it in the OS's
+  // own format.
   return bruto === null ? null : caminhoReal(resolve(bruto))
 }
 
@@ -171,20 +178,21 @@ function mesmoCaminho(a, b) {
 }
 
 /**
- * Prova que a régua veio do repositório que a régua diz verificar.
+ * Proof that the ruler came from the repository the ruler says it verifies.
  *
- * Três condições, e nenhuma sobra. Auditei as duas primeiras sozinhas e as duas
- * furam: "estar dentro de uma árvore de trabalho do git" cai com um `git init`
- * no $TEMP, e "ser rastreado" cai com um `git add` + `git commit` nesse mesmo
- * repositório de mentira — medido, o forjado voltou a imprimir "APROVADO 8 de 8
- * · exit 0". A condição que fecha é a terceira: a raiz do config tem de ser a
- * MESMA raiz do verificar.mjs que está executando. O commit forjado do atacante
- * é revisável, sim — só que num histórico que ninguém deste projeto lê.
+ * Three conditions, and none of them is spare. I audited the first two alone
+ * and both leak: "being inside a git working tree" falls to a `git init` in
+ * $TEMP, and "being tracked" falls to a `git add` + `git commit` in that same
+ * fake repository — measured, the forgery went back to printing "PASSED 8 of 8
+ * · exit 0". The condition that closes it is the third: the config's root has
+ * to be the SAME root as the verificar.mjs that is executing. The attacker's
+ * forged commit is reviewable, yes — only in a history nobody on this project
+ * reads.
  */
 function procedenciaDoConfig(arquivo) {
   const topo = topoGit(dirname(arquivo))
   if (topo === null) {
-    return { raizGit: null, externo: true, motivo: 'não está dentro de árvore de trabalho do git' }
+    return { raizGit: null, externo: true, motivo: 'it is not inside a git working tree' }
   }
   const real = caminhoReal(arquivo)
   const dentro =
@@ -192,7 +200,7 @@ function procedenciaDoConfig(arquivo) {
       ? real.toLowerCase().startsWith(topo.toLowerCase() + sep)
       : real.startsWith(topo + sep)
   if (!dentro) {
-    return { raizGit: topo, externo: true, motivo: `está fora da raiz do git (${topo})` }
+    return { raizGit: topo, externo: true, motivo: `it is outside the git root (${topo})` }
   }
 
   const topoDoScript = topoGit(DIRETORIO_DESTE_SCRIPT)
@@ -200,43 +208,44 @@ function procedenciaDoConfig(arquivo) {
     return {
       raizGit: topo,
       externo: true,
-      motivo: 'não consegui achar o repositório do próprio verificar.mjs para comparar',
+      motivo: "I could not find verificar.mjs's own repository to compare against",
     }
   }
   if (!mesmoCaminho(topo, topoDoScript)) {
     return {
       raizGit: topo,
       externo: true,
-      motivo: `vem de outro repositório (${topo}); este verificar.mjs pertence a ${topoDoScript}`,
+      motivo: `it comes from another repository (${topo}); this verificar.mjs belongs to ${topoDoScript}`,
     }
   }
 
   const rel = relative(topo, real).split(sep).join('/')
   if (gitSilencioso(['ls-files', '--error-unmatch', '--', rel], topo) === null) {
-    return { raizGit: topo, externo: true, motivo: `"${rel}" não é rastreado por este repositório` }
+    return { raizGit: topo, externo: true, motivo: `"${rel}" is not tracked by this repository` }
   }
   return { raizGit: topo, externo: false, motivo: null, rel }
 }
 
 /**
- * Integridade do config, e por que esta checagem mora AQUI e não num passo.
+ * The config's integrity, and why this check lives HERE and not in a step.
  *
- * Tentei primeiro botá-la no passo `higiene` do verify.config.mjs. Medido no
- * clone de teste: `git update-index --skip-worktree verify.config.mjs` +
- * reescrever o arquivo com oito passos `() => ({codigo:0})` ⇒ "APROVADO 8 de 8
- * · exit 0". Óbvio em retrospecto — o passo que detectaria a troca é declarado
- * pelo arquivo trocado. Régua não confere a si mesma quando é a régua que foi
- * substituída. Então quem confere o config é o executor, antes de acreditar
- * numa linha dele.
+ * I first tried putting it in verify.config.mjs's `higiene` step. Measured in
+ * the test clone: `git update-index --skip-worktree verify.config.mjs` +
+ * rewriting the file with eight steps `() => ({codigo:0})` ⇒ "PASSED 8 of 8
+ * · exit 0". Obvious in hindsight — the step that would detect the swap is
+ * declared by the swapped file. A ruler does not check itself when the ruler is
+ * the piece that was replaced. So the one who checks the config is the runner,
+ * before believing a single line of it.
  *
- * O que ISTO não cobre, e é honesto dizer: quem consegue reescrever
- * verificar.mjs apaga esta função. Contra esse, a defesa não é código — é o
- * arquivo estar no HEAD, passar por revisão, e o caminho do config aparecer
- * impresso em toda execução.
+ * What THIS does not cover, and it is honest to say so: whoever can rewrite
+ * verificar.mjs deletes this function. Against that one the defense is not
+ * code — it is the file being in HEAD, going through review, and the config
+ * path showing up printed on every run.
  */
 function integridadeDoConfig(topo, rel) {
-  // 1 — bit de rastreio. `git status`, `git diff` e `git diff HEAD` são todos
-  // cegos a skip-worktree e a assume-unchanged; `ls-files -v` é o único que vê.
+  // 1 — the tracking bit. `git status`, `git diff` and `git diff HEAD` are all
+  // blind to skip-worktree and to assume-unchanged; `ls-files -v` is the only
+  // one that sees it.
   const marca = gitSilencioso(['ls-files', '-v', '--', rel], topo)
   if (marca && !marca.startsWith('H ')) {
     const letra = marca[0]
@@ -245,23 +254,23 @@ function integridadeDoConfig(topo, rel) {
         ? 'skip-worktree'
         : letra >= 'a' && letra <= 'z'
           ? 'assume-unchanged'
-          : `estado de índice "${letra}"`
+          : `index state "${letra}"`
     return {
       adulterado: true,
       motivo:
-        `${rel} está marcado como ${nome} no índice: o git parou de olhar o disco ` +
-        `para este arquivo, então status e diff mentem sobre ele.\n` +
-        `  Desfaça: git update-index --no-skip-worktree --no-assume-unchanged ${rel}`,
+        `${rel} is marked as ${nome} in the index: git stopped looking at the disk ` +
+        `for this file, so status and diff lie about it.\n` +
+        `  Undo it: git update-index --no-skip-worktree --no-assume-unchanged ${rel}`,
     }
   }
 
-  // 2 — o disco contra o HEAD. Divergir é normal (é o que edição é). Divergir
-  // SEM aparecer no status é a assinatura da adulteração: quem edita de boa fé
-  // aparece no status.
+  // 2 — the disk against HEAD. Diverging is normal (that is what editing is).
+  // Diverging WITHOUT showing up in status is the signature of tampering:
+  // whoever edits in good faith shows up in status.
   const noHead = gitSilencioso(['rev-parse', `HEAD:${rel}`], topo)
   if (noHead === null) return { adulterado: false, motivo: null }
-  // `hash-object` com caminho aplica o mesmo filtro de limpeza do commit (o
-  // .gitattributes normaliza fim de linha), então é comparação de igual para igual.
+  // `hash-object` with a path applies the same clean filter as the commit (the
+  // .gitattributes normalizes line endings), so it is a like-for-like comparison.
   const noDisco = gitSilencioso(['hash-object', '--', rel], topo)
   if (noDisco === null || noDisco === noHead) return { adulterado: false, motivo: null }
   const visivel = gitSilencioso(['status', '--porcelain', '--', rel], topo)
@@ -269,8 +278,8 @@ function integridadeDoConfig(topo, rel) {
   return {
     adulterado: true,
     motivo:
-      `${rel} no disco (${noDisco.slice(0, 12)}) difere do HEAD (${noHead.slice(0, 12)}) ` +
-      `e NÃO aparece em git status. Uma alteração invisível ao status não é edição, é ocultação.`,
+      `${rel} on disk (${noDisco.slice(0, 12)}) differs from HEAD (${noHead.slice(0, 12)}) ` +
+      `and does NOT appear in git status. A change invisible to status is not editing, it is hiding.`,
   }
 }
 
@@ -284,19 +293,22 @@ function auditarConfig(arquivo) {
 async function carregarConfig() {
   let arquivo
   if (opcoes.config !== undefined) {
-    // `--config=` sem valor não é "use o padrão": é comando pela metade. Aceitá-lo
-    // como padrão era um jeito de rodar um config e acreditar que rodou outro.
+    // `--config=` with no value is not "use the default": it is half a command.
+    // Accepting it as the default was a way to run one config and believe you
+    // ran another.
     if (opcoes.config.trim() === '') {
-      throw new ErroDeConfiguracao('--config= veio vazio. Passe um caminho ou omita o flag.')
+      throw new ErroDeConfiguracao('--config= came in empty. Pass a path or drop the flag.')
     }
     arquivo = resolve(process.cwd(), opcoes.config)
     if (!existsSync(arquivo)) {
-      throw new ErroDeConfiguracao(`--config=${opcoes.config} não existe (procurei em ${arquivo}).`)
+      throw new ErroDeConfiguracao(
+        `--config=${opcoes.config} does not exist (I looked in ${arquivo}).`,
+      )
     }
   } else {
-    // Sobe a árvore até achar. Rodar de dentro de tooling/ é comum e não
-    // pode mudar o veredito: os comandos dos passos são relativos à raiz, e a
-    // raiz passa a ser a pasta do config, não o cwd de quem chamou.
+    // Walks up the tree until it finds one. Running from inside tooling/ is
+    // common and cannot change the verdict: the steps' commands are relative to
+    // the root, and the root becomes the config's folder, not the caller's cwd.
     let dir = process.cwd()
     for (;;) {
       const tentativa = join(dir, 'verify.config.mjs')
@@ -310,14 +322,14 @@ async function carregarConfig() {
     }
     if (!arquivo) {
       throw new ErroDeConfiguracao(
-        `Nenhum verify.config.mjs de ${process.cwd()} até a raiz do disco.`,
+        `No verify.config.mjs from ${process.cwd()} up to the root of the disk.`,
       )
     }
   }
 
-  // A auditoria vem ANTES do import, e não depois: `import` executa o topo do
-  // módulo. Config adulterado não roda nem uma linha — nem para depois ser
-  // reprovado.
+  // The audit comes BEFORE the import, not after: `import` executes the top of
+  // the module. A tampered config does not run a single line — not even to be
+  // failed afterwards.
   const procedencia = auditarConfig(arquivo)
   if (procedencia.adulterado) {
     throw new ErroDeIntegridade(`${arquivo}\n\n  ${procedencia.motivoAdulteracao}`)
@@ -327,12 +339,12 @@ async function carregarConfig() {
   try {
     modulo = await import(pathToFileURL(arquivo).href)
   } catch (e) {
-    throw new ErroDeConfiguracao(`${arquivo} não carregou:\n  ${e.message}`)
+    throw new ErroDeConfiguracao(`${arquivo} did not load:\n  ${e.message}`)
   }
   const passos = modulo.default
   if (!Array.isArray(passos) || passos.length === 0) {
     throw new ErroDeConfiguracao(
-      `${arquivo} precisa exportar como default um array não vazio de passos.`,
+      `${arquivo} has to export a non-empty array of steps as its default.`,
     )
   }
   return { passos, arquivo, raiz: dirname(arquivo), procedencia }
@@ -343,37 +355,36 @@ function validarPassos(passos, arquivo) {
   const nomes = new Set()
 
   passos.forEach((p, i) => {
-    const onde = `passo #${i + 1}${p?.nome ? ` (${p.nome})` : ''}`
+    const onde = `step #${i + 1}${p?.nome ? ` (${p.nome})` : ''}`
     if (typeof p !== 'object' || p === null) {
-      problemas.push(`${onde}: não é objeto.`)
+      problemas.push(`${onde}: is not an object.`)
       return
     }
 
-    // FURO 1. A checagem é pelo NOME da chave, antes de qualquer outra coisa,
-    // porque o objetivo não é ignorar o campo — é impedir que alguém o escreva
-    // achando que funciona e saia daqui com um portão desligado e verde.
+    // HOLE 1. The check is by the key's NAME, before anything else, because the
+    // goal is not to ignore the field — it is to stop someone from writing it
+    // thinking it works and walking out of here with a gate switched off and
+    // green.
     if ('opcional' in p) {
       problemas.push(
-        `${onde}: o campo "opcional" não existe no rebar. No alicerce ele fazia um ` +
-          `passo FALHAR e mesmo assim imprimir APROVADO com exit 0. Passo que não ` +
-          `bloqueia não é passo do verificar: tire-o da lista.`,
+        `${onde}: the "opcional" field does not exist in rebar. In the foundation it made a ` +
+          `step FAIL and still print PASSED with exit 0. A step that does not ` +
+          `block is not a step of verify: take it off the list.`,
       )
     }
     if ('pulado' in p || 'grupo' in p) {
-      problemas.push(`${onde}: "pulado"/"grupo" não existem — todo passo selecionado sempre roda.`)
+      problemas.push(`${onde}: "pulado"/"grupo" do not exist — every selected step always runs.`)
     }
     for (const k of Object.keys(p)) {
       if (!CHAVES_VALIDAS.has(k) && k !== 'opcional' && k !== 'pulado' && k !== 'grupo') {
-        problemas.push(
-          `${onde}: chave desconhecida "${k}". Válidas: ${[...CHAVES_VALIDAS].join(', ')}.`,
-        )
+        problemas.push(`${onde}: unknown key "${k}". Valid: ${[...CHAVES_VALIDAS].join(', ')}.`)
       }
     }
 
     if (typeof p.nome !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p.nome)) {
-      problemas.push(`${onde}: "nome" precisa ser minúsculo, sem espaço (ex.: "sintaxe").`)
+      problemas.push(`${onde}: "nome" has to be lowercase, no spaces (e.g. "sintaxe").`)
     } else if (nomes.has(p.nome)) {
-      problemas.push(`${onde}: nome repetido — "--step=${p.nome}" seria ambíguo.`)
+      problemas.push(`${onde}: repeated name — "--step=${p.nome}" would be ambiguous.`)
     } else {
       nomes.add(p.nome)
     }
@@ -381,38 +392,39 @@ function validarPassos(passos, arquivo) {
     const temComando = 'comando' in p
     const temFuncao = 'funcao' in p
     if (temComando === temFuncao) {
-      problemas.push(`${onde}: declare "comando" (array) OU "funcao", exatamente um dos dois.`)
+      problemas.push(`${onde}: declare "comando" (array) OR "funcao", exactly one of the two.`)
     }
     if (temComando) {
-      // Array, nunca string: string exige shell, e shell no Windows é cmd.exe
-      // com regra de aspas própria. Foi execFileSync('npx', ...) sem shell:true
-      // que quebrou o alicerce nesta máquina. Sem shell não há o que escapar.
+      // Array, never a string: a string demands a shell, and the shell on
+      // Windows is cmd.exe with quoting rules of its own. It was
+      // execFileSync('npx', ...) without shell:true that broke the foundation
+      // on this machine. With no shell there is nothing to escape.
       if (
         !Array.isArray(p.comando) ||
         p.comando.length === 0 ||
         p.comando.some((a) => typeof a !== 'string' || a.length === 0)
       ) {
         problemas.push(
-          `${onde}: "comando" precisa ser array de strings não vazias, ex.: [process.execPath, "x.mjs"].`,
+          `${onde}: "comando" has to be an array of non-empty strings, e.g. [process.execPath, "x.mjs"].`,
         )
       }
     }
     if (temFuncao && typeof p.funcao !== 'function') {
-      problemas.push(`${onde}: "funcao" precisa ser função.`)
+      problemas.push(`${onde}: "funcao" has to be a function.`)
     }
     for (const k of ['extrair', 'avisar']) {
-      if (k in p && !(p[k] instanceof RegExp)) problemas.push(`${onde}: "${k}" precisa ser RegExp.`)
+      if (k in p && !(p[k] instanceof RegExp)) problemas.push(`${onde}: "${k}" has to be a RegExp.`)
     }
     if ('exige' in p && (!Array.isArray(p.exige) || p.exige.some((a) => typeof a !== 'string'))) {
-      problemas.push(`${onde}: "exige" precisa ser array de caminhos relativos à raiz.`)
+      problemas.push(`${onde}: "exige" has to be an array of paths relative to the root.`)
     }
     for (const k of ['limite', 'tempoLimite']) {
       if (k in p && (!Number.isInteger(p[k]) || p[k] <= 0)) {
-        problemas.push(`${onde}: "${k}" precisa ser inteiro positivo.`)
+        problemas.push(`${onde}: "${k}" has to be a positive integer.`)
       }
     }
     if ('dica' in p && typeof p.dica !== 'string')
-      problemas.push(`${onde}: "dica" precisa ser string.`)
+      problemas.push(`${onde}: "dica" has to be a string.`)
   })
 
   if (problemas.length) {
@@ -420,12 +432,12 @@ function validarPassos(passos, arquivo) {
   }
 }
 
-// ── execução ────────────────────────────────────────────────────────────────
+// ── execution ───────────────────────────────────────────────────────────────
 //
-// Três desfechos possíveis por passo, e eles NÃO são a mesma coisa:
-//   { estado: 'passou'   }   rodou até o fim e devolveu 0
-//   { estado: 'reprovou' }   rodou até o fim e devolveu != 0
-//   { estado: 'quebrou'  }   nem chegou a dar veredito
+// Three possible outcomes per step, and they are NOT the same thing:
+//   { estado: 'passou'   }   ran to the end and returned 0
+//   { estado: 'reprovou' }   ran to the end and returned != 0
+//   { estado: 'quebrou'  }   never got as far as a verdict
 
 function executarComando(passo, raiz) {
   return new Promise((resolvePromessa) => {
@@ -435,20 +447,21 @@ function executarComando(passo, raiz) {
     try {
       filho = spawn(passo.comando[0], passo.comando.slice(1), {
         cwd: raiz,
-        // Muita ferramenta enfeita a saída quando enxerga TTY, e o enfeite
-        // atrapalha a extração. Aqui a saída é sempre capturada, sempre crua.
+        // Plenty of tools decorate their output when they see a TTY, and the
+        // decoration gets in the way of extraction. Here the output is always
+        // captured, always raw.
         env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
       })
     } catch (e) {
-      resolvePromessa({ estado: 'quebrou', saida: `falha ao iniciar: ${e.message}`, duracaoMs: 0 })
+      resolvePromessa({ estado: 'quebrou', saida: `failed to start: ${e.message}`, duracaoMs: 0 })
       return
     }
 
     let saida = ''
-    // Ferramenta que despeja megabytes existe. 1 MB já é mais do que suficiente
-    // para extrair as primeiras linhas de erro.
+    // Tools that dump megabytes exist. 1 MB is already more than enough to
+    // extract the first error lines.
     const acumular = (pedaco) => {
       if (saida.length < 1_000_000) saida += String(pedaco)
     }
@@ -462,7 +475,7 @@ function executarComando(passo, raiz) {
       filho.kill('SIGKILL')
       resolvePromessa({
         estado: 'quebrou',
-        saida: `${saida}\n[verificar] tempo limite de ${tempoLimite} ms estourado — passo morto sem veredito`,
+        saida: `${saida}\n[verify] timeout of ${tempoLimite} ms blown — step killed with no verdict`,
         duracaoMs: Date.now() - inicio,
       })
     }, tempoLimite)
@@ -472,11 +485,11 @@ function executarComando(passo, raiz) {
       if (encerrado) return
       encerrado = true
       clearTimeout(relogio)
-      // ENOENT aqui é o executável não existir. Isso é defeito do ferramental,
-      // nunca "o repositório reprovou".
+      // ENOENT here is the executable not existing. That is a defect of the
+      // tooling, never "the repository failed".
       resolvePromessa({
         estado: 'quebrou',
-        saida: `${saida}\n[verificar] falha ao executar ${passo.comando[0]}: ${e.message}`,
+        saida: `${saida}\n[verify] failed to run ${passo.comando[0]}: ${e.message}`,
         duracaoMs: Date.now() - inicio,
       })
     })
@@ -486,13 +499,13 @@ function executarComando(passo, raiz) {
       encerrado = true
       clearTimeout(relogio)
 
-      // Morto por sinal nao tem veredito: `codigo` vem null e antes virava 1,
-      // ou seja, "o repositorio reprovou". Um passo derrubado por falta de
-      // memoria nao e o repositorio dizendo nao.
+      // Killed by a signal has no verdict: `codigo` comes in null and used to
+      // become 1, that is, "the repository failed". A step knocked down by
+      // running out of memory is not the repository saying no.
       if (codigo === null) {
         resolvePromessa({
           estado: 'quebrou',
-          saida: `${saida}\n[verificar] passo morto pelo sinal ${sinal} — sem veredito`,
+          saida: `${saida}\n[verify] step killed by signal ${sinal} — no verdict`,
           duracaoMs: Date.now() - inicio,
         })
         return
@@ -509,24 +522,24 @@ function executarComando(passo, raiz) {
 }
 
 /**
- * O codigo de saida de um passo, traduzido para o veredito.
+ * A step's exit code, translated into the verdict.
  *
- * Existe uma vez so porque os dois executores -- subprocesso e funcao -- tem de
- * responder igual, e ate 2026-09-06 nenhum dos dois respondia certo: os dois
- * liam "diferente de zero" como "reprovou", que apaga a distincao que o
- * cabecalho deste arquivo declara nas linhas 17-25.
+ * It exists once only because the two runners -- subprocess and function -- have
+ * to answer the same, and until 2026-09-06 neither answered right: both read
+ * "different from zero" as "failed", which erases the distinction this file's
+ * header declares on lines 17-26.
  *
- * 2 e 127 sao a REGUA quebrando, nao o repositorio dizendo nao:
+ * 2 and 127 are the RULER breaking, not the repository saying no:
  *
- *   127  o comando nao existe, ou o interpretador nao subiu
- *   2    invocacao errada, ou estado do repositorio torto -- o `checarSintaxe`
- *        devolve 2 quando o indice do git lista arquivo que nao esta no disco, e
- *        o comentario dele ja dizia "o executor nao trata isso como reprovacao
- *        de conteudo". O executor tratava; agora nao trata.
+ *   127  the command does not exist, or the interpreter did not come up
+ *   2    wrong invocation, or a crooked repository state -- `checarSintaxe`
+ *        returns 2 when git's index lists a file that is not on disk, and its
+ *        comment already said "the runner does not treat this as a content
+ *        failure". The runner did treat it that way; now it does not.
  *
- * A diferenca nao e cosmetica: `quebrou` sai 127 e `reprovou` sai 1, e a regra
- * da casa e que 127 domina 1 -- nao se acusa um repositorio com uma regua que
- * quebrou.
+ * The difference is not cosmetic: `quebrou` exits 127 and `reprovou` exits 1,
+ * and the house rule is that 127 dominates 1 -- you do not accuse a repository
+ * with a ruler that broke.
  */
 function estadoDoCodigo(codigo) {
   if (codigo === 0) return 'passou'
@@ -539,15 +552,16 @@ async function executarFuncao(passo, raiz) {
   const tempoLimite = passo.tempoLimite ?? TEMPO_LIMITE_PADRAO
   const prazo = inicio + tempoLimite
 
-  // O relógio só vence se a função devolver o controle ao loop de eventos. Uma
-  // função que bloqueia (execFileSync num laço, que é o caso do passo `sintaxe`)
-  // precisa consultar `prazo` ela mesma — por isso ele vai no argumento.
+  // The clock only fires if the function hands control back to the event loop.
+  // A function that blocks (execFileSync in a loop, which is the case of the
+  // `sintaxe` step) has to consult `prazo` itself — that is why it goes in the
+  // argument.
   const relogio = new Promise((res) => {
     const t = setTimeout(
       () =>
         res({
           estado: 'quebrou',
-          saida: `[verificar] tempo limite de ${tempoLimite} ms estourado`,
+          saida: `[verify] timeout of ${tempoLimite} ms blown`,
         }),
       tempoLimite,
     )
@@ -558,24 +572,24 @@ async function executarFuncao(passo, raiz) {
     try {
       const r = await passo.funcao({ raiz, prazo })
 
-      // VEREDITO AUSENTE E QUEBRA, nao aprovacao. Era `Number(r?.codigo ?? 0)`:
-      // funcao que devolvia `undefined`, `null`, `{}` ou esquecia o campo saia
-      // com codigo 0 e o passo PASSAVA. Passo mudo virando passo aprovado e a
-      // forma mais barata de portao falso -- e a mais dificil de notar, porque
-      // o placar fica verde.
+      // AN ABSENT VERDICT IS A BREAK, not a pass. It was `Number(r?.codigo ?? 0)`:
+      // a function that returned `undefined`, `null`, `{}` or forgot the field
+      // came out with code 0 and the step PASSED. A mute step turning into a
+      // passed step is the cheapest form of false gate -- and the hardest to
+      // notice, because the scoreboard stays green.
       const codigo = Number.isInteger(r?.codigo) ? r.codigo : Number(r?.codigo)
       if (!Number.isInteger(codigo)) {
         return {
           estado: 'quebrou',
           saida:
-            `[verificar] a função do passo não devolveu veredito: ` +
-            `esperava { codigo: <inteiro> }, veio ${JSON.stringify(r) ?? String(r)}`,
+            `[verify] the step's function returned no verdict: ` +
+            `expected { codigo: <integer> }, got ${JSON.stringify(r) ?? String(r)}`,
         }
       }
 
       return { estado: estadoDoCodigo(codigo), codigo, saida: String(r?.saida ?? '') }
     } catch (e) {
-      return { estado: 'quebrou', saida: `[verificar] a função do passo lançou: ${e.message}` }
+      return { estado: 'quebrou', saida: `[verify] the step's function threw: ${e.message}` }
     }
   })()
 
@@ -587,10 +601,11 @@ async function executar(passo, raiz) {
   for (const rel of passo.exige ?? []) {
     const alvo = isAbsolute(rel) ? rel : join(raiz, rel)
     if (!existsSync(alvo)) {
-      // Script ausente não é o repositório reprovando: é o ferramental faltando.
+      // A missing script is not the repository failing: it is the tooling
+      // missing.
       return {
         estado: 'quebrou',
-        saida: `[verificar] arquivo exigido ausente: ${rel}`,
+        saida: `[verify] required file missing: ${rel}`,
         duracaoMs: 0,
       }
     }
@@ -598,16 +613,21 @@ async function executar(passo, raiz) {
   return passo.comando ? executarComando(passo, raiz) : executarFuncao(passo, raiz)
 }
 
-// ── extração de erro ────────────────────────────────────────────────────────
+// ── error extraction ────────────────────────────────────────────────────────
 
-// A diferença entre 300 e 15 mil tokens por ciclo de correção está aqui. Uma
-// ferramenta que reprova despejando 400 linhas de rastro de pilha custa uma
-// leitura inteira de contexto; as mesmas 6 linhas certas custam quase nada.
+// The difference between 300 and 15 thousand tokens per fix cycle is here. A
+// tool that fails by dumping 400 lines of stack trace costs a whole context
+// read; the same 6 right lines cost almost nothing.
+//
+// The Portuguese alternatives (`erro`, `falhou`) stay: this pattern is matched
+// against the output of the tools the gate runs, and those still print in
+// Portuguese. Translating them blinds the extractor.
 const PADRAO_ERRO = /(^|\s)(error|erro|✗|✘|⚠|FAIL|failed|falhou)\b|error TS\d+|:\d+:\d+/i
 
-// RegExp com flag /g carrega lastIndex entre chamadas de .test(), o que faz o
-// filtro casar linha sim, linha não. Como as regexes vêm do config e o autor não
-// tem por que saber disso, a cópia sem /g é feita aqui em vez de recusar a flag.
+// A RegExp with the /g flag carries lastIndex between .test() calls, which
+// makes the filter match every other line. Since the regexes come from the
+// config and the author has no reason to know that, the copy without /g is made
+// here instead of refusing the flag.
 function semGlobal(re) {
   return re.flags.includes('g') ? new RegExp(re.source, re.flags.replace(/g/g, '')) : re
 }
@@ -623,8 +643,8 @@ function encurtar(l) {
   return l.length > LARGURA_MAXIMA_LINHA ? `${l.slice(0, LARGURA_MAXIMA_LINHA - 1)}…` : l
 }
 
-// FURO 4. Roda para TODO passo, inclusive o que passou: um aviso só serve se
-// aparece justamente quando nada mais está gritando.
+// HOLE 4. Runs for EVERY step, including the one that passed: a warning is only
+// any use if it shows up precisely when nothing else is shouting.
 function extrairAvisos(passo, saida) {
   if (!passo.avisar) return []
   const re = semGlobal(passo.avisar)
@@ -644,8 +664,8 @@ function extrairErros(passo, saida) {
   const re = passo.extrair ? semGlobal(passo.extrair) : null
   let candidatas = re ? linhas.filter((l) => re.test(l)) : linhas.filter((l) => PADRAO_ERRO.test(l))
 
-  // Sem padrão reconhecido, as últimas linhas costumam ser o resumo da
-  // ferramenta — mais úteis que as primeiras, que são banner.
+  // With no pattern recognized, the last lines are usually the tool's summary —
+  // more useful than the first ones, which are banner.
   if (candidatas.length === 0) candidatas = linhas.slice(-LIMITE_LINHAS_PADRAO)
 
   const unicas = [...new Set(candidatas.map((l) => l.trim()))]
@@ -653,7 +673,7 @@ function extrairErros(passo, saida) {
   return { total: unicas.length, mostradas: unicas.slice(0, limite).map(encurtar) }
 }
 
-// ── relatório ───────────────────────────────────────────────────────────────
+// ── report ──────────────────────────────────────────────────────────────────
 
 function duracao(ms) {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`
@@ -667,41 +687,40 @@ function relatar(veredito) {
   const aprovados = resultados.filter((r) => r.estado === 'passou')
 
   let titulo
-  if (quebrados.length) titulo = c.amarelo('QUEBROU')
-  else if (reprovados.length) titulo = c.vermelho('REPROVADO')
-  else if (procedencia.externo) titulo = c.amarelo('CONFIG EXTERNO')
-  else if (parcial) titulo = c.amarelo('PARCIAL')
-  else titulo = c.verde('APROVADO')
+  if (quebrados.length) titulo = c.amarelo('BROKE')
+  else if (reprovados.length) titulo = c.vermelho('FAILED')
+  else if (procedencia.externo) titulo = c.amarelo('EXTERNAL CONFIG')
+  else if (parcial) titulo = c.amarelo('PARTIAL')
+  else titulo = c.verde('PASSED')
 
-  const placar = `${resultados.length} de ${declarados} passos`
-  console.log(
-    `\n${c.forte('VERIFICAR')} — ${titulo}  ${c.cinza(`${placar} · ${duracao(duracaoMs)}`)}`,
-  )
+  const placar = `${resultados.length} of ${declarados} steps`
+  console.log(`\n${c.forte('VERIFY')} — ${titulo}  ${c.cinza(`${placar} · ${duracao(duracaoMs)}`)}`)
 
-  // FURO 3: sem estas duas linhas, "APROVADO 6 de 6" de um config forjado no
-  // $TEMP é byte-por-byte igual ao de um config real. Impressas SEMPRE — um
-  // campo que só aparece quando há problema é um campo que ninguém aprende a ler.
+  // HOLE 3: without these two lines, "PASSED 6 of 6" from a config forged in
+  // $TEMP is byte-for-byte identical to one from a real config. Printed
+  // ALWAYS — a field that only shows up when there is a problem is a field
+  // nobody learns to read.
   console.log(`  ${c.cinza('config')}  ${arquivo}`)
-  console.log(`  ${c.cinza('raiz')}    ${raiz}`)
+  console.log(`  ${c.cinza('root')}    ${raiz}`)
 
   if (procedencia.externo) {
     console.log(
-      `\n  ${c.amarelo(c.forte('CONFIG EXTERNO'))} — ${procedencia.motivo}. ${c.forte('NÃO É APROVAÇÃO.')}`,
+      `\n  ${c.amarelo(c.forte('EXTERNAL CONFIG'))} — ${procedencia.motivo}. ${c.forte('NOT A PASS.')}`,
     )
     console.log(
-      `  ${c.cinza('os passos rodaram, mas quem escreveu a régua não está sob revisão deste repositório.')}`,
+      `  ${c.cinza('the steps ran, but whoever wrote the ruler is not under review in this repository.')}`,
     )
   }
 
-  // FURO 2: a linha que o alicerce não imprimia. Ela vem ANTES dos detalhes
-  // porque é a informação que muda a leitura de tudo o que vem depois.
+  // HOLE 2: the line the foundation did not print. It comes BEFORE the details
+  // because it is the information that changes how everything after it reads.
   if (parcial) {
     console.log(
-      `\n  ${c.amarelo(c.forte(`PARCIAL — ${resultados.length} de ${declarados} passos. NÃO É APROVAÇÃO.`))}`,
+      `\n  ${c.amarelo(c.forte(`PARTIAL — ${resultados.length} of ${declarados} steps. NOT A PASS.`))}`,
     )
-    console.log(`  ${c.cinza(`não rodaram (${naoRodaram.length}): ${naoRodaram.join(' · ')}`)}`)
+    console.log(`  ${c.cinza(`did not run (${naoRodaram.length}): ${naoRodaram.join(' · ')}`)}`)
     console.log(
-      `  ${c.cinza('recorte serve para consertar, não para liberar. Rode sem --step= antes de commitar.')}`,
+      `  ${c.cinza('a slice is for fixing, not for clearing. Run without --step= before committing.')}`,
     )
   }
   console.log('')
@@ -710,16 +729,16 @@ function relatar(veredito) {
     const marca = r.estado === 'quebrou' ? c.amarelo('⚠') : c.vermelho('✗')
     const rotulo =
       r.estado === 'quebrou'
-        ? c.amarelo('NÃO EXECUTOU')
+        ? c.amarelo('DID NOT RUN')
         : r.erros.total === 1
-          ? '1 erro'
-          : `${r.erros.total} erros`
+          ? '1 error'
+          : `${r.erros.total} errors`
     console.log(`  ${marca} ${r.nome.padEnd(10)} ${rotulo}  ${c.cinza(duracao(r.duracaoMs))}`)
     for (const linha of r.erros.mostradas) console.log(`      ${linha}`)
     if (r.erros.total > r.erros.mostradas.length) {
       console.log(
         c.cinza(
-          `      … mais ${r.erros.total - r.erros.mostradas.length} · node tooling/verify/verify.mjs --step=${r.nome}`,
+          `      … ${r.erros.total - r.erros.mostradas.length} more · node tooling/verify/verify.mjs --step=${r.nome}`,
         ),
       )
     }
@@ -729,14 +748,16 @@ function relatar(veredito) {
   if (aprovados.length)
     console.log(`  ${c.verde('✓')} ${aprovados.map((r) => r.nome).join(' · ')}\n`)
 
-  // FURO 4: seção própria, abaixo do placar, alimentada também pelos passos que
-  // PASSARAM. É por aqui que "⚠ N arquivo(s) escondidos por .rebarignore" chega
-  // a quem lê — antes, a stdout de um passo aprovado era descartada inteira.
+  // HOLE 4: a section of its own, below the scoreboard, fed also by the steps
+  // that PASSED. This is how "⚠ N arquivo(s) escondidos por .rebarignore" [N
+  // file(s) hidden by .rebarignore — rebar-check's literal, still Portuguese]
+  // reaches the reader — before, the stdout of a passing step was discarded
+  // whole.
   const comAviso = resultados.filter((r) => r.avisos.length)
   if (comAviso.length) {
     const n = comAviso.reduce((s, r) => s + r.avisos.length, 0)
     console.log(
-      `  ${c.amarelo(c.forte(`avisos (${n})`))} ${c.cinza('— não reprovam, mas são reais')}`,
+      `  ${c.amarelo(c.forte(`warnings (${n})`))} ${c.cinza('— they do not fail, but they are real')}`,
     )
     for (const r of comAviso) {
       for (const linha of r.avisos) console.log(`      ${c.cinza(r.nome.padEnd(8))} ${linha}`)
@@ -744,21 +765,22 @@ function relatar(veredito) {
     console.log('')
   }
 
-  // O config declara do mais barato ao mais caro, então o primeiro da ordem que
-  // caiu é o que se conserta primeiro — e consertar costuma apagar os de baixo.
+  // The config declares from cheapest to most expensive, so the first one in
+  // the order that fell is the one to fix first — and fixing it usually erases
+  // the ones below.
   const primeiro = resultados.find((r) => r.estado !== 'passou')
   if (primeiro) {
     const restantes = resultados.filter((r) => r.estado !== 'passou').length - 1
     console.log(
-      `  ${c.forte('Primeiro:')} ${primeiro.nome}.${primeiro.dica ? ` ${primeiro.dica}` : ''}`,
+      `  ${c.forte('First:')} ${primeiro.nome}.${primeiro.dica ? ` ${primeiro.dica}` : ''}`,
     )
-    if (restantes === 1) console.log(c.cinza('  O outro pode sumir junto.'))
-    else if (restantes > 1) console.log(c.cinza(`  Os outros ${restantes} podem sumir junto.`))
+    if (restantes === 1) console.log(c.cinza('  The other one may go with it.'))
+    else if (restantes > 1) console.log(c.cinza(`  The other ${restantes} may go with it.`))
     console.log('')
   }
 }
 
-// ── principal ───────────────────────────────────────────────────────────────
+// ── main ────────────────────────────────────────────────────────────────────
 
 async function principal() {
   const { passos, arquivo, raiz, procedencia } = await carregarConfig()
@@ -767,8 +789,8 @@ async function principal() {
   const selecionados = opcoes.passo ? passos.filter((p) => p.nome === opcoes.passo) : passos
   if (opcoes.passo && selecionados.length === 0) {
     throw new ErroDeConfiguracao(
-      `Passo "${opcoes.passo}" não existe em ${arquivo}.\n  ` +
-        `Disponíveis: ${passos.map((p) => p.nome).join(', ')}`,
+      `Step "${opcoes.passo}" does not exist in ${arquivo}.\n  ` +
+        `Available: ${passos.map((p) => p.nome).join(', ')}`,
     )
   }
   const parcial = selecionados.length !== passos.length
@@ -777,8 +799,8 @@ async function principal() {
   const resultados = []
   const inicio = Date.now()
   for (const passo of selecionados) {
-    // Progresso só em terminal: em log de CI o \r não apaga nada e as linhas se
-    // acumulam, sujando exatamente a saída que este script existe para encurtar.
+    // Progress only in a terminal: in a CI log the \r erases nothing and the
+    // lines pile up, dirtying exactly the output this script exists to shorten.
     const mostrar = !opcoes.json && process.stdout.isTTY
     if (mostrar) process.stdout.write(c.cinza(`  … ${passo.nome}\r`))
     const r = await executar(passo, raiz)
@@ -805,15 +827,16 @@ async function principal() {
     procedencia,
   }
 
-  // Ordem de precedência, e ela não é arbitrária: QUEBROU domina REPROVOU
-  // porque não se acusa um repositório com uma régua que não rodou. REPROVOU
-  // domina PARCIAL porque um passo que rodou e disse não é veredito de verdade,
-  // e escondê-lo atrás do 3 perderia informação. PARCIAL domina o 0 sempre —
-  // é a porta trancada do FURO 2.
+  // Order of precedence, and it is not arbitrary: BROKE dominates FAILED
+  // because you do not accuse a repository with a ruler that did not run.
+  // FAILED dominates PARTIAL because a step that ran and said no is a real
+  // verdict, and hiding it behind the 3 would lose information. PARTIAL
+  // dominates the 0 always — it is HOLE 2's locked door.
   //
-  // CONFIG EXTERNO entra na mesma faixa do PARCIAL, e pela mesma razão: os
-  // passos podem ter todos passado, mas quem escolheu os passos não está sob
-  // revisão. Isso não acusa o repositório (não é 1) nem absolve (nunca é 0).
+  // EXTERNAL CONFIG lands in the same band as PARTIAL, and for the same reason:
+  // the steps may have all passed, but whoever chose the steps is not under
+  // review. That does not accuse the repository (it is not 1) nor absolve it
+  // (it is never 0).
   const quebrou = resultados.some((r) => r.estado === 'quebrou')
   const reprovou = resultados.some((r) => r.estado === 'reprovou')
   const externo = procedencia.externo
@@ -832,8 +855,9 @@ async function principal() {
                 : parcial
                   ? 'parcial'
                   : 'aprovado',
-          // FURO 3: o consumidor de --json precisa poder responder "qual régua
-          // produziu este veredito?" sem confiar na palavra de quem rodou.
+          // HOLE 3: the consumer of --json has to be able to answer "which
+          // ruler produced this verdict?" without trusting the word of whoever
+          // ran it.
           config: {
             arquivo,
             raiz,
@@ -880,16 +904,16 @@ principal().catch((e) => {
         ),
       )
     } else {
-      console.error(`\n${c.vermelho('VERIFICAR — CONFIG ADULTERADO')}\n\n  ${e.message}\n`)
+      console.error(`\n${c.vermelho('VERIFY — TAMPERED CONFIG')}\n\n  ${e.message}\n`)
       console.error(
-        `  ${c.cinza('nenhum passo rodou: a régua que diria se está tudo bem é a peça trocada.')}\n`,
+        `  ${c.cinza('no step ran: the ruler that would say all is well is the piece that was swapped.')}\n`,
       )
     }
     process.exitCode = 1
     return
   }
-  const titulo = e instanceof ErroDeConfiguracao ? 'ERRO DE CONFIGURAÇÃO' : 'ERRO INTERNO'
-  console.error(`\n${c.vermelho(`VERIFICAR — ${titulo}`)}\n\n  ${e.message}\n`)
-  // Config quebrada nunca é aprovação nem reprovação do repositório.
+  const titulo = e instanceof ErroDeConfiguracao ? 'CONFIGURATION ERROR' : 'INTERNAL ERROR'
+  console.error(`\n${c.vermelho(`VERIFY — ${titulo}`)}\n\n  ${e.message}\n`)
+  // A broken config is never a pass nor a fail of the repository.
   process.exitCode = e instanceof ErroDeConfiguracao ? 2 : 127
 })

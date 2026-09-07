@@ -1,4 +1,4 @@
 {
   "rule": "tests",
-  "why": "A outra metade do mesmo falso positivo. Esta variante isola o ramo de NOME DE ARQUIVO: o único teste do lado aprovar é `provar-soma.mjs`, na raiz, sem nenhuma pasta de teste no caminho. Existe separada porque a versão anterior desta prova tinha os dois ramos na mesma árvore — e, restaurando à mão a cegueira ao português, ela continuou VERDE, porque o outro ramo ainda casava. Prova que sobrevive à volta do defeito que ela trava não é prova."
+  "why": "The other half of the same false positive. This variant isolates the FILE NAME branch: the only test on the pass side is `provar-soma.mjs`, at the root, with no test folder in the path. It exists separately because the previous version of this proof had both branches in the same tree — and, restoring the Portuguese-blindness by hand, it stayed GREEN, because the other branch still matched. A proof that survives the return of the defect it locks is not a proof. `provar-` stays Portuguese: it is a NOME_TESTE alternative."
 }

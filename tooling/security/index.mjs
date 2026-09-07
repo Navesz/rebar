@@ -1,66 +1,69 @@
 #!/usr/bin/env node
-// rebar-security — a régua de segurança, contra repositório que JÁ EXISTE.
+// rebar-security — the security ruler, against a repository that ALREADY EXISTS.
 //
-// Uso:
-//   node tooling/security/index.mjs <dir>              placar de um repositório
-//   node tooling/security/index.mjs --json <dir>       para CI
-//   node tooling/security/index.mjs --rule=<id> <dir>  uma regra só
-//   node tooling/security/index.mjs --heuristics <dir> heurística também derruba
+// Usage:
+//   node tooling/security/index.mjs <dir>              scoreboard of a repository
+//   node tooling/security/index.mjs --json <dir>       for CI
+//   node tooling/security/index.mjs --rule=<id> <dir>  one rule only
+//   node tooling/security/index.mjs --heuristics <dir> heuristics fail too
 //
-// CÓDIGOS DE SAÍDA — os mesmos do rebar-check, e pelo mesmo motivo:
-//   0    tudo que se aplica passou
-//   1    reprovou — violação real
-//   2    alvo inválido ou invocação errada
-//   127  QUEBROU: uma regra lançou. Defeito DESTA ferramenta, não do alvo.
+// EXIT CODES — the same as rebar-check's, and for the same reason:
+//   0    everything that applies passed
+//   1    failed — a real violation
+//   2    invalid target or wrong invocation
+//   127  BROKE: a rule threw. A defect of THIS tool, not of the target.
 //
-// ─────────────────────────────────────────────────── de onde estas regras vêm
+// ──────────────────────────────────────────────── where these rules came from
 //
-// De 16 vídeos técnicos brasileiros sobre segurança, lidos e destilados em
-// 163 falhas candidatas. Cada uma passou por três céticos independentes — um
-// perguntando "dá para decidir isto sem rodar a aplicação?", outro "em quantos
-// repositórios honestos isto dispararia errado?", o terceiro "o rebar já não
-// checa isso?". 82 sobreviveram. O inventário inteiro está em
-// `docs/security/INVENTARIO.md`, com o placar de frequência e — mais
-// importante — os 8 casos que NÃO viram regra.
+// From 16 Brazilian technical videos about security, read and distilled into
+// 163 candidate flaws. Each one went through three independent skeptics — one
+// asking "can this be decided without running the application?", another "in how
+// many honest repositories would this fire wrong?", the third "doesn't rebar
+// already check that?". 82 survived. The whole inventory is in
+// `docs/security/INVENTARIO.md`, with the frequency scoreboard and — more
+// important — the 8 cases that did NOT become rules.
 //
-// ───────────────────────────────────── os invariantes, e por que são poucos
+// ────────────────────────────────────── the invariants, and why there are few
 //
-// Dez invariantes saíram da repetição dos falsos positivos que os relatores
-// nomearam. Três decidem quase tudo, e estão escritos aqui porque toda regra
-// nova entra provando que os respeita:
+// Ten invariants came out of the repetition in the false positives the
+// reporters named. Three decide almost everything, and they are written here
+// because every new rule enters by proving it respects them:
 //
-//   I1. ESCOPO REPO-WIDE, NUNCA POR ARQUIVO. Sempre que o falso positivo
-//       previsto for "a defesa está em outro arquivo" (middleware, policy,
-//       serializer), a regra olha o repositório inteiro ou não existe.
+//   I1. REPO-WIDE SCOPE, NEVER PER FILE. Whenever the predicted false positive
+//       is "the defense is in another file" (middleware, policy, serializer),
+//       the rule looks at the whole repository or it does not exist.
 //
-//   I4. RAMO `na()` OBRIGATÓRIO. Sem o pré-requisito — sem código de servidor,
-//       sem git, sem manifesto — o veredito é "não avaliado" e a classe SAI DO
-//       DENOMINADOR. Silêncio por ausência nunca vira "aprovado".
+//   I4. `na()` BRANCH MANDATORY. Without the prerequisite — no server code, no
+//       git, no manifest — the verdict is "not evaluated" and the class LEAVES
+//       THE DENOMINATOR. Silence by absence never becomes "passed".
 //
-//   I7. COMENTÁRIO NÃO CONTA. Medido neste repositório com outra regra: 7
-//       ocorrências, ZERO verdadeiro positivo, cinco delas comentários sobre a
-//       própria regra. Todo detector que contém o padrão que procura se acusa
-//       sem esta guarda.
+//   I7. A COMMENT DOES NOT COUNT. Measured in this repository with another
+//       rule: 7 occurrences, ZERO true positives, five of them comments about
+//       the rule itself. Every detector that contains the pattern it looks for
+//       accuses itself without this guard.
 //
-// ─────────────────────────────────── o vocabulário é bilíngue, e isso é medido
+// ─────────────────────────── the vocabulary is bilingual, and that is measured
 //
-// Durante a tradução deste projeto para o inglês eu troquei `'provas'` por
-// `'proofs'` numa lista que o checker usa para RECONHECER pasta de teste nos
-// repositórios dos outros. A regra ficou cega, e o caso de prova caiu na hora
-// — ele dizia, escrito antes: "se o segmento `provas` sair do reconhecedor, o
-// lado aprovar sai 1".
+// While translating this project into English I swapped `'provas'` for
+// `'proofs'` in a list the checker uses to RECOGNIZE test folders in other
+// people's repositories. The rule went blind, and the proof case fell on the
+// spot — it said, written beforehand: "se o segmento `provas` sair do
+// reconhecedor, o lado aprovar sai 1" [if the `provas` segment leaves the
+// recognizer, the pass side exits 1]. The quote stays in Portuguese because it
+// is verbatim from `tooling/rebar-check/proofs/cases/tests/caso.json`.
 //
-// A lição vale dobrado aqui: este módulo audita repositório BRASILEIRO. Um
-// detector de senha que procure só `password` não vê `senha`; um de segredo
-// que procure só `secret` não vê `chave`. Toda lista de vocabulário abaixo tem
-// os dois idiomas, e é por medição, não por simetria.
+// The lesson counts double here: this module audits BRAZILIAN repositories. A
+// password detector that looks only for `password` does not see `senha`; a
+// secret detector that looks only for `secret` does not see `chave`. Every
+// vocabulary list below carries both languages, and that is by measurement, not
+// by symmetry.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { lerRepo, semComentarioNemImport } from '../rebar-check/index.mjs'
 
-/** "Não se aplica" — o terceiro estado. Sai do denominador, não do placar. */
+/** "Not applicable" — the third state. Out of the denominator, not the scoreboard. */
 const na = (motivo) => ({ na: motivo })
 
 const ler = (dir, rel) => {
@@ -72,64 +75,76 @@ const ler = (dir, rel) => {
 }
 
 /**
- * Arquivos de código de PRODUÇÃO, já sem fixture, sem teste e sem exemplo.
+ * PRODUCTION code files, already without fixture, without test, without example.
  *
- * `r.fontes` vem do rebar-check e já exclui fixture e teste (I5). Aqui sobra
- * tirar `*.example`, `*.sample`, `*.template`, `*.dist` e os equivalentes em
- * português — invariante I6, e é dívida medida: o varredor de segredo deste
- * mesmo repositório produz dois falsos positivos exatamente neste ponto.
+ * `r.fontes` comes from rebar-check and already excludes fixture and test (I5).
+ * What is left here is dropping `*.example`, `*.sample`, `*.template`, `*.dist`
+ * and the Portuguese equivalents — invariant I6, and it is measured debt: this
+ * very repository's secret scanner produces two false positives at exactly this
+ * point.
+ *
+ * `exemplo|modelo` stay in Portuguese ON PURPOSE. They are file names in the
+ * audited repositories, which are Brazilian; translating them blinds the
+ * exclusion and brings the false positive back.
  */
 const EXEMPLO = /\.(example|exemplo|sample|template|dist|modelo)(\.|$)/i
 
 /**
- * `r.fontes` vem como pares `[caminho, texto]`, não como lista de caminhos.
+ * `r.fontes` arrives as `[path, text]` pairs, not as a list of paths.
  *
- * Custou o primeiro par de provas vermelho: eu tratei como lista de caminhos,
- * o `filter` comparou regex contra um array (que vira string com o arquivo
- * inteiro dentro), e a leitura recebeu o par como se fosse caminho. Toda regra
- * ficou cega em silêncio — `disabled-defense` disse "passou" sobre uma árvore
- * com `rejectUnauthorized: false`, que é o pior desfecho possível para uma
- * régua de segurança.
+ * It cost the first red pair of proofs: I treated it as a list of paths, the
+ * `filter` compared a regex against an array (which turns into a string with the
+ * whole file inside it), and the read got the pair as if it were a path. Every
+ * rule went blind in silence — `disabled-defense` said "passed" over a tree with
+ * `rejectUnauthorized: false`, which is the worst possible outcome for a
+ * security ruler.
  *
- * O texto vir junto é vantagem: nenhuma regra reabre arquivo, e o comentário
- * sai uma vez só (I7).
+ * The text coming along is an advantage: no rule reopens a file, and the comment
+ * is stripped only once (I7).
  */
 const codigo = (r) =>
   (r.fontes || [])
     .filter(([rel]) => !EXEMPLO.test(rel))
     .map(([rel, texto]) => [rel, semComentarioNemImport(texto)])
 
-/** Para arquivo que não é fonte — Dockerfile, settings.py, workflow. */
+/** For a file that is not a source — Dockerfile, settings.py, workflow. */
 const corpo = (dir, rel) => {
   const t = ler(dir, rel)
   return t === null ? null : semComentarioNemImport(t)
 }
 
-// ═════════════════════════════════════════════════════════════════════ regras
+// ══════════════════════════════════════════════════════════════════════ rules
 
+// `classe: 'determinística'` is a VALUE, not prose. It is read outside this
+// file — `mcp/generate.mjs`, `mcp/src/consultas.mjs` (twice) and
+// `tooling/numbers.mjs` all compare against the literal. Translate it here and
+// all three rules print as heuristic, stop failing the commit, and the MCP
+// scoreboard counts zero deterministic ones.
 export const REGRAS = [
   // ──────────────────────────────────────────────────────────────────── S1
   {
     id: 'env-committed',
     classe: 'determinística',
     nivel: 'N5',
-    titulo: 'nenhum .env rastreado pelo git',
+    titulo: 'no .env tracked by git',
     /**
-     * A classe mais comum do inventário inteiro: segredo versionado aparece em
-     * 7 dos 16 vídeos. Esta é a fatia mais barata dela — um `git ls-files`.
+     * The most common class in the whole inventory: a versioned secret shows up
+     * in 7 of the 16 videos. This is its cheapest slice — a `git ls-files`.
      *
-     * NÃO é o varredor de segredo, que já existe em `tooling/secret/`. Aquele
-     * olha o CONTEÚDO em stage; este olha o NOME rastreado. São achados
-     * diferentes: um `.env` pode estar rastreado e vazio hoje, e receber a
-     * chave amanhã sem ninguém notar, porque o arquivo já passou pela revisão.
+     * It is NOT the secret scanner, which already exists in `tooling/secret/`.
+     * That one looks at the staged CONTENT; this one looks at the tracked NAME.
+     * They are different findings: a `.env` can be tracked and empty today and
+     * get the key tomorrow with nobody noticing, because the file already went
+     * through review.
      *
-     * Falso positivo previsto e excluído: `.env.example`, `.env.sample`,
-     * `.env.template`, `.env.dist` e `.env.exemplo` são o CONSERTO desta falha,
-     * não a falha. Um repositório que documenta as variáveis num `.env.example`
-     * rastreado está fazendo a coisa certa.
+     * False positive predicted and excluded: `.env.example`, `.env.sample`,
+     * `.env.template`, `.env.dist` and `.env.exemplo` are the FIX for this flaw,
+     * not the flaw. A repository that documents its variables in a tracked
+     * `.env.example` is doing the right thing.
      *
-     * N5 e não N1 porque o conserto depois do commit não é apagar o arquivo: é
-     * rotacionar a credencial. O lugar de barrar é antes do commit existir.
+     * N5 and not N1 because the fix after the commit is not deleting the file:
+     * it is rotating the credential. The place to block is before the commit
+     * exists.
      */
     checar: (r) => {
       const alvos = (r.arquivos || []).filter((a) => {
@@ -139,8 +154,8 @@ export const REGRAS = [
       })
       if (!alvos.length) return null
       return (
-        `${alvos.length} arquivo(s) .env rastreado(s): ${alvos.join(', ')} — ` +
-        'apagar não basta, o segredo já está no histórico; rotacione a credencial'
+        `${alvos.length} tracked .env file(s): ${alvos.join(', ')} — ` +
+        'deleting is not enough, the secret is already in history; rotate the credential'
       )
     },
   },
@@ -150,27 +165,28 @@ export const REGRAS = [
     id: 'disabled-defense',
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'nenhuma proteção de framework desligada por literal',
+    titulo: 'no framework protection turned off by a literal',
     /**
-     * A lacuna mais barata que a auditoria do inventário encontrou, e ela nem
-     * estava no inventário: nenhum vídeo mostrou, mas é o padrão mais
-     * determinístico que existe num repositório feito com IA.
+     * The cheapest gap the inventory audit found, and it was not even in the
+     * inventory: no video showed it, but it is the most deterministic pattern
+     * there is in a repository built with AI.
      *
-     * Cada literal desta lista é uma DECISÃO HUMANA registrada em uma linha —
-     * alguém desligou uma proteção para o demo parar de dar erro, e nunca
-     * religou. Não há dataflow, não há schema, não há prova de ausência: o
-     * literal está lá ou não está. Por isso o falso positivo tende a zero e o
-     * achado se explica sozinho.
+     * Every literal in this list is a HUMAN DECISION recorded on one line —
+     * somebody turned a protection off so the demo would stop erroring, and
+     * never turned it back on. There is no dataflow, no schema, no proof of
+     * absence: the literal is there or it is not. That is why the false positive
+     * tends to zero and the finding explains itself.
      *
-     * Traz CSRF (CWE-352, terceiro do CWE Top 25) para dentro do módulo, que
-     * de outra forma ficaria sem nenhuma regra.
+     * It brings CSRF (CWE-352, third in the CWE Top 25) into the module, which
+     * would otherwise be left with no rule at all.
      *
-     * FALSO POSITIVO PREVISTO E TRATADO: o próprio arquivo que documenta estes
-     * padrões — este aqui — casaria todos eles. É o que `semComentarioNemImport`
-     * resolve (I7), e é a razão de o corpo ser lido sem comentário.
+     * FALSE POSITIVE PREDICTED AND HANDLED: the very file that documents these
+     * patterns — this one — would match every one of them. That is what
+     * `semComentarioNemImport` solves (I7), and it is the reason the body is
+     * read without comments.
      */
     checar: (r) => {
-      // Fonte ja vem com o texto; config e workflow precisam de leitura.
+      // Source already comes with the text; config and workflow need a read.
       const config = [
         ...(r.arquivos || []).filter((a) =>
           /(^|\/)(Dockerfile|docker-compose\.ya?ml|settings\.py)$/i.test(a),
@@ -181,30 +197,30 @@ export const REGRAS = [
         ...codigo(r),
         ...config.map((rel) => [rel, corpo(r.dir, rel)]).filter(([, x]) => x !== null),
       ]
-      if (!alvos.length) return na('nenhum arquivo de código ou configuração')
+      if (!alvos.length) return na('no code or configuration file')
 
-      // Conjunto FECHADO. Cada entrada é um literal, não uma heurística.
+      // CLOSED set. Every entry is a literal, not a heuristic.
       const DESLIGAM = [
         [
           /rejectUnauthorized\s*:\s*false/,
-          'rejectUnauthorized: false — TLS sem verificar certificado',
+          'rejectUnauthorized: false — TLS without verifying the certificate',
         ],
         [
           /NODE_TLS_REJECT_UNAUTHORIZED\s*[=:]\s*['"`]?0/,
-          'NODE_TLS_REJECT_UNAUTHORIZED=0 — desliga TLS no processo inteiro',
+          'NODE_TLS_REJECT_UNAUTHORIZED=0 — turns TLS off for the whole process',
         ],
-        [/\bverify\s*=\s*False\b/, 'verify=False — requests sem verificar certificado'],
+        [/\bverify\s*=\s*False\b/, 'verify=False — requests without verifying the certificate'],
         [
           /InsecureSkipVerify\s*:\s*true/,
-          'InsecureSkipVerify: true — TLS sem verificar certificado',
+          'InsecureSkipVerify: true — TLS without verifying the certificate',
         ],
-        [/@csrf_exempt\b/, '@csrf_exempt — rota sem proteção CSRF'],
+        [/@csrf_exempt\b/, '@csrf_exempt — route with no CSRF protection'],
         [
           /skip_before_action\s+:verify_authenticity_token/,
-          'skip_before_action :verify_authenticity_token — CSRF desligado',
+          'skip_before_action :verify_authenticity_token — CSRF turned off',
         ],
-        [/contentSecurityPolicy\s*:\s*false/, 'helmet com contentSecurityPolicy: false — sem CSP'],
-        [/curl\s+(-[a-zA-Z]*k|--insecure)\b/, 'curl -k — download sem verificar certificado'],
+        [/contentSecurityPolicy\s*:\s*false/, 'helmet with contentSecurityPolicy: false — no CSP'],
+        [/curl\s+(-[a-zA-Z]*k|--insecure)\b/, 'curl -k — download without checking the cert'],
       ]
 
       const achados = []
@@ -212,14 +228,14 @@ export const REGRAS = [
         for (const [padrao, motivo] of DESLIGAM) {
           if (padrao.test(t)) achados.push(`${rel}: ${motivo}`)
         }
-        // DEBUG ligado só conta junto de host liberado: `DEBUG = True` sozinho
-        // é o default de desenvolvimento e acusá-lo pinta todo settings.py.
+        // DEBUG on only counts alongside an open host: `DEBUG = True` by itself
+        // is the development default, and flagging it paints every settings.py.
         if (/^\s*DEBUG\s*=\s*True/m.test(t) && /ALLOWED_HOSTS\s*=\s*\[\s*['"]\*['"]/.test(t)) {
-          achados.push(`${rel}: DEBUG = True com ALLOWED_HOSTS = ['*'] — modo de depuração exposto`)
+          achados.push(`${rel}: DEBUG = True with ALLOWED_HOSTS = ['*'] — debug mode exposed`)
         }
       }
       if (!achados.length) return null
-      return `${achados.length} proteção(ões) desligada(s): ${achados.join(' · ')}`
+      return `${achados.length} protection(s) turned off: ${achados.join(' · ')}`
     },
   },
 
@@ -228,36 +244,47 @@ export const REGRAS = [
     id: 'password-without-kdf',
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'senha nunca comparada em texto puro nem por hash rápido',
+    titulo: 'password never compared in plain text nor by a fast hash',
     /**
-     * Terceira classe mais comum do inventário — 4 dos 16 vídeos. Escolhida
-     * antes de `mass-assignment`, que aparece em 5, por um motivo de custo: o
-     * mass assignment só decide a severidade lendo a coluna privilegiada do
-     * schema, o que exige parser de `schema.prisma` ou de SQL. Esta aqui é
-     * textual inteira.
+     * Third most common class in the inventory — 4 of the 16 videos. Chosen
+     * ahead of `mass-assignment`, which shows up in 5, for a cost reason: mass
+     * assignment only decides severity by reading the privileged column of the
+     * schema, which demands a `schema.prisma` or SQL parser. This one is textual
+     * all the way through.
      *
-     * DOIS SINAIS, e os dois precisam de vocabulário bilíngue:
+     * TWO SIGNALS, and both need bilingual vocabulary:
      *
-     *   (a) comparação direta — `u.password === req.body.password`, ou o mesmo
-     *       com `senha`. Se a comparação é `===`, não passou por KDF: bcrypt,
-     *       argon2 e scrypt devolvem hash com sal embutido e exigem `compare`.
+     *   (a) direct comparison — `u.password === req.body.password`, or the same
+     *       with `senha`. If the comparison is `===`, it never went through a
+     *       KDF: bcrypt, argon2 and scrypt return a hash with the salt embedded
+     *       and demand `compare`.
      *
-     *   (b) hash rápido em caminho de autenticação — `createHash('sha256')`,
-     *       `md5`, `sha1`. Rápido é o defeito: o que protege senha é ser lento.
+     *   (b) fast hash on an authentication path — `createHash('sha256')`,
+     *       `md5`, `sha1`. Fast is the defect: what protects a password is being
+     *       slow.
      *
-     * FALSO POSITIVO PREVISTO E EXCLUÍDO: PRÉ-HASH LEGÍTIMO. `bcrypt` trunca
-     * silenciosamente em 72 bytes, e a defesa recomendada é passar um sha256 da
-     * senha para o bcrypt. Um arquivo que faz `bcrypt.hash(sha256(senha))` está
-     * CERTO, e acusá-lo seria punir quem conhece o problema. Por isso o sinal
-     * (b) só vale onde não há primitiva lenta no mesmo arquivo.
+     * FALSE POSITIVE PREDICTED AND EXCLUDED: LEGITIMATE PRE-HASH. `bcrypt`
+     * silently truncates at 72 bytes, and the recommended defense is to feed a
+     * sha256 of the password into bcrypt. A file that does
+     * `bcrypt.hash(sha256(senha))` is RIGHT, and flagging it would punish
+     * whoever knows the problem. That is why signal (b) only counts where there
+     * is no slow primitive in the same file.
      */
     checar: (r) => {
       const fontes = codigo(r)
-      if (!fontes.length) return na('nenhum arquivo de código de produção')
+      if (!fontes.length) return na('no production code file')
 
-      // Vocabulário BILÍNGUE. Ver a nota do topo: a lista só em inglês é cega
-      // exatamente nos repositórios que este módulo existe para auditar.
-      const SENHA = '(?:password|senha|passwd|pwd)' // rebar-segredo-ok: vocabulario de regex, nao credencial -- e a lista que a regra PROCURA
+      // BILINGUAL vocabulary. See the note at the top: the English-only list is
+      // blind in exactly the repositories this module exists to audit. `senha`
+      // stays in Portuguese because it is what the rule LOOKS FOR inside
+      // third-party Brazilian code — translating it blinds the detector.
+      //
+      // `rebar-segredo-ok:` is not prose either: it is the escape token
+      // `tooling/secret/scan-secret.mjs` matches, and renaming it voids every
+      // escape already written in the audited repositories. Only the
+      // justification after the colon is English — the token demands `\s*\S+`
+      // after it, and it gets it.
+      const SENHA = '(?:password|senha|passwd|pwd)' // rebar-segredo-ok: regex vocabulary, not a credential -- it is the list the rule LOOKS FOR
       const LENTA = /\b(bcrypt|argon2|scrypt|pbkdf2)\b/i
       const RAPIDA =
         /createHash\(\s*['"`](md5|sha1|sha256|sha512)['"`]\s*\)|hashlib\.(md5|sha1|sha256)\(/i
@@ -272,36 +299,38 @@ export const REGRAS = [
         const falaDeSenha = new RegExp(SENHA, 'i').test(t)
         if (falaDeSenha) viuAuth = true
 
-        if (COMPARA.test(t)) achados.push(`${rel}: senha comparada com === (texto puro)`)
+        if (COMPARA.test(t)) achados.push(`${rel}: password compared with === (plain text)`)
         else if (falaDeSenha && RAPIDA.test(t) && !LENTA.test(t)) {
-          achados.push(
-            `${rel}: hash rápido em caminho de senha, sem bcrypt/argon2/scrypt no arquivo`,
-          )
+          achados.push(`${rel}: fast hash on a password path, no bcrypt/argon2/scrypt in the file`)
         }
       }
-      if (!viuAuth) return na('nenhum código toca senha')
+      if (!viuAuth) return na('no code touches a password')
       if (!achados.length) return null
-      return `${achados.length} ocorrência(s): ${achados.join(' · ')}`
+      return `${achados.length} occurrence(s): ${achados.join(' · ')}`
     },
   },
 ]
 
-// ═════════════════════════════════════════════════════════════════ o executor
+// ═══════════════════════════════════════════════════════════════ the executor
 
 function avaliar(dir, filtro) {
-  if (!existsSync(dir)) return { dir, nome: basename(dir) || dir, erro: 'caminho não existe' }
+  if (!existsSync(dir)) return { dir, nome: basename(dir) || dir, erro: 'path does not exist' }
   const r = lerRepo(dir)
   if (r.erro) return { dir, nome: basename(dir) || dir, erro: r.erro }
 
   const aRodar = filtro ? REGRAS.filter((x) => x.id === filtro) : REGRAS
+  // `passou` · `reprovou` · `na` · `quebrou` are the state VALUES the `--json`
+  // carries, and `tooling/rebar-check/proofs/prove.mjs` compares them literally
+  // against what each proof case declares. They stay in Portuguese: translated,
+  // every side of every case reads as a state that does not exist.
   const resultados = aRodar.map((regra) => {
     const base = { id: regra.id, titulo: regra.titulo, classe: regra.classe, nivel: regra.nivel }
     let saida
     try {
       saida = regra.checar(r)
     } catch (e) {
-      // QUEBROU é defeito DESTA ferramenta. Nunca entra na nota do alvo, e o
-      // 127 domina o 1: não se acusa repositório com uma régua que quebrou.
+      // BROKE is a defect of THIS tool. It never enters the target's score, and
+      // 127 dominates 1: you do not accuse a repository with a ruler that broke.
       return { ...base, estado: 'quebrou', motivo: `${e.message}` }
     }
     if (saida === null || saida === undefined) return { ...base, estado: 'passou' }
@@ -338,7 +367,7 @@ function imprimir(a) {
   const aplicaveis = a.resultados.filter((x) => x.estado === 'passou' || x.estado === 'reprovou')
   const passaram = aplicaveis.filter((x) => x.estado === 'passou').length
   const naS = a.resultados.filter((x) => x.estado === 'na').length
-  console.log(`  ${passaram} de ${aplicaveis.length}${naS ? `  ·  ${naS} não se aplica` : ''}`)
+  console.log(`  ${passaram} of ${aplicaveis.length}${naS ? `  ·  ${naS} not applicable` : ''}`)
 }
 
 function principal(argv) {
@@ -349,12 +378,12 @@ function principal(argv) {
 
   const desconhecida = argv.find((a) => a.startsWith('--') && !/^--(json|heuristics|rule=)/.test(a))
   if (desconhecida) {
-    console.error(`rebar-security: opção desconhecida: ${desconhecida}`)
+    console.error(`rebar-security: unknown option: ${desconhecida}`)
     process.exit(2)
   }
   if (filtro && !REGRAS.some((x) => x.id === filtro)) {
-    console.error(`rebar-security: regra desconhecida: ${filtro}`)
-    console.error(`  conhecidas: ${REGRAS.map((x) => x.id).join(', ')}`)
+    console.error(`rebar-security: unknown rule: ${filtro}`)
+    console.error(`  known: ${REGRAS.map((x) => x.id).join(', ')}`)
     process.exit(2)
   }
 
@@ -374,10 +403,10 @@ function principal(argv) {
   return reprovou ? 1 : 0
 }
 
-// `pathToFileURL`, nao interpolacao: no Windows `argv[1]` vem com barra
-// invertida e `import.meta.url` com barra normal, entao a comparacao direta
-// e sempre falsa e o binario nao imprime nada -- foi o primeiro defeito
-// deste arquivo, e ele sai calado, que e o pior jeito de sair.
+// `pathToFileURL`, not interpolation: on Windows `argv[1]` comes with a
+// backslash and `import.meta.url` with a forward slash, so the direct
+// comparison is always false and the binary prints nothing -- it was the first
+// defect of this file, and it exits quiet, which is the worst way to exit.
 if (pathToFileURL(process.argv[1] || '').href === import.meta.url) {
   process.exitCode = principal(process.argv.slice(2))
 }

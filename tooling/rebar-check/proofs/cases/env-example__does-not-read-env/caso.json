@@ -1,6 +1,6 @@
 {
   "rule": "env-example",
-  "why": "A regra existe para o .env.example pela metade, que é pior que a ausência porque parece completo. Mas repositório que não lê variável nenhuma não deve um .env.example a ninguém: exigi-lo criaria um arquivo vazio de cerimônia em todo projeto. O lado `pass` tem código de verdade e zero `process.env`, e tem de sair N/A. O lado `fail` lê `API_TOKEN` e não tem o arquivo, então a guarda não pode ter virado uma saída para a regra inteira.",
+  "why": "The rule exists for the half-done .env.example, which is worse than its absence because it looks complete. But a repository that reads no variable at all owes nobody a .env.example: demanding it would create an empty ceremonial file in every project. The `pass` side has real code and zero `process.env`, and has to come out N/A. The `fail` side reads `API_TOKEN` and does not have the file, so the guard cannot have become an escape hatch for the whole rule.",
   "pass": {
     "estado": "na"
   }

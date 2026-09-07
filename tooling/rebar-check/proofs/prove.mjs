@@ -1,110 +1,118 @@
 #!/usr/bin/env node
-// prove.mjs — as provas do rebar-check.
+// prove.mjs — the rebar-check proofs.
 //
-// A regra-mãe do alicerce diz: toda regra que sobe para N1 nasce com dois casos,
-// um que aprova e um que reprova. O rebar-check subiu com 19 regras e ZERO casos,
-// violando a regra que o próprio repositório transcreve e negrita. Duas regras já
-// tiveram falso positivo PROVADO — `testes` era cega a arquivo nomeado em português
-// (43 arquivos rastreados com "prova" no nome, zero enxergados) e `ci-gateia`
-// procurava as palavras lint/typecheck/test literais no YAML. As duas foram
-// consertadas. Isto existe para que a terceira não passe despercebida.
+// The mother rule of the alicerce says: every rule that rises to N1 is born with
+// two cases, one that passes and one that fails. rebar-check shipped with 19 rules
+// and ZERO cases, violating the rule the repository itself transcribes and bolds.
+// Two rules have already had a PROVEN false positive — `tests` was blind to a file
+// named in Portuguese (43 tracked files with "prova" in the name, zero seen) and
+// `ci-gates` looked for the literal words lint/typecheck/test in the YAML. Both
+// were fixed. This exists so the third one does not go by unnoticed.
 //
-// Uso:
-//   node prove.mjs                 roda todos os casos de proofs/cases/
-//   node prove.mjs <id-da-regra>   roda só aquele caso
+// Usage:
+//   node prove.mjs                 runs every case in proofs/cases/
+//   node prove.mjs <rule-id>       runs only that case
 //
-// Um caso é a pasta proofs/cases/<regra>[__<variante>]/ com:
+// A case is the folder proofs/cases/<rule>[__<variant>]/ with:
 //
-//   caso.json     { "regra", "porque", "pass"?, "fail"? }
-//   aprovar/      a árvore de um lado
-//   reprovar/     a árvore do outro
+//   caso.json     { "rule", "why", "pass"?, "fail"? }
+//   pass/         the tree of one side
+//   fail/         the tree of the other
 //
-// Cada bloco de lado aceita:
+// Each side block accepts:
 //
-//   "estado"   o que a regra tem de devolver ali: "passou" · "reprovou" · "na".
-//              Omitido, vale aprovar=passou e reprovar=reprovou. É o campo que
-//              torna os ramos N/A traváveis — ver ESTADO_PADRAO.
-//   "commits"  lista de { mensagem, autor }. Omitida, um commit padrão.
-//              LISTA VAZIA significa "sem nenhum commit", que é o único jeito
-//              de alcançar os ramos N/A de `coautoria-ia` e `identidade-git`.
+//   "estado"   what the rule has to return there: "passou" · "reprovou" · "na".
+//              Omitted, pass=passou and fail=reprovou hold. It is the field that
+//              makes the N/A branches lockable — see ESTADO_PADRAO.
+//   "commits"  list of { mensagem, autor }. Omitted, one default commit.
+//              An EMPTY LIST means "no commit at all", which is the only way to
+//              reach the N/A branches of `ai-coauthorship` and `git-identity`.
 //
-// Códigos de saída — mesma disciplina do index.mjs, três coisas, três códigos:
-//   0    todo lado bateu com o esperado
-//   1    algum lado DIVERGIU, ou o index.mjs QUEBROU nele. Crash nunca conta
-//        como "reprovar bateu": um index.mjs que sequer compila faz o node
-//        sair 1, e o formato antigo — que lia exit code — dava os 15 lados
-//        `fail` por bons, deixando a suíte meio verde com o checker morto.
-//   2    a própria PROVA está mal formada — e isso domina o 1, pelo mesmo
-//        motivo que no index.mjs o 127 domina o 1: não se acusa ninguém com
-//        um instrumento que está torto.
+// The Portuguese still above is not prose, it is data this file reads or writes:
+// `estado`, `commits`, `mensagem` and `autor` are keys of caso.json, and
+// `passou` · `reprovou` · `na` are the states index.mjs prints in its `--json`.
+// Renaming one of them is another job, with another risk, and it is not this one.
 //
-// NUNCA escreve no repositório. Cada lado é montado num diretório novo de
-// os.tmpdir() e apagado no finally. O provar-portao.mjs do alicerce fazia
-// writeFileSync + git add DENTRO do repo vivo — defeito conhecido que este
-// arquivo se recusa a herdar.
+// Exit codes — same discipline as index.mjs, three things, three codes:
+//   0    every side matched what was expected
+//   1    some side DIVERGED, or index.mjs BROKE on it. A crash never counts as
+//        "the fail side matched": an index.mjs that does not even compile makes
+//        node exit 1, and the old format — which read the exit code — took the
+//        15 `fail` sides for good ones, leaving the suite half green with the
+//        checker dead.
+//   2    the PROOF itself is malformed — and that dominates the 1, for the same
+//        reason that 127 dominates 1 in index.mjs: you do not accuse anyone
+//        with an instrument that is bent.
 //
-// ─────────────────────────────────────────────────────────────── desempenho
+// It NEVER writes to the repository. Each side is assembled in a fresh directory
+// under os.tmpdir() and deleted in the finally. The alicerce's provar-portao.mjs
+// did writeFileSync + git add INSIDE the live repo — a known defect this file
+// refuses to inherit.
 //
-// Esta suíte já foi SERIAL e era o passo mais caro do `verificar`. Os números
-// desta seção são de 31/08, quando eram 47 casos — ficam datados porque o que
-// eles ensinam é a ORDEM DE RETORNO das mudanças, não o relógio de hoje.
+// ────────────────────────────────────────────────────────────── performance
 //
-// 47 casos ×
-// 2 lados = 94 repositórios git montados um a um, ~660 processos em fila. Nesta
-// máquina (Windows, 20 núcleos) a versão serial levava 41,3 · 42,0 · 51,9 s em
-// três rodadas. Instrumentei cada spawn dela para saber ONDE ia o tempo — a
-// medição sai numa rodada de 64,4 s, e o que importa dela é a PROPORÇÃO:
+// This suite used to be SERIAL and was the most expensive step of `verify`.
+// The numbers in this section are from 31/08, when there were 47 cases — they
+// stay dated because what they teach is the ORDER OF RETURN of the changes, not
+// today's clock.
 //
-//   index.mjs   n= 94  total= 18346 ms  médio=195,2 ms  28,5%
-//   git commit  n=103  total= 16245 ms  médio=157,7 ms  25,2%
-//   git init    n= 94  total= 13127 ms  médio=139,6 ms  20,4%
-//   git add     n= 94  total=  7736 ms  médio= 82,3 ms  12,0%
-//   git config  n=188  total=  6977 ms  médio= 37,1 ms  10,8%
-//   rmSync      n= 94  total=  1515 ms                   2,4%
-//   cpSync      n= 94  total=   445 ms                   0,7%
-//   mkdtemp     n= 94  total=    48 ms                   0,1%
+// 47 cases ×
+// 2 sides = 94 git repositories assembled one by one, ~660 processes in line. On
+// this machine (Windows, 20 cores) the serial version took 41.3 · 42.0 · 51.9 s
+// in three runs. I instrumented every spawn of it to know WHERE the time went —
+// the measurement comes out of a 64.4 s run, and what matters in it is the
+// PROPORTION:
 //
-// Ou seja: montar a fixture custava 44,1 s (68%) e rodar o que está sob prova
-// custava 18,3 s (28%). O gargalo NÃO era o checker; era o git. Daí as três
-// mudanças, nesta ordem de retorno:
+//   index.mjs   n= 94  total= 18346 ms   mean=195.2 ms  28.5%
+//   git commit  n=103  total= 16245 ms   mean=157.7 ms  25.2%
+//   git init    n= 94  total= 13127 ms   mean=139.6 ms  20.4%
+//   git add     n= 94  total=  7736 ms   mean= 82.3 ms  12.0%
+//   git config  n=188  total=  6977 ms   mean= 37.1 ms  10.8%
+//   rmSync      n= 94  total=  1515 ms                   2.4%
+//   cpSync      n= 94  total=   445 ms                   0.7%
+//   mkdtemp     n= 94  total=    48 ms                   0.1%
 //
-//   1. CORTAR TRABALHO. Os 188 `git config` viraram ZERO: a identidade do
-//      committer vai por GIT_COMMITTER_NAME/EMAIL no ambiente, e o autor já
-//      vinha por `--author` em cada commit. Os 94 `git init` viraram UM: o
-//      molde é inicializado uma vez e o `.git` é COPIADO para cada lado —
-//      cópia de ~20 arquivinhos contra um processo de 140 ms. O molde nasce
-//      dentro do MESMO os.tmpdir() das fixtures de propósito: o `git init`
-//      grava em .git/config o que detectou do sistema de arquivos (filemode,
-//      symlinks, ignorecase), e um molde criado noutro volume levaria essa
-//      detecção errada junto.
-//   2. PARALELIZAR POR CASO. Cada caso já era independente por construção —
-//      tmpdir próprio, git próprio, nada compartilhado —, mas `spawnSync`
-//      travava o laço de eventos e servia um processo por vez. Agora é `spawn`
-//      assíncrono com uma piscina de tamanho fixo (ver TETO).
-//   3. A ORDEM DA SAÍDA NÃO MUDA. Os casos terminam fora de ordem; o relatório
-//      sai em ordem alfabética do mesmo jeito, porque cada caso escreve num
-//      balde indexado e a impressão só escoa o próximo índice quando ele fica
-//      pronto. Suíte cujo diff entre duas execuções vira ruído é suíte em que
-//      ninguém confia.
+// That is: assembling the fixture cost 44.1 s (68%) and running what is under
+// proof cost 18.3 s (28%). The bottleneck was NOT the checker; it was git. Hence
+// the three changes, in this order of return:
 //
-// O que os `git` restantes ganharam: `commit --quiet --no-verify` (nada de
-// resumo de commit que a gente joga fora, nada de hook de terceiro) e `init
-// --quiet` no molde.
+//   1. CUT WORK. The 188 `git config` became ZERO: the committer identity goes
+//      by GIT_COMMITTER_NAME/EMAIL in the environment, and the author already
+//      came by `--author` on each commit. The 94 `git init` became ONE: the
+//      template is initialized once and the `.git` is COPIED to each side —
+//      copying ~20 little files against a 140 ms process. The template is born
+//      inside the SAME os.tmpdir() as the fixtures on purpose: `git init`
+//      writes into .git/config what it detected of the file system (filemode,
+//      symlinks, ignorecase), and a template created on another volume would
+//      carry that wrong detection along.
+//   2. PARALLELIZE BY CASE. Each case was already independent by construction —
+//      its own tmpdir, its own git, nothing shared —, but `spawnSync` blocked
+//      the event loop and served one process at a time. Now it is asynchronous
+//      `spawn` with a fixed-size pool (see TETO).
+//   3. THE ORDER OF THE OUTPUT DOES NOT CHANGE. The cases finish out of order;
+//      the report comes out in alphabetical order all the same, because each
+//      case writes into an indexed bucket and the printing only drains the next
+//      index when it is ready. A suite whose diff between two runs turns into
+//      noise is a suite nobody trusts.
 //
-// RESULTADO em 31/08, os mesmos 47 casos de então, máquina ociosa:
+// What the remaining `git` calls gained: `commit --quiet --no-verify` (no commit
+// summary that we throw away, no third-party hook) and `init --quiet` on the
+// template.
 //
-//   antes, em série                        41,3 · 42,0 · 51,9 s
-//   só cortando trabalho, ainda em série            29,9 s
-//   cortando + piscina                       6,3 · 6,7 · 7,1 s
+// RESULT on 31/08, the same 47 cases of the time, idle machine:
 //
-// ~6,5× no relógio, dos quais o corte de trabalho responde por 41 → 30 s e a
-// piscina por 30 → 6 s. Com a máquina em carga (outro agente rodando a suíte no
-// mesmo minuto), um A/B intercalado deu 107–201 s em série contra 13–21 s em
-// paralelo — de 4,8× a 10,3×, nunca menos.
+//   before, serial                          41.3 · 42.0 · 51.9 s
+//   cutting work only, still serial                 29.9 s
+//   cutting + pool                            6.3 · 6.7 · 7.1 s
 //
-// E o veredito não mudou: 15 saídas guardadas — série e paralelo, TETO de 1 a
-// 20, rodadas repetidas — batem no MESMO md5, byte a byte, incluindo a rodada
-// com um caso mal formado e outra com um caso divergente de propósito.
+// ~6.5× on the clock, of which cutting work answers for 41 → 30 s and the pool
+// for 30 → 6 s. With the machine under load (another agent running the suite in
+// the same minute), an interleaved A/B gave 107–201 s serial against 13–21 s
+// parallel — from 4.8× to 10.3×, never less.
+//
+// And the verdict did not change: 15 saved outputs — serial and parallel, TETO
+// from 1 to 20, repeated runs — hit the SAME md5, byte for byte, including the
+// run with a malformed case and another with a case that diverges on purpose.
 
 import { spawn } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
@@ -115,14 +123,14 @@ import { fileURLToPath } from 'node:url'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 
-// O checker e a pasta de casos sao PARAMETROS, nao constantes.
+// The checker and the cases folder are PARAMETERS, not constants.
 //
-// O modulo de seguranca nasceu com o mesmo contrato deste runner -- tres
-// estados, `caso.json` com `rule`/`why`, pastas `pass/` e `fail/`, mutacao como
-// prova. Duplicar mil linhas de executor para ele seria a segunda fonte que
-// diverge, que e o defeito que este repositorio inteiro persegue. Sem
-// argumento, o padrao continua sendo o rebar-check e nada muda para quem ja
-// chamava `npm run prove`.
+// The security module was born with the same contract as this runner — three
+// states, `caso.json` with `rule`/`why`, `pass/` and `fail/` folders, mutation as
+// proof. Duplicating a thousand lines of executor for it would be the second
+// source that diverges, which is the defect this whole repository chases. With no
+// argument, the default is still rebar-check and nothing changes for whoever was
+// already calling `npm run prove`.
 const arg = (nome, padrao) => {
   const a = process.argv.find((x) => x.startsWith(`--${nome}=`))
   return a ? resolve(a.slice(nome.length + 3)) : padrao
@@ -130,7 +138,7 @@ const arg = (nome, padrao) => {
 const INDEX = arg('checker', join(AQUI, '..', 'index.mjs'))
 const CASOS = arg('cases', join(AQUI, 'cases'))
 
-// ─────────────────────────────────────────────────────────────── utilitários
+// ───────────────────────────────────────────────────────────────── utilities
 
 const cor = process.stdout.isTTY && !process.env.NO_COLOR
 const c = {
@@ -142,84 +150,87 @@ const c = {
 }
 
 /**
- * Quantos casos em voo ao mesmo tempo.
+ * How many cases in flight at the same time.
  *
- * Piscina de tamanho fixo, nunca `Promise.all` sobre todos os casos: cada caso
- * é I/O de disco (montar dois repositórios) muito mais do que CPU, e no Windows
- * um enxame de gits briga pelo mesmo volume.
+ * A fixed-size pool, never `Promise.all` over every case: each case is disk I/O
+ * (assembling two repositories) far more than CPU, and on Windows a swarm of
+ * gits fights over the same volume.
  *
- * A tabela abaixo é HISTÓRICA e está datada de propósito — medida em 31/08
- * nesta máquina de 20 núcleos, com os 47 casos que existiam então (hoje são
- * mais). O que ela decide é a FORMA da curva, não o valor absoluto, e a forma
- * não muda com mais casos. Relógio de ponta a ponta:
+ * The table below is HISTORICAL and is dated on purpose — measured on 31/08 on
+ * this 20-core machine, with the 47 cases that existed then (today there are
+ * more). What it decides is the SHAPE of the curve, not the absolute value, and
+ * the shape does not change with more cases. End-to-end clock:
  *
- *   1 (esta versão, em série)  29,9 s       10   6,7 s
- *   4                           9,3 s       12   6,3 s
- *   6                           7,8 s       16   5,6 s
- *   8                           7,2 s       20   6,7 s
+ *   1 (this version, serial)   29.9 s       10   6.7 s
+ *   4                           9.3 s       12   6.3 s
+ *   6                           7.8 s       16   5.6 s
+ *   8                           7.2 s       20   6.7 s
  *
- * O ganho grosso vem até 8; de 8 a 16 ainda cai; em 20 volta a subir, que é a
- * briga por disco aparecendo. Daí o teto de 16.
+ * The gross gain comes up to 8; from 8 to 16 it still drops; at 20 it goes back
+ * up, which is the fight over the disk showing. Hence the ceiling of 16.
  *
- * O teto só morde em máquina grande — o `min` com os núcleos garante que um
- * runner de 2 ou 4 vCPU pegue 2 ou 4, não 16. `availableParallelism` respeita
- * o cgroup do contêiner do CI, coisa que `cpus().length` não faz; o fallback
- * existe para Node antigo.
+ * The ceiling only bites on a big machine — the `min` with the cores guarantees
+ * that a 2 or 4 vCPU runner takes 2 or 4, not 16. `availableParallelism` respects
+ * the cgroup of the CI container, which `cpus().length` does not; the fallback
+ * exists for old Node.
  */
 const NUCLEOS = typeof availableParallelism === 'function' ? availableParallelism() : cpus().length
 const TETO = Math.max(2, Math.min(16, NUCLEOS))
 
 /**
- * O ESTADO que cada lado tem de produzir, por omissão.
+ * The STATE each side has to produce, by default.
  *
- * Isto era `{ aprovar: 0, reprovar: 1 }` — exit code —, e a escolha furava a
- * suíte por construção: o index.mjs colapsa "passou" e "na" no MESMO exit 0,
- * então nenhum dos ramos N/A podia ser travado, por mais casos que se
- * escrevesse. Medido: das 70 mutações que a auditoria aplicou ao index.mjs,
- * 30 sobreviveram com a suíte 15 de 15 verde — e entre as sobreviventes
- * estavam o helper `na()` e o `catch` do `git()`, os dois consertos que o
- * index.mjs documenta como os mais caros que recebeu. Agora cada lado declara
- * um estado e o runner o lê do `--json`.
+ * This used to be `{ aprovar: 0, reprovar: 1 }` — exit code —, and the choice
+ * holed the suite by construction: index.mjs collapses "passou" and "na" into
+ * the SAME exit 0, so none of the N/A branches could be locked, however many
+ * cases one wrote. Measured: of the 70 mutations the audit applied to index.mjs,
+ * 30 survived with the suite 15 of 15 green — and among the survivors were the
+ * `na()` helper and the `catch` of `git()`, the two fixes index.mjs documents as
+ * the most expensive it ever took. Now each side declares a state and the runner
+ * reads it from the `--json`.
  *
- * O default reproduz o contrato antigo, para que os casos já escritos
- * continuem valendo sem uma linha de reescrita.
+ * The default reproduces the old contract, so the cases already written keep
+ * holding without a line of rewriting.
  *
- * `quebrou` não aparece aqui e nunca pode ser esperado: crash é defeito do
- * instrumento, não resultado dele.
+ * `quebrou` does not appear here and can never be expected: a crash is a defect
+ * of the instrument, not a result from it.
  */
 const ESTADO_PADRAO = { pass: 'passou', fail: 'reprovou' }
 const LADOS = Object.keys(ESTADO_PADRAO)
 const ESTADOS_ESPERAVEIS = new Set(['passou', 'reprovou', 'na'])
 
+// Fixture data, not prose: this is the history the target repository ends up
+// with, and rules read it — `git-identity` reads exactly this `%an <%ae>`.
+// Translating it changes the target, not the text.
 const COMMIT_PADRAO = { mensagem: 'caso de prova', autor: 'Prova <prova@rebar.local>' }
 
 /**
- * 2026-01-01T00:00:00Z em segundos. Vai no formato cru "<unix> <fuso>" porque
- * uma data ISO sem fuso o git lê como hora LOCAL — a prova rodaria diferente em
- * São Paulo e no runner do CI. Cada commit anda 60s para o histórico ficar em
- * ordem legível sem depender de desempate por hash.
+ * 2026-01-01T00:00:00Z in seconds. It goes in the raw "<unix> <zone>" format
+ * because an ISO date with no zone is read by git as LOCAL time — the proof would
+ * run differently in São Paulo and on the CI runner. Each commit moves 60s so the
+ * history stays in readable order without depending on a hash tiebreak.
  */
 const EPOCA_FIXA = 1767225600
 
 /**
- * Config global e de sistema neutralizadas apontando para um caminho que não
- * existe (o git trata arquivo de config ausente como vazio). Sem isto a prova
- * herda o gitconfig da máquina: commit.gpgsign trava o commit, core.hooksPath
- * dispara hook de terceiro, init.templateDir injeta arquivo na árvore e
- * core.autocrlf muda o conteúdo do que a regra vai ler. Fixture que depende da
- * máquina não é fixture.
+ * Global and system config neutralized by pointing at a path that does not exist
+ * (git treats a missing config file as empty). Without this the proof inherits
+ * the machine's gitconfig: commit.gpgsign locks the commit, core.hooksPath fires
+ * a third-party hook, init.templateDir injects a file into the tree and
+ * core.autocrlf changes the content of what the rule is going to read. A fixture
+ * that depends on the machine is not a fixture.
  */
 const SEM_CONFIG = join(tmpdir(), 'rebar-provas-gitconfig-inexistente')
 
 /**
- * A identidade do committer vem por AMBIENTE, não por `git config` local.
+ * The committer identity comes by ENVIRONMENT, not by local `git config`.
  *
- * Eram dois `git config` por lado — 188 processos, 7,0 s dos 64,4 s medidos —
- * para gravar exatamente o que estas quatro variáveis dizem. O autor de cada
- * commit continua vindo do `--author`, que tem precedência sobre GIT_AUTHOR_*,
- * então o `%an <%ae>` que a regra `identidade-git` lê sai idêntico. O index.mjs
- * nunca lê `git config` do alvo — só `git log` e `git ls-files` —, de modo que
- * a ausência da config local não é observável por regra nenhuma.
+ * It used to be two `git config` per side — 188 processes, 7.0 s of the 64.4 s
+ * measured — to write exactly what these four variables say. The author of each
+ * commit still comes from `--author`, which takes precedence over GIT_AUTHOR_*,
+ * so the `%an <%ae>` the `git-identity` rule reads comes out identical.
+ * index.mjs never reads the target's `git config` — only `git log` and `git
+ * ls-files` —, so the absence of the local config is not observable by any rule.
  */
 function ambienteGit(iCommit) {
   const carimbo = `${EPOCA_FIXA + iCommit * 60} +0000`
@@ -238,23 +249,23 @@ function ambienteGit(iCommit) {
 }
 
 /**
- * Filhos vivos — git e index.mjs. Só serve ao handler de sinal, e é a peça que
- * faltava quando a suíte virou paralela: MEDIDO, disparando o handler no meio
- * de uma rodada, 10 pastas `rebar-prova-*` sobraram mesmo com o rmSync do
- * handler rodando em todas elas. O motivo é o Windows: um `git` ainda vivo
- * segura handle dentro do diretório que se está apagando, o rmSync falha, o
- * catch engole, e o process.exit mata o filho DEPOIS, tarde demais. Matar
- * primeiro e apagar depois derruba as 10 para 0.
+ * Live children — git and index.mjs. It only serves the signal handler, and it is
+ * the piece that was missing when the suite went parallel: MEASURED, firing the
+ * handler in the middle of a run, 10 `rebar-prova-*` folders were left behind
+ * even with the handler's rmSync running on all of them. The reason is Windows: a
+ * `git` still alive holds a handle inside the directory being deleted, the rmSync
+ * fails, the catch swallows it, and process.exit kills the child AFTERWARDS, too
+ * late. Killing first and deleting after takes the 10 down to 0.
  */
 const filhos = new Set()
 
 /**
- * spawn assíncrono, nunca spawnSync: é a peça que torna a piscina possível.
- * Com spawnSync o laço de eventos fica parado dentro do processo filho e a
- * "paralelização" serviria um caso por vez, exatamente como antes.
+ * Asynchronous spawn, never spawnSync: it is the piece that makes the pool
+ * possible. With spawnSync the event loop sits still inside the child process and
+ * the "parallelization" would serve one case at a time, exactly like before.
  *
- * Nada de shell. `git` e `process.execPath` são executáveis de verdade nos dois
- * sistemas; o que a casa proíbe é `npx` sem shell, e npx não aparece aqui.
+ * No shell. `git` and `process.execPath` are real executables on both systems;
+ * what the house forbids is `npx` without a shell, and npx does not show up here.
  */
 function rodar(cmd, args, opcoes) {
   return new Promise((resolve) => {
@@ -265,8 +276,8 @@ function rodar(cmd, args, opcoes) {
       resolve({ erro: e, codigo: null, stdout: '', stderr: '' })
       return
     }
-    // Registrado para o handler de sinal poder MATAR os filhos antes de tentar
-    // apagar as pastas — ver o handler de sinal.
+    // Registered so the signal handler can KILL the children before trying to
+    // delete the folders — see the signal handler.
     filhos.add(filho)
     let saida = ''
     let erroSaida = ''
@@ -279,8 +290,8 @@ function rodar(cmd, args, opcoes) {
     filho.stderr.on('data', (d) => {
       erroSaida += d
     })
-    // 'error' (ENOENT, por exemplo) ainda dispara 'close' depois; guardo e
-    // resolvo uma vez só, no close, para não vazar promessa pendente.
+    // 'error' (ENOENT, for one) still fires 'close' afterwards; I keep it and
+    // resolve only once, on the close, so as not to leak a pending promise.
     filho.on('error', (e) => {
       erro = e
     })
@@ -296,78 +307,81 @@ async function git(dir, args, iCommit = 0) {
   if (r.erro) throw new Error(`git ${args[0]}: ${r.erro.message}`)
   if (r.codigo !== 0) {
     const detalhe = `${r.stderr || ''}\n${r.stdout || ''}`.trim().split('\n')[0]
-    throw new Error(`git ${args.join(' ')} saiu ${r.codigo}: ${detalhe}`)
+    throw new Error(`git ${args.join(' ')} exited ${r.codigo}: ${detalhe}`)
   }
   return (r.stdout || '').trim()
 }
 
 /**
- * TODA pasta temporária desta rodada nasce com este prefixo, que carrega o PID.
+ * EVERY temporary folder of this run is born with this prefix, which carries the
+ * PID.
  *
- * O PID não é enfeite: é o que torna a limpeza por VARREDURA segura. Sem ele,
- * varrer `rebar-prova-*` do os.tmpdir() apagaria a fixture de outra rodada
- * acontecendo ao mesmo tempo — a matriz do CI roda Windows e Linux, e nesta
- * máquina há mais de um agente mexendo no repositório no mesmo minuto.
+ * The PID is not decoration: it is what makes cleanup by SWEEP safe. Without it,
+ * sweeping `rebar-prova-*` out of os.tmpdir() would delete the fixture of another
+ * run happening at the same time — the CI matrix runs Windows and Linux, and on
+ * this machine there is more than one agent touching the repository in the same
+ * minute.
  */
 const PREFIXO_TMP = `rebar-prova-${process.pid}-`
 
 /**
- * Apagar no caminho normal é assíncrono para não travar os outros casos da
- * piscina — 1,5 s da rodada instrumentada eram rmSync bloqueando o laço.
- * maxRetries porque no Windows o git deixa objeto em .git/objects somente
- * leitura e o antivírus segura o handle por alguns milissegundos.
+ * Deleting on the normal path is asynchronous so as not to block the other cases
+ * of the pool — 1.5 s of the instrumented run was rmSync blocking the loop.
+ * maxRetries because on Windows git leaves a read-only object in .git/objects and
+ * the antivirus holds the handle for a few milliseconds.
  */
 async function apagar(dir) {
   try {
     await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   } catch {
-    /* é temporário; o SO limpa */
+    /* it is temporary; the OS cleans it */
   }
 }
 
 /**
- * A varredura: apaga TUDO que esta rodada criou e ainda está no os.tmpdir().
+ * The sweep: deletes EVERYTHING this run created and is still in os.tmpdir().
  *
- * O caminho normal já apaga cada lado no `finally` dele, mas apagar pode
- * falhar em silêncio — medido, com a máquina em carga um `rm` do molde não
- * pegou e a pasta ficou. Uma leitura de diretório no fim da rodada custa
- * milissegundos e fecha esse buraco. O filtro é por PREFIXO_TMP, então uma
- * rodada nunca apaga a fixture de outra.
+ * The normal path already deletes each side in its own `finally`, but deleting
+ * can fail in silence — measured, with the machine under load an `rm` of the
+ * template did not take and the folder stayed. One directory read at the end of
+ * the run costs milliseconds and closes that hole. The filter is by PREFIXO_TMP,
+ * so one run never deletes another's fixture.
  */
 async function varrerRestos() {
   let restos = []
   try {
     restos = readdirSync(tmpdir()).filter((n) => n.startsWith(PREFIXO_TMP))
   } catch {
-    /* sem tmpdir legível não há o que varrer */
+    /* with no readable tmpdir there is nothing to sweep */
   }
   for (const nome of restos) await apagar(join(tmpdir(), nome))
 }
 
 /**
- * A limpeza do Ctrl+C. Três passos, nesta ordem, e cada um saiu de uma medição.
+ * The Ctrl+C cleanup. Three steps, in this order, and each one came out of a
+ * measurement.
  *
- * A versão serial guardava as pastas em voo num Set e apagava esse Set. Com a
- * piscina isso passou a MENTIR de dois jeitos, os dois medidos disparando o
- * handler no meio da rodada:
+ * The serial version kept the in-flight folders in a Set and deleted that Set.
+ * With the pool that started to LIE in two ways, both measured by firing the
+ * handler in the middle of the run:
  *
- *   1. 10 de 10 pastas sobravam porque o `git` daquele lado ainda estava vivo
- *      segurando handle dentro dela — no Windows o rmSync falha, o catch
- *      engole, e o process.exit mata o filho só depois, tarde demais. Daí
- *      matar os filhos ANTES, e esperar 100 ms para o SO soltar os handles.
- *      Atomics.wait é o sleep bloqueante de fábrica do Node; não dá para
- *      `await` aqui, porque o handler tem de terminar no mesmo tique.
- *   2. Ainda sobravam pastas que o Set NUNCA CHEGOU A CONHECER: `mkdtemp`
- *      assíncrono cria o diretório no disco antes de o callback rodar em JS, e
- *      os 100 ms de espera são exatamente a janela em que os `mkdtemp` das
- *      outras N linhas da piscina terminam sem nunca serem registrados. Um
- *      registro em memória não tem como cobrir isso.
+ *   1. 10 out of 10 folders were left behind because that side's `git` was still
+ *      alive holding a handle inside it — on Windows the rmSync fails, the catch
+ *      swallows it, and process.exit kills the child only afterwards, too late.
+ *      Hence killing the children FIRST, and waiting 100 ms for the OS to let go
+ *      of the handles. Atomics.wait is Node's factory blocking sleep; you cannot
+ *      `await` here, because the handler has to finish on the same tick.
+ *   2. Folders were still left behind that the Set NEVER GOT TO KNOW ABOUT:
+ *      asynchronous `mkdtemp` creates the directory on disk before the callback
+ *      runs in JS, and the 100 ms of waiting are exactly the window in which the
+ *      `mkdtemp` of the other N lanes of the pool finish without ever being
+ *      registered. An in-memory registry has no way to cover that.
  *
- * Por isso a limpeza é uma VARREDURA do os.tmpdir() por PREFIXO_TMP, e não uma
- * lista: o disco é a única fonte que sabe de tudo que foi criado, e o prefixo
- * com PID garante que só se apaga o que é desta rodada. Medido depois: 0
- * pastas esquecidas em 8 interrupções em pontos aleatórios da rodada, contra
- * 10 na primeira tentativa de conserto.
+ * That is why the cleanup is a SWEEP of os.tmpdir() by PREFIXO_TMP, and not a
+ * list: the disk is the only source that knows everything that was created, and
+ * the prefix with the PID guarantees that only what belongs to this run is
+ * deleted. Measured afterwards: 0 forgotten folders in 8 interruptions at random
+ * points of the run, against 10 on the first attempt at a fix.
  */
 for (const sinal of ['SIGINT', 'SIGTERM']) {
   process.on(sinal, () => {
@@ -375,7 +389,7 @@ for (const sinal of ['SIGINT', 'SIGTERM']) {
       try {
         f.kill()
       } catch {
-        /* já morreu entre o Set e aqui */
+        /* it already died between the Set and here */
       }
     }
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
@@ -383,7 +397,7 @@ for (const sinal of ['SIGINT', 'SIGTERM']) {
     try {
       restos = readdirSync(tmpdir()).filter((n) => n.startsWith(PREFIXO_TMP))
     } catch {
-      /* sem tmpdir legível não há o que varrer */
+      /* with no readable tmpdir there is nothing to sweep */
     }
     for (const nome of restos) {
       try {
@@ -394,51 +408,53 @@ for (const sinal of ['SIGINT', 'SIGTERM']) {
           retryDelay: 100,
         })
       } catch {
-        /* é temporário; o SO limpa */
+        /* it is temporary; the OS cleans it */
       }
     }
     process.exit(130)
   })
 }
 
-// ───────────────────────────────────────────────────── leitura de um caso
+// ─────────────────────────────────────────────────────── reading one case
 
 /**
- * Um "lado" mal declarado é prova mal formada, não reprovação. Empilha em
- * `erros` em vez de lançar para que uma rodada mostre TODOS os defeitos do
- * caso de uma vez, e não um por execução.
+ * A badly declared "side" is a malformed proof, not a fail. It stacks into
+ * `erros` instead of throwing so that one run shows ALL the defects of the case
+ * at once, and not one per execution.
  */
 function lerCommits(bloco, lado, erros) {
   if (bloco === undefined || bloco === null) return [COMMIT_PADRAO]
   if (typeof bloco !== 'object' || Array.isArray(bloco)) {
-    erros.push(`"${lado}" tem de ser objeto`)
+    erros.push(`"${lado}" has to be an object`)
     return [COMMIT_PADRAO]
   }
   if (bloco.commits === undefined) return [COMMIT_PADRAO]
   if (!Array.isArray(bloco.commits)) {
-    erros.push(`"${lado}.commits" tem de ser lista`)
+    erros.push(`"${lado}.commits" has to be a list`)
     return [COMMIT_PADRAO]
   }
-  // Lista VAZIA é declaração deliberada de "git init e para aí", não descuido.
-  // Existe porque `coautoria-ia` e `identidade-git` têm um ramo N/A que só se
-  // alcança em repositório sem NENHUM commit, e sem isto esse ramo era
-  // inalcançável pela prova. Os arquivos ainda vão para o índice, então o
-  // `git ls-files` continua enxergando a árvore: o alvo é um repositório com
-  // conteúdo e sem histórico, que é exatamente o objeto do ramo.
+  // An EMPTY list is a deliberate declaration of "git init and stop there", not
+  // carelessness. It exists because `ai-coauthorship` and `git-identity` have an
+  // N/A branch that is only reached in a repository with NO commit at all, and
+  // without this that branch was unreachable by the proof. The files still go to
+  // the index, so `git ls-files` keeps seeing the tree: the target is a
+  // repository with content and no history, which is exactly the branch's object.
   if (!bloco.commits.length) return []
   const saida = []
   bloco.commits.forEach((cm, i) => {
     const onde = `${lado}.commits[${i}]`
     if (!cm || typeof cm !== 'object' || Array.isArray(cm)) {
-      erros.push(`${onde} não é objeto`)
+      erros.push(`${onde} is not an object`)
       return
     }
-    if (typeof cm.mensagem !== 'string' || !cm.mensagem.length) erros.push(`${onde} sem "mensagem"`)
+    if (typeof cm.mensagem !== 'string' || !cm.mensagem.length)
+      erros.push(`${onde} without "mensagem"`)
     const autor = typeof cm.autor === 'string' ? cm.autor.trim() : ''
-    // O git recusa o commit inteiro se o --author vier torto. Reprovar a prova
-    // aqui dá mensagem melhor do que ver "fatal: malformed --author" lá.
+    // git refuses the whole commit if the --author comes in bent. Failing the
+    // proof here gives a better message than seeing "fatal: malformed --author"
+    // over there.
     if (!/^[^<>]+<[^<>]*>$/.test(autor)) {
-      erros.push(`${onde} com autor fora do formato "Nome <email>": ${JSON.stringify(cm.autor)}`)
+      erros.push(`${onde} author outside the format "Name <email>": ${JSON.stringify(cm.autor)}`)
     }
     saida.push({ mensagem: typeof cm.mensagem === 'string' ? cm.mensagem : '', autor })
   })
@@ -446,23 +462,23 @@ function lerCommits(bloco, lado, erros) {
 }
 
 /**
- * `"modos": { "hooks/pre-commit": "100755" }` — modo de arquivo no índice.
+ * `"modos": { "hooks/pre-commit": "100755" }` — file mode in the index.
  *
- * Existe porque `git add` no Windows grava tudo como 100644, e sem isto a regra
- * `hooks-executaveis` seria improvável na única plataforma onde este
- * repositório é escrito. Só os dois modos que o git conhece para arquivo comum.
+ * It exists because `git add` on Windows writes everything as 100644, and without
+ * this the `hooks-executable` rule would be unprovable on the only platform
+ * where this repository is written. Only the two modes git knows for a plain file.
  */
 function lerModos(bloco, lado, erros) {
   if (!bloco || typeof bloco !== 'object' || bloco.modos === undefined) return {}
   const m = bloco.modos
   if (typeof m !== 'object' || Array.isArray(m) || m === null) {
-    erros.push(`"${lado}.modos" tem de ser objeto de caminho para modo`)
+    erros.push(`"${lado}.modos" has to be an object of path to mode`)
     return {}
   }
   for (const [caminho, modo] of Object.entries(m)) {
     if (modo !== '100755' && modo !== '100644') {
       erros.push(
-        `"${lado}.modos[${caminho}]" só aceita "100755" ou "100644", veio ${JSON.stringify(modo)}`,
+        `"${lado}.modos[${caminho}]" only takes "100755" or "100644", got ${JSON.stringify(modo)}`,
       )
     }
   }
@@ -472,60 +488,60 @@ function lerModos(bloco, lado, erros) {
 function lerCaso(id) {
   const base = join(CASOS, id)
   const arquivo = join(base, 'caso.json')
-  if (!existsSync(arquivo)) return { erros: ['sem caso.json'] }
+  if (!existsSync(arquivo)) return { erros: ['no caso.json'] }
 
   let bruto
   try {
     bruto = JSON.parse(readFileSync(arquivo, 'utf8'))
   } catch (e) {
-    return { erros: [`caso.json ilegível: ${e.message}`] }
+    return { erros: [`caso.json unreadable: ${e.message}`] }
   }
   if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) {
-    return { erros: ['caso.json não é um objeto'] }
+    return { erros: ['caso.json is not an object'] }
   }
 
   const erros = []
-  // A pasta pode ser `<regra>` ou `<regra>__<variante>`. Variante existe porque
-  // uma regra pode ter mais de um jeito de ser satisfeita, e um caso que
-  // satisfaz por VÁRIOS caminhos ao mesmo tempo não prova nenhum deles.
-  // Medido: o caso `testes` original tinha três arquivos de teste — pasta em
-  // português, nome em português e um arquivo comum. Restaurando à mão o bug
-  // de cegueira ao português, a prova continuou VERDE, porque o nome ainda
-  // casava. Uma prova que sobrevive à volta do defeito que ela existe para
-  // travar não é prova. Cada variante isola UM caminho.
+  // The folder can be `<rule>` or `<rule>__<variant>`. The variant exists because
+  // a rule can have more than one way of being satisfied, and a case that is
+  // satisfied by SEVERAL paths at once proves none of them.
+  // Measured: the original `tests` case had three test files — a folder named in
+  // Portuguese, a name in Portuguese and an ordinary file. Restoring by hand the
+  // Portuguese-blindness bug, the proof stayed GREEN, because the name still
+  // matched. A proof that survives the return of the defect it exists to lock is
+  // not a proof. Each variant isolates ONE path.
   const regraDaPasta = id.includes('__') ? id.slice(0, id.indexOf('__')) : id
   if (bruto.rule !== regraDaPasta) {
-    erros.push(`caso.json diz rule ${JSON.stringify(bruto.rule)} e a pasta se chama "${id}"`)
+    erros.push(`caso.json says rule ${JSON.stringify(bruto.rule)} and the folder is "${id}"`)
   }
   const regra = regraDaPasta
   if (typeof bruto.why !== 'string' || !bruto.why.trim()) {
-    erros.push('caso.json sem "porque" — a prova tem de dizer que falha real ela impede')
+    erros.push('caso.json without "why" — the proof has to say what real failure it stops')
   }
 
   const lados = {}
   for (const lado of LADOS) {
     const dir = join(base, lado)
     if (!existsSync(dir)) {
-      erros.push(`falta a pasta ${lado}/`)
+      erros.push(`the folder ${lado}/ is missing`)
       continue
     }
     if (!statSync(dir).isDirectory()) {
-      erros.push(`${lado}/ existe e não é pasta`)
+      erros.push(`${lado}/ exists and is not a folder`)
       continue
     }
     const bloco = bruto[lado]
-    // O campo é opcional: sem ele vale o default, e as pastas se chamam
-    // `pass`/`fail` porque é isso que a esmagadora maioria dos casos
-    // declara. Um caso que declara `na` nos dois lados usa as duas pastas para
-    // dois ramos N/A DIFERENTES da mesma regra — daí o `porque` ter de dizer
-    // qual ramo cada lado alcança.
+    // The field is optional: without it the default holds, and the folders are
+    // called `pass`/`fail` because that is what the overwhelming majority of
+    // cases declares. A case that declares `na` on both sides uses the two
+    // folders for two DIFFERENT N/A branches of the same rule — hence the
+    // `why` having to say which branch each side reaches.
     let estado = ESTADO_PADRAO[lado]
     const pedido =
       bloco && typeof bloco === 'object' && !Array.isArray(bloco) ? bloco.estado : undefined
     if (pedido !== undefined) {
       if (!ESTADOS_ESPERAVEIS.has(pedido)) {
         erros.push(
-          `"${lado}.estado" é ${JSON.stringify(pedido)} — só vale ${[...ESTADOS_ESPERAVEIS].join(', ')}`,
+          `"${lado}.estado" is ${JSON.stringify(pedido)} — only ${[...ESTADOS_ESPERAVEIS].join(', ')} hold`,
         )
       } else {
         estado = pedido
@@ -547,14 +563,14 @@ function lerCaso(id) {
   }
 }
 
-// ─────────────────────────────────────────────────────── execução de um lado
+// ────────────────────────────────────────────────────────── running one side
 
 /**
- * O `.git` recém-inicializado que todos os lados copiam, em vez de rodar
- * `git init` 94 vezes (13,1 s dos 64,4 s medidos). Nasce em os.tmpdir(), o
- * mesmo volume das fixtures, porque o `.git/config` que o init escreve carrega
- * a detecção do sistema de arquivos: um molde de outro volume levaria filemode
- * e ignorecase errados para dentro de toda fixture.
+ * The freshly initialized `.git` that every side copies, instead of running
+ * `git init` 94 times (13.1 s of the 64.4 s measured). It is born in os.tmpdir(),
+ * the same volume as the fixtures, because the `.git/config` the init writes
+ * carries the file-system detection: a template from another volume would take
+ * the wrong filemode and ignorecase into every fixture.
  */
 let MOLDE_GIT = null
 
@@ -568,33 +584,33 @@ async function montarLado(origem, commits, modos) {
   const tmp = await mkdtemp(join(tmpdir(), PREFIXO_TMP))
   try {
     await cp(origem, tmp, { recursive: true })
-    // O `.git` entra DEPOIS da árvore, na mesma ordem em que o `git init`
-    // entrava: se um dia uma fixture trouxer um `.git` próprio, o molde
-    // continua vencendo, como o init vencia.
+    // The `.git` goes in AFTER the tree, in the same order the `git init` used
+    // to: if one day a fixture brings a `.git` of its own, the template still
+    // wins, the way the init won.
     await cp(MOLDE_GIT.git, join(tmp, '.git'), { recursive: true })
-    // `git add` UMA vez e fora do laço. A árvore é copiada inteira antes do
-    // primeiro commit e não muda mais entre eles, então repetir o add por
-    // commit não acrescentava nada; e com `commits: []` não há iteração
-    // nenhuma, de modo que o add lá dentro deixaria o índice vazio — o
-    // `git ls-files` do index.mjs veria um repositório SEM ARQUIVO, que é
-    // outro alvo, não o que o caso declarou.
+    // `git add` ONCE and outside the loop. The tree is copied whole before the
+    // first commit and does not change between them, so repeating the add per
+    // commit added nothing; and with `commits: []` there is no iteration at all,
+    // so the add in there would leave the index empty — the `git ls-files` of
+    // index.mjs would see a repository with NO FILE, which is another target,
+    // not the one the case declared.
     await git(tmp, ['add', '-A'])
-    // MODO DE ARQUIVO NO ÍNDICE. `git add` no Windows grava tudo como 100644
-    // porque o sistema não tem bit de execução — então sem isto NENHUMA fixture
-    // consegue declarar um hook executável, e a regra `hooks-executaveis` fica
-    // improvável na única plataforma onde este repositório é escrito. O
-    // `--chmod` age no índice, que é exatamente a camada que a regra lê e a
-    // única que viaja no clone.
+    // FILE MODE IN THE INDEX. `git add` on Windows writes everything as 100644
+    // because the system has no execution bit — so without this NO fixture can
+    // declare an executable hook, and the `hooks-executable` rule stays
+    // unprovable on the only platform where this repository is written. The
+    // `--chmod` acts on the index, which is exactly the layer the rule reads and
+    // the only one that travels in the clone.
     for (const [caminho, modo] of Object.entries(modos || {})) {
       await git(tmp, ['update-index', `--chmod=${modo === '100755' ? '+x' : '-x'}`, caminho])
     }
     for (const [i, commit] of commits.entries()) {
-      // --allow-empty porque um lado legítimo pode não ter arquivo nenhum (a
-      // árvore vazia é o `fail` natural de `licenca`) e porque o 2º commit
-      // declarado costuma não mudar a árvore — o caso de `coautoria-ia` só
-      // muda a MENSAGEM. Sem isto o git sai 1 e a prova morre por acidente.
-      // --quiet corta o resumo que a gente descarta; --no-verify é cinto de
-      // segurança contra hook que venha de um core.hooksPath futuro.
+      // --allow-empty because a legitimate side may have no file at all (the
+      // empty tree is the natural `fail` of `license`) and because the 2nd
+      // declared commit usually does not change the tree — the `ai-coauthorship`
+      // case only changes the MESSAGE. Without this git exits 1 and the proof
+      // dies by accident. --quiet cuts the summary we discard; --no-verify is a
+      // seat belt against a hook coming from a future core.hooksPath.
       await git(
         tmp,
         [
@@ -618,22 +634,23 @@ async function montarLado(origem, commits, modos) {
 }
 
 async function rodarRegra(id, dir) {
-  // --heuristics SEMPRE. Medido nas quatro combinações: com `--rule=` apontando
-  // para regra determinística a flag é no-op (editorconfig sai 1 com e sem ela,
-  // porque nenhuma heurística chega a rodar sob o filtro); com `--rule=` numa
-  // heurística é a ÚNICA forma do lado `fail` sair 1 — sem a flag `telefone`
-  // acusa o telefone e ainda assim sai 0, e a prova seria impossível de escrever.
-  // Sem isto as 5 heurísticas ficariam para sempre sem caso.
+  // --heuristics ALWAYS. Measured in the four combinations: with `--rule=` on a
+  // deterministic rule the flag is a no-op (editorconfig exits 1 with and without
+  // it, because no heuristic gets to run under the filter); with `--rule=` on a
+  // heuristic it is the ONLY way for the `fail` side to exit 1 — without the flag
+  // `phone` accuses the phone number and still exits 0, and the proof would be
+  // impossible to write. Without this the 5 heuristics would sit forever with no
+  // case.
   //
-  // process.execPath + caminho do script: nada de `npx`, que sem shell:true
-  // não existe como executável no Windows. Foi o bug que quebrou o alicerce.
+  // process.execPath + the script path: no `npx`, which without shell:true does
+  // not exist as an executable on Windows. It was the bug that broke the alicerce.
   //
-  // --json porque exit code não distingue "passou" de "na": os dois saem 0.
-  // Enquanto o veredito vinha do código de saída, TODO ramo N/A do index.mjs
-  // era intravável por construção do formato — 13 quando a auditoria contou,
-  // 17 depois que as guardas de leitura entraram. `stdout` e `stderr` vêm
-  // SEPARADOS — juntá-los, como esta função fazia, destruía a única evidência
-  // barata de que o checker morreu: qualquer coisa em stderr suja o JSON.
+  // --json because the exit code does not tell "passou" from "na": both exit 0.
+  // While the verdict came from the exit code, EVERY N/A branch of index.mjs was
+  // unlockable by construction of the format — 13 when the audit counted them,
+  // 17 after the read guards went in. `stdout` and `stderr` come SEPARATE —
+  // joining them, as this function used to, destroyed the only cheap evidence
+  // that the checker died: anything in stderr dirties the JSON.
   const r = await rodar(process.execPath, [INDEX, `--rule=${id}`, '--heuristics', '--json', dir], {
     env: {
       ...process.env,
@@ -642,29 +659,29 @@ async function rodarRegra(id, dir) {
       NO_COLOR: '1',
     },
   })
-  if (r.erro) throw new Error(`não consegui rodar o index.mjs: ${r.erro.message}`)
+  if (r.erro) throw new Error(`could not run index.mjs: ${r.erro.message}`)
   return { codigo: r.codigo, stdout: r.stdout || '', stderr: (r.stderr || '').trim() }
 }
 
 const primeiraLinha = (t) => t.split('\n').filter((l) => l.trim())[0] || ''
 
 /**
- * Traduz uma execução do index.mjs em UM estado observado.
+ * Translates one execution of index.mjs into ONE observed state.
  *
- * Tudo que não for um estado de regra legível vira `quebrou`, e `quebrou`
- * nunca bate com lado nenhum. É o conserto do furo mais grosseiro do formato
- * antigo: um index.mjs com erro de sintaxe faz o node sair 1, e como o lado
- * `fail` esperava exatamente 1, os 15 casos marcavam metade verde com o
- * checker morto. Aqui, três sinais independentes denunciam o instrumento
- * torto: exit 127, qualquer byte em stderr, e stdout que não é JSON.
+ * Anything that is not a readable rule state becomes `quebrou`, and `quebrou`
+ * never matches any side. It is the fix for the crudest hole of the old format:
+ * an index.mjs with a syntax error makes node exit 1, and since the `fail` side
+ * expected exactly 1, the 15 cases scored half green with the checker dead.
+ * Here, three independent signals denounce the bent instrument: exit 127, any
+ * byte in stderr, and stdout that is not JSON.
  */
 function observar(exec) {
   const { codigo, stdout, stderr } = exec
   if (codigo === 2)
-    return { estado: 'malformada', detalhe: 'exit 2 — alvo inválido ou invocação errada' }
-  if (codigo === null) return { estado: 'quebrou', detalhe: 'o processo morreu por sinal' }
-  if (codigo === 127) return { estado: 'quebrou', detalhe: 'exit 127 — a regra LANÇOU' }
-  if (stderr) return { estado: 'quebrou', detalhe: `escreveu em stderr: ${primeiraLinha(stderr)}` }
+    return { estado: 'malformada', detalhe: 'exit 2 — invalid target or wrong invocation' }
+  if (codigo === null) return { estado: 'quebrou', detalhe: 'the process died by signal' }
+  if (codigo === 127) return { estado: 'quebrou', detalhe: 'exit 127 — the rule THREW' }
+  if (stderr) return { estado: 'quebrou', detalhe: `it wrote to stderr: ${primeiraLinha(stderr)}` }
 
   let dados
   try {
@@ -672,32 +689,32 @@ function observar(exec) {
   } catch (e) {
     return {
       estado: 'quebrou',
-      detalhe: `não produziu JSON parseável (exit ${codigo}): ${primeiraLinha(e.message)}`,
+      detalhe: `it produced no parseable JSON (exit ${codigo}): ${primeiraLinha(e.message)}`,
     }
   }
   if (!Array.isArray(dados) || dados.length !== 1)
-    return { estado: 'quebrou', detalhe: 'o --json não devolveu exatamente uma avaliação' }
+    return { estado: 'quebrou', detalhe: 'the --json did not return exactly one evaluation' }
   if (dados[0].erro)
-    return { estado: 'malformada', detalhe: `o index.mjs recusou o alvo: ${dados[0].erro}` }
+    return { estado: 'malformada', detalhe: `index.mjs refused the target: ${dados[0].erro}` }
 
   const res = dados[0].resultados
   if (!Array.isArray(res) || res.length !== 1) {
-    const quantos = Array.isArray(res) ? res.length : 'nenhum'
-    return { estado: 'quebrou', detalhe: `--rule= devolveu ${quantos} resultado(s), esperava 1` }
+    const quantos = Array.isArray(res) ? res.length : 'no'
+    return { estado: 'quebrou', detalhe: `--rule= returned ${quantos} result(s), expected 1` }
   }
   const { estado, motivo } = res[0]
-  if (typeof estado !== 'string') return { estado: 'quebrou', detalhe: 'resultado sem "estado"' }
-  if (estado === 'quebrou') return { estado: 'quebrou', detalhe: `a regra LANÇOU: ${motivo}` }
+  if (typeof estado !== 'string') return { estado: 'quebrou', detalhe: 'result without "estado"' }
+  if (estado === 'quebrou') return { estado: 'quebrou', detalhe: `the rule THREW: ${motivo}` }
 
-  // Trava também o CONTRATO do exit code, que era a única coisa que o formato
-  // antigo checava e que o novo perderia de vista se só olhasse o JSON. Com
-  // `--heuristics` ligado, reprovou tem de sair 1 e passou/na têm de sair 0,
-  // inclusive para regra heurística.
+  // It also locks the exit code CONTRACT, which was the only thing the old format
+  // checked and which the new one would lose sight of if it only looked at the
+  // JSON. With `--heuristics` on, reprovou has to exit 1 and passou/na have to
+  // exit 0, heuristic rules included.
   const codigoDevido = estado === 'reprovou' ? 1 : 0
   if (codigo !== codigoDevido) {
     return {
       estado: 'quebrou',
-      detalhe: `estado "${estado}" e exit ${codigo} não combinam — devia sair ${codigoDevido}`,
+      detalhe: `state "${estado}" and exit ${codigo} do not match — it should exit ${codigoDevido}`,
     }
   }
   return { estado, detalhe: motivo || '' }
@@ -716,7 +733,7 @@ async function provarLado(id, lado, spec) {
           : 'divergiu'
     return { lado, veredito, esperado: spec.estado, obtido: obs.estado, detalhe: obs.detalhe }
   } catch (e) {
-    // Falhou montando a fixture: é a prova que está torta, não a regra.
+    // It failed assembling the fixture: it is the proof that is bent, not the rule.
     return {
       lado,
       veredito: 'malformada',
@@ -730,10 +747,10 @@ async function provarLado(id, lado, spec) {
 }
 
 /**
- * Os dois lados de um caso rodam em SÉRIE dentro do caso, e são os casos que
- * correm em paralelo. É de propósito: assim a piscina inteira tem no máximo
- * TETO fixtures montadas ao mesmo tempo, e o número de gits simultâneos é o
- * que foi medido, não o dobro dele.
+ * The two sides of a case run in SERIES inside the case, and it is the cases that
+ * run in parallel. On purpose: this way the whole pool has at most TETO fixtures
+ * assembled at the same time, and the number of simultaneous gits is the one that
+ * was measured, not double it.
  */
 async function provarCaso(caso) {
   const saidas = []
@@ -741,13 +758,21 @@ async function provarCaso(caso) {
   return saidas
 }
 
-// ──────────────────────────────────────────────── inventário e apresentação
+// ─────────────────────────────────────────────── inventory and presentation
 
 /**
- * Descobre os ids que o index.mjs conhece sem importá-lo (ele é um CLI que
- * chama process.exit) e sem duplicar a lista aqui — lista duplicada envelhece.
- * Um id impossível faz o index.mjs sair 2 imprimindo "disponíveis: ...".
- * Se um dia a mensagem mudar, devolve null e a validação prévia só some.
+ * Discovers the ids index.mjs knows without importing it (it is a CLI that calls
+ * process.exit) and without duplicating the list here — a duplicated list ages.
+ * An impossible id makes index.mjs exit 2 printing "disponíveis: ...".
+ * If one day the message changes, it returns null and the up-front validation
+ * just disappears.
+ *
+ * "disponíveis:" stays in Portuguese on purpose: here it is not prose, it is the
+ * literal prefix of the line index.mjs writes to stderr, and the two only work
+ * as a pair. Translating either side alone costs BOTH the unknown-id check and
+ * the coverage line, and costs them in SILENCE — the find returns undefined,
+ * this returns null, and every caller treats null as "no list to compare
+ * against". Nothing turns red. index.mjs carries the mirror of this note.
  */
 async function regrasConhecidas() {
   const r = await rodar(process.execPath, [INDEX, '--rule=__inexistente__'], {
@@ -770,7 +795,7 @@ const MARCA = {
 }
 
 function morrer(mensagem) {
-  console.error(`${c.vermelho('provar:')} ${mensagem}`)
+  console.error(`${c.vermelho('prove:')} ${mensagem}`)
   process.exit(2)
 }
 
@@ -778,30 +803,28 @@ function morrer(mensagem) {
 
 const args = process.argv.slice(2)
 if (args.some((a) => a === '-h' || a === '--ajuda' || a === '--help')) {
-  console.log('uso: node prove.mjs [id-da-regra]')
+  console.log('usage: node prove.mjs [rule-id]')
   process.exit(0)
 }
-// A lista de flags validas e o PARSER moram em lugares diferentes, e este
-// repositorio ja pagou tres vezes por isso: `--heuristicas` virou
-// `--heuristics` no parser e continuou recusada aqui; `--regra=` virou
-// `--rule=` e o hook seguiu passando a antiga. Renomear ou acrescentar flag num
-// lado so a transforma em "opcao desconhecida", que e um erro que nao aponta
-// para a causa.
+// The list of valid flags and the PARSER live in different places, and this
+// repository has already paid three times for it: `--heuristicas` became
+// `--heuristics` in the parser and went on being refused here; `--regra=` became
+// `--rule=` and the hook kept passing the old one. Renaming or adding a flag on
+// one side only turns it into "unknown option", which is an error that does not
+// point at the cause.
 const CONHECIDAS = /^--(checker|cases)=/
 const flags = args.filter((a) => a.startsWith('-') && !CONHECIDAS.test(a))
 if (flags.length)
   morrer(
-    `opção desconhecida: ${flags.join(', ')} — uso: node prove.mjs [id-da-regra] [--checker=<caminho>] [--cases=<pasta>]`,
+    `unknown option: ${flags.join(', ')} — usage: node prove.mjs [rule-id] [--checker=<path>] [--cases=<folder>]`,
   )
 const posicionais = args.filter((a) => !a.startsWith('-'))
-if (posicionais.length > 1) morrer('um id de regra por vez')
+if (posicionais.length > 1) morrer('one rule id at a time')
 const soEste = posicionais[0] || null
 
-if (!existsSync(INDEX)) morrer(`index.mjs não está em ${INDEX}`)
+if (!existsSync(INDEX)) morrer(`index.mjs is not at ${INDEX}`)
 if (!existsSync(CASOS))
-  morrer(
-    `${CASOS} não existe — 19 regras e nenhum caso é exatamente o buraco que estas provas fecham`,
-  )
+  morrer(`${CASOS} does not exist — 19 rules and no case is exactly the hole these proofs close`)
 
 const regras = await regrasConhecidas()
 
@@ -811,48 +834,49 @@ let ids = readdirSync(CASOS, { withFileTypes: true })
   .sort()
 
 if (soEste) {
-  // Aceita o id da regra (roda todas as variantes dela) ou o nome exato da
-  // pasta (roda uma variante só).
+  // Takes the rule id (runs all of its variants) or the exact folder name (runs
+  // one variant only).
   const escolhidos = ids.filter((i) => i === soEste || i.startsWith(`${soEste}__`))
-  if (!escolhidos.length) morrer(`não existe caso para "${soEste}" em ${CASOS}`)
+  if (!escolhidos.length) morrer(`there is no case for "${soEste}" in ${CASOS}`)
   ids = escolhidos
 }
-if (!ids.length) morrer(`nenhum caso em ${CASOS}`)
+if (!ids.length) morrer(`no case in ${CASOS}`)
 
 const largura = Math.max(...ids.map((i) => i.length), 12)
-console.log(`\n${c.forte('rebar-check')} · ${c.forte('provas')} · ${ids.length} caso(s)`)
+console.log(`\n${c.forte('rebar-check')} · ${c.forte('proofs')} · ${ids.length} case(s)`)
 
 let bateram = 0
 let divergiram = 0
 let quebrados = 0
 let malformados = 0
-// Caso mal formado NÃO conta como regra provada. Contar a pasta em vez do caso
-// deixaria a cobertura subir sozinha só porque alguém criou um diretório.
+// A malformed case does NOT count as a proven rule. Counting the folder instead
+// of the case would let coverage climb on its own just because someone created a
+// directory.
 const provadas = []
 
-// Ler os casos é síncrono e barato (JSON pequeno); fica FORA da piscina, na
-// ordem alfabética, para que "prova mal formada" seja decidida antes de gastar
-// processo com ela.
+// Reading the cases is synchronous and cheap (small JSON); it stays OUT of the
+// pool, in alphabetical order, so that "malformed proof" is decided before
+// spending a process on it.
 const trabalhos = ids.map((id) => {
   const caso = lerCaso(id)
-  // Id que o index.mjs não conhece é prova mal formada. Pegar aqui evita montar
-  // duas fixtures inteiras só para o index.mjs sair 2 nas duas.
+  // An id index.mjs does not know is a malformed proof. Catching it here avoids
+  // assembling two whole fixtures just for index.mjs to exit 2 on both.
   if (regras && caso.rule && !regras.includes(caso.rule))
-    caso.erros.push(`o index.mjs não conhece a regra "${caso.rule}"`)
+    caso.erros.push(`index.mjs does not know the rule "${caso.rule}"`)
   return { id, caso }
 })
 
 /**
- * A impressão de UM caso. Só é chamada pelo escoador, e o escoador só chama em
- * ordem de índice — é aqui que a saída volta a ser determinística depois de os
- * casos terem terminado em qualquer ordem. Os contadores também sobem aqui,
- * pelo mesmo motivo: contador que sobe na ordem de término é contador que
- * ninguém consegue reproduzir.
+ * The printing of ONE case. It is only called by the drain, and the drain only
+ * calls in index order — this is where the output goes back to being
+ * deterministic after the cases have finished in any order. The counters go up
+ * here too, for the same reason: a counter that goes up in finishing order is a
+ * counter nobody can reproduce.
  */
 function imprimirCaso({ id, caso }, resultados) {
   if (caso.erros.length) {
     malformados++
-    console.log(`  ${c.amarelo('⚠')} ${id.padEnd(largura)} ${c.amarelo('MAL FORMADA')}`)
+    console.log(`  ${c.amarelo('⚠')} ${id.padEnd(largura)} ${c.amarelo('MALFORMED')}`)
     for (const e of caso.erros) console.log(`      ${c.fraco(e)}`)
     return
   }
@@ -862,8 +886,9 @@ function imprimirCaso({ id, caso }, resultados) {
 
   const resumoLados = resultados
     .map((x) => {
-      // Imprime o estado, não o exit code: era o exit code que escondia a
-      // diferença entre "passou" e "na", e placar que esconde não confere.
+      // It prints the state, not the exit code: it was the exit code that hid
+      // the difference between "passou" and "na", and a scoreboard that hides
+      // does not check.
       const txt = `${x.lado} ${x.obtido || '—'}`
       return x.veredito === 'bateu' ? c.verde(txt) : c.vermelho(txt)
     })
@@ -878,13 +903,13 @@ function imprimirCaso({ id, caso }, resultados) {
   else if (resultados.some((x) => x.veredito === 'quebrou')) quebrados++
   else divergiram++
 
-  console.log(`      ${c.fraco(`porque: ${caso.why}`)}`)
+  console.log(`      ${c.fraco(`why: ${caso.why}`)}`)
   for (const x of resultados) {
     if (x.veredito === 'bateu') continue
     const explica = {
-      divergiu: `esperava "${x.esperado}", observei "${x.obtido}"`,
-      quebrou: `o index.mjs QUEBROU — instrumento torto, não achado sobre o alvo`,
-      malformada: 'não consegui montar ou rodar a fixture',
+      divergiu: `I expected "${x.esperado}", I observed "${x.obtido}"`,
+      quebrou: `index.mjs BROKE — a bent instrument, not a finding about the target`,
+      malformada: 'I could not assemble or run the fixture',
     }[x.veredito]
     console.log(`      ${c.vermelho(`${x.lado}/`)} ${explica}`)
     for (const l of String(x.detalhe).split('\n').filter(Boolean).slice(0, 6))
@@ -892,10 +917,10 @@ function imprimirCaso({ id, caso }, resultados) {
   }
 }
 
-// O balde indexado + o escoador: cada caso deposita o resultado no SEU índice e
-// a impressão anda enquanto o próximo índice estiver pronto. Quem termina fora
-// de ordem espera; quem termina na vez imprime na hora, e a rodada continua
-// mostrando progresso em vez de cuspir tudo no fim.
+// The indexed bucket + the drain: each case deposits its result at ITS index and
+// the printing walks on while the next index is ready. Whoever finishes out of
+// order waits; whoever finishes in turn prints right away, and the run keeps
+// showing progress instead of spitting everything out at the end.
 const feitos = new Array(trabalhos.length)
 let aImprimir = 0
 function escoar() {
@@ -905,22 +930,20 @@ function escoar() {
   }
 }
 
-// O molde é a única coisa que a rodada inteira depende antes de começar. Se
-// ele não sobe — git ausente do PATH, tmpdir sem permissão — isto tem de sair
-// 2, e não morrer com stack trace: a versão serial dava um "MAL FORMADA"
-// por caso
-// e exit 2 nesse cenário, e o código de saída não pode mudar por causa da
-// piscina.
+// The template is the one thing the whole run depends on before it starts. If it
+// does not come up — git missing from PATH, tmpdir without permission — this has
+// to exit 2, and not die with a stack trace: the serial version gave one
+// "MALFORMED" per case and exit 2 in that scenario, and the exit code cannot
+// change because of the pool.
 try {
   await prepararMolde()
 } catch (e) {
-  morrer(`não consegui preparar o molde git em ${tmpdir()}: ${e.message}`)
+  morrer(`could not prepare the git template in ${tmpdir()}: ${e.message}`)
 }
 
-// A piscina: TETO trabalhadores dividindo uma fila por índice. Nada de
-// `Promise.all` sobre a lista inteira — um git por lado de cada caso brigando
-// pelo mesmo disco deixa a rodada MAIS lenta, além de manter todas as fixtures
-// montadas de uma vez.
+// The pool: TETO workers sharing one queue by index. No `Promise.all` over the
+// whole list — one git per side of every case fighting over the same disk makes
+// the run SLOWER, besides keeping every fixture assembled at once.
 let proximo = 0
 await Promise.all(
   Array.from({ length: Math.min(TETO, trabalhos.length) }, async () => {
@@ -928,8 +951,8 @@ await Promise.all(
       const i = proximo++
       if (i >= trabalhos.length) return
       const { caso } = trabalhos[i]
-      // `null` marca "sem lados rodados" e ainda é diferente de `undefined`,
-      // que é o que o escoador usa para saber que o índice não chegou.
+      // `null` marks "no side was run" and is still different from `undefined`,
+      // which is what the drain uses to know the index has not arrived.
       feitos[i] = caso.erros.length ? null : await provarCaso(caso)
       escoar()
     }
@@ -937,61 +960,64 @@ await Promise.all(
 )
 escoar()
 
-// Varredura em vez de `apagar(MOLDE_GIT.raiz)`: o molde é só uma das pastas
-// desta rodada, e a varredura pega ele e qualquer lado cujo `rm` tenha falhado.
+// A sweep instead of `apagar(MOLDE_GIT.raiz)`: the template is only one of this
+// run's folders, and the sweep catches it and any side whose `rm` failed.
 await varrerRestos()
 
 const total = ids.length
-const placar = `${bateram} de ${total} caso(s) bateram`
+const placar = `${bateram} of ${total} case(s) matched`
 console.log(
   `\n  ${bateram === total ? c.verde(placar) : c.vermelho(placar)}` +
-    (divergiram ? c.vermelho(`  ·  ${divergiram} divergiu`) : '') +
-    (quebrados ? c.amarelo(`  ·  ${quebrados} com o index.mjs QUEBRADO`) : '') +
-    (malformados ? c.amarelo(`  ·  ${malformados} mal formada(s)`) : ''),
+    (divergiram ? c.vermelho(`  ·  ${divergiram} diverged`) : '') +
+    (quebrados ? c.amarelo(`  ·  ${quebrados} with index.mjs BROKEN`) : '') +
+    (malformados ? c.amarelo(`  ·  ${malformados} malformed`) : ''),
 )
-// Linha própria, e não uma contagem a mais na linha de cima: quando o checker
-// está quebrado o placar de casos não quer dizer nada, e o leitor tem de ver
-// isso antes de tirar qualquer conclusão sobre as regras.
+// Its own line, and not one more count on the line above: when the checker is
+// broken the case scoreboard means nothing, and the reader has to see that before
+// drawing any conclusion about the rules.
 if (quebrados) {
   console.log(
     c.amarelo(
-      `  ⚠ o instrumento está torto: o index.mjs quebrou em ${quebrados} caso(s). ` +
-        'Nenhum veredito desta rodada vale sobre regra nenhuma.',
+      `  ⚠ the instrument is bent: index.mjs broke on ${quebrados} case(s). ` +
+        'No verdict from this run holds about any rule.',
     ),
   )
 }
 
-// Cobertura só informa. Fazer ela derrubar o exit code deixaria a suíte vermelha
-// até a 19ª regra ganhar caso, e suíte que nasce vermelha ninguém olha.
+// Coverage only informs. Making it bring the exit code down would leave the suite
+// red until the 19th rule got a case, and a suite that is born red nobody looks at.
 //
-// ─── O QUE MUDOU EM 02/09, e por que a linha ganhou ⚠ ────────────────────────
+// ─── WHAT CHANGED ON 02/09, and why the line got a ⚠ ─────────────────────────
 //
-// A frase acima continua valendo para o EXIT CODE. O que não valia era o canal:
-// a linha saía em `c.fraco` — cinza, sem marca nenhuma — e o passo `provas` do
-// `verify.config.mjs` não declarava `avisar`. Encadeando as duas coisas, o
-// executor descarta a stdout de todo passo que PASSA (é o FURO 4, escrito no
-// topo do verificar.mjs), então "regra sem prova" era invisível no portão:
-// quem acrescentasse a 23ª regra sem caso via `APROVADO 13 de 13`, verde e
-// mudo, violando a regra-mãe do repositório — a que diz que regra nova nasce
-// com os dois casos — sem uma linha na tela.
+// The sentence above still holds for the EXIT CODE. What did not hold was the
+// channel: the line came out in `c.fraco` — grey, with no mark at all — and the
+// `proofs` step of `verify.config.mjs` did not declare `avisar`. Chaining the two
+// together, the executor discards the stdout of every step that PASSES (it is
+// HOLE 4, written at the top of verify.mjs), so "a rule with no proof" was
+// invisible at the gate: whoever added the 23rd rule with no case saw the gate's
+// green `13 of 13` and nothing else, violating the mother rule of the repository
+// — the one that says a new rule is born with the two cases — without a line on
+// screen.
 //
-// Hoje são 22 de 22, então isto não muda nada na saída de agora; muda no dia em
-// que alguém encostar. A linha só ganha ⚠ quando há buraco: marcar de amarelo
-// uma cobertura completa ensinaria a ignorar o amarelo.
+// Today it is 22 of 22, so this changes nothing in the output of now; it changes
+// on the day someone leans on it. The line only gets a ⚠ when there is a hole:
+// painting a complete coverage yellow would teach people to ignore the yellow.
 //
-// POR QUE AINDA NÃO BARRA. Barrar é uma linha (`sem.length` no exit), e ela é
-// defensável — mas seria um portão NOVO, e portão novo nasce com os dois casos.
-// Prová-lo exige rodar este arquivo contra uma árvore de casos controlada, e
-// `CASOS` é fixo em `join(AQUI, 'casos')`, sem como injetar. O caminho está
-// descrito no relatório da frente C: um `--casos=<dir>`, que também é o que
-// faria esta suíte servir os projetos que o gerador cria.
+// WHY IT STILL DOES NOT BLOCK. Blocking is one line (`sem.length` in the exit),
+// and it is defensible — but it would be a NEW gate, and a new gate is born with
+// the two cases. Proving it requires running this file against a controlled tree
+// of cases. When this note was written `CASOS` was fixed at `join(AQUI, 'cases')`
+// with no way to inject one; the `--cases=<dir>` at the top has since arrived —
+// it is what makes this suite serve the security module today and the projects
+// the generator creates tomorrow. So the case is writable now. It is still not
+// written, and until it is, this line informs and does not block.
 if (regras && !soEste) {
   const sem = regras.filter((r) => !provadas.includes(r))
-  const placar = `${regras.length - sem.length} de ${regras.length} regras com prova`
+  const placar = `${regras.length - sem.length} of ${regras.length} rules with a proof`
   if (sem.length) {
     console.log(
-      c.amarelo(`  ⚠ ${placar}  ·  sem prova: ${sem.join(', ')}`) +
-        c.amarelo('\n  ⚠ regra sem os dois casos é regra que ninguém provou que reprova.'),
+      c.amarelo(`  ⚠ ${placar}  ·  no proof: ${sem.join(', ')}`) +
+        c.amarelo('\n  ⚠ a rule without the two cases is a rule nobody proved fails.'),
     )
   } else {
     console.log(c.fraco(`  ${placar}`))

@@ -1,25 +1,25 @@
 /**
- * Gerador de imagem — PNG de verdade, escrito só com built-in do Node.
+ * Image generator — a real PNG, written with nothing but Node built-ins.
  *
- * POR QUE PNG E NÃO `og.jpg`, que era o nome pedido. Escrever um codificador
- * JPEG à mão (DCT, quantização, Huffman) para produzir um retângulo de cor é
- * trabalho grande e frágil, e a alternativa preguiçosa é pior: gravar bytes que
- * não são JPEG num arquivo chamado `.jpg`. Parte dos raspadores de preview
- * fareja o conteúdo, não a extensão, e o resultado seria exatamente a falha que
- * o §12.3 existe para não repetir — o build passa, o arquivo existe, e o
- * preview vem quebrado EM SILÊNCIO.
+ * WHY PNG AND NOT `og.jpg`, which was the name asked for. Writing a JPEG
+ * encoder by hand (DCT, quantization, Huffman) to produce a rectangle of color
+ * is big, fragile work, and the lazy alternative is worse: writing bytes that
+ * are not JPEG into a file named `.jpg`. Some preview scrapers sniff the
+ * content, not the extension, and the result would be exactly the failure §12.3
+ * exists not to repeat — the build passes, the file exists, and the preview
+ * comes out broken IN SILENCE.
  *
- * PNG resolve sem mentira nenhuma: `zlib.deflateSync` é built-in, o formato é
- * assinatura + IHDR + IDAT + IEND com CRC32, e WhatsApp, Facebook, LinkedIn,
- * Slack, Discord e Twitter aceitam `image/png` em `og:image` sem ressalva.
- * Então o arquivo emitido é `public/og.png`, e `conteudo/site.json` aponta para
- * ele. Zero dependência, e o que sai é uma imagem que abre.
+ * PNG solves it with no lie at all: `zlib.deflateSync` is built in, the format
+ * is signature + IHDR + IDAT + IEND with CRC32, and WhatsApp, Facebook,
+ * LinkedIn, Slack, Discord and Twitter accept `image/png` in `og:image` with no
+ * caveat. So the file emitted is `public/og.png`, and `conteudo/site.json`
+ * points at it. Zero dependency, and what comes out is an image that opens.
  *
- * O que ele desenha é um CARTÃO REAL, não um placeholder cinza: fundo na cor de
- * tema do conteúdo, barra de destaque, e o nome do negócio escrito com uma
- * fonte de bitmap 5×7 embutida aqui embaixo. É substituível — e deve ser
- * substituído por arte de verdade —, mas enquanto não for, o preview do link
- * mostra o nome do negócio em vez de nada.
+ * What it draws is a REAL CARD, not a gray placeholder: background in the
+ * content's theme color, a highlight bar, and the business name written with a
+ * 5×7 bitmap font embedded down below. It is replaceable — and it should be
+ * replaced by real art —, but until it is, the link preview shows the business
+ * name instead of nothing.
  */
 import { deflateSync } from 'node:zlib'
 
@@ -50,14 +50,14 @@ function pedaco(tipo, dados) {
   return Buffer.concat([tamanho, corpo, crc])
 }
 
-/** `rgb` é um Buffer de largura*altura*3, sem byte de filtro. */
+/** `rgb` is a Buffer of largura*altura*3, with no filter byte. */
 export function png(largura, altura, rgb) {
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(largura, 0)
   ihdr.writeUInt32BE(altura, 4)
-  ihdr[8] = 8 // 8 bits por canal
+  ihdr[8] = 8 // 8 bits per channel
   ihdr[9] = 2 // truecolor RGB
-  // Filtro 0 em toda linha: a imagem é de áreas chapadas, o deflate já resolve.
+  // Filter 0 on every row: the image is flat areas, deflate already handles it.
   const linhas = Buffer.alloc(altura * (1 + largura * 3))
   for (let y = 0; y < altura; y++) {
     const destino = y * (1 + largura * 3)
@@ -72,9 +72,10 @@ export function png(largura, altura, rgb) {
   ])
 }
 
-// ── fonte de bitmap 5×7 ───────────────────────────────────────────────────
-// Só maiúscula, dígito e um punhado de pontuação. Acento é removido antes de
-// desenhar: cartão gerado não é tipografia final, é o que evita preview vazio.
+// ── 5×7 bitmap font ───────────────────────────────────────────────────────
+// Uppercase, digits and a handful of punctuation only. Accents are stripped
+// before drawing: a generated card is not final typography, it is what keeps
+// the preview from coming up empty.
 
 const FONTE = {
   A: '01110 10001 10001 11111 10001 10001 10001',
@@ -121,7 +122,7 @@ const FONTE = {
 
 const ACENTOS = /[̀-ͯ]/g
 
-/** Tira acento e cai para o que a fonte tem. `SAO PAULO` em vez de `SÃO`. */
+/** Strips accents and falls back to what the font has. `SAO PAULO`, not `SÃO`. */
 function normalizar(texto) {
   const semAcento = texto.normalize('NFD').replace(ACENTOS, '').toUpperCase()
   return [...semAcento]
@@ -176,7 +177,7 @@ function escrever(rgb, largura, texto, x0, y0, escala, cor) {
   }
 }
 
-/** Maior escala que faz o texto caber na caixa, dentro dos limites dados. */
+/** Largest scale that fits the text in the box, within the given bounds. */
 function escalaQueCabe(texto, larguraMaxima, min, max) {
   for (let escala = max; escala > min; escala--) {
     if (larguraDoTexto(texto, escala) <= larguraMaxima) return escala
@@ -184,7 +185,7 @@ function escalaQueCabe(texto, larguraMaxima, min, max) {
   return min
 }
 
-// ── as imagens ────────────────────────────────────────────────────────────
+// ── the images ────────────────────────────────────────────────────────────
 
 const LARGURA_OG = 1200
 const ALTURA_OG = 630
@@ -194,8 +195,9 @@ export function cartaoOg({ nome, dominio, corTema, corFundo }) {
   const tinta = hexParaRgb(corFundo)
   const rgb = tela(LARGURA_OG, ALTURA_OG, fundo)
 
-  // Barra de destaque à esquerda: dá eixo ao cartão e prova, de relance, que a
-  // imagem foi gerada — em vez de ser um 404 desenhado como caixa cinza.
+  // Highlight bar on the left: it gives the card an axis and proves, at a
+  // glance, that the image was generated — instead of being a 404 drawn as a
+  // gray box.
   retangulo(rgb, LARGURA_OG, 96, 150, 12, 330, tinta)
 
   const titulo = normalizar(nome).slice(0, 28)
@@ -213,7 +215,7 @@ export function icone(tamanho, { nome, corTema, corFundo }) {
   const fundo = hexParaRgb(corTema)
   const tinta = hexParaRgb(corFundo)
   const rgb = tela(tamanho, tamanho, fundo)
-  // Uma ou duas iniciais. Mais que isso vira borrão no tamanho de favicon.
+  // One or two initials. More than that turns into a smudge at favicon size.
   const iniciais = normalizar(nome)
     .split(' ')
     .map((parte) => parte[0])

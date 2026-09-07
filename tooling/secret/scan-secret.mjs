@@ -1,69 +1,73 @@
 #!/usr/bin/env node
-// Varredura de segredo. Existe porque "nunca commitar credencial" é regra de
-// documento e precisa virar porta: o rebar-check é retroativo e mede o que já
-// está lá, mas segredo não se conserta medindo depois — se entrou no histórico,
-// exige ROTAÇÃO. Esta é a única ferramenta do ferramental que precisa barrar
-// ANTES, e por isso é ela que mora no hook.
+// Secret scan. It exists because "never commit a credential" is a document rule
+// and has to become a gate: rebar-check is retroactive and measures what is
+// already there, but a secret is not fixed by measuring afterwards — once it is
+// in history, it demands ROTATION. This is the only tool in the toolkit that has
+// to block BEFORE, and that is why it is the one that lives in the hook.
 //
-// Zero dependência. Varre o que o Git rastreia, não o disco: arquivo ignorado
-// não é risco, e node_modules não é nosso.
+// Zero dependencies. It scans what Git tracks, not the disk: an ignored file is
+// not a risk, and node_modules is not ours.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// REESCRITA APÓS AUDITORIA ADVERSARIAL. A versão anterior deixou passar um
-// token `ghp_` real por OITO caminhos diferentes, sempre imprimindo "nenhum
-// achado". Os números abaixo são os medidos pela auditoria, não estimativas.
-// Cada decisão deste arquivo está presa a um deles:
+// REWRITTEN AFTER AN ADVERSARIAL AUDIT. The previous version let a real `ghp_`
+// token through by EIGHT different paths, always printing "no findings". The
+// numbers below are the ones the audit measured, not estimates. Every decision
+// in this file is tied to one of them:
 //
-//   1. ÍNDICE CONTRA DISCO. `--staged` pegava os NOMES do índice e lia o
-//      CONTEÚDO do disco. Lia um arquivo e commitava outro. Não é só ataque:
-//      acontece sozinho toda vez que alguém edita o arquivo depois do `git add`.
-//      Agora, em `--staged`, o conteúdo vem do BLOB DO ÍNDICE. O disco só é
-//      lido no modo normal, onde índice e disco não têm por que divergir.
+//   1. INDEX AGAINST DISK. `--staged` took the NAMES from the index and read the
+//      CONTENT from the disk. It read one file and committed another. It is not
+//      only an attack: it happens on its own every time someone edits the file
+//      after `git add`. Now, under `--staged`, the content comes from the INDEX
+//      BLOB. The disk is only read in normal mode, where index and disk have no
+//      reason to diverge.
 //
-//   2. PLACEHOLDER DESLIGAVA A LINHA INTEIRA. Medido: 8 de 9 credenciais REAIS
-//      passaram. O caso pior era `{ host: "localhost", token: "ghp_…" }` —
-//      linha que qualquer projeto escreve. Agora o placeholder é testado contra
-//      o TRECHO CASADO, nunca contra a linha, e as regras de fornecedor
-//      (prefixo fixo + comprimento) só aceitam desligador que esteja DENTRO do
-//      próprio token: um `ghp_` de 40 caracteres não é exemplo de nada.
-//      Desligar a linha inteira só pelo escape hatch `rebar-segredo-ok:`.
+//   2. THE PLACEHOLDER TURNED OFF THE WHOLE LINE. Measured: 8 of 9 REAL
+//      credentials passed. The worst case was `{ host: "localhost", token:
+//      "ghp_…" }` — a line any project writes. Now the placeholder is tested
+//      against the MATCHED SPAN, never against the line, and the vendor rules
+//      (fixed prefix + length) only accept a disabler that sits INSIDE the token
+//      itself: a 40-character `ghp_` is an example of nothing. Turning off the
+//      whole line only through the escape hatch `rebar-segredo-ok:`.
 //
-//   3. SEIS SAÍDAS SILENCIOSAS. O mesmo `ghp_` entrou por vendor/, build/, .svg,
-//      arquivo >512 KB, linha >2000 caracteres e arquivo com byte NUL — todos
-//      pulados INTEIROS e sem imprimir nada. Agora não existe pulo por pasta
-//      nem por extensão, linha longa é varrida em janelas e binário é varrido
-//      pelas ilhas de texto. O que sobra de pulo (truncado, ilegível) é contado
-//      e IMPRESSO. Silêncio aqui é pior que falso positivo: falso positivo o
-//      humano vê.
+//   3. SIX SILENT EXITS. The same `ghp_` came in through vendor/, build/, .svg,
+//      a file >512 KB, a line >2000 characters and a file with a NUL byte — all
+//      of them skipped WHOLE and without printing anything. Now there is no skip
+//      by folder nor by extension, a long line is scanned in windows and a
+//      binary is scanned through its islands of text. What is left of skipping
+//      (truncated, unreadable) is counted and PRINTED. Silence here is worse
+//      than a false positive: a false positive the human sees.
 //
-//   4. CEGUEIRA A camelCase. O lookbehind `(?<![A-Za-z0-9])` na palavra-chave
-//      fazia `githubToken` e `googleApiKey` não casarem — 6 de 7 credenciais
-//      realistas passaram por isso. A chave agora é casada como IDENTIFICADOR
-//      inteiro e quebrada em palavras no JavaScript, o que resolve camelCase,
-//      snake_case, UPPER_SNAKE, kebab e pontilhado de uma vez só.
+//   4. BLIND TO camelCase. The lookbehind `(?<![A-Za-z0-9])` on the keyword kept
+//      `githubToken` and `googleApiKey` from matching — 6 of 7 realistic
+//      credentials passed through that. The key is now matched as a whole
+//      IDENTIFIER and broken into words in JavaScript, which solves camelCase,
+//      snake_case, UPPER_SNAKE, kebab and dotted in one go.
 //
-//   5. SÓ 6 FORNECEDORES. Faltavam github_pat_, Stripe (usa `_`, a regra exigia
-//      hífen), SendGrid, npm, GitLab, HuggingFace e a secret key da AWS.
+//   5. ONLY 6 VENDORS. Missing were github_pat_, Stripe (it uses `_`, and the
+//      rule demanded a hyphen), SendGrid, npm, GitLab, HuggingFace and the AWS
+//      secret key.
 //
-//   6. DEPENDIA DO DIRETÓRIO. O git rodava sem `cwd`: o MESMO segredo em stage
-//      dava exit 1 da raiz e exit 0 de dentro de tooling/, e o ENOENT era
-//      engolido por um catch mudo. Agora todo git roda com `cwd` na raiz
-//      descoberta, e falha de git é mensagem, não silêncio.
+//   6. IT DEPENDED ON THE DIRECTORY. git ran without `cwd`: the SAME staged
+//      secret gave exit 1 from the root and exit 0 from inside tooling/, and the
+//      ENOENT was swallowed by a mute catch. Now every git runs with `cwd` on
+//      the discovered root, and a git failure is a message, not silence.
 //
-//   7. NOME DE ARQUIVO ACENTUADO. `core.quotePath` é true por padrão em todo SO
-//      e este repositório é escrito em português: `configuração.mjs` saía
-//      C-quoted, o readFileSync falhava e a falha era engolida. Todo listamento
-//      de caminho agora usa `-z` (NUL), que não passa por quoting.
+//   7. ACCENTED FILE NAME. `core.quotePath` is true by default on every OS and
+//      this repository is written in Portuguese: `configuração.mjs` came out
+//      C-quoted, readFileSync failed and the failure was swallowed. Every path
+//      listing now uses `-z` (NUL), which does not go through quoting.
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Uso:
-//   node scan-secret.mjs              tudo que o Git rastreia
-//   node scan-secret.mjs --staged     só o que está em stage (hook)
+// Usage:
+//   node scan-secret.mjs              everything Git tracks
+//   node scan-secret.mjs --staged     only what is staged (hook)
 //   node scan-secret.mjs --json
 //
-// Escape hatch, na linha do achado:  // rebar-segredo-ok: <motivo>
-// Sem motivo escrito, não vale — supressão sem justificativa é exatamente a
-// gambiarra que esta ferramenta existe para impedir.
+// Escape hatch, on the finding's line:  // rebar-segredo-ok: <reason>
+// The token stays Portuguese on purpose: it is a CONTRACT with the user, already
+// written into the audited repositories. Renaming it voids every escape already
+// in place. Without a written reason it does not count — suppression without
+// justification is exactly the workaround this tool exists to prevent.
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
@@ -73,77 +77,88 @@ const args = process.argv.slice(2)
 const soStaged = args.includes('--staged')
 const comoJson = args.includes('--json')
 
-// 8 MiB, e o número saiu de medição, não de chute. O teto antigo era 512 KB e
-// era um dos seis caminhos de saída: um arquivo de 600 KB com o `ghp_` dentro
-// era pulado inteiro e em silêncio. Medido nesta máquina, varrendo bundle
-// minificado: 1 MiB → 489 ms, 2 MiB → 510 ms de processo inteiro contra 279 ms
-// de partida do Node sozinho, ou seja ~230 ms por 2 MiB varridos. A 8 MiB isso
-// dá ~1 s, que cabe no orçamento de 5 s do hook.
+// 8 MiB, and the number came out of measurement, not of a guess. The old ceiling
+// was 512 KB and it was one of the six exit paths: a 600 KB file with the `ghp_`
+// inside was skipped whole and in silence. Measured on this machine, scanning a
+// minified bundle: 1 MiB → 489 ms, 2 MiB → 510 ms of whole process against
+// 279 ms of Node startup alone, that is ~230 ms per 2 MiB scanned. At 8 MiB that
+// gives ~1 s, which fits the hook's 5 s budget.
 //
-// O teto continua existindo porque um blob de 500 MB trava o hook, mas ele não
-// DESCARTA mais nada: acima do teto o arquivo é varrido até o teto e a
-// truncagem é impressa. Nenhum arquivo sai da varredura sem deixar linha.
+// The ceiling still exists because a 500 MB blob freezes the hook, but it no
+// longer DISCARDS anything: above the ceiling the file is scanned up to the
+// ceiling and the truncation is printed. No file leaves the scan without leaving
+// a line behind.
 const LIMITE_BYTES = 8 * 1024 * 1024
 
-// Linha longa também era saída silenciosa (`if (linha.length > 2000) continue`).
-// O teto existia por medo de backtracking; a resposta certa é fatiar, não
-// descartar. A sobreposição de 200 caracteres garante que nenhum token caia
-// exatamente na emenda entre duas janelas — o maior token que reconhecemos
-// (github_pat_, ~82 caracteres) cabe folgado nela.
+// A long line was also a silent exit (`if (linha.length > 2000) continue`). The
+// ceiling existed out of fear of backtracking; the right answer is to slice, not
+// to discard. The 200-character overlap guarantees that no token falls exactly
+// on the seam between two windows — the largest token we recognize
+// (github_pat_, ~82 characters) fits inside it with room to spare.
 const JANELA = 2000
 const SOBREPOSICAO = 200
 
-// Teto de memória por lote de `git cat-file --batch`. Blobs maiores que
-// LIMITE_BYTES nem entram no lote, então o lote só cresce por quantidade.
+// Memory ceiling per `git cat-file --batch` batch. Blobs larger than
+// LIMITE_BYTES never enter the batch, so the batch only grows by count.
 const LOTE_BYTES = 32 * 1024 * 1024
 
+// The token stays Portuguese, and it is not prose: it is the escape hatch
+// already written into the audited repositories. Renaming it voids every escape
+// in place — see the header.
 const MARCA_LIBERACAO = /rebar-segredo-ok:\s*\S+/
 
 /**
- * Placeholders são a principal fonte de falso positivo, e regra com falso
- * positivo ensina a desligar verificação — verificação desligada verifica zero.
+ * Placeholders are the main source of false positives, and a rule with a false
+ * positive teaches people to turn checking off — checking turned off checks
+ * zero.
  *
- * MUDANÇA DE ESCOPO, e é a correção do FURO 2: esta expressão agora é testada
- * contra o TRECHO CASADO, nunca contra a linha. Antes, um único termo desta
- * lista em qualquer coluna da linha apagava todas as regras daquela linha ao
- * mesmo tempo — foi assim que `{ host: "localhost", token: "ghp_…" }` passou.
- * Testada contra o trecho, a palavra `localhost` continua eximindo
- * `password: 'localhost'` e não chega perto do `ghp_` ao lado.
+ * CHANGE OF SCOPE, and it is the fix for HOLE 2: this expression is now tested
+ * against the MATCHED SPAN, never against the line. Before, a single term from
+ * this list in any column of the line erased every rule on that line at once —
+ * that is how `{ host: "localhost", token: "ghp_…" }` passed. Tested against the
+ * span, the word `localhost` still exempts `password: 'localhost'` and never
+ * gets near the `ghp_` beside it.
  *
- * Regras marcadas `alta` (prefixo de fornecedor + comprimento) NÃO consultam
- * esta lista: não existe placeholder de 40 caracteres começando em `ghp_`.
- * Elas consultam só o PLACEHOLDER_FORTE logo abaixo.
+ * Rules marked `alta` (vendor prefix + length) do NOT consult this list: there
+ * is no 40-character placeholder starting with `ghp_`. They consult only
+ * PLACEHOLDER_FORTE just below.
+ *
+ * The Portuguese words inside the expression — `senha`, `desenvolvimento`,
+ * `exemplo` — are NOT prose. They are the vocabulary the scanner LOOKS FOR
+ * inside the repositories it audits, and those repositories are Brazilian.
+ * Translating them blinds the scanner exactly where it exists to work.
  */
 const PLACEHOLDER = new RegExp(
   [
-    // ── herdado do alicerce ──
+    // ── inherited from the foundation ──
     /process\.env|import\.meta\.env|\$\{|\$\(|<[^>]*>|\bxxx+\b|\bchange[_-]?me\b/,
     /\bexample\b|\bexemplo\b|\bplaceholder\b|\bseu[_-]|\bdummy\b|\bfake\b/,
     /\btest(e)?[_-]?(key|token|secret)\b|\*{4,}|\.{4,}|\bnull\b|\bundefined\b/,
 
-    // 1. Credencial canônica de desenvolvimento Postgres/Docker, e só na
-    //    POSIÇÃO DE VALOR. As três travas continuam valendo mesmo com o escopo
-    //    reduzido ao trecho, porque o trecho de `credencial-atribuida` inclui a
-    //    chave: sem elas, `postgres` como CHAVE eximiria a si mesmo.
-    //      · à esquerda exige abertura de valor (aspas, `=`, `:`, `(`, `,`);
-    //      · `(?![A-Za-z0-9_-])` impede casar o prefixo de uma chave, e é o que
-    //        mantém `POSTGRES_PASSWORD: 'S3cr3tDeVerdade'` sendo achado;   // rebar-segredo-ok: exemplo dentro do comentario que documenta o proprio padrao
-    //      · `(?!\s*[:=])` impede casar a palavra QUANDO ELA É A CHAVE, e é o
-    //        que mantém `senha: 'Tr0v0…'` e `postgres://u:p@prod/db` sendo   // rebar-segredo-ok: exemplo dentro do comentario que documenta o proprio padrao
-    //        achados — nos dois o que vem depois é `:`.
+    // 1. Canonical Postgres/Docker development credential, and only in VALUE
+    //    POSITION. The three locks still hold even with the scope reduced to the
+    //    span, because the span of `credencial-atribuida` includes the key:
+    //    without them, `postgres` as a KEY would exempt itself.
+    //      · on the left it demands a value opening (quote, `=`, `:`, `(`, `,`);
+    //      · `(?![A-Za-z0-9_-])` stops it matching the prefix of a key, and is
+    //        what keeps `POSTGRES_PASSWORD: 'S3cr3tDeVerdade'` a finding;   // rebar-segredo-ok: example inside the comment that documents the pattern itself
+    //      · `(?!\s*[:=])` stops it matching the word WHEN IT IS THE KEY, and is
+    //        what keeps `senha: 'Tr0v0…'` and `postgres://u:p@prod/db`   // rebar-segredo-ok: example inside the comment that documents the pattern itself
+    //        findings — in both, what comes next is `:`.
     /(?:^\s*|[=:(,[{]\s*|['"`])(?:senha|postgres(?:ql)?|docker|local(?:host)?)(?![A-Za-z0-9_-])(?!\s*[:=])/,
 
-    // 2. Valor que se declara de desenvolvimento. É esta alternativa que limpa
-    //    o rebar: medido, o varredor do alicerce dava 2 achados neste
-    //    repositório — privilegio.test.mjs:19 e :196, `password: 'app_dev_only'`
-    //    num pool apontando para 127.0.0.1, zero verdadeiros positivos em 2.
-    //    Exige marcador + separador + substantivo, para que `device`,
-    //    `developer` e `devops` não virem chave de desligar.
+    // 2. A value that declares itself development. It is this alternative that
+    //    cleans up rebar: measured, the foundation scanner gave 2 findings in
+    //    this repository — privilegio.test.mjs:19 and :196,
+    //    `password: 'app_dev_only'` in a pool pointing at 127.0.0.1, zero true
+    //    positives out of 2. It demands marker + separator + noun, so that
+    //    `device`, `developer` and `devops` do not become an off switch.
     /(?<![a-z0-9])(?:dev|desenvolvimento|homolog|sandbox)[_-](?:only|local|senha|password|pass|pwd|key|token|secret|teste?)(?![a-z0-9])/,
 
-    // 3. Credencial cujo HOST é a própria máquina. String de conexão para
-    //    127.0.0.1 não é segredo de ninguém: quem tem a senha já tem a máquina.
-    //    Presa ao `@` do userinfo — exime o host, nunca a linha.
+    // 3. A credential whose HOST is the machine itself. A connection string to
+    //    127.0.0.1 is nobody's secret: whoever has the password already has the
+    //    machine. Anchored to the userinfo `@` — it exempts the host, never the
+    //    line.
     /@(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\.docker\.internal)(?![\w.-])/,
   ]
     .map((r) => r.source)
@@ -152,29 +167,37 @@ const PLACEHOLDER = new RegExp(
 )
 
 /**
- * O único desligador que uma regra de fornecedor aceita, e só DENTRO do trecho
- * casado. Medido na suíte de ataque: a linha de documentação
- * `sk-ant-api03-EXEMPLO-nao-e-chave-de-verdade` era o único falso positivo em
- * 44 casos — texto que projeto nenhum consegue evitar escrever.
+ * The only disabler a vendor rule accepts, and only INSIDE the matched span.
+ * Measured on the attack suite: the documentation line
+ * `sk-ant-api03-EXEMPLO-nao-e-chave-de-verdade` was the single false positive in
+ * 44 cases — text no project manages to avoid writing.
  *
- * Por que isto não reabre o FURO 2: o teste é contra o TRECHO, isto é, contra o
- * miolo do próprio token. Para se esconder aqui, a credencial teria de conter
- * `example`/`exemplo`/`xxx` entre fronteiras de palavra — e token que carrega
- * isso dentro não é mais o token. Num `ghp_` de 40 caracteres, que é alfanumérico
- * puro depois do prefixo, `\bexample\b` não tem como casar: os dois vizinhos são
- * alfanuméricos e não há fronteira. Só ficam expostos os formatos com hífen ou
- * sublinhado no meio (sk-, glpat-, github_pat_), e para esses o escape hatch
- * explícito continua sendo o caminho certo.
+ * Why this does not reopen HOLE 2: the test is against the SPAN, that is,
+ * against the guts of the token itself. To hide here, the credential would have
+ * to carry `example`/`exemplo`/`xxx` between word boundaries — and a token that
+ * carries that inside is no longer the token. In a 40-character `ghp_`, pure
+ * alphanumeric after the prefix, `\bexample\b` has no way to match: both
+ * neighbours are alphanumeric and there is no boundary. Only the formats with a
+ * hyphen or an underscore in the middle stay exposed (sk-, glpat-, github_pat_),
+ * and for those the explicit escape hatch is still the right road.
+ *
+ * `exemplo`, `seu` and `sua` stay in Portuguese: they are vocabulary the scanner
+ * LOOKS FOR inside Brazilian repositories, not prose.
  */
 const PLACEHOLDER_FORTE =
   /\bexample\b|\bexemplo\b|\bplaceholder\b|\bdummy\b|\bfake\b|\bchange[_-]?me\b|\bxxx+\b|\bseu[_-]|\bsua[_-]|\byour[_-]|\.{4,}|\*{4,}/i
 
-// ── Palavras que fazem de um identificador uma chave de credencial ───────────
-// Correção do FURO 4. A versão antiga tentava resolver camelCase com
-// lookbehind e não dá: `(?<![A-Za-z0-9])token` nunca casa em `githubToken`,
-// porque a letra antes de `Token` é alfanumérica. Casar o identificador INTEIRO
-// e quebrá-lo em palavras aqui no JavaScript resolve camelCase, snake_case,
-// UPPER_SNAKE, kebab e pontilhado com uma implementação só.
+// ── Words that make an identifier a credential key ───────────────────────────
+// Fix for HOLE 4. The old version tried to solve camelCase with a lookbehind and
+// that cannot work: `(?<![A-Za-z0-9])token` never matches in `githubToken`,
+// because the letter before `Token` is alphanumeric. Matching the WHOLE
+// identifier and breaking it into words here in JavaScript solves camelCase,
+// snake_case, UPPER_SNAKE, kebab and dotted with a single implementation.
+//
+// The Portuguese entries in the sets below — `senha`, `credencial`,
+// `credenciais`, `chave`, `privada` — are the vocabulary the scanner LOOKS FOR
+// inside the repositories it audits, and those are Brazilian. Not prose, not
+// translated.
 const FORTES = new Set([
   'senha',
   'password',
@@ -191,8 +214,8 @@ const FORTES = new Set([
   'credenciais',
 ])
 
-// `key` e `auth` sozinhos são ruído: `sortKey`, `cacheKey`, `authUrl`. Só valem
-// acompanhados de um qualificador que os torne credencial.
+// `key` and `auth` on their own are noise: `sortKey`, `cacheKey`, `authUrl`.
+// They only count alongside a qualifier that turns them into a credential.
 const FRACAS = new Set(['key', 'keys', 'chave', 'auth', 'cred', 'creds', 'signature'])
 const QUALIFICADORES = new Set([
   'api',
@@ -221,9 +244,10 @@ function palavrasDoIdentificador(identificador) {
     .map((p) => p.toLowerCase())
 }
 
-// Subconjunto de FORTES cujo valor é uma SENHA digitada por gente, e não um
-// token gerado por máquina. A distinção existe porque as duas classes têm forma
-// diferente e sofrem falsos positivos diferentes — ver `valorDeCredencial`.
+// Subset of FORTES whose value is a PASSWORD typed by a person, not a token
+// generated by a machine. The distinction exists because the two classes have
+// different shapes and suffer different false positives — see
+// `valorDeCredencial`.
 const SENHAS = new Set(['senha', 'password', 'passwd', 'passphrase', 'pwd'])
 
 function classeDoIdentificador(identificador) {
@@ -236,24 +260,24 @@ function classeDoIdentificador(identificador) {
 }
 
 /**
- * Gate de FORMA DO VALOR, e ele foi pago por medição. Rodado contra 9,5 MiB de
- * código de terceiro real (o node_modules do próprio rebar, prettier incluído),
- * o varredor sem este gate deu 16 falsos positivos e nenhum verdadeiro. Doze
- * vinham daqui, e todos do mesmo lugar: `token`, `key` e `secret` são palavras
- * de compilador tanto quanto de credencial. Os casos reais eram
+ * VALUE SHAPE gate, and it was paid for by measurement. Run against 9.5 MiB of
+ * real third-party code (rebar's own node_modules, prettier included), the
+ * scanner without this gate gave 16 false positives and no true one. Twelve came
+ * from here, and all from the same place: `token`, `key` and `secret` are
+ * compiler words as much as credential words. The real cases were
  *   `nextLastSignificantToken = "?NonExpressionParenEnd"`
  *   `UnexpectedTokenUnaryExponentiation: "Illegal expression. Wrap left…"`
- * — código de parser, não credencial.
+ * — parser code, not a credential.
  *
- * Duas travas, e cada uma corta um dos dois formatos observados:
- *   · valor com espaço em branco é PROSA. Mensagem de erro não é segredo. Custa
- *     a senha que contenha espaço, que existe mas é rara, e para essa continua
- *     havendo as regras de fornecedor e o escape hatch.
- *   · para a classe `token`, o valor tem de misturar letra e dígito. Token
- *     gerado por máquina praticamente sempre tem dígito; identificador
- *     PascalCase de compilador (`?NonExpressionParenEnd`) nunca tem. Esta trava
- *     NÃO vale para a classe `senha`, porque `password` não é palavra ambígua
- *     em código de parser e senha só de letras é comum.
+ * Two locks, and each one cuts one of the two observed shapes:
+ *   · a value with whitespace is PROSE. An error message is not a secret. It
+ *     costs the password that contains a space, which exists but is rare, and
+ *     for that one the vendor rules and the escape hatch are still there.
+ *   · for the `token` class, the value has to mix letter and digit. A machine-
+ *     generated token practically always has a digit; a compiler's PascalCase
+ *     identifier (`?NonExpressionParenEnd`) never does. This lock does NOT apply
+ *     to the `senha` class, because `password` is not an ambiguous word in
+ *     parser code and a letters-only password is common.
  */
 function valorDeCredencial(classe, valor) {
   if (/\s/.test(valor)) return false
@@ -265,24 +289,24 @@ function temMisturaDeCaracteres(texto) {
   return /[a-z]/.test(texto) && /[A-Z]/.test(texto) && /[0-9]/.test(texto)
 }
 
-// Contexto PERTO do casamento, não na linha inteira. Num arquivo minificado o
-// arquivo todo é UMA linha, então "a linha fala de credencial?" é sempre sim e
-// o gate não gateia nada — foi assim que 4 dos 16 falsos positivos entraram.
+// Context NEAR the match, not the whole line. In a minified file the whole file
+// is ONE line, so "does the line talk about a credential?" is always yes and the
+// gate gates nothing — that is how 4 of the 16 false positives got in.
 function contextoFala(linha, inicio, fim, padrao) {
   return padrao.test(linha.slice(Math.max(0, inicio - 64), fim + 16))
 }
 
 /**
- * `alta: true` = prefixo de fornecedor com comprimento fixo. Duas consequências:
- * o placeholder não é consultado (FURO 2) e a regra também roda dentro de
- * arquivo binário (FURO 3), onde as heurísticas genéricas seriam ruído puro.
+ * `alta: true` = vendor prefix with fixed length. Two consequences: the
+ * placeholder is not consulted (HOLE 2) and the rule also runs inside a binary
+ * file (HOLE 3), where the generic heuristics would be pure noise.
  *
- * `sensivel: false` = o trecho casado não é o segredo em si (o cabeçalho PEM é
- * público), então pode ser impresso inteiro no log.
+ * `sensivel: false` = the matched span is not the secret itself (a PEM header is
+ * public), so it can be printed whole in the log.
  *
- * A ordem importa: quem casa primeiro fica com o intervalo, e um intervalo já
- * tomado não vira segundo achado. É o que faz `token: "ghp_…"` render UM
- * achado (github-token) em vez de dois.
+ * Order matters: whoever matches first keeps the interval, and an interval
+ * already taken does not become a second finding. That is what makes
+ * `token: "ghp_…"` yield ONE finding (github-token) instead of two.
  */
 const REGRAS = [
   {
@@ -302,7 +326,7 @@ const REGRAS = [
     padrao: /(?<![A-Za-z0-9])gh[pousr]_[A-Za-z0-9]{30,}(?![A-Za-z0-9])/g,
   },
   {
-    // FURO 5: o PAT novo do GitHub não começa em `ghp_`. Passou inteiro.
+    // HOLE 5: GitHub's new PAT does not start with `ghp_`. It passed whole.
     nome: 'github-pat',
     alta: true,
     padrao: /(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{50,}(?![A-Za-z0-9])/g,
@@ -329,8 +353,8 @@ const REGRAS = [
     padrao: /(?<![A-Za-z0-9])GOCSPX-[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])/g,
   },
   {
-    // FURO 5: a Stripe separa com `_`, e a regra antiga (`sk-`) exigia hífen.
-    // `pk_live_` fica de fora de propósito: chave publicável é pública.
+    // HOLE 5: Stripe separates with `_`, and the old rule (`sk-`) demanded a
+    // hyphen. `pk_live_` is left out on purpose: a publishable key is public.
     nome: 'stripe',
     alta: true,
     padrao: /(?<![A-Za-z0-9])[sr]k_(?:live|test)_[A-Za-z0-9]{16,}(?![A-Za-z0-9])/g,
@@ -362,18 +386,23 @@ const REGRAS = [
       /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?![A-Za-z0-9_-])/g,
   },
   {
-    // FURO 5: a secret key da AWS é 40 caracteres base64 e não tem prefixo —
-    // é indistinguível de um hash. Por isso NÃO é `alta`: exige que a linha
-    // fale de credencial e que o valor misture maiúscula, minúscula e dígito.
-    // Sem esse par de travas a regra acusaria todo `integrity: "sha512-…"` de
-    // lockfile, e regra que grita vira regra desligada.
-    // Sem `=` na classe, e isso é conserto de falso positivo medido: com `=`
-    // dentro, a regex atravessava o sinal de atribuição e colava identificador
-    // com número. Em prettier/plugins/typescript.js o casamento de 40
-    // caracteres era `MethodWithSuperPropertyAccessInAsync=128` — o `=128` era
-    // quem fornecia o dígito exigido por temMisturaDeCaracteres. A secret key
-    // da AWS são 30 bytes em base64, que dão 40 caracteres exatos e SEM
-    // preenchimento, então `=` nunca aparece nela de verdade.
+    // HOLE 5: the AWS secret key is 40 base64 characters and has no prefix — it
+    // is indistinguishable from a hash. That is why it is NOT `alta`: it demands
+    // that the line talk about a credential and that the value mix uppercase,
+    // lowercase and digit. Without that pair of locks the rule would accuse
+    // every lockfile `integrity: "sha512-…"`, and a rule that screams becomes a
+    // rule turned off.
+    // No `=` in the class, and that is a measured false-positive fix: with `=`
+    // inside, the regex crossed the assignment sign and glued an identifier to a
+    // number. In prettier/plugins/typescript.js the 40-character match was
+    // `MethodWithSuperPropertyAccessInAsync=128` — the `=128` was what supplied
+    // the digit temMisturaDeCaracteres demands. The AWS secret key is 30 bytes
+    // in base64, which give exactly 40 characters and NO padding, so `=` never
+    // really appears in it.
+    // `credencial` and `senha` in the context pattern below are Portuguese on
+    // purpose: they are the words written beside the key in the repositories
+    // this scanner audits. Translating them throws away half the context the
+    // rule reads, and this rule is nothing but context.
     nome: 'aws-secret-key',
     padrao: /(?<![A-Za-z0-9/+=])[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+=])/g,
     filtrar: (casamento, linha, inicio, fim) =>
@@ -385,10 +414,10 @@ const REGRAS = [
       ) && temMisturaDeCaracteres(casamento[0]),
   },
   {
-    // O trecho vai até o HOST de propósito: é o host que decide se a credencial
-    // vale alguma coisa, e é ele que a alternativa 3 do PLACEHOLDER lê para
-    // eximir `@localhost`. Terminando no `@`, como terminava antes, o
-    // placeholder por trecho não teria o que ler.
+    // The span runs to the HOST on purpose: it is the host that decides whether
+    // the credential is worth anything, and it is what alternative 3 of
+    // PLACEHOLDER reads to exempt `@localhost`. Ending at the `@`, as it ended
+    // before, the span placeholder would have nothing to read.
     nome: 'string-de-conexao',
     padrao:
       /\b(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|mssql|redis|amqp|ftp|ssh):\/\/[^\s:@/]+:[^\s:@/]+@[^\s/'"`,)\]}]+/gi,
@@ -398,8 +427,8 @@ const REGRAS = [
     padrao: /\b(?:password|pwd)\s*=\s*[^;\s"'<${]{6,}/gi,
   },
   {
-    // Chave casada como identificador inteiro (FURO 4). O `filtrar` decide se
-    // aquele identificador é de credencial olhando as palavras que o compõem.
+    // Key matched as a whole identifier (HOLE 4). `filtrar` decides whether that
+    // identifier is a credential one by looking at the words that make it up.
     nome: 'credencial-atribuida',
     padrao: /([A-Za-z_$][A-Za-z0-9_$.-]{0,60})\s*[:=]\s*(["'`])([^"'`\r\n]{8,}?)\2/g,
     filtrar: (casamento) => {
@@ -408,22 +437,23 @@ const REGRAS = [
     },
   },
   {
-    // A MESMA COISA, SEM ASPAS — e este furo custou uma chave secreta da AWS
-    // atravessando o hook inteiro. A regra acima exige valor entre aspas, e
-    // `.env`, YAML, shell, Dockerfile e documentação escrevem sem. Medido:
-    // `AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` num .md
-    // em stage saía "nenhum achado", exit 0, e o commit entrava.
+    // THE SAME THING, WITHOUT QUOTES — and this hole cost an AWS secret key
+    // crossing the whole hook. The rule above demands a quoted value, and
+    // `.env`, YAML, shell, Dockerfile and documentation write without them.
+    // Measured:
+    // `AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` in a .md
+    // staged came out "no findings", exit 0, and the commit went in.
     //
-    // Chave secreta da AWS é o pior caso possível: 40 caracteres base64 e
-    // NENHUM prefixo distintivo. O `AKIA` que a regra `aws-access-key-id` pega
-    // é o identificador PÚBLICO; o segredo que o acompanha não tem marca. Sem
-    // esta regra, a metade que importa passa.
+    // An AWS secret key is the worst possible case: 40 base64 characters and NO
+    // distinctive prefix. The `AKIA` that the `aws-access-key-id` rule catches
+    // is the PUBLIC identifier; the secret that comes with it carries no mark.
+    // Without this rule, the half that matters passes.
     //
-    // O que segura o falso positivo é o mesmo par de filtros da versão com
-    // aspas: o identificador tem de ser de classe de credencial, e o valor tem
-    // de parecer credencial. Mais 16 caracteres de mínimo, contra a versão com
-    // aspas que aceita 8 — sem as aspas não há delimitador, então o corte é
-    // mais caro e o piso sobe para compensar.
+    // What holds the false positive back is the same pair of filters as the
+    // quoted version: the identifier has to be of a credential class, and the
+    // value has to look like a credential. Plus a 16-character minimum, against
+    // the quoted version that accepts 8 — without the quotes there is no
+    // delimiter, so the cut is more expensive and the floor rises to compensate.
     nome: 'credencial-atribuida-sem-aspas',
     padrao: /([A-Za-z_$][A-Za-z0-9_$.-]{0,60})\s*[:=]\s*([A-Za-z0-9+/_=.~-]{16,})(?=[\s;,)\]}]|$)/g,
     filtrar: (casamento) => {
@@ -439,9 +469,9 @@ const REGRAS = [
 ]
 
 // ── Git ──────────────────────────────────────────────────────────────────────
-// FURO 6: sem `cwd`, o resultado dependia da pasta de onde o comando rodava, e
-// o catch mudo transformava ENOENT em "nenhum achado". Tudo aqui roda com cwd
-// na raiz e reclama alto quando o git falha.
+// HOLE 6: without `cwd`, the result depended on the folder the command ran from,
+// and the mute catch turned ENOENT into "no findings". Everything here runs with
+// cwd on the root and complains loudly when git fails.
 
 function descobrirRaiz() {
   try {
@@ -450,9 +480,7 @@ function descobrirRaiz() {
       windowsHide: true,
     }).trim()
   } catch (erro) {
-    console.error(
-      `[segredo] não é um repositório Git, ou o git não está disponível: ${erro.message}`,
-    )
+    console.error(`[secret] not a Git repository, or git is not available: ${erro.message}`)
     process.exit(2)
   }
 }
@@ -469,15 +497,15 @@ function git(argumentos, opcoes = {}) {
       windowsHide: true,
     })
   } catch (erro) {
-    console.error(`[segredo] falhou: git ${argumentos.join(' ')}\n         ${erro.message}`)
+    console.error(`[secret] failed: git ${argumentos.join(' ')}\n         ${erro.message}`)
     process.exit(2)
   }
 }
 
-// FURO 7: `-z` devolve o caminho cru, separado por NUL. Sem ele o git aplica
-// core.quotePath (true por padrão em todo SO) e "configuração.mjs" volta
-// C-quoted — o readFileSync falhava e a falha era engolida, então um arquivo
-// com nome acentuado passava VERDE com uma AWS key dentro.
+// HOLE 7: `-z` returns the raw path, NUL-separated. Without it git applies
+// core.quotePath (true by default on every OS) and "configuração.mjs" comes back
+// C-quoted — readFileSync failed and the failure was swallowed, so a file with
+// an accented name went through GREEN with an AWS key inside.
 function caminhosParaVarrer() {
   const bruto = soStaged
     ? git(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'])
@@ -485,13 +513,13 @@ function caminhosParaVarrer() {
   return bruto.split('\0').filter(Boolean)
 }
 
-// FURO 1: em `--staged` o conteúdo tem de vir do índice, não do disco. Um
-// `git show :caminho` por arquivo custaria um processo por arquivo; `ls-files -s`
-// dá o OID de cada entrada do índice numa chamada só, e o `cat-file --batch`
-// entrega os blobs em outra. São 3 processos no total, independente de quantos
-// arquivos o commit tenha. Medido: os 106 arquivos rastreados do rebar inteiro
-// em stage, varridos pelo índice, levam 381–432 ms em três rodadas — o hook tem
-// orçamento de 5 s.
+// HOLE 1: under `--staged` the content has to come from the index, not from the
+// disk. One `git show :path` per file would cost a process per file; `ls-files
+// -s` gives the OID of every index entry in a single call, and `cat-file
+// --batch` delivers the blobs in another. That is 3 processes in total, however
+// many files the commit has. Measured: rebar's whole 106 tracked files staged,
+// scanned through the index, take 381–432 ms across three runs — the hook has a
+// 5 s budget.
 function conteudosDoIndice(caminhos) {
   const desejados = new Set(caminhos)
   const oidPorCaminho = new Map()
@@ -501,7 +529,7 @@ function conteudosDoIndice(caminhos) {
     if (tabulacao === -1) continue
     const caminho = registro.slice(tabulacao + 1)
     if (!desejados.has(caminho)) continue
-    // formato: "<modo> <oid> <estágio>\t<caminho>"
+    // format: "<mode> <oid> <stage>\t<path>"
     oidPorCaminho.set(caminho, registro.slice(0, tabulacao).split(' ')[1])
   }
 
@@ -516,12 +544,12 @@ function conteudosDoIndice(caminhos) {
     }
   }
 
-  // Blob acima do teto sai do lote e é lido sozinho, TRUNCADO. `spawnSync` com
-  // `maxBuffer` estourado devolve ENOBUFS mas entrega o parcial já lido em
-  // `r.stdout` — medido: teto de 1 MiB contra blob de 5 MiB devolveu 1.114.112
-  // bytes com o começo íntegro. É o que permite varrer os primeiros 8 MiB de um
-  // arquivo enorme em vez de declará-lo não varrido, sem risco de estourar a
-  // memória do processo.
+  // A blob above the ceiling leaves the batch and is read on its own,
+  // TRUNCATED. `spawnSync` with `maxBuffer` blown returns ENOBUFS but still
+  // hands over the partial it already read in `r.stdout` — measured: a 1 MiB
+  // ceiling against a 5 MiB blob returned 1,114,112 bytes with the beginning
+  // intact. That is what allows scanning the first 8 MiB of a huge file instead
+  // of declaring it unscanned, without risking the process memory.
   const truncadosPorOid = new Map()
   const lerTruncado = (oid) => {
     const r = spawnSync('git', ['cat-file', 'blob', oid], {
@@ -532,8 +560,8 @@ function conteudosDoIndice(caminhos) {
     return Buffer.isBuffer(r.stdout) ? r.stdout.subarray(0, LIMITE_BYTES) : Buffer.alloc(0)
   }
 
-  // Só busca em lote o conteúdo do que cabe no teto, para que um repositório
-  // com blob gigante em stage não estoure a memória do processo.
+  // Only batch-fetch the content of what fits under the ceiling, so that a
+  // repository with a giant staged blob does not blow the process memory.
   const conteudoPorOid = new Map()
   let lote = []
   let bytesDoLote = 0
@@ -549,7 +577,7 @@ function conteudosDoIndice(caminhos) {
       if (cabecalho[1] !== 'blob') continue // "<oid> missing"
       const tamanho = Number(cabecalho[2])
       conteudoPorOid.set(cabecalho[0], buffer.subarray(posicao, posicao + tamanho))
-      posicao += tamanho + 1 // o git fecha cada blob com um \n extra
+      posicao += tamanho + 1 // git closes each blob with an extra \n
     }
     lote = []
     bytesDoLote = 0
@@ -568,9 +596,10 @@ function conteudosDoIndice(caminhos) {
   return { oidPorCaminho, tamanhoPorOid, conteudoPorOid, truncadosPorOid }
 }
 
-// ── Leitura do disco (modo normal) ───────────────────────────────────────────
-// O git devolve caminho com barra normal; o disco no Windows não. Reconstituir
-// com path.join a partir dos segmentos é o que faz os dois formatos baterem.
+// ── Reading from disk (normal mode) ──────────────────────────────────────────
+// Git returns a path with forward slashes; the disk on Windows does not.
+// Rebuilding it with path.join from the segments is what makes the two formats
+// line up.
 function lerDoDisco(caminho) {
   const absoluto = join(RAIZ, ...caminho.split('/'))
   const tamanho = statSync(absoluto).size
@@ -586,14 +615,14 @@ function lerDoDisco(caminho) {
   }
 }
 
-// ── Varredura ────────────────────────────────────────────────────────────────
+// ── Scan ─────────────────────────────────────────────────────────────────────
 
 function ehPlaceholder(regra, linha, inicio, fim) {
   const trecho = linha.slice(inicio, fim)
   if (PLACEHOLDER_FORTE.test(trecho)) return true
-  // Daqui para baixo é só para as heurísticas. Regra de fornecedor não se
-  // desliga por `<…>` nem por `${…}` em volta: o desligador tem de estar dentro
-  // do token, senão bastaria envolver a credencial em sinais para escondê-la.
+  // From here down it is only for the heuristics. A vendor rule is not turned
+  // off by `<…>` or `${…}` around it: the disabler has to sit inside the token,
+  // otherwise wrapping the credential in signs would be enough to hide it.
   if (regra.alta) return false
   if (PLACEHOLDER.test(trecho)) return true
   const antes = linha.slice(0, inicio)
@@ -605,17 +634,17 @@ function ehPlaceholder(regra, linha, inicio, fim) {
 
 function redigir(texto, sensivel) {
   if (!sensivel) return texto.length > 80 ? `${texto.slice(0, 80)}…` : texto
-  // A saída desta ferramenta vai para log de CI, que é outro lugar onde segredo
-  // não entra. Mostra o suficiente para localizar, nunca o suficiente para usar.
-  if (texto.length <= 8) return `‹${texto.length} car.›`
-  return `${texto.slice(0, 4)}…‹${texto.length} car.›`
+  // This tool's output goes to a CI log, which is another place a secret does
+  // not enter. It shows enough to locate, never enough to use.
+  if (texto.length <= 8) return `‹${texto.length} chars›`
+  return `${texto.slice(0, 4)}…‹${texto.length} chars›`
 }
 
 function varrerLinha(caminho, numero, linha, apenasAlta, achados) {
   if (MARCA_LIBERACAO.test(linha)) return
 
-  // Linha longa não é mais descartada (FURO 3): é fatiada em janelas com
-  // sobreposição, porque nenhuma das regras precisa enxergar mais que isso.
+  // A long line is no longer discarded (HOLE 3): it is sliced into overlapping
+  // windows, because none of the rules needs to see more than that.
   const pedacos = []
   if (linha.length <= JANELA) pedacos.push([0, linha])
   else
@@ -637,8 +666,9 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados) {
         const fim = inicio + casamento[0].length
         if (regra.filtrar && !regra.filtrar(casamento, linha, inicio, fim)) continue
         if (ehPlaceholder(regra, linha, inicio, fim)) continue
-        // Intervalo já tomado por regra anterior (mais específica) não vira
-        // segundo achado, e a sobreposição das janelas não vira achado dobrado.
+        // An interval already taken by an earlier (more specific) rule does not
+        // become a second finding, and the window overlap does not become a
+        // doubled finding.
         if (tomados.some(([i, f]) => inicio < f && i < fim)) continue
         tomados.push([inicio, fim])
         achados.push({
@@ -654,39 +684,42 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados) {
 }
 
 /**
- * Decodifica pelo BOM antes de qualquer coisa.
+ * Decodes by the BOM before anything else.
  *
- * P1 de auditoria externa, reproduzido: o MESMO token sintético em dois
- * arquivos no índice, um UTF-8 e outro UTF-16LE com BOM. O primeiro foi achado,
- * o segundo passou — exit 0, zero achados, e o arquivo contado como "binário
- * varrido", de modo que o silêncio parecia cobertura.
+ * A P1 from an external audit, reproduced: the SAME synthetic token in two files
+ * in the index, one UTF-8 and the other UTF-16LE with BOM. The first was found,
+ * the second passed — exit 0, zero findings, and the file counted as "binary
+ * scanned", so that the silence looked like coverage.
  *
- * O mecanismo é pior que "não decodifica". Em UTF-16LE cada caractere ASCII
- * ocupa dois bytes, o segundo NUL. O `toString('utf8')` devolve `g\0h\0p\0…`;
- * a guarda de binário logo abaixo vê o NUL e troca os controles por QUEBRA DE
- * LINHA, justamente para expor ilhas de texto em binário. O efeito colateral é
- * que o token sai um caractere por linha, e nenhuma regra casa nada.
+ * The mechanism is worse than "it does not decode". In UTF-16LE every ASCII
+ * character takes two bytes, the second one NUL. `toString('utf8')` returns
+ * `g\0h\0p\0…`; the binary guard just below sees the NUL and swaps the control
+ * characters for a LINE BREAK, precisely to expose islands of text in a binary.
+ * The side effect is that the token comes out one character per line, and no
+ * rule matches anything.
  *
- * Só BOM, e isso é escolha. BOM é determinístico: três assinaturas, sem
- * adivinhação. Detectar UTF-16 SEM BOM exigiria estatística sobre a proporção
- * de NULs, e errar para o lado do "isto é texto" faria o varredor gastar as
- * regras caras em binário de verdade. O que sobra sem BOM continua entrando
- * pelo caminho de binário — varrido pelas ilhas, e CONTADO no relatório, que é
- * a diferença entre cobertura ausente e cobertura fingida.
+ * BOM only, and that is a choice. A BOM is deterministic: three signatures, no
+ * guessing. Detecting UTF-16 WITHOUT a BOM would require statistics on the
+ * proportion of NULs, and erring on the side of "this is text" would make the
+ * scanner spend the expensive rules on real binaries. What is left without a BOM
+ * still comes in through the binary path — scanned through its islands, and
+ * COUNTED in the report, which is the difference between absent coverage and
+ * faked coverage.
  */
 function decodificar(dados) {
   if (dados.length >= 2) {
     // UTF-16LE: FF FE  ·  UTF-16BE: FE FF
     if (dados[0] === 0xff && dados[1] === 0xfe) return dados.subarray(2).toString('utf16le')
     if (dados[0] === 0xfe && dados[1] === 0xff) {
-      // Node não decodifica BE direto: troca os pares e cai no LE.
+      // Node does not decode BE directly: swap the pairs and fall into LE.
       const trocado = Buffer.from(dados.subarray(2))
       trocado.swap16()
       return trocado.toString('utf16le')
     }
   }
-  // UTF-8 com BOM: EF BB BF. O BOM sozinho não atrapalha a regex, mas deixá-lo
-  // no texto desloca a coluna do achado em três bytes na primeira linha.
+  // UTF-8 with BOM: EF BB BF. The BOM alone does not get in the regex's way, but
+  // leaving it in the text shifts the finding's column by three bytes on the
+  // first line.
   if (dados.length >= 3 && dados[0] === 0xef && dados[1] === 0xbb && dados[2] === 0xbf) {
     return dados.subarray(3).toString('utf8')
   }
@@ -697,10 +730,11 @@ function varrerConteudo(caminho, dados, relatorio) {
   let texto = decodificar(dados)
   let binario = false
   if (texto.indexOf('\u0000') !== -1) {
-    // FURO 3: byte NUL fazia o arquivo inteiro ser pulado em silêncio. Segredo
-    // dentro de binário vaza igual ao de dentro de .mjs. Trocando os controles
-    // por quebra de linha, as ilhas de texto ASCII viram linhas varríveis; só
-    // as regras `alta` rodam aqui, porque heurística sobre lixo binário é ruído.
+    // HOLE 3: a NUL byte made the whole file be skipped in silence. A secret
+    // inside a binary leaks the same as one inside a .mjs. Swapping the control
+    // characters for a line break turns the islands of ASCII text into scannable
+    // lines; only the `alta` rules run here, because heuristics over binary junk
+    // are noise.
     binario = true
     texto = texto.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '\n')
     relatorio.binarios.push(caminho)
@@ -712,16 +746,17 @@ function varrerConteudo(caminho, dados, relatorio) {
   return achados
 }
 
-// ── Execução ─────────────────────────────────────────────────────────────────
+// ── Execution ────────────────────────────────────────────────────────────────
 //
-// Não existe mais IGNORAR_CAMINHO. A lista antiga pulava vendor/, build/, dist/,
-// .next/, coverage/, lockfiles e .svg — e a auditoria fez o mesmo `ghp_` entrar
-// por quatro deles. O argumento "é código de terceiro" vale para estilo e para
-// dívida técnica; NÃO vale para segredo, porque credencial commitada em vendor/
-// vaza exatamente igual à commitada em src/, e o clone de quem pegar o repo não
-// distingue as duas. .svg é texto, não imagem binária, e cabe token dentro.
-// O que sobrou de exclusão é só o que o próprio Git já exclui: arquivo
-// ignorado não é rastreado, então node_modules não aparece aqui.
+// IGNORAR_CAMINHO no longer exists. The old list skipped vendor/, build/, dist/,
+// .next/, coverage/, lockfiles and .svg — and the audit got the same `ghp_` in
+// through four of them. The argument "it is third-party code" holds for style
+// and for technical debt; it does NOT hold for a secret, because a credential
+// committed in vendor/ leaks exactly like one committed in src/, and the clone
+// of whoever takes the repo does not tell the two apart. .svg is text, not a
+// binary image, and a token fits inside it. What is left of exclusion is only
+// what Git already excludes: an ignored file is not tracked, so node_modules
+// does not show up here.
 
 const caminhos = caminhosParaVarrer()
 const relatorio = { truncados: [], ilegiveis: [], binarios: [], varridos: 0 }
@@ -730,9 +765,9 @@ const achados = []
 const doIndice = soStaged ? conteudosDoIndice(caminhos) : null
 
 /**
- * Caminho dentro de um caso de prova? O marcador e o `caso.json` em algum
- * diretorio ancestral -- o mesmo que o `semFixtures` do rebar-check usa, e nao
- * uma lista de pastas escrita a mao, que envelheceria sozinha.
+ * Path inside a proof case? The marker is the `caso.json` in some ancestor
+ * directory -- the same one rebar-check's `semFixtures` uses, and not a
+ * hand-written list of folders, which would age on its own.
  */
 function ehMaterialDeProva(caminho) {
   const partes = caminho.split('/')
@@ -743,19 +778,23 @@ function ehMaterialDeProva(caminho) {
 }
 
 for (const caminho of caminhos) {
-  // Arquivo de ambiente rastreado é achado por si só, independente do conteúdo.
+  // A tracked environment file is a finding by itself, whatever the content.
   //
-  // DUAS EXCLUSOES, e as duas foram previstas antes de doerem.
+  // TWO EXCLUSIONS, and both were foreseen before they hurt.
   //
-  // A primeira: a lista de sufixos de exemplo era so `.example|.exemplo`, e a
-  // auditoria do inventario de seguranca registrou, com o numero da linha,
-  // que ela produzia dois falsos positivos. Produziu: o primeiro commit do
-  // modulo de seguranca foi barrado por um `.env.sample` que e o CONSERTO da
-  // falha, nao a falha.
+  // The first: the list of example suffixes was only `.example|.exemplo`, and
+  // the security inventory audit recorded, with the line number, that it
+  // produced two false positives. It did: the first commit of the security
+  // module was blocked by a `.env.sample` that is the FIX for the flaw, not the
+  // flaw.
   //
-  // A segunda: material de prova. Um `.env` que existe para PROVAR que a regra
-  // detecta `.env` nao pode barrar o commit da propria prova. O marcador e o
-  // mesmo que o rebar-check usa -- um `caso.json` em diretorio ancestral.
+  // The second: proof material. A `.env` that exists to PROVE that the rule
+  // detects `.env` cannot block the commit of the proof itself. The marker is
+  // the same one rebar-check uses -- a `caso.json` in an ancestor directory.
+  //
+  // `exemplo` and `modelo` stay Portuguese in the suffix list below: they are
+  // file-name suffixes written by the Brazilian repositories this scanner
+  // audits, not prose.
   if (
     /(^|\/)\.env(\.|$)/.test(caminho) &&
     !/\.(example|exemplo|sample|template|dist|modelo)$/.test(caminho) &&
@@ -771,14 +810,12 @@ for (const caminho of caminhos) {
     const tamanho = oid === undefined ? undefined : doIndice.tamanhoPorOid.get(oid)
     if (tamanho !== undefined && tamanho > LIMITE_BYTES) {
       dados = doIndice.truncadosPorOid.get(oid)
-      relatorio.truncados.push(
-        `${caminho} (${tamanho} bytes, varridos os primeiros ${LIMITE_BYTES})`,
-      )
+      relatorio.truncados.push(`${caminho} (${tamanho} bytes, first ${LIMITE_BYTES} scanned)`)
     } else {
       dados = oid === undefined ? undefined : doIndice.conteudoPorOid.get(oid)
     }
     if (dados === undefined) {
-      relatorio.ilegiveis.push(`${caminho} — sem blob no índice`)
+      relatorio.ilegiveis.push(`${caminho} — no blob in the index`)
       continue
     }
   } else {
@@ -787,12 +824,12 @@ for (const caminho of caminhos) {
       dados = lido.dados
       if (lido.tamanho > LIMITE_BYTES) {
         relatorio.truncados.push(
-          `${caminho} (${lido.tamanho} bytes, varridos os primeiros ${LIMITE_BYTES})`,
+          `${caminho} (${lido.tamanho} bytes, first ${LIMITE_BYTES} scanned)`,
         )
       }
     } catch (erro) {
-      // Antes era `catch { continue }`, e era por aí que o nome acentuado saía
-      // limpo. Falha de leitura agora é linha impressa, não silêncio.
+      // It used to be `catch { continue }`, and that was where the accented name
+      // came out clean. A read failure is now a printed line, not silence.
       relatorio.ilegiveis.push(`${caminho} — ${erro.code ?? erro.message}`)
       continue
     }
@@ -802,16 +839,17 @@ for (const caminho of caminhos) {
   achados.push(...varrerConteudo(caminho, dados, relatorio))
 }
 
-// Em `--staged`, arquivo que não pôde ser varrido é arquivo entrando no commit
-// sem verificação — o hook não tem como aprovar o que não leu. No modo normal
-// isso é rotina (arquivo rastreado apagado do disco), então só avisa.
+// Under `--staged`, a file that could not be scanned is a file entering the
+// commit unchecked — the hook has no way to approve what it did not read. In
+// normal mode that is routine (a tracked file deleted from disk), so it only
+// warns.
 const naoVerificados = soStaged ? relatorio.ilegiveis.length : 0
 
 function imprimirLista(rotulo, itens) {
   if (itens.length === 0) return
   console.error(`\n  ${rotulo} (${itens.length}):`)
   for (const item of itens.slice(0, 20)) console.error(`    ${item}`)
-  if (itens.length > 20) console.error(`    …e mais ${itens.length - 20}`)
+  if (itens.length > 20) console.error(`    …and ${itens.length - 20} more`)
 }
 
 if (comoJson) {
@@ -834,48 +872,48 @@ if (comoJson) {
     ),
   )
 } else {
-  // O resumo sai SEMPRE, inclusive no caminho feliz. A mentira mais cara da
-  // versão anterior não foi um achado errado: foi "nenhum achado" impresso
-  // depois de pular seis arquivos sem contar nenhum deles.
+  // The summary comes out ALWAYS, including on the happy path. The most
+  // expensive lie of the previous version was not a wrong finding: it was "no
+  // findings" printed after skipping six files without counting any of them.
   const resumo =
-    `[segredo] ${relatorio.varridos} arquivo(s) varrido(s) em ${soStaged ? 'stage' : 'arquivos rastreados'}` +
-    ` · ${relatorio.binarios.length} binário(s) · ${relatorio.truncados.length} truncado(s)` +
-    ` · ${relatorio.ilegiveis.length} não varrido(s)`
+    `[secret] ${relatorio.varridos} file(s) scanned in ${soStaged ? 'stage' : 'tracked files'}` +
+    ` · ${relatorio.binarios.length} binary file(s) · ${relatorio.truncados.length} truncated` +
+    ` · ${relatorio.ilegiveis.length} not scanned`
 
-  // ─── O ⚠, e por que ele existe (achado de 02/09) ────────────────────────────
+  // ─── The ⚠, and why it exists (finding of 02/09) ───────────────────────────
   //
-  // O comentário acima conta a mentira mais cara desta ferramenta: "nenhum
-  // achado" impresso depois de pular seis arquivos sem contar nenhum deles. O
-  // resumo consertou a mentira NA FERRAMENTA e não no portão: fora do
-  // `--staged`, `naoVerificados` é sempre 0, então arquivo TRUNCADO ou
-  // ILEGÍVEL sai com exit 0 — e o `verificar` descarta a stdout de todo passo
-  // que passa (o FURO 4, escrito no topo do verificar.mjs). Resultado medido:
-  // as duas listas eram impressas para ninguém.
+  // The comment above tells the most expensive lie of this tool: "no findings"
+  // printed after skipping six files without counting any of them. The summary
+  // fixed the lie IN THE TOOL and not in the gate: outside `--staged`,
+  // `naoVerificados` is always 0, so a TRUNCATED or UNREADABLE file exits 0 —
+  // and `verify` discards the stdout of every step that passes (HOLE 4, written
+  // at the top of verify.mjs). Measured result: the two lists were printed for
+  // nobody.
   //
-  // O ⚠ é o que as faz atravessar, porque o passo `segredo` do
-  // verify.config.mjs declara `avisar: /^\s*⚠/`. Continua sendo AVISO e não
-  // reprovação: arquivo rastreado apagado do disco é rotina de quem edita, e
-  // reprovar nisso seria o portão que ninguém consegue satisfazer. Mas
-  // "varri tudo" e "não li estes N" são duas alegações diferentes, e o portão
-  // só estava fazendo a primeira.
+  // The ⚠ is what makes them cross, because the `secret` step of
+  // verify.config.mjs declares `avisar: /^\s*⚠/`. It stays a WARNING and not a
+  // failure: a tracked file deleted from disk is routine for whoever edits, and
+  // failing on that would be the gate nobody can satisfy. But "I scanned
+  // everything" and "I did not read these N" are two different claims, and the
+  // gate was only making the first.
   const naoLidos = relatorio.truncados.length + relatorio.ilegiveis.length
   const avisoDoNaoLido = () => {
     if (naoLidos === 0) return
     console.error(
-      `  ⚠ ${relatorio.truncados.length} arquivo(s) varrido(s) só em parte e ` +
-        `${relatorio.ilegiveis.length} não varrido(s) — este veredito não cobre ${naoLidos} arquivo(s)`,
+      `  ⚠ ${relatorio.truncados.length} file(s) scanned only in part and ` +
+        `${relatorio.ilegiveis.length} not scanned — this verdict does not cover ${naoLidos} file(s)`,
     )
-    imprimirLista('truncados — varridos só em parte', relatorio.truncados)
-    imprimirLista('não varridos', relatorio.ilegiveis)
+    imprimirLista('truncated — scanned only in part', relatorio.truncados)
+    imprimirLista('not scanned', relatorio.ilegiveis)
   }
 
   if (achados.length === 0 && naoVerificados === 0) {
-    console.log(`${resumo} · nenhum achado.`)
+    console.log(`${resumo} · no findings.`)
     avisoDoNaoLido()
   } else {
     console.error(resumo)
     if (achados.length > 0) {
-      console.error(`\n[segredo] ${achados.length} achado(s):\n`)
+      console.error(`\n[secret] ${achados.length} finding(s):\n`)
       for (const a of achados) {
         console.error(`  error  ${a.caminho}:${a.linha}:${a.coluna}  ${a.regra}`)
         console.error(`         ${a.trecho}`)
@@ -883,9 +921,9 @@ if (comoJson) {
     }
     avisoDoNaoLido()
     console.error(
-      '\n  Segredo que já entrou no histórico não se remove com commit novo:\n' +
-        '  precisa ser ROTACIONADO. Reescrever histórico vem depois, não no lugar.\n' +
-        '  Falso positivo: adicione na linha  // rebar-segredo-ok: <motivo>\n',
+      '\n  A secret that already entered history is not removed by a new commit:\n' +
+        '  it has to be ROTATED. Rewriting history comes after, not instead.\n' +
+        '  False positive: add on the line  // rebar-segredo-ok: <reason>\n',
     )
   }
 }

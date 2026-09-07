@@ -1,45 +1,47 @@
 #!/usr/bin/env node
-// gerar.mjs — o MCP não é escrito à mão. Este arquivo é quem o escreve.
+// gerar.mjs — the MCP is not written by hand. This file is what writes it.
 //
-// POR QUE ELE EXISTE. O defeito que o dono viveu no Herz e no BMB Compras não
-// foi "faltou MCP": foi que o MCP CONTINUOU SERVINDO A REGRA VELHA depois que a
-// regra mudou, e ninguém percebeu. Medido neste repositório em 01/09/2026,
-// antes desta linha existir: `mcp/` tinha 182 linhas de servidor que serviam
-// PROSA do plano por seção, NUNCA tinham rodado (as dependências nunca foram
-// instaladas), NENHUM passo do `verificar` as tocava e NENHUMA regra as cobria —
-// enquanto o `rebar-check` ao lado já impunha 22 regras que o MCP não conhecia.
-// É o diagnóstico que abre o plano, cometido dentro do próprio repositório:
-// decisão que mora onde nenhuma máquina lê.
+// WHY IT EXISTS. The defect the owner lived through in Herz and in BMB Compras
+// was not "the MCP was missing": it was that the MCP KEPT SERVING THE OLD RULE
+// after the rule changed, and nobody noticed. Measured in this repository on
+// 01/09/2026, before this line existed: `mcp/` had 182 lines of server serving
+// PROSE from the plan by section, they had NEVER run (the dependencies were
+// never installed), NO step of `verify` touched them and NO rule covered them —
+// while the `rebar-check` next door already enforced 22 rules the MCP did not
+// know about. It is the diagnosis that opens the plan, committed inside the
+// repository itself: *"decisão que mora onde nenhuma máquina lê"* [a decision
+// that lives where no machine reads].
 //
-// O desenho é o da §7.2 do docs/PLANO.md, e as três linhas dela governam este
-// arquivo inteiro:
+// The design is §7.2 of docs/PLANO.md, and its three lines govern this whole
+// file:
 //
-//   ARTEFATO GERADO      o servidor MCP não guarda regra escrita à mão. Ele lê
-//                        `rules.generated.json`, que sai daqui.
-//   PORTÃO DE FRESCOR    `--verificar` regenera EM MEMÓRIA e compara com o
-//                        disco. Divergiu, sai 1. É o que torna impossível mudar
-//                        a regra e esquecer o MCP.
-//   DERIVADO, NUNCA      nenhum fato deste arquivo é digitado aqui. Cada campo
-//   DUPLICADO            do artefato tem uma FONTE em disco, e o artefato
-//                        carrega o sha256 de cada uma. Não há duas fontes para
-//                        divergir — há uma fonte e uma projeção dela.
+//   GENERATED ARTIFACT   the MCP server holds no hand-written rule. It reads
+//                        `rules.generated.json`, which comes out of here.
+//   FRESHNESS GATE       `--verificar` regenerates IN MEMORY and compares with
+//                        disk. Diverged, exit 1. It is what makes it impossible
+//                        to change the rule and forget the MCP.
+//   DERIVED, NEVER       no fact in this file is typed here. Every field of the
+//   DUPLICATED           artifact has a SOURCE on disk, and the artifact
+//                        carries the sha256 of each one. There are not two
+//                        sources to diverge — there is one source and one
+//                        projection of it.
 //
-// ZERO DEPENDÊNCIA, e aqui não é preferência: este arquivo roda no `verificar`
-// da RAIZ, que não instala o `mcp/node_modules`. Só built-in do Node. O `mcp/`
-// como pacote pode ter dependência; o portão de frescor não pode, ou o portão
-// passa a depender do que ele está conferindo.
+// ZERO DEPENDENCY, and here that is not preference: this file runs inside the
+// ROOT's `verify`, which does not install `mcp/node_modules`. Node built-ins
+// only. `mcp/` as a package may have dependencies; the freshness gate may not,
+// or the gate starts depending on what it is checking.
 //
-// Uso:
-//   node mcp/generate.mjs              escreve mcp/rules.generated.json
-//   node mcp/generate.mjs --verificar  regenera em memória, compara, sai 1 se divergiu
-//   node mcp/generate.mjs --resumo     imprime o que seria gerado, sem escrever
+// Usage:
+//   node mcp/generate.mjs              writes mcp/rules.generated.json
+//   node mcp/generate.mjs --verificar  regenerates in memory, compares, exits 1 if diverged
+//   node mcp/generate.mjs --resumo     prints what would be generated, without writing
 //
-// Códigos de saída — mesma disciplina do index.mjs, três coisas, três códigos:
-//   0    escreveu, ou conferiu e bateu
-//   1    DIVERGIU: o disco não é o que a fonte produz hoje. Regenere.
-//   2    a própria GERAÇÃO quebrou — fonte ausente, forma inesperada, contagem
-//        que não fecha. Domina o 1 pelo mesmo motivo que o 127 domina o 1 no
-//        index.mjs: não se acusa o disco com um gerador que está torto.
+// Exit codes — same discipline as index.mjs, three things, three codes:
+//   0    wrote, or checked and matched
+//   1    DIVERGED: disk is not what the source produces today. Regenerate.
+//   2    GENERATION itself broke — missing source, unexpected shape, a count
+//        that does not add up. It dominates 1 for the same reason 127 dominates
+//        1 in index.mjs: you do not accuse the disk with a crooked generator.
 
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -53,29 +55,29 @@ const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..')
 const ARTEFATO = join(AQUI, 'rules.generated.json')
 
-/** Erro de GERAÇÃO — sai 2, nunca 1. Ver o bloco de códigos de saída acima. */
+/** GENERATION error — exits 2, never 1. See the exit-code block above. */
 class Torto extends Error {}
 const exigir = (condicao, mensagem) => {
   if (!condicao) throw new Torto(mensagem)
 }
 
-// ───────────────────────────────────────────────────────────────── leitura
+// ───────────────────────────────────────────────────────────────── reading
 
 /**
- * Lê um arquivo do repositório com caminho POSIX estável.
+ * Reads a repository file with a stable POSIX path.
  *
- * `join` para o disco (Windows), barra normal para o que entra no artefato: o
- * artefato é comparado byte a byte entre Windows e Linux no CI em matriz, e um
- * `ferramental\\rebar-check\\index.mjs` gravado lá dentro faria o portão de
- * frescor reprovar em metade da matriz por causa da barra, sem que nada de
- * fato tivesse mudado.
+ * `join` for the disk (Windows), forward slash for what goes into the artifact:
+ * the artifact is compared byte by byte between Windows and Linux on the CI
+ * matrix, and a `ferramental\\rebar-check\\index.mjs` written in there would
+ * make the freshness gate fail on half the matrix because of the slash, without
+ * any fact having changed.
  */
 function ler(rel) {
   const abs = join(RAIZ, ...rel.split('/'))
-  exigir(existsSync(abs), `fonte ausente: ${rel}`)
-  // Normaliza CRLF. O .gitattributes fixa LF no repositório, mas um checkout com
-  // autocrlf ligado entrega CRLF ao Node, e aí o sha256 e o corte de comentário
-  // mudariam por causa de um byte que o git considera inexistente.
+  exigir(existsSync(abs), `missing source: ${rel}`)
+  // Normalizes CRLF. The .gitattributes pins LF in the repository, but a
+  // checkout with autocrlf on hands CRLF to Node, and then the sha256 and the
+  // comment cut would change because of a byte git considers nonexistent.
   return readFileSync(abs, 'utf8').replace(/\r\n/g, '\n')
 }
 
@@ -83,80 +85,83 @@ const sha256 = (texto) => createHash('sha256').update(texto, 'utf8').digest('hex
 
 const linhaDe = (texto, indice) => texto.slice(0, indice).split('\n').length
 
-/** Acha a linha (1-based) da primeira ocorrência do padrão, ou quebra. */
+/** Finds the (1-based) line of the pattern's first occurrence, or breaks. */
 function linhaDoPadrao(texto, padrao, rel) {
   const m = padrao.exec(texto)
-  exigir(m, `${rel}: não achei ${padrao} — a fonte mudou de forma`)
+  exigir(m, `${rel}: could not find ${padrao} — the source changed shape`)
   return linhaDe(texto, m.index)
 }
 
-// ───────────────────────────────────────────────── comentário → o "porque"
+// ────────────────────────────────────────────────── comment → the "porque"
 //
-// A PARTE CARA, e a escolha tem custo que fica escrito.
+// THE EXPENSIVE PART, and the choice has a cost that stays written down.
 //
-// O `porque` de cada regra — o número medido que justifica a decisão, "417
-// arquivos, uma acusação, zero falsos", "43 arquivos com prova no nome e a
-// regra enxergava zero" — mora em COMENTÁRIO no `index.mjs`. Uma IA que recebe
-// "não use telefone no código" ignora; uma que recebe "um verdadeiro positivo e
-// zero falsos em 417 arquivos, e o PR que tentou mover para env var foi parado
-// porque o wa.me sobe sem destinatário" não ignora. É por isso que o comentário
-// é o conteúdo, e não enfeite.
+// The `porque` of each rule — the measured number that justifies the decision,
+// "417 files, one accusation, zero false positives", "43 files with `prova` in
+// the name and the rule saw zero" — lives in a COMMENT in `index.mjs`. An AI
+// that receives "do not use a phone number in the code" ignores it; one that
+// receives "one true positive and zero false ones across 417 files, and the PR
+// that tried to move it to an env var was stopped because wa.me ships with no
+// recipient" does not ignore it. That is why the comment IS the content, not
+// decoration.
 //
-// A FORMA ESCOLHIDA: `porque` é UMA lista de parágrafos, cada um com a LINHA de
-// onde saiu e um rótulo `onde` — `cabecalho` (entre o `{` da regra e a chave
-// `checar:`, mais o bloco contíguo acima do `{`) ou `implementacao` (dentro do
-// corpo do `checar`). Linha `//` vazia separa parágrafo; item de lista abre o
-// seu.
+// THE SHAPE CHOSEN: `porque` is ONE list of paragraphs, each with the LINE it
+// came from and an `onde` label — `cabecalho` (between the rule's `{` and the
+// `checar:` key, plus the contiguous block above the `{`) or `implementacao`
+// (inside the body of `checar`). An empty `//` line separates paragraphs; a
+// list item opens its own.
 //
-// A PRIMEIRA VERSÃO DESTA FUNÇÃO CORTAVA em dois campos, `porque` só do
-// cabeçalho e `notas` do corpo, e a medição derrubou o corte: das 22 regras, 15
-// ficavam com `porque` VAZIO — e não por falta de razão. A razão do `hex-cru`
-// ("a versão ingênua desta regra deu 100% de falso positivo quando medida"), a
-// do `coautoria-ia` inteira e a do `dependabot` ("quatro regras sumindo é o que
-// fazia 9 de 10 virar 6 de 6") estão escritas DENTRO do `checar`. Um artefato
-// que entregasse `porque: []` para 15 de 22 regras ensinaria o modelo que
-// aquelas regras são arbitrárias, que é o oposto exato do que este campo existe
-// para fazer. O rótulo `onde` preserva a distinção sem esconder o número: quem
-// quiser só a razão de decisão filtra por `cabecalho`.
+// THE FIRST VERSION OF THIS FUNCTION CUT into two fields, `porque` from the
+// header only and `notas` from the body, and measurement knocked the cut down:
+// of the 22 rules, 15 were left with an EMPTY `porque` — and not for lack of a
+// reason. The reason for `hex-cru` ("the naive version of this rule gave 100%
+// false positives when measured"), the whole reason for `coautoria-ia` and the
+// one for `dependabot` ("four rules disappearing is what turned 9 out of 10
+// into 6 out of 6") are written INSIDE `checar`. An artifact that handed
+// `porque: []` to 15 of 22 rules would teach the model that those rules are
+// arbitrary, which is the exact opposite of what this field exists to do. The
+// `onde` label preserves the distinction without hiding the number: whoever
+// wants only the decision reason filters by `cabecalho`.
 //
-// O CUSTO que sobra: a classificação é POSICIONAL, não semântica. Um comentário
-// de implementação pura ("60 caracteres bastam para o const mais folgado") vem
-// junto, rotulado `implementacao`. Preferi ruído rotulado a silêncio.
+// THE COST THAT REMAINS: the classification is POSITIONAL, not semantic. A pure
+// implementation comment ("60 characters are enough for the loosest const")
+// comes along, labeled `implementacao`. I preferred labeled noise to silence.
 //
-// A FORMA MELHOR, e que não está disponível: um campo `porque:` na própria
-// regra. Zero parsing, zero fragilidade, e o `porque` passaria a ser conferido
-// pelo prettier e pelo próprio `export`. Custa 22 edições no `index.mjs`, e a
-// permissão desta frente é de UM toque só (o `export const REGRAS`). Fica
-// registrado como o próximo movimento: quando alguém puder editar as 22 regras,
-// mover `porque` para dentro do objeto apaga este bloco inteiro.
+// THE BETTER SHAPE, and it is not available: a `porque:` field on the rule
+// itself. Zero parsing, zero fragility, and `porque` would start being checked
+// by prettier and by the `export` itself. It costs 22 edits in `index.mjs`, and
+// this front's permission is for ONE touch only (the `export const REGRAS`). It
+// is recorded as the next move: when someone can edit the 22 rules, moving
+// `porque` inside the object erases this whole block.
 //
-// A FRAGILIDADE é conhecida e está CONTIDA, não ignorada: o casamento depende
-// da forma que o prettier impõe (`  {` na coluna 2, chaves na coluna 4). Se ela
-// mudar, o parser não devolve texto vazio em silêncio — a conferência lá
-// embaixo compara a lista casada no TEXTO com o array `REGRAS` IMPORTADO, id a
-// id, e sai 2. Regra que suma do artefato é o defeito que este módulo existe
-// para não cometer; ela some ALTO ou não some.
+// THE FRAGILITY is known and CONTAINED, not ignored: the match depends on the
+// shape prettier imposes (`  {` at column 2, keys at column 4). If it changes,
+// the parser does not silently return empty text — the check further down
+// compares the list matched in the TEXT against the IMPORTED `REGRAS` array, id
+// by id, and exits 2. A rule vanishing from the artifact is the defect this
+// module exists not to commit; it vanishes LOUD or it does not vanish.
 
-/** Tira o `//` e o espaço, e devolve `null` para régua decorativa (`── … ──`). */
+/** Strips the `//` and the space, and returns `null` for a decorative ruler (`── … ──`). */
 function limparComentario(linha) {
   const m = /^\s*\/\/ ?(.*)$/.exec(linha)
   if (!m) return undefined
   const texto = m[1].replace(/\s+$/, '')
-  // Régua de seção (`── determinísticas ─────`) e caixa de moldura não são
-  // razão de nada: são navegação para o olho humano.
+  // A section ruler (`── determinísticas ─────`, kept in Portuguese because it
+  // is a literal sample of what index.mjs actually contains) and a frame box
+  // are not the reason for anything: they are navigation for the human eye.
   if (!texto || /^[─—\-=·\s]+$/.test(texto)) return ''
   if (/^[─—]{2,}.*[─—]{2,}$/.test(texto)) return ''
   return texto
 }
 
 /**
- * Junta linhas de comentário em parágrafos. Linha vazia abre parágrafo novo;
- * dentro do parágrafo as linhas viram uma frase só, porque a quebra do fonte é
- * do printWidth 100 do prettier e não do autor.
+ * Joins comment lines into paragraphs. An empty line opens a new paragraph;
+ * inside a paragraph the lines become one single sentence, because the break in
+ * the source is prettier's printWidth 100 and not the author's.
  *
- * Item de lista (`1.`, `·`, `-`) abre parágrafo por conta própria: sem isto, as
- * quatro conclusões numeradas do `conteudo-fora-do-codigo` — que são o motivo
- * de a regra continuar heurística — viravam um parágrafo de 40 linhas.
+ * A list item (`1.`, `·`, `-`) opens its own paragraph: without this, the four
+ * numbered conclusions of `conteudo-fora-do-codigo` — which are the reason the
+ * rule stays heuristic — turned into a 40-line paragraph.
  */
 function paragrafos(linhas, onde, primeiraLinha = 0) {
   const saida = []
@@ -179,19 +184,20 @@ function paragrafos(linhas, onde, primeiraLinha = 0) {
   return saida
 }
 
-/** O mesmo, quando o consumidor só quer o texto (decisões, sem linha). */
+/** The same, when the consumer only wants the text (decisions, no line). */
 const soTexto = (ps) => ps.map((p) => p.texto)
 
 /**
- * Casa cada objeto de regra no TEXTO do index.mjs e devolve cabeçalho, corpo e
- * linha. Não interpreta código: só usa a indentação que o prettier garante.
+ * Matches each rule object in the TEXT of index.mjs and returns header, body and
+ * line. It does not interpret code: it only uses the indentation prettier
+ * guarantees.
  */
 function regrasNoTexto(fonte, rel) {
   const linhas = fonte.split('\n')
   const inicioArray = linhas.findIndex((l) => /^export const REGRAS = \[$/.test(l))
   exigir(
     inicioArray >= 0,
-    `${rel}: não achei "export const REGRAS = [" — o toque do gerador na fonte da verdade sumiu`,
+    `${rel}: could not find "export const REGRAS = [" — the generator's touch on the source of truth is gone`,
   )
 
   const achadas = []
@@ -199,27 +205,27 @@ function regrasNoTexto(fonte, rel) {
     if (linhas[i] === ']') break
     if (linhas[i] !== '  {') continue
 
-    // O bloco `//` contíguo ACIMA do `{` pertence a esta regra.
+    // The contiguous `//` block ABOVE the `{` belongs to this rule.
     const acima = []
     for (let j = i - 1; j >= 0 && /^\s*\/\//.test(linhas[j]); j--) acima.unshift(linhas[j])
 
     let fim = i + 1
     while (fim < linhas.length && linhas[fim] !== '  },') fim++
-    exigir(fim < linhas.length, `${rel}: objeto de regra aberto na linha ${i + 1} e nunca fechado`)
+    exigir(fim < linhas.length, `${rel}: rule object opened at line ${i + 1} and never closed`)
 
     const dentro = linhas.slice(i + 1, fim)
     const iChecar = dentro.findIndex((l) => /^    checar:/.test(l))
-    exigir(iChecar >= 0, `${rel}: regra na linha ${i + 1} sem chave "checar:" na coluna 4`)
+    exigir(iChecar >= 0, `${rel}: rule at line ${i + 1} with no "checar:" key at column 4`)
 
     const mId = /^    id: '([^']+)',$/.exec(dentro[0])
-    exigir(mId, `${rel}: regra na linha ${i + 1} não começa por "id: '…'," na coluna 4`)
+    exigir(mId, `${rel}: rule at line ${i + 1} does not start with "id: '…'," at column 4`)
 
     achadas.push({
       id: mId[1],
-      linha: i + 2, // a linha do `id:`, que é onde um humano vai procurar
+      linha: i + 2, // the `id:` line, which is where a human will look
       porque: [
-        // `i + 1 - acima.length` é a linha (1-based) da primeira `//` do bloco
-        // acima do `{`; `i + 3` é a linha da chave logo depois do `id:`.
+        // `i + 1 - acima.length` is the (1-based) line of the first `//` of the
+        // block above the `{`; `i + 3` is the line of the key right after `id:`.
         ...paragrafos(acima, 'cabecalho', i + 1 - acima.length),
         ...paragrafos(dentro.slice(1, iChecar), 'cabecalho', i + 3),
         ...paragrafos(dentro.slice(iChecar), 'implementacao', i + 2 + iChecar),
@@ -230,27 +236,29 @@ function regrasNoTexto(fonte, rel) {
   return achadas
 }
 
-// ─────────────────────────────────────────────────────────────────── provas
+// ─────────────────────────────────────────────────────────────────── proofs
 //
-// `proofs/cases/<regra>[__<variante>]/caso.json` já é JSON, com um campo
-// `porque` escrito à mão para explicar O QUE O CASO TRAVA. É a fonte de
-// `porque` mais barata do repositório: zero parsing, zero fragilidade.
+// `proofs/cases/<regra>[__<variante>]/caso.json` is already JSON, with a
+// hand-written `porque` field to explain WHAT THE CASE LOCKS DOWN. It is the
+// cheapest source of `porque` in the repository: zero parsing, zero fragility.
 //
-// Casa pelo campo `regra` DE DENTRO do caso.json, e não pelo nome da pasta: o
-// nome da pasta é convenção, o campo é declaração. Um caso cuja pasta se chama
-// `telefone__digito-cru` mas declara outra regra é defeito, e sai 2.
+// It matches by the `regra` field INSIDE caso.json, and not by the folder name:
+// the folder name is convention, the field is declaration. A case whose folder
+// is named `telefone__digito-cru` but declares another rule is a defect, and
+// exits 2.
 //
-// O `porque` entra INTEIRO, sem corte. Cortar aqui criaria a segunda fonte que
-// a §7.2 proíbe: o artefato diria uma coisa e o caso.json outra, e a divergência
-// seria invisível porque o corte é determinístico. Quem decide o que cabe numa
-// resposta é o servidor, na hora de responder — não o gerador, para sempre.
+// The `porque` goes in WHOLE, uncut. Cutting here would create the second
+// source §7.2 forbids: the artifact would say one thing and the caso.json
+// another, and the divergence would be invisible because the cut is
+// deterministic. Who decides what fits in an answer is the server, at answer
+// time — not the generator, forever.
 
-// `relBase` e parametro desde que existe mais de um modulo de regra: cada um
-// tem as suas provas, e fixar a pasta aqui faria as regras de seguranca
-// entrarem no artefato sem prova nenhuma -- calado.
+// `relBase` is a parameter ever since there is more than one rule module: each
+// one has its own proofs, and pinning the folder here would make the security
+// rules enter the artifact with no proof at all -- silently.
 function lerProvas(idsValidos, relBase) {
   const base = join(RAIZ, ...relBase.split('/'))
-  exigir(existsSync(base), `fonte ausente: ${relBase}/`)
+  exigir(existsSync(base), `missing source: ${relBase}/`)
 
   const porRegra = new Map(idsValidos.map((id) => [id, []]))
   const arquivos = []
@@ -265,39 +273,43 @@ function lerProvas(idsValidos, relBase) {
     try {
       caso = JSON.parse(bruto)
     } catch (e) {
-      throw new Torto(`${rel}: JSON inválido — ${e.message}`)
+      throw new Torto(`${rel}: invalid JSON — ${e.message}`)
     }
     exigir(
       porRegra.has(caso.rule),
-      `${rel}: declara a regra "${caso.rule}", que não existe em REGRAS`,
+      `${rel}: declares rule "${caso.rule}", which does not exist in REGRAS`,
     )
     porRegra.get(caso.rule).push({
       caso: nome,
-      // Estado esperado de cada lado. Omitido, o prove.mjs assume
-      // aprovar=passou / reprovar=reprovou — o padrão é replicado aqui porque é
-      // ele que diz se o caso trava um ramo N/A, e ramo N/A é metade do valor.
+      // Expected state of each side. Omitted, prove.mjs assumes
+      // aprovar=passou / reprovar=reprovou — the default is replicated here
+      // because it is what says whether the case locks an N/A branch, and an N/A
+      // branch is half the value. The literals 'passou' and 'reprovou' stay in
+      // Portuguese: they are the state VALUES prove.mjs and the caso.json files
+      // carry, not prose — translating them breaks the match with prove.mjs.
       aprovar: existsSync(join(dir, 'pass')) ? caso.aprovar?.estado || 'passou' : null,
       reprovar: existsSync(join(dir, 'fail')) ? caso.reprovar?.estado || 'reprovou' : null,
       porque: caso.why || null,
     })
   }
 
-  // sha256 de todos os caso.json juntos, em ordem de caminho: um hash só para 52
-  // arquivos. Trocar o `porque` de um caso muda este hash e o portão acusa.
+  // sha256 of every caso.json together, in path order: one single hash for 52
+  // files. Changing the `porque` of one case changes this hash and the gate
+  // accuses.
   const impressao = sha256(arquivos.map((a) => `${a.rel}\n${a.bruto}`).join('\n'))
   return { porRegra, quantos: arquivos.length, impressao, relBase }
 }
 
-// ──────────────────────────────────────────────────── taxonomia N0–N7
+// ──────────────────────────────────────────────────── N0–N7 taxonomy
 
 /**
- * A tabela de níveis do docs/PLANO.md §4. É markdown, mas é TABELA — colunas
- * fixas, oito linhas, uma por nível. Ler a tabela é derivar; transcrever o que
- * ela diz para dentro deste arquivo seria a cópia que a §7.2 proíbe.
+ * The level table from docs/PLANO.md §4. It is markdown, but it is a TABLE —
+ * fixed columns, eight rows, one per level. Reading the table is deriving;
+ * transcribing what it says into this file would be the copy §7.2 forbids.
  *
- * Quebra se a tabela sumir ou encolher, e essa é a intenção: o `nivel` de toda
- * regra aponta para esta tabela, e um artefato que diz "N1" sem saber o que N1
- * significa entrega ao modelo um rótulo sem conteúdo.
+ * It breaks if the table disappears or shrinks, and that is the intent: the
+ * `nivel` of every rule points at this table, and an artifact that says "N1"
+ * without knowing what N1 means hands the model a label with no content.
  */
 function lerNiveis(rel) {
   const fonte = ler(rel)
@@ -314,69 +326,74 @@ function lerNiveis(rel) {
   }
   exigir(
     linhas.length === 8,
-    `${rel}: a tabela N0–N7 da §4 devolveu ${linhas.length} linhas, e não 8`,
+    `${rel}: the N0–N7 table of §4 returned ${linhas.length} rows, and not 8`,
   )
   return { linhas, fonte }
 }
 
-// ─────────────────────────────────────────────────────── códigos de saída
+// ─────────────────────────────────────────────────────────── exit codes
 
 /**
- * Os códigos de saída do rebar-check, do bloco "Códigos de saída" do cabeçalho
- * do index.mjs. Uma IA que não sabe que 127 é DEFEITO DO VERIFICADOR e não do
- * repositório vai "consertar" o repositório auditado — é a confusão que a §8.2
- * do plano nomeia, e ela custa uma sessão inteira quando acontece.
+ * The exit codes of rebar-check, from the "Códigos de saída" block in the
+ * index.mjs header. That block title stays in Portuguese because it is the
+ * ANCHOR the regex below matches inside index.mjs — translating it here blinds
+ * the reader; translating it there blinds the generator. An AI that does not
+ * know 127 is a DEFECT OF THE CHECKER and not of the repository will "fix" the
+ * audited repository — it is the confusion §8.2 of the plan names, and it costs
+ * a whole session when it happens.
  */
 function lerCodigosDeSaida(fonte, rel) {
   const bloco = /\/\/ Códigos de saída[^\n]*\n((?:\/\/.*\n)+)/.exec(fonte)
-  exigir(bloco, `${rel}: não achei o bloco "Códigos de saída" no cabeçalho`)
+  exigir(bloco, `${rel}: could not find the "Códigos de saída" block in the header`)
   const codigos = {}
   for (const m of bloco[1].matchAll(/^\/\/\s+(\d+)\s{2,}(.+)$/gm)) codigos[m[1]] = m[2].trim()
   exigir(
     Object.keys(codigos).length >= 4,
-    `${rel}: o bloco de códigos de saída rendeu ${Object.keys(codigos).length} códigos, e são 4`,
+    `${rel}: the exit-code block yielded ${Object.keys(codigos).length} codes, and there are 4`,
   )
   return codigos
 }
 
-// ─────────────────────────────────────────────────────────── o portão
+// ─────────────────────────────────────────────────────────── the gate
 
 /**
- * Os passos do `verificar`, na ORDEM em que rodam, do verify.config.mjs —
- * que é um módulo ESM de built-ins, importável sem instalar nada.
+ * The steps of `verify`, in the ORDER they run, from verify.config.mjs — which
+ * is an ESM module of built-ins, importable without installing anything.
  *
- * `process.execPath` sai do comando e vira "node": o caminho absoluto do
- * binário é diferente em cada máquina, e gravá-lo faria o portão de frescor
- * reprovar no Linux um artefato gerado no Windows sem que nada tivesse mudado.
+ * `process.execPath` leaves the command and becomes "node": the binary's
+ * absolute path is different on every machine, and writing it down would make
+ * the freshness gate fail on Linux an artifact generated on Windows without
+ * anything having changed.
  */
 async function lerPortao(rel) {
   const mod = await import(pathToFileURL(join(RAIZ, ...rel.split('/'))).href)
   const passos = mod.default
   exigir(
     Array.isArray(passos) && passos.length,
-    `${rel}: o default export não é uma lista de passos`,
+    `${rel}: the default export is not a list of gate steps`,
   )
   return passos.map((p, i) => ({
     ordem: i + 1,
     nome: p.nome,
-    // `comando:` roda um processo e já se prova sozinho; `funcao:` é código do
-    // portão dentro do próprio config, e quem o prova é o passo `passos`.
+    // `comando:` runs a process and proves itself; `funcao:` is gate code inside
+    // the config itself, and what proves it is the `passos` step.
     tipo: p.comando ? 'comando' : 'funcao',
     comando: p.comando ? p.comando.map((a) => (a === process.execPath ? 'node' : a)) : null,
     dica: p.dica || null,
   }))
 }
 
-// ──────────────────────────────────────────────── decisões já fechadas
+// ──────────────────────────────────────────── decisions already settled
 //
-// (d) do contrato: o artefato NÃO pode ser só a lista de regras. Uma IA que só
-// recebe as 22 regras não sabe em que stack escrever, nem onde o conteúdo mora,
-// e vai propor a env var que o dono já recusou uma vez em `Navesz/Galegos#1`.
+// (d) of the contract: the artifact CANNOT be only the list of rules. An AI
+// that receives only the 22 rules does not know which stack to write in, nor
+// where the content lives, and will propose the env var the owner already
+// refused once in `Navesz/Galegos#1`.
 //
-// Cada decisão aqui carrega uma PROVA extraída de arquivo — nunca uma frase
-// digitada neste gerador. E quando a decisão já é imposta por uma regra, ela
-// APONTA para a regra em vez de repetir o motivo: repetir criaria a segunda
-// fonte que a §7.2 proíbe.
+// Every decision here carries a PROOF extracted from a file — never a sentence
+// typed into this generator. And when the decision is already enforced by a
+// rule, it POINTS at the rule instead of repeating the reason: repeating would
+// create the second source §7.2 forbids.
 
 function lerDecisoes(fonteCheck, relCheck) {
   const relNovo = 'new/index.mjs'
@@ -386,8 +403,8 @@ function lerDecisoes(fonteCheck, relCheck) {
   const relPkg = 'package.json'
   const pkg = JSON.parse(ler(relPkg))
 
-  // O cabeçalho `//` do new/index.mjs é onde a stack do preset está nomeada
-  // com versão. Extraído, não transcrito.
+  // The `//` header of new/index.mjs is where the preset's stack is named with
+  // versions. Extracted, not transcribed.
   const cabecalho = []
   for (const l of fonteNovo.split('\n').slice(1)) {
     if (!/^\/\//.test(l)) break
@@ -396,7 +413,7 @@ function lerDecisoes(fonteCheck, relCheck) {
   const stack = soTexto(paragrafos(cabecalho, 'cabecalho'))
   exigir(
     stack.some((p) => /shadcn/i.test(p)),
-    `${relNovo}: o cabeçalho não menciona o shadcn — a stack deixou de ser derivável daqui`,
+    `${relNovo}: the header does not mention shadcn — the stack stopped being derivable from here`,
   )
 
   const argv = /'shadcn@latest',\n\s*'([^']+)'/.exec(fonteNovo)
@@ -405,7 +422,7 @@ function lerDecisoes(fonteCheck, relCheck) {
     {
       id: 'stack-do-preset-site',
       decisao:
-        'O scaffold é delegado ao `shadcn create`; o rebar aplica o preset `site` por cima e roda a régua no resultado.',
+        'The scaffold is delegated to `shadcn create`; rebar applies the `site` preset on top and runs the ruler on the result.',
       prova: {
         arquivo: relNovo,
         linha: linhaDoPadrao(fonteNovo, /'shadcn@latest',/, relNovo),
@@ -417,7 +434,7 @@ function lerDecisoes(fonteCheck, relCheck) {
     {
       id: 'saida-estatica',
       decisao:
-        'O preset `site` é SSG puro: `output: "export"` e `images.unoptimized`. Sem servidor, e por isso a og:image existe para quem não executa JavaScript.',
+        'The `site` preset is pure SSG: `output: "export"` and `images.unoptimized`. No server, and that is why the og:image exists for whoever does not execute JavaScript.',
       prova: {
         arquivo: relNext,
         linha: linhaDoPadrao(fonteNext, /output: 'export'/, relNext),
@@ -429,19 +446,19 @@ function lerDecisoes(fonteCheck, relCheck) {
     {
       id: 'conteudo-em-conteudo-json',
       decisao:
-        'Conteúdo mora em `conteudo/*.json`, validado por esquema — não dentro de `src/` nem de `app/`.',
+        'Content lives in `conteudo/*.json`, schema-validated — not inside `src/` nor `app/`.',
       prova: {
         arquivo: relCheck,
         linha: linhaDoPadrao(fonteCheck, /^const RE_CONTEUDO_JSON = /m, relCheck),
         trecho: 'RE_CONTEUDO_JSON',
       },
-      porque: null, // está na regra; repetir aqui seria a segunda fonte
+      porque: null, // it is in the rule; repeating here would be the second source
       regraQueImpoe: 'conteudo-fora-do-codigo',
     },
     {
       id: 'identidade-do-negocio-e-conteudo-nao-env',
       decisao:
-        'Telefone, CNPJ e endereço são CONTEÚDO validado. Não são código e NÃO são variável de ambiente: com env var o build passa, o deploy sobe e o `wa.me` gera link sem destinatário.',
+        'Phone, CNPJ and address are validated CONTENT. They are not code and they are NOT environment variables: with an env var the build passes, the deploy ships and `wa.me` generates a link with no recipient.',
       prova: {
         arquivo: relCheck,
         linha: linhaDoPadrao(fonteCheck, /id: 'phone',/, relCheck),
@@ -453,7 +470,7 @@ function lerDecisoes(fonteCheck, relCheck) {
     {
       id: 'zero-dependencia-no-que-confere',
       decisao:
-        'A raiz não tem dependência de produção, e o que confere não depende do que se confere. É o que faz `npx github:Navesz/rebar` rodar sem instalar nada.',
+        'The root has no production dependency, and what checks does not depend on what is checked. It is what makes `npx github:Navesz/rebar` run without installing anything.',
       prova: {
         arquivo: relPkg,
         linha: linhaDoPadrao(ler(relPkg), /"devDependencies"/, relPkg),
@@ -465,37 +482,42 @@ function lerDecisoes(fonteCheck, relCheck) {
   ]
 }
 
-// ───────────────────────────────────────────────────────── referências
+// ────────────────────────────────────────────────────────── references
 //
-// O que só existe em PROSA não entra copiado — entra como PONTEIRO. E o
-// ponteiro é DERIVADO também: a linha é procurada pelo título da seção, não
-// digitada. Um `PLANO.md:517` digitado à mão apodrece no primeiro parágrafo
-// inserido acima dele, e a IA que segue a referência não acha, não pergunta, e
-// reescreve do zero — que é exatamente o que o passo `elos` do verificar existe
-// para impedir na documentação.
+// What exists only in PROSE does not go in copied — it goes in as a POINTER.
+// And the pointer is DERIVED too: the line is looked up by the section title,
+// not typed. A hand-typed `PLANO.md:517` rots on the first paragraph inserted
+// above it, and the AI that follows the reference does not find it, does not
+// ask, and rewrites from scratch — which is exactly what the `elos` step of
+// `verify` exists to prevent in the documentation.
+//
+// The section titles below are ANCHORS, not prose: they are matched verbatim
+// against docs/PLANO.md and docs/STACK.md, which are Portuguese documents.
+// `## O critério único` stays as written for that reason — translate it here
+// and the lookup finds nothing and the generation exits 2.
 
 function lerReferencias() {
   const alvos = [
-    ['o-mcp-que-se-regenera', 'docs/PLANO.md', /^## 7\.2 /m, 'o desenho deste módulo'],
-    ['taxonomia-n0-n7', 'docs/PLANO.md', /^# 4\. /m, 'o que cada nível significa e a regra-mãe'],
+    ['o-mcp-que-se-regenera', 'docs/PLANO.md', /^## 7\.2 /m, 'the design of this module'],
+    ['taxonomia-n0-n7', 'docs/PLANO.md', /^# 4\. /m, 'what each level means and the mother rule'],
     [
       'as-tres-camadas-de-porta',
       'docs/PLANO.md',
       /^## 7\.3 /m,
-      'verificar, hook, CI e branch protection',
+      'verify, hook, CI and branch protection',
     ],
     [
       'o-perfil-e-o-compilador',
       'docs/PLANO.md',
       /^## 7\.1 /m,
-      'de onde a ideia de artefato gerado vem',
+      'where the generated-artifact idea comes from',
     ],
-    ['objetivos-do-repositorio', 'docs/PLANO.md', /^# 0\. /m, 'os seis objetivos declarados'],
+    ['objetivos-do-repositorio', 'docs/PLANO.md', /^# 0\. /m, 'the six declared objectives'],
     [
       'stack-postgres',
       'docs/STACK.md',
       /^## O critério único/m,
-      'o critério que derrubou Prisma e NestJS',
+      'the criterion that knocked down Prisma and NestJS',
     ],
   ]
   return alvos.map(([assunto, rel, padrao, oQueEsta]) => ({
@@ -506,43 +528,48 @@ function lerReferencias() {
   }))
 }
 
-// ──────────────────────────────────────────────────────── a montagem
+// ──────────────────────────────────────────────────────── the assembly
 //
-// O NÚCLEO É OBRIGATÓRIO, O RESTO É POR SEÇÃO — e isto é a doutrina do N/A do
-// próprio rebar-check, aplicada aqui.
+// THE CORE IS MANDATORY, THE REST IS BY SECTION — and this is rebar-check's own
+// N/A doctrine, applied here.
 //
-// `tooling/rebar-check/index.mjs` e `package.json` são o núcleo: sem eles
-// não há artefato nenhum, e a geração sai 2. As outras fontes — o PLANO, o
-// verificar.config, o new/, os casos de prova — mandam cada uma numa SEÇÃO. Se
-// uma delas não está NESTA árvore, a seção não é gerada E NÃO É COMPARADA.
+// `tooling/rebar-check/index.mjs` and `package.json` are the core: without them
+// there is no artifact at all, and generation exits 2. The other sources — the
+// PLANO, the verify.config, the new/, the proof cases — each command one
+// SECTION. If one of them is not in THIS tree, the section is not generated AND
+// NOT COMPARED.
 //
-// A razão é a mesma do `na()` do index.mjs, e o comentário de lá vale palavra
-// por palavra: "O nada não conforma; o nada não se aplica." Uma árvore que não
-// tem o `docs/PLANO.md` não pode testemunhar sobre a taxonomia. Gritar
-// "DIVERGIU" ali seria acusar o artefato de estar velho quando o que está
-// incompleto é a árvore — a acusação errada, apontando para quem não errou, que
-// é o mesmo erro que o 127 contra o 1 existe para não cometer.
+// The reason is the same as `na()` in index.mjs, and the comment over there
+// holds word for word: *"O nada não conforma; o nada não se aplica."* [Nothing
+// does not conform; nothing does not apply] — the same sentence the `na()`
+// comment carries in English today. A tree that does not have `docs/PLANO.md`
+// cannot testify about the taxonomy. Shouting "DIVERGED" there would be accusing
+// the artifact of being old when what is incomplete is the tree — the wrong
+// accusation, pointing at whoever did not err, which is the same mistake 127
+// against 1 exists not to commit.
 //
-// ONDE ISSO APARECE DE VERDADE: a prova do passo `mcp`
-// (`tooling/verify/prove-steps.mjs`) monta uma raiz temporária com
-// APENAS `mcp/`, `tooling/rebar-check/` sem `proofs/`, e o `package.json` —
-// de propósito, para provar que o portão de frescor roda sem
-// `mcp/node_modules`. Nessa raiz, quatro das seis fontes não existem. Sem o N/A
-// por seção, aquela prova pediria ao gerador para acusar a ausência de arquivos
-// que ela mesma decidiu não copiar.
+// WHERE THIS SHOWS UP FOR REAL: the proof of the `mcp` step
+// (`tooling/verify/prove-steps.mjs`) assembles a temporary root with ONLY
+// `mcp/`, `tooling/rebar-check/` without `proofs/`, and the `package.json` — on
+// purpose, to prove that the freshness gate runs without `mcp/node_modules`. In
+// that root, four of the six sources do not exist. Without N/A by section, that
+// proof would ask the generator to accuse the absence of files it itself decided
+// not to copy.
 //
-// O CUSTO, e ele é real: se alguém APAGAR o `docs/PLANO.md` do repositório de
-// verdade, este portão para de conferir a taxonomia. O que sobra contra isso é
-// a linha ⚠ impressa aqui nomeando a seção e a fonte que faltou, e o passo
-// `elos` do verificar, que reprova link quebrado para arquivo que sumiu. Fica
-// escrito porque é a fresta que esta decisão abre, e não a que ela fecha.
+// THE COST, and it is real: if someone DELETES `docs/PLANO.md` from the real
+// repository, this gate stops checking the taxonomy. What is left against that
+// is the ⚠ line printed here naming the section and the source that went
+// missing, and the `elos` step of `verify`, which fails a broken link to a file
+// that vanished. It is written down because it is the crack this decision opens,
+// and not the one it closes.
 
 const existe = (rel) => existsSync(join(RAIZ, ...rel.split('/')))
 
 /**
- * As seções derivadas e a fonte de cada uma. `podar()` usa a MESMA tabela para
- * tirar do lado do disco o que esta árvore não soube regenerar — a tabela é a
- * única fonte dessa correspondência, para que gerar e comparar não divirjam.
+ * The derived sections and the source of each one. `podar()` uses the SAME table
+ * to strip from the disk side what this tree could not regenerate — the table is
+ * the single source of that correspondence, so generating and comparing do not
+ * diverge.
  */
 const SECOES = [
   { chave: 'niveis', exige: ['docs/PLANO.md'] },
@@ -555,7 +582,7 @@ const SECOES = [
   { chave: 'proofs', exige: ['tooling/rebar-check/proofs/cases'] },
 ]
 
-/** Seções que ESTA árvore não consegue gerar, com o que faltou para cada uma. */
+/** Sections THIS tree cannot generate, with what was missing for each one. */
 function secoesAusentes() {
   return SECOES.map((s) => ({ ...s, faltando: s.exige.filter((r) => !existe(r)) })).filter(
     (s) => s.faltando.length,
@@ -563,8 +590,8 @@ function secoesAusentes() {
 }
 
 /**
- * Tira do objeto do DISCO exatamente o que esta árvore não regenerou, para que
- * a comparação não confunda "o artefato está velho" com "esta árvore é parcial".
+ * Strips from the DISK object exactly what this tree did not regenerate, so the
+ * comparison does not confuse "the artifact is old" with "this tree is partial".
  */
 function podar(valor, ausentes) {
   if (!ausentes.length) return valor
@@ -574,17 +601,18 @@ function podar(valor, ausentes) {
     if (c === 'proofs') for (const r of copia.regras || []) delete r.provas
     else delete copia[c]
   }
-  // `fontes` acompanha, e por DUAS razões que não são a mesma.
+  // `fontes` follows along, and for TWO reasons that are not the same one.
   //
-  // A primeira é a antiga: entrada cujo arquivo não está nesta árvore sai dos
-  // dois lados, senão o sha256 de um arquivo ausente vira divergência sozinho.
+  // The first is the old one: an entry whose file is not in this tree leaves
+  // both sides, or the sha256 of a missing file becomes a divergence by itself.
   //
-  // A segunda apareceu quando `package.json` virou fonte de `decisoesFechadas`.
-  // Numa árvore sem `new/index.mjs` a seção inteira é pulada, e o lado gerado
-  // não emite fonte nenhuma dela — mas o `package.json` EXISTE, então ele
-  // sobrevivia ao filtro de existência e a comparação acusava "artefato velho"
-  // onde havia árvore parcial. É a confusão que esta função existe para evitar,
-  // e a correção é a mesma tabela: fonte de seção pulada sai também.
+  // The second appeared when `package.json` became a source of
+  // `decisoesFechadas`. In a tree without `new/index.mjs` the whole section is
+  // skipped, and the generated side emits no source of it at all — but the
+  // `package.json` EXISTS, so it survived the existence filter and the
+  // comparison accused "old artifact" where there was a partial tree. It is the
+  // confusion this function exists to avoid, and the correction is the same
+  // table: the source of a skipped section leaves too.
   if (Array.isArray(copia.fontes)) {
     const deSecaoPulada = new Set(SECOES.filter((s) => chaves.has(s.chave)).flatMap((s) => s.exige))
     copia.fontes = copia.fontes.filter((f) => {
@@ -603,23 +631,25 @@ async function montar() {
   const ausentes = secoesAusentes()
   const pulou = (chave) => ausentes.some((s) => s.chave === chave)
 
-  // A CONFERÊNCIA QUE TORNA A DERIVA ALTA. O texto e o módulo importado têm de
-  // concordar na lista inteira, id a id, na mesma ordem. Se o prettier mudar a
-  // indentação ou alguém escrever uma regra numa forma nova, o parser casa a
-  // menos — e sem esta comparação a regra sumiria do artefato em SILÊNCIO, que é
-  // o defeito exato que este módulo existe para não cometer.
+  // THE CHECK THAT MAKES DRIFT LOUD. The text and the imported module have to
+  // agree on the whole list, id by id, in the same order. If prettier changes
+  // the indentation or someone writes a rule in a new shape, the parser matches
+  // one fewer — and without this comparison the rule would vanish from the
+  // artifact in SILENCE, which is the exact defect this module exists not to
+  // commit.
   const niveis = pulou('niveis') ? null : lerNiveis(relPlano)
 
-  // DOIS MÓDULOS DE REGRA, e o segundo é o motivo desta lista existir.
+  // TWO RULE MODULES, and the second is the reason this list exists.
   //
-  // O `rebar-check` diz se o repositório está no formato certo; o
-  // `rebar-security` diz se ele tem falha de segurança. São binários
-  // diferentes, com provas próprias, mas UMA fonte de verdade para a IA: sem
-  // isto o MCP servia 23 regras e zero de segurança, e quem abrisse o projeto
-  // era avisado do `.editorconfig` e não do `.env` rastreado.
+  // `rebar-check` says whether the repository is in the right shape;
+  // `rebar-security` says whether it has a security flaw. They are different
+  // binaries, with their own proofs, but ONE source of truth for the AI: without
+  // this the MCP served 23 rules and zero security ones, and whoever opened the
+  // project was warned about the `.editorconfig` and not about the tracked
+  // `.env`.
   //
-  // Cada módulo carrega o caminho das PRÓPRIAS provas. Fixar a pasta faria as
-  // regras do segundo entrarem no artefato sem prova, em silêncio.
+  // Each module carries the path to its OWN proofs. Pinning the folder would
+  // make the second one's rules enter the artifact with no proof, silently.
   const MODULOS = [
     { modulo: 'rebar-check', rel: relCheck, REGRAS, provas: 'tooling/rebar-check/proofs/cases' },
     {
@@ -635,19 +665,19 @@ async function montar() {
   for (const m of MODULOS) {
     const fonte = ler(m.rel)
 
-    // A CONFERÊNCIA QUE TORNA A DERIVA ALTA, agora por módulo. O texto e o
-    // array importado têm de concordar na lista inteira, id a id, na mesma
-    // ordem. Se o prettier mudar a indentação ou alguém escrever uma regra numa
-    // forma nova, o parser casa a menos — e sem esta comparação a regra sumiria
-    // do artefato em SILÊNCIO, que é o defeito que este módulo existe para não
-    // cometer.
+    // THE CHECK THAT MAKES DRIFT LOUD, now per module. The text and the imported
+    // array have to agree on the whole list, id by id, in the same order. If
+    // prettier changes the indentation or someone writes a rule in a new shape,
+    // the parser matches one fewer — and without this comparison the rule would
+    // vanish from the artifact in SILENCE, which is the defect this module
+    // exists not to commit.
     const noTexto = regrasNoTexto(fonte, m.rel)
     const idsTexto = noTexto.map((r) => r.id).join(',')
     const idsModulo = m.REGRAS.map((r) => r.id).join(',')
     exigir(
       idsTexto === idsModulo,
-      `${m.rel}: o texto casou ${noTexto.length} regra(s) e o módulo exporta ${m.REGRAS.length}.\n` +
-        `  texto : ${idsTexto}\n  módulo: ${idsModulo}`,
+      `${m.rel}: the text matched ${noTexto.length} rule(s) and the module exports ${m.REGRAS.length}.\n` +
+        `  text  : ${idsTexto}\n  module: ${idsModulo}`,
     )
 
     const provas = pulou('proofs')
@@ -662,20 +692,21 @@ async function montar() {
       const t = noTexto[i]
       exigir(
         regra.titulo && regra.classe && regra.nivel,
-        `regra ${regra.id}: campo obrigatório vazio`,
+        `rule ${regra.id}: mandatory field is empty`,
       )
       exigir(
         !niveis || niveis.linhas.some((n) => n.nivel === regra.nivel),
-        `regra ${regra.id}: nível "${regra.nivel}" não existe na tabela N0–N7`,
+        `rule ${regra.id}: level "${regra.nivel}" does not exist in the N0–N7 table`,
       )
       regras.push({
         id: regra.id,
-        // Qual binário roda esta regra. Sem o campo, a IA lê "env-committed"
-        // no artefato e chama `npx rebar`, que não a conhece.
+        // Which binary runs this rule. Without the field, the AI reads
+        // "env-committed" in the artifact and calls `npx rebar`, which does not
+        // know it.
         modulo: m.modulo,
         titulo: regra.titulo,
-        // determinística derruba o exit code; heurística só informa. É a
-        // diferença entre "não entra na principal" e "fica anotado".
+        // deterministic knocks the exit code down; heuristic only informs. It is
+        // the difference between "does not land on main" and "gets noted".
         classe: regra.classe,
         nivel: regra.nivel,
         fonte: { arquivo: m.rel, linha: t.linha },
@@ -697,19 +728,19 @@ async function montar() {
 
   const artefato = {
     $aviso:
-      'ARTEFATO GERADO por mcp/generate.mjs. Não edite à mão: o passo de frescor regenera em memória e reprova se o disco divergir. Para mudar qualquer coisa aqui, mude a FONTE listada em `fontes` e rode `node mcp/generate.mjs`.',
+      'GENERATED ARTIFACT by mcp/generate.mjs. Do not edit by hand: the freshness step regenerates it in memory and fails if the disk diverges. To change anything here, change the SOURCE listed in `fontes` and run `node mcp/generate.mjs`.',
     gerador: 'mcp/generate.mjs',
     formato: 1,
     fontes: [
       {
         arquivo: relCheck,
         sha256: sha256(fonteCheck),
-        daqui: 'as regras de formato, o porque de cada uma e os códigos de saída',
+        daqui: 'the format rules, the why of each one and the exit codes',
       },
       {
         arquivo: 'tooling/security/index.mjs',
         sha256: sha256(ler('tooling/security/index.mjs')),
-        daqui: 'as regras de segurança e o porque de cada uma',
+        daqui: 'the security rules and the why of each one',
       },
       ...(pulou('gate')
         ? []
@@ -717,7 +748,7 @@ async function montar() {
             {
               arquivo: relConfig,
               sha256: sha256(ler(relConfig)),
-              daqui: 'os passos do portão, na ordem',
+              daqui: 'the gate steps, in order',
             },
           ]),
       ...(niveis
@@ -725,7 +756,7 @@ async function montar() {
             {
               arquivo: relPlano,
               sha256: sha256(niveis.fonte),
-              daqui: 'a taxonomia N0–N7 e os ponteiros de prosa',
+              daqui: 'the N0–N7 taxonomy and the prose pointers',
             },
           ]
         : []),
@@ -734,30 +765,31 @@ async function montar() {
             {
               arquivo: `${provas.relBase}/`,
               sha256: provas.impressao,
-              daqui: `o porque de cada um dos ${provas.quantos} casos de prova`,
+              daqui: `the why of each of the ${provas.quantos} proof cases`,
             },
           ]
         : []),
-      // AS FONTES DAS DECISÕES, que faltavam aqui e é por isso que o servidor
-      // podia dizer "em dia" servindo decisão velha. `lerDecisoes` lê os três,
-      // e o que não está nesta lista não é conferido a cada resposta.
+      // THE SOURCES OF THE DECISIONS, which were missing here and that is why
+      // the server could say "up to date" while serving an old decision.
+      // `lerDecisoes` reads all three, and what is not in this list is not
+      // checked on every answer.
       ...(pulou('decisoesFechadas')
         ? []
         : [
             {
               arquivo: 'new/index.mjs',
               sha256: sha256(ler('new/index.mjs')),
-              daqui: 'a stack do preset `site`, extraída do cabeçalho',
+              daqui: 'the stack of the `site` preset, extracted from the header',
             },
             {
               arquivo: 'new/site/blocks/next.config.ts',
               sha256: sha256(ler('new/site/blocks/next.config.ts')),
-              daqui: 'a decisão de export estático do preset',
+              daqui: 'the static-export decision of the preset',
             },
             {
               arquivo: 'package.json',
               sha256: sha256(ler('package.json')),
-              daqui: 'a decisão de zero dependência na raiz',
+              daqui: 'the zero-dependency-at-the-root decision',
             },
           ]),
       ...(pulou('referencias') || !existe('docs/STACK.md')
@@ -766,7 +798,7 @@ async function montar() {
             {
               arquivo: 'docs/STACK.md',
               sha256: sha256(ler('docs/STACK.md')),
-              daqui: 'os ponteiros de prosa da stack',
+              daqui: 'the prose pointers of the stack',
             },
           ]),
     ],
@@ -789,33 +821,34 @@ async function montar() {
       : { gate: { comando: 'npm run verify', passos: await lerPortao(relConfig) } }),
     ...(pulou('decisoesFechadas') ? {} : { decisoesFechadas: lerDecisoes(fonteCheck, relCheck) }),
     ...(pulou('referencias') ? {} : { referencias: lerReferencias() }),
-    // O que este artefato deliberadamente NÃO carrega. Existe para que o
-    // servidor nunca invente: perguntado sobre isto, ele aponta a referência em
-    // vez de responder de memória — e memória de modelo é a fonte que a §7.2
-    // classifica como "decisão que mora onde nenhuma máquina lê".
+    // What this artifact deliberately does NOT carry. It exists so the server
+    // never invents: asked about this, it points at the reference instead of
+    // answering from memory — and model memory is the source §7.2 classifies as
+    // *"decisão que mora onde nenhuma máquina lê"* [a decision that lives where
+    // no machine reads].
     naoDerivado: [
-      'O texto das 120 decisões do painel (§5 do PLANO): é prosa, e prosa copiada volta a divergir. Está em `referencias`.',
-      'As decisões de banco e contrato do docs/STACK.md: nada no rebar as impõe hoje, e artefato que promete o que ninguém confere é a promessa falsa que este repositório persegue.',
-      'A implementação de cada regra: o artefato diz O QUE e POR QUE. O COMO é o `checar` no index.mjs, e ele muda sem que a decisão mude.',
+      'The text of the 120 panel decisions (§5 of the PLANO): it is prose, and copied prose diverges again. It is in `referencias`.',
+      'The database and contract decisions of docs/STACK.md: nothing in rebar enforces them today, and an artifact that promises what nobody checks is the false promise this repository hunts.',
+      'The implementation of each rule: the artifact says WHAT and WHY. The HOW is the `checar` in index.mjs, and it changes without the decision changing.',
     ],
   }
-  // ── O QUE TORNA ISTO IRREPETÍVEL ───────────────────────────────────────────
+  // ── WHAT MAKES THIS UNREPEATABLE ───────────────────────────────────────────
   //
-  // `SECOES` já declara o que cada seção derivada LÊ. `fontes` é o que o
-  // servidor CONFERE por sha256 a cada resposta. As duas listas eram
-  // independentes, e foi assim que três arquivos lidos por `lerDecisoes`
-  // ficaram fora da conferência: mudava-se uma decisão no `new/index.mjs`, o
-  // artefato ficava velho, e o servidor conferia os quatro que não tinham
-  // mudado e respondia "em dia" com a decisão velha colada na resposta.
+  // `SECOES` already declares what each derived section READS. `fontes` is what
+  // the server CHECKS by sha256 on every answer. The two lists were
+  // independent, and that is how three files read by `lerDecisoes` stayed out
+  // of the check: a decision changed in `new/index.mjs`, the artifact went old,
+  // and the server checked the four that had not changed and answered "up to
+  // date" with the old decision pasted into the answer.
   //
-  // Acrescentar as três entradas conserta o caso de hoje. Esta conferência
-  // conserta o caso de amanhã: seção gerada com arquivo fora de `fontes` faz a
-  // GERAÇÃO parar, aqui, com o nome do arquivo. A próxima seção não nasce cega.
+  // Adding the three entries fixes today's case. This check fixes tomorrow's: a
+  // generated section with a file outside `fontes` stops GENERATION, here, with
+  // the file's name. The next section is not born blind.
   //
-  // O `split(' · ')` nao e capricho: a entrada dos casos de prova guarda DUAS
-  // raizes num campo so ("a/cases · b/cases/"), porque as duas viram um hash de
-  // arvore unico. Comparar sem separar diria que nenhuma das duas esta
-  // registrada, e a conferencia reprovaria a si mesma.
+  // The `split(' · ')` is not a whim: the proof-cases entry holds TWO roots in
+  // one single field ("a/cases · b/cases/"), because the two become one single
+  // tree hash. Comparing without splitting would say neither of the two is
+  // registered, and the check would fail itself.
   const registradas = new Set(
     artefato.fontes.flatMap((f) => f.arquivo.split(' · ').map((a) => a.trim().replace(/\/$/, ''))),
   )
@@ -824,18 +857,18 @@ async function montar() {
     const fora = s.exige.filter((rel) => !registradas.has(rel))
     exigir(
       fora.length === 0,
-      `a seção "${s.chave}" é derivada de ${fora.join(', ')}, e esse(s) arquivo(s) não estão em ` +
-        `\`fontes\`. O servidor confere frescor pelo sha256 do que está em \`fontes\`: fora de lá, ` +
-        `a mudança não é vista e ele responde "em dia" com conteúdo velho.`,
+      `section "${s.chave}" is derived from ${fora.join(', ')}, and that file (or those files) is ` +
+        `not in \`fontes\`. The server checks freshness by the sha256 of what is in \`fontes\`: ` +
+        `outside it, the change is not seen and it answers "up to date" with old content.`,
     )
   }
 
   return { artefato, ausentes }
 }
 
-// ──────────────────────────────────────────────────── comparar e escrever
+// ─────────────────────────────────────────────────── compare and write
 
-/** Diferença por caminho. Devolve lista de `{ onde, disco, gerado }`. */
+/** Difference by path. Returns a list of `{ onde, disco, gerado }`. */
 function diferencas(disco, gerado, onde = '') {
   const iguais = (a, b) => JSON.stringify(a) === JSON.stringify(b)
   if (iguais(disco, gerado)) return []
@@ -846,11 +879,12 @@ function diferencas(disco, gerado, onde = '') {
   const chaves = [...new Set([...Object.keys(disco), ...Object.keys(gerado)])]
   const saida = []
   for (const k of chaves) {
-    // Em lista de objetos identificados, o caminho usa o IDENTIFICADOR e não o
-    // índice: `rules.telefone.titulo` diz o que mudou, `rules.17.titulo`
-    // manda contar. E o índice ainda mente quando o que mudou foi a ORDEM —
-    // inserir uma regra no meio faria toda regra abaixo dela aparecer como
-    // divergente por posição, e as 5 linhas úteis do diff sumiriam no meio de 40.
+    // In a list of identified objects, the path uses the IDENTIFIER and not the
+    // index: `rules.telefone.titulo` says what changed, `rules.17.titulo` tells
+    // you to go count. And the index still lies when what changed was the ORDER
+    // — inserting a rule in the middle would make every rule below it show up as
+    // divergent by position, and the 5 useful diff lines would vanish in the
+    // middle of 40.
     const rotulo =
       Array.isArray(disco) && (disco[k]?.id || gerado[k]?.id)
         ? disco[k]?.id || gerado[k]?.id
@@ -860,9 +894,9 @@ function diferencas(disco, gerado, onde = '') {
             ? disco[k]?.arquivo || gerado[k]?.arquivo
             : k
     const sub = onde ? `${onde}.${rotulo}` : rotulo
-    if (!(k in disco)) saida.push({ onde: sub, disco: '(ausente no disco)', gerado: gerado[k] })
+    if (!(k in disco)) saida.push({ onde: sub, disco: '(missing on disk)', gerado: gerado[k] })
     else if (!(k in gerado))
-      saida.push({ onde: sub, disco: disco[k], gerado: '(não é mais gerado)' })
+      saida.push({ onde: sub, disco: disco[k], gerado: '(no longer generated)' })
     else saida.push(...diferencas(disco[k], gerado[k], sub))
   }
   return saida
@@ -870,23 +904,23 @@ function diferencas(disco, gerado, onde = '') {
 
 const recortar = (v) => {
   const s = typeof v === 'string' ? v : JSON.stringify(v)
-  // 160 caracteres: cabe numa linha do terminal do dono com o `limite: 12` do
-  // passo `mcp`, e um `porque` de 2.800 caracteres colado inteiro na saída do
-  // verificar esconde as outras 19 divergências.
+  // 160 characters: it fits one line of the owner's terminal with the
+  // `limite: 12` of the `mcp` step, and a 2,800-character `porque` pasted whole
+  // into the verify output hides the other 19 divergences.
   return s === undefined ? 'undefined' : s.length > 160 ? `${s.slice(0, 160)}…` : s
 }
 
 /**
- * A comparação é SEMÂNTICA — JSON parseado dos dois lados —, e não byte a byte.
+ * The comparison is SEMANTIC — JSON parsed on both sides — and not byte by byte.
  *
- * O artefato está no .prettierignore, então o gerador é o dono único dos bytes
- * e um portão byte a byte até funcionaria. Semântico mesmo assim, por dois
- * motivos medidos: (1) byte a byte acusa "o MCP está velho" quando alguém só
- * mexeu em espaço em branco, e dica errada é pior que dica nenhuma; (2) foi
- * assim que se descobriu que o caminho contrário não fecha — com o prettier
- * mandando junto, `node mcp/generate.mjs` deixava o passo `formato` vermelho, e o
- * ciclo "mudei a regra, regenerei, está verde" precisava de dois comandos.
- * FATO é assunto daqui; bytes são assunto de quem escreve o arquivo.
+ * The artifact is in .prettierignore, so the generator is the sole owner of the
+ * bytes and a byte-by-byte gate would even work. Semantic anyway, for two
+ * measured reasons: (1) byte by byte accuses "the MCP is old" when someone only
+ * touched whitespace, and a wrong hint is worse than no hint; (2) it is how we
+ * found out the reverse path does not close — with prettier commanding too,
+ * `node mcp/generate.mjs` left the `formato` step red, and the cycle "I changed
+ * the rule, I regenerated, it is green" needed two commands. FACT is this
+ * module's business; bytes are the business of whoever writes the file.
  */
 function lerDoDisco() {
   if (!existsSync(ARTEFATO)) return { ausente: true }
@@ -897,11 +931,11 @@ function lerDoDisco() {
   }
 }
 
-/** ⚠ nomeando cada seção que ESTA árvore não soube gerar, e o que faltou. */
+/** ⚠ naming each section THIS tree could not generate, and what was missing. */
 function avisarAusentes(ausentes) {
   for (const s of ausentes) {
     console.error(
-      `  ⚠ seção "${s.chave}" NÃO gerada nem conferida — falta ${s.faltando.join(', ')} nesta árvore`,
+      `  ⚠ section "${s.chave}" NOT generated nor checked — ${s.faltando.join(', ')} missing in this tree`,
     )
   }
 }
@@ -909,19 +943,19 @@ function avisarAusentes(ausentes) {
 function escrever(gerado, ausentes) {
   avisarAusentes(ausentes)
   const disco = lerDoDisco()
-  // Idempotente de propósito: se o fato já é o mesmo, os bytes do disco ficam
-  // como estão. É o que deixa o prettier ser dono da formatação sem que uma
-  // regeneração desfaça o trabalho dele no commit seguinte.
+  // Idempotent on purpose: if the fact is already the same, the bytes on disk
+  // stay as they are. It is what lets prettier own the formatting without a
+  // regeneration undoing its work on the next commit.
   if (disco.valor && !diferencas(podar(disco.valor, ausentes), gerado).length) {
-    console.log(`mcp/gerar: ${relative(RAIZ, ARTEFATO).replace(/\\/g, '/')} já está em dia`)
+    console.log(`mcp/gerar: ${relative(RAIZ, ARTEFATO).replace(/\\/g, '/')} is already up to date`)
     return
   }
   writeFileSync(ARTEFATO, `${JSON.stringify(gerado, null, 2)}\n`, 'utf8')
   console.log(
-    `mcp/gerar: escrito ${relative(RAIZ, ARTEFATO).replace(/\\/g, '/')} · ` +
-      `${gerado.regras.length} regras · ${gerado.niveis?.length ?? '–'} níveis · ` +
-      `${gerado.gate?.passos.length ?? '–'} passos · ` +
-      `${gerado.regras.reduce((n, r) => n + (r.provas?.length || 0), 0)} provas`,
+    `mcp/gerar: wrote ${relative(RAIZ, ARTEFATO).replace(/\\/g, '/')} · ` +
+      `${gerado.regras.length} rules · ${gerado.niveis?.length ?? '–'} levels · ` +
+      `${gerado.gate?.passos.length ?? '–'} steps · ` +
+      `${gerado.regras.reduce((n, r) => n + (r.provas?.length || 0), 0)} proofs`,
   )
 }
 
@@ -929,77 +963,78 @@ function conferir(gerado, ausentes) {
   avisarAusentes(ausentes)
   const disco = lerDoDisco()
   if (disco.ausente) {
-    console.error('mcp/gerar --verificar: DIVERGIU — mcp/rules.generated.json não existe.')
-    console.error('  O servidor MCP leria o nada. Rode: node mcp/generate.mjs')
+    console.error('mcp/gerar --verificar: DIVERGED — mcp/rules.generated.json does not exist.')
+    console.error('  The MCP server would read nothing. Run: node mcp/generate.mjs')
     return 1
   }
   if (disco.ilegivel) {
-    console.error(`mcp/gerar --verificar: DIVERGIU — o artefato não é JSON: ${disco.ilegivel}`)
-    console.error('  Rode: node mcp/generate.mjs')
+    console.error(`mcp/gerar --verificar: DIVERGED — the artifact is not JSON: ${disco.ilegivel}`)
+    console.error('  Run: node mcp/generate.mjs')
     return 1
   }
-  // `podar` tira do lado do DISCO exatamente o que esta árvore não regenerou.
-  // Sem isto, a raiz temporária da prova do passo `mcp` — que copia só `mcp/`, o
-  // `rebar-check` sem `proofs/` e o `package.json` — acusaria o artefato de
-  // estar velho por causa de quatro arquivos que ela mesma decidiu não copiar.
+  // `podar` strips from the DISK side exactly what this tree did not regenerate.
+  // Without it, the temporary root of the `mcp` step's proof — which copies only
+  // `mcp/`, the `rebar-check` without `proofs/` and the `package.json` — would
+  // accuse the artifact of being old because of four files it itself decided not
+  // to copy.
   const diff = diferencas(podar(disco.valor, ausentes), gerado)
   if (!diff.length) {
     console.log(
-      `mcp/gerar --verificar: em dia · ${gerado.regras.length} regras · ` +
-        `${gerado.fontes.length} fonte(s) conferida(s)` +
-        `${ausentes.length ? ` · ${ausentes.length} seção(ões) N/A nesta árvore` : ''}`,
+      `mcp/gerar --verificar: up to date · ${gerado.regras.length} rules · ` +
+        `${gerado.fontes.length} source(s) checked` +
+        `${ausentes.length ? ` · ${ausentes.length} section(s) N/A in this tree` : ''}`,
     )
     return 0
   }
-  // PONTEIRO DE LINHA VAI PARA O FIM, E VIRA UMA LINHA SÓ. Medido: inserir UM
-  // comentário no topo do index.mjs desloca `fonte.linha` de todas as 22 regras
-  // e de cada parágrafo de `porque` — 60 divergências, das quais 59 são a mesma
-  // notícia ("o arquivo cresceu uma linha") e UMA é o fato que mudou. Com a
-  // ordem crua, o teto de 20 estourava antes de chegar ao fato, e a saída do
-  // portão passava a ser ruído. Regra que grita o irrelevante ensina a desligar
-  // a saída inteira — é a mesma conta que mantém `conteudo-fora-do-codigo` como
-  // heurística.
+  // THE LINE POINTER GOES TO THE END, AND BECOMES ONE SINGLE LINE. Measured:
+  // inserting ONE comment at the top of index.mjs shifts `fonte.linha` of all 22
+  // rules and of every `porque` paragraph — 60 divergences, of which 59 are the
+  // same news ("the file grew one line") and ONE is the fact that changed. With
+  // the raw order, the ceiling of 20 blew before reaching the fact, and the
+  // gate's output became noise. A rule that shouts the irrelevant teaches people
+  // to turn the whole output off — it is the same arithmetic that keeps
+  // `conteudo-fora-do-codigo` heuristic.
   const ponteiro = (d) => /\.linha$/.test(d.onde)
   const fatos = diff.filter((d) => !ponteiro(d))
   const ponteiros = diff.filter(ponteiro)
 
   console.error(
-    `mcp/gerar --verificar: DIVERGIU. ${fatos.length} fato(s) mudaram` +
-      `${ponteiros.length ? ` e ${ponteiros.length} ponteiro(s) de linha deslocaram` : ''}. ` +
-      'A fonte mudou e o artefato do MCP ficou para trás.',
+    `mcp/gerar --verificar: DIVERGED. ${fatos.length} fact(s) changed` +
+      `${ponteiros.length ? ` and ${ponteiros.length} line pointer(s) shifted` : ''}. ` +
+      'The source changed and the MCP artifact fell behind.',
   )
-  // FORMA DE DIFF UNIFICADO, e não é estética. O passo `mcp` do
-  // verify.config.mjs extrai da saída deste comando com `/^\s*(erro|✗|[-+] )/`
-  // — sem o `- `/`+ ` no começo, nada casa e o executor cai nas últimas linhas,
-  // que seriam a linha de conserto e não o que mudou. O CAMINHO vai em cada
-  // linha, e não num cabeçalho acima: linha extraída sozinha tem de dizer sozinha
-  // qual campo divergiu.
+  // UNIFIED-DIFF SHAPE, and it is not aesthetics. The `mcp` step of
+  // verify.config.mjs extracts from this command's output with
+  // `/^\s*(erro|✗|[-+] )/` — without the `- `/`+ ` at the start nothing matches
+  // and the runner falls back to the last lines, which would be the repair line
+  // and not what changed. The PATH goes on every line, and not in a header
+  // above: a line extracted alone has to say alone which field diverged.
   //
-  // Teto de 12, o mesmo `limite` que o passo `mcp` do verificar impõe à saída
-  // deste comando: imprimir mais é escrever para um recorte que já cortou.
+  // Ceiling of 12, the same `limite` the `mcp` step of `verify` imposes on this
+  // command's output: printing more is writing for a cut that already cut.
   for (const d of fatos.slice(0, 12)) {
-    console.error(`  - ${d.onde} = ${recortar(d.disco)}   (disco, velho)`)
-    console.error(`  + ${d.onde} = ${recortar(d.gerado)}   (fonte, hoje)`)
+    console.error(`  - ${d.onde} = ${recortar(d.disco)}   (disk, old)`)
+    console.error(`  + ${d.onde} = ${recortar(d.gerado)}   (source, today)`)
   }
-  if (fatos.length > 12) console.error(`  … e mais ${fatos.length - 12} fato(s).`)
+  if (fatos.length > 12) console.error(`  … and ${fatos.length - 12} more fact(s).`)
   if (ponteiros.length) {
     const exemplo = ponteiros[0]
     console.error(
-      `  - ${ponteiros.length} ponteiro(s) de linha, ex. ${exemplo.onde}: ` +
-        `${exemplo.disco} → ${exemplo.gerado}   (o arquivo mudou de tamanho acima deles)`,
+      `  - ${ponteiros.length} line pointer(s), e.g. ${exemplo.onde}: ` +
+        `${exemplo.disco} → ${exemplo.gerado}   (the file changed size above them)`,
     )
   }
-  console.error('\n  Conserto: node mcp/generate.mjs')
+  console.error('\n  Fix: node mcp/generate.mjs')
   return 1
 }
 
-// ───────────────────────────────────────────────────────────────── programa
+// ────────────────────────────────────────────────────────────────── program
 
 const args = process.argv.slice(2)
 const desconhecidas = args.filter((a) => !/^--(verificar|resumo)$/.test(a))
 if (desconhecidas.length) {
-  console.error(`mcp/gerar: opção desconhecida: ${desconhecidas.join(', ')}`)
-  console.error('uso: node mcp/generate.mjs [--verificar | --resumo]')
+  console.error(`mcp/gerar: unknown option: ${desconhecidas.join(', ')}`)
+  console.error('usage: node mcp/generate.mjs [--verificar | --resumo]')
   process.exit(2)
 }
 
@@ -1008,18 +1043,20 @@ let ausentes
 try {
   ;({ artefato: gerado, ausentes } = await montar())
 } catch (e) {
-  // Geração torta sai 2 e NUNCA 1: 1 quer dizer "o disco está velho, regenere",
-  // e mandar regenerar com o gerador quebrado é mandar gravar lixo por cima do
-  // artefato bom.
-  console.error(`mcp/gerar: a GERAÇÃO quebrou — ${e.message}`)
+  // Crooked generation exits 2 and NEVER 1: 1 means "the disk is old,
+  // regenerate", and ordering a regeneration with a broken generator is ordering
+  // garbage written over the good artifact.
+  console.error(`mcp/gerar: GENERATION broke — ${e.message}`)
   if (!(e instanceof Torto)) console.error(e.stack)
   process.exit(2)
 }
 
 if (args.includes('--resumo')) {
   avisarAusentes(ausentes)
-  console.log(`${gerado.regras.length} regras · ${gerado.niveis?.length ?? 0} níveis`)
+  console.log(`${gerado.regras.length} rules · ${gerado.niveis?.length ?? 0} levels`)
   for (const r of gerado.regras) {
+    // `'determinística'` stays in Portuguese: it is the `classe` VALUE the rule
+    // modules export, not prose. Translate it here and every rule prints as `h`.
     console.log(
       `  ${r.nivel} ${r.classe === 'determinística' ? 'D' : 'h'} ${r.id.padEnd(24)}` +
         ` porque:${String(r.porque.filter((x) => x.onde === 'cabecalho').length).padStart(2)}c` +

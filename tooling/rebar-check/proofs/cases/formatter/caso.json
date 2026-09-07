@@ -1,4 +1,4 @@
 {
   "rule": "formatter",
-  "why": "Projeto npm que tem linter e nenhum formatador: cada maquina reindenta o arquivo do seu jeito e o diff da revisao vira ruido de espaco em branco em vez de mudanca de comportamento."
+  "why": "An npm project that has a linter and no formatter: each machine reindents the file its own way and the review diff becomes whitespace noise instead of a change of behavior."
 }

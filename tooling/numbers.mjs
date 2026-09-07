@@ -1,137 +1,144 @@
 #!/usr/bin/env node
-// numbers.mjs — os números do README e do ESTADO não são digitados. Este arquivo os escreve.
+// numbers.mjs — the numbers in the README and in ESTADO are not typed. This file writes them.
 //
-// POR QUE ELE EXISTE, e o defeito não é hipotético: já aconteceu SEIS VEZES.
-// Medido nesta árvore em 02/09/2026, antes desta linha existir:
+// WHY IT EXISTS, and the defect is not hypothetical: it has happened SIX TIMES.
+// Measured in this tree on 02/09/2026, before this line existed:
 //
-//   fato                        o README dizia    a verdade
-//   regras determinísticas      16                17
-//   casos de prova              50                52
-//   regras com prova            21 de 21          22 de 22
-//   passos do `verificar`       8                 12
+//   fact                        the README said   the truth
+//   deterministic rules         16                17
+//   proof cases                 50                52
+//   rules with proof            21 of 21          22 of 22
+//   `verificar` steps           8                 12
 //
-// E o ESTADO.md carrega QUATRO contagens diferentes de casos de prova espalhadas
-// pelo mesmo arquivo — 13, 33, 47 e 50 —, das quais no máximo uma pode estar
-// certa. O próprio ESTADO abre com uma seção admitindo que já errou número três
-// vezes ("disse 20 checagens quando eram 19"), e errou outras três desde então.
+// And ESTADO.md carries FOUR different proof-case counts scattered through the
+// same file — 13, 33, 47 and 50 —, of which at most one can be right. ESTADO
+// itself opens with a section admitting it has already got a number wrong three
+// times ("disse 20 checagens quando eram 19" [said 20 checks when there were 19]),
+// and has got three more wrong since.
 //
-// A causa é ESTRUTURAL e não vai embora com atenção: os números são escritos à
-// mão e a verdade muda a cada commit. Escrever com mais cuidado é a resposta que
-// já falhou seis vezes; o repositório inteiro existe para dizer que regra em
-// markdown tem cumprimento próximo de zero e regra em portão tem 100%.
+// The cause is STRUCTURAL and attention does not make it go away: the numbers are
+// written by hand and the truth changes every commit. Writing more carefully is the
+// answer that has already failed six times; the whole repository exists to say that
+// a rule in markdown has close to zero compliance and a rule in a gate has 100%.
 //
-// A DOUTRINA DA CASA JÁ RESOLVEU ISSO UMA VEZ, em `mcp/generate.mjs`, e este
-// arquivo é a mesma forma aplicada ao segundo lugar onde o defeito mora:
+// THE HOUSE DOCTRINE ALREADY SOLVED THIS ONCE, in `mcp/generate.mjs`, and this
+// file is the same shape applied to the second place where the defect lives:
 //
-//   DERIVADO, NUNCA      nenhum número deste arquivo é digitado aqui. Cada fato
-//   DIGITADO             tem uma FONTE em disco e uma derivação de uma linha.
-//                        Não há duas fontes para divergir — há uma fonte e uma
-//                        projeção dela dentro do texto.
-//   UM COMANDO REGENERA  `node tooling/numbers.mjs`
-//   UM PORTÃO REPROVA    `--verificar` recalcula EM MEMÓRIA, compara com o que
-//                        está escrito nos documentos e sai 1 se divergir. É o
-//                        passo `numeros` do `verificar`, e é o que torna
-//                        impossível commitar com documento velho.
+//   DERIVED, NEVER TYPED    no number in this file is typed here. Every fact has
+//                           a SOURCE on disk and a one-line derivation. There are
+//                           no two sources to diverge — there is one source and
+//                           one projection of it inside the text.
+//   ONE COMMAND REGENERATES `node tooling/numbers.mjs`
+//   ONE GATE FAILS          `--verificar` recomputes IN MEMORY, compares with what
+//                           is written in the documents, and exits 1 if they
+//                           diverge. It is the `numeros` step of `verificar`, and
+//                           it is what makes committing a stale document impossible.
 //
-// ZERO DEPENDÊNCIA, e aqui não é preferência: este arquivo roda no `verificar`
-// da raiz, que precisa funcionar em clone limpo. Só built-in do Node.
-//
-// ─────────────────────────────────────────────────────────────────────────────
-// (a) A FORMA DA MARCAÇÃO NO MARKDOWN — a decisão de projeto deste módulo.
-//
-// O documento precisa DIZER o número, e quem lê tem de continuar lendo markdown
-// normal. Três formas foram pesadas contra três critérios: renderizar bem no
-// GitHub, não poluir a leitura, e produzir diff pequeno na regeneração.
-//
-//   1. BLOCO GERADO INTEIRO, entre comentários HTML.
-//      Rejeitada. O número do README quase nunca está sozinho: está DENTRO da
-//      frase ("**16 determinísticas** derrubam o exit code", "o passo `mcp` do
-//      portão — 5 de 11"). Um bloco gerado que contenha a frase faz o gerador
-//      virar dono da PROSA, e prosa passa a morar num `.mjs` — que é a segunda
-//      fonte que a §7.2 do plano proíbe, só que com a prosa do lado errado.
-//      Custo de diff também é pior: o bloco reimprime inteiro por um dígito.
-//
-//   2. UMA TABELA ÚNICA GERADA, e o texto só aponta para ela.
-//      Rejeitada, e é a pior das três para este repositório. Trocaria
-//      "**17 determinísticas** derrubam o exit code" por "as determinísticas
-//      (ver tabela) derrubam o exit code". O valor do README é o número estar
-//      NA frase que o usa; empurrá-lo para uma tabela distante é a mesma
-//      distância entre decisão e uso que o rebar acusa nos outros.
-//
-//   3. MARCADOR INLINE POR NÚMERO. ESCOLHIDA.
-//        **<!--n rules.deterministicas-->17<!--/n--> determinísticas**
-//      · RENDERIZA: comentário HTML é invisível no GitHub, e é inline legal em
-//        CommonMark — o `**` continua abrindo ênfase forte porque vem depois de
-//        espaço e antes de pontuação.
-//      · NÃO POLUI: a prosa continua sendo do autor humano. O gerador é dono de
-//        26 caracteres em volta do valor, e de mais nada.
-//      · DIFF MÍNIMO: regenerar troca EXATAMENTE os dígitos que mudaram. Uma
-//        regra nova mexe em 5 trechos do README; um bloco gerado mexeria em 5
-//        blocos inteiros. Diff que ninguém revisa é diff que passa.
-//      · BÔNUS não planejado: o marcador NOMEIA o fato. Quem abre o markdown
-//        cru vê `rules.deterministicas` e sabe que não deve editar à mão — a
-//        forma se documenta no lugar onde a tentação acontece.
-//
-// O CUSTO DA ESCOLHA, e ele é real: comentário HTML é invisível no markdown
-// renderizado, mas VISÍVEL dentro de cerca de código — o GitHub imprime
-// ```` ```bash ```` literalmente, comentário e tudo. Então FATO NÃO MORA DENTRO
-// DE CERCA. A cerca mostra o COMANDO, que é copiável e não envelhece; o número
-// que ele imprime vai na prosa ao lado. Isso não é contorno, é conserto: o
-// README de hoje tem `npm run provar     # 50 casos` dentro de uma cerca — uma
-// linha que a pessoa copia, cola, e recebe outro número. Uma cerca que mente é
-// pior que uma cerca sem comentário.
-//
-// E para que a regra não dependa de alguém lembrar dela, `conferirCerca()` mais
-// abaixo REPROVA marcador dentro de cerca, nomeando arquivo e linha. Defeito de
-// renderização que sairia silencioso sai alto.
+// ZERO DEPENDENCIES, and this is not a preference: this file runs in the root
+// `verificar`, which has to work on a clean clone. Node built-ins only.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// (b) ONDE PASSA A LINHA ENTRE FATO DERIVADO E MEDIÇÃO HISTÓRICA.
+// (a) THE SHAPE OF THE MARKUP IN THE MARKDOWN — this module's design decision.
 //
-// Nem todo número de um documento é um fato desta árvore. "7 ocorrências e zero
-// verdadeiros positivos no herz", "161 commits em seis repositórios", "8 de 9
-// credenciais reais passaram" — isso é REGISTRO DE UMA MEDIÇÃO PASSADA, feita
-// noutra máquina, noutra data, sobre árvore que não é esta. Derivar seria
-// impossível; sobrescrever seria APAGAR HISTÓRIA, e a história é o que dá
-// autoridade à regra. Fica escrito à mão, com data, e é assim que tem de ser.
+// The document has to SAY the number, and whoever reads it has to keep reading
+// ordinary markdown. Three shapes were weighed against three criteria: render well
+// on GitHub, not pollute the reading, and produce a small diff on regeneration.
 //
-// Um número entra neste catálogo se, e só se, passa nos TRÊS testes:
+//   1. A WHOLE GENERATED BLOCK, between HTML comments.
+//      Rejected. The README's number is almost never alone: it is INSIDE the
+//      sentence ("**16 deterministic** bring down the exit code", "the gate's
+//      `mcp` step — 5 of 11"). A generated block containing the sentence makes
+//      the generator the owner of the PROSE, and prose moves into a `.mjs` —
+//      which is the second source §7.2 of the plan forbids, only with the prose
+//      on the wrong side. The diff cost is worse too: the block reprints whole
+//      for one digit.
 //
-//   1. É propriedade DESTA árvore, agora — não de outro repositório, outra
-//      máquina, outra data.
-//   2. Muda quando o código muda, e SÓ então. Não muda com o relógio, e não
-//      muda pelo próprio ato de ser registrado.
-//   3. Tem derivação de uma linha, sem rede e sem rodar o produto.
+//   2. A SINGLE GENERATED TABLE, and the text only points at it.
+//      Rejected, and it is the worst of the three for this repository. It would
+//      trade "**17 deterministic** bring down the exit code" for "the
+//      deterministic ones (see table) bring down the exit code". The README's
+//      value is the number being IN the sentence that uses it; pushing it into a
+//      distant table is the same distance between decision and use that rebar
+//      accuses others of.
 //
-// O TESTE 2 É O QUE EXCLUI A CONTAGEM DE COMMITS, e ela estava no pedido.
-// `git rev-list --all --count` devolve 36 nesta árvore. Se o documento gravasse
-// 36, o commit que grava 36 faria a contagem virar 37 — documento velho no
-// instante seguinte, e o CI, que roda depois do commit, ficaria VERMELHO PARA
-// SEMPRE. Um fato que muda por ser registrado é um portão que nunca fecha. O
-// que entra no lugar são os números que só mudam quando alguém mexe no
-// repositório: arquivos rastreados (o índice já reflete o `git add` antes do
-// commit) e commits com trailer de coautoria (que a allowlist mantém em 0 e que
-// só sai de 0 quando o invariante for violado — aí ficar vermelho é o certo).
+//   3. AN INLINE MARKER PER NUMBER. CHOSEN.
+//        **<!--n rules.deterministicas-->17<!--/n--> deterministic**
+//      · IT RENDERS: an HTML comment is invisible on GitHub, and is legal inline
+//        in CommonMark — the `**` still opens strong emphasis because it comes
+//        after a space and before punctuation.
+//      · IT DOES NOT POLLUTE: the prose stays the human author's. The generator
+//        owns 26 characters around the value, and nothing else.
+//      · MINIMAL DIFF: regenerating swaps EXACTLY the digits that changed. A new
+//        rule touches 5 passages of the README; a generated block would touch 5
+//        whole blocks. A diff nobody reviews is a diff that passes.
+//      · UNPLANNED BONUS: the marker NAMES the fact. Whoever opens the raw
+//        markdown sees `rules.deterministicas` and knows not to edit it by hand —
+//        the shape documents itself at the place where the temptation happens.
 //
-// O TESTE 3 É O QUE EXCLUI "12 de 12 na própria régua". Esse número sai de
-// RODAR o `rebar-check`, e quem já o trava é o passo `auto` do `verificar`.
-// Derivá-lo aqui criaria a segunda fonte que a §7.2 proíbe, e ainda por cima
-// duplicaria o passo mais caro do portão dentro do mais barato.
+// THE COST OF THE CHOICE, and it is real: an HTML comment is invisible in rendered
+// markdown, but VISIBLE inside a code fence — GitHub prints ```` ```bash ````
+// literally, comment and all. So A FACT DOES NOT LIVE INSIDE A FENCE. The fence
+// shows the COMMAND, which is copyable and does not age; the number it prints goes
+// in the prose beside it. This is not a workaround, it is a fix: today's README has
+// `npm run provar     # 50 casos` inside a fence — a line the person copies,
+// pastes, and gets another number from. A fence that lies is worse than a fence
+// without a comment.
+//
+// And so that the rule does not depend on someone remembering it, `conferirCerca()`
+// further down FAILS a marker inside a fence, naming file and line. A rendering
+// defect that would go out silent goes out loud.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// Uso:
-//   node tooling/numbers.mjs              reescreve os marcadores nos documentos
-//   node tooling/numbers.mjs --verificar  recalcula, compara, sai 1 se divergiu
-//   node tooling/numbers.mjs --fatos      lista os fatos, o valor e a fonte
+// (b) WHERE THE LINE RUNS BETWEEN A DERIVED FACT AND A HISTORICAL MEASUREMENT.
 //
-// Códigos de saída — mesma disciplina do mcp/generate.mjs, três coisas, três códigos:
-//   0    escreveu, ou conferiu e bateu
-//   1    DIVERGIU: o documento não diz o que a fonte diz hoje. Regenere. Também
-//        é 1 o marcador malformado — quem errou foi o documento, e o conserto é
-//        no documento.
-//   2    a própria DERIVAÇÃO quebrou — fonte com forma inesperada, contagem que
-//        não fecha. Domina o 1 pelo mesmo motivo que o 127 domina o 1 no
-//        index.mjs: não se acusa o documento com um medidor torto.
+// Not every number in a document is a fact of this tree. "7 occurrences and zero
+// true positives in herz", "161 commits across six repositories", "8 of 9 real
+// credentials passed" — that is the RECORD OF A PAST MEASUREMENT, made on another
+// machine, on another date, over a tree that is not this one. Deriving it would be
+// impossible; overwriting it would be ERASING HISTORY, and the history is what
+// gives the rule its authority. It stays written by hand, with a date, and that is
+// how it has to be.
+//
+// A number enters this catalogue if, and only if, it passes all THREE tests:
+//
+//   1. It is a property of THIS tree, now — not of another repository, another
+//      machine, another date.
+//   2. It changes when the code changes, and ONLY then. It does not change with
+//      the clock, and it does not change by the very act of being recorded.
+//   3. It has a one-line derivation, with no network and without running the
+//      product.
+//
+// TEST 2 IS WHAT EXCLUDES THE COMMIT COUNT, and it was in the request.
+// `git rev-list --all --count` returns 36 in this tree. If the document recorded
+// 36, the commit that records 36 would turn the count into 37 — a stale document
+// the instant after, and the CI, which runs after the commit, would be RED
+// FOREVER. A fact that changes by being recorded is a gate that never closes. What
+// goes in its place are the numbers that only change when someone touches the
+// repository: tracked files (the index already reflects the `git add` before the
+// commit) and commits with a co-authorship trailer (which the allowlist keeps at 0
+// and which only leaves 0 when the invariant is violated — and then going red is
+// the right thing).
+//
+// TEST 3 IS WHAT EXCLUDES "12 of 12 on the ruler itself". That number comes from
+// RUNNING `rebar-check`, and what already locks it is the `auto` step of
+// `verificar`. Deriving it here would create the second source §7.2 forbids, and
+// on top of that would duplicate the gate's most expensive step inside its
+// cheapest one.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// Usage:
+//   node tooling/numbers.mjs              rewrites the markers in the documents
+//   node tooling/numbers.mjs --verificar  recomputes, compares, exits 1 on divergence
+//   node tooling/numbers.mjs --fatos      lists the facts, the value and the source
+//
+// Exit codes — same discipline as mcp/generate.mjs, three things, three codes:
+//   0    wrote, or checked and matched
+//   1    DIVERGED: the document does not say what the source says today. Regenerate.
+//        A malformed marker is also 1 — what erred was the document, and the fix
+//        is in the document.
+//   2    the DERIVATION itself broke — a source with an unexpected shape, a count
+//        that does not add up. It dominates 1 for the same reason 127 dominates 1
+//        in index.mjs: you do not accuse the document with a crooked gauge.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -141,40 +148,39 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..')
 
-/** Erro de DERIVAÇÃO — sai 2, nunca 1. Ver o bloco de códigos de saída acima. */
+/** DERIVATION error — exits 2, never 1. See the exit-code block above. */
 class Torto extends Error {}
 const exigir = (condicao, mensagem) => {
   if (!condicao) throw new Torto(mensagem)
 }
 
-// ───────────────────────────────────────────────────────────────────── leitura
+// ───────────────────────────────────────────────────────────────────── reading
 
-// `join` para o disco (Windows), barra normal para tudo que aparece na saída e
-// nos marcadores: o `--verificar` roda no CI em matriz Windows + Linux, e um
-// `ferramental\rebar-check\index.mjs` impresso num lado e não no outro faria a
-// mesma árvore ter duas saídas.
+// `join` for the disk (Windows), forward slash for everything that shows up in the
+// output and in the markers: `--verificar` runs in CI on a Windows + Linux matrix,
+// and a `ferramental\rebar-check\index.mjs` printed on one side and not on the
+// other would make the same tree have two outputs.
 const caminho = (rel) => join(RAIZ, ...rel.split('/'))
 const existe = (rel) => existsSync(caminho(rel))
 
 /**
- * Lê um arquivo do repositório, normalizando CRLF. O `.gitattributes` fixa LF,
- * mas um checkout com `autocrlf` ligado entrega CRLF ao Node — e aí toda
- * contagem de linha mudaria por causa de um byte que o git considera
- * inexistente.
+ * Reads a file from the repository, normalizing CRLF. The `.gitattributes` pins
+ * LF, but a checkout with `autocrlf` on hands CRLF to Node — and then every line
+ * count would change because of a byte git considers nonexistent.
  */
 const ler = (rel) => readFileSync(caminho(rel), 'utf8').replace(/\r\n/g, '\n')
 
 /**
- * Conta linhas como o `wc -l` conta: uma por quebra. É a contagem que os
- * documentos citam ("`mcp/generate.mjs` · 902 linhas"), e o comando que a reproduz
- * está escrito ao lado de cada fato em `--fatos`.
+ * Counts lines the way `wc -l` counts: one per break. It is the count the
+ * documents cite ("`mcp/generate.mjs` · 902 lines"), and the command that
+ * reproduces it is written beside each fact in `--fatos`.
  */
 function contarLinhas(rel) {
   const texto = ler(rel)
   return texto.split('\n').length - (texto.endsWith('\n') ? 1 : 0)
 }
 
-/** Caminhos relativos de todos os arquivos sob `rel`, em ordem estável. */
+/** Relative paths of every file under `rel`, in stable order. */
 function arquivosSob(rel, pular = () => false) {
   const saida = []
   const andar = (parcial) => {
@@ -189,7 +195,7 @@ function arquivosSob(rel, pular = () => false) {
   return saida
 }
 
-/** Uma linha do git, ou `null` se esta árvore não é um repositório git. */
+/** One line from git, or `null` if this tree is not a git repository. */
 function git(...args) {
   try {
     return execFileSync('git', args, {
@@ -206,50 +212,67 @@ function git(...args) {
 
 const pt = (n) => n.toLocaleString('pt-BR')
 
-// ─────────────────────────────────────────────────────────── os grupos de fato
+// ───────────────────────────────────────────────────────────── the fact groups
 //
-// O NÚCLEO É OBRIGATÓRIO, O RESTO É POR GRUPO — e isto é a doutrina do N/A do
-// próprio rebar-check, aplicada aqui pela mesma razão que o `mcp/generate.mjs` a
-// aplicou por seção: "o nada não conforma; o nada não se aplica".
+// THE CORE IS MANDATORY, THE REST IS PER GROUP — and this is rebar-check's own
+// N/A doctrine, applied here for the same reason `mcp/generate.mjs` applied it per
+// section: *"o nada não conforma; o nada não se aplica"* [absence does not
+// conform; absence is not applicable].
 //
-// Uma árvore que não tem `new/` não pode testemunhar sobre o gerador; uma que
-// não é repositório git não pode testemunhar sobre arquivos rastreados. Gritar
-// DIVERGIU ali seria acusar o documento de estar velho quando o que está
-// incompleto é a árvore — a acusação errada, apontando para quem não errou.
+// A tree with no `new/` cannot testify about the generator; one that is not a git
+// repository cannot testify about tracked files. Shouting DIVERGED there would be
+// accusing the document of being stale when what is incomplete is the tree — the
+// wrong accusation, pointing at whoever did not err.
 //
-// ONDE ISSO APARECE DE VERDADE: a prova deste passo, em
-// `tooling/verify/prove-steps.mjs`, monta uma raiz temporária SEM
-// `.git` e sem `domains/`. Sem o N/A por grupo, aquela prova pediria ao
-// medidor para acusar a ausência de coisas que ela mesma decidiu não copiar.
+// WHERE THIS SHOWS UP FOR REAL: the proof of this step, in
+// `tooling/verify/prove-steps.mjs`, builds a temporary root WITHOUT
+// `.git` and without `domains/`. Without the per-group N/A, that proof would ask
+// the gauge to accuse the absence of things it itself decided not to copy.
 //
-// O CUSTO, e ele é real: quem APAGAR o `new/` do repositório de verdade faz
-// este portão parar de conferir os números do gerador em silêncio. O que sobra
-// contra isso é a linha ⚠ nomeando o grupo e a fonte que faltou — impressa
-// mesmo quando o passo PASSA, porque o passo declara `avisar` no
+// THE COST, and it is real: whoever DELETES `new/` from the real repository makes
+// this gate stop checking the generator's numbers, in silence. What is left
+// against that is the ⚠ line naming the group and the source that was missing —
+// printed even when the step PASSES, because the step declares `avisar` in
 // verify.config.mjs.
 
-/** As regras, do módulo que as exporta — a mesma fonte que o MCP deriva. */
+/** The rules, from the module that exports them — the same source the MCP derives. */
 async function grupoRegras() {
   const rel = 'tooling/rebar-check/index.mjs'
   const mod = await import(pathToFileURL(caminho(rel)).href)
   const regras = mod.REGRAS
-  exigir(Array.isArray(regras) && regras.length, `${rel}: REGRAS não é uma lista não vazia`)
+  exigir(Array.isArray(regras) && regras.length, `${rel}: REGRAS is not a non-empty list`)
 
   const por = (classe) => regras.filter((r) => r.classe === classe)
   const det = por('determinística')
   const heu = por('heurística')
   exigir(
     det.length + heu.length === regras.length,
-    `${rel}: ${regras.length} regras, mas ${det.length} determinísticas + ${heu.length} ` +
-      'heurísticas não fecham — apareceu uma terceira classe',
+    `${rel}: ${regras.length} rules, but ${det.length} deterministic + ${heu.length} ` +
+      'heuristic do not add up — a third class appeared',
   )
-  // A lista sai em crase e separada por `·` porque é a forma em que os dois
-  // documentos já a imprimem. Formato de apresentação mora aqui e não no
-  // documento pelo mesmo motivo que o valor mora: para não haver o que divergir.
+  // The list comes out in backticks and separated by `·` because that is the shape
+  // the two documents already print it in. Presentation format lives here and not in
+  // the document for the same reason the value does: so there is nothing to diverge.
   const lista = (rs) => rs.map((r) => `\`${r.id}\``).join(' · ')
+
+  // THE SECURITY MODULE COUNTS TOO, and until 2026-09-07 it did not: this
+  // function read only `rebar-check`, so the badge said 23 while the MCP served
+  // 26. A module that exists, runs as a gate step and carries four proof cases
+  // was invisible in every document.
+  //
+  // `rules.total` stays the rebar-check number, because that is the one the
+  // surrounding prose uses ("the 23 rules of format"). What is new is the total,
+  // and it is the total that goes on the badge.
+  const relSeg = 'tooling/security/index.mjs'
+  const modSeg = await import(pathToFileURL(caminho(relSeg)).href)
+  const seguranca = modSeg.REGRAS
+  exigir(Array.isArray(seguranca) && seguranca.length, `${relSeg}: REGRAS is not a non-empty list`)
 
   return {
     'rules.total': `${regras.length}`,
+    'rules.security': `${seguranca.length}`,
+    'rules.all': `${regras.length + seguranca.length}`,
+    'rules.lista-security': lista(seguranca),
     'rules.deterministicas': `${det.length}`,
     'rules.heuristicas': `${heu.length}`,
     'rules.lista-deterministicas': lista(det),
@@ -258,7 +281,7 @@ async function grupoRegras() {
   }
 }
 
-/** Os casos de prova, contados nos `caso.json` — o mesmo que o prove.mjs lê. */
+/** The proof cases, counted in the `caso.json` files — the same prove.mjs reads. */
 function grupoProvas(totalDeRegras) {
   const base = 'tooling/rebar-check/proofs/cases'
   const pastas = readdirSync(caminho(base))
@@ -268,68 +291,77 @@ function grupoProvas(totalDeRegras) {
   const regras = new Set()
   for (const nome of pastas) {
     const rel = `${base}/${nome}/caso.json`
-    exigir(existe(rel), `${rel}: pasta de caso sem caso.json`)
+    exigir(existe(rel), `${rel}: case folder with no caso.json`)
     let caso
     try {
       caso = JSON.parse(ler(rel))
     } catch (e) {
-      throw new Torto(`${rel}: JSON inválido — ${e.message}`)
+      throw new Torto(`${rel}: invalid JSON — ${e.message}`)
     }
-    // Casa pelo campo `regra` DE DENTRO do caso, e não pelo nome da pasta: o
-    // nome é convenção, o campo é declaração. Mesma escolha do mcp/generate.mjs.
-    exigir(caso.rule, `${rel}: sem campo "rule"`)
+    // Matches on the `regra` field FROM INSIDE the case, and not on the folder
+    // name: the name is convention, the field is declaration. Same choice as
+    // mcp/generate.mjs.
+    exigir(caso.rule, `${rel}: no "rule" field`)
     regras.add(caso.rule)
   }
-  exigir(pastas.length, `${base}/: nenhum caso de prova nesta árvore`)
+  exigir(pastas.length, `${base}/: no proof case in this tree`)
 
   return {
     'proofs.casos': `${pastas.length}`,
     'proofs.regras-com-prova': `${regras.size}`,
-    // COBERTURA É UMA FRAÇÃO DE DUAS FONTES, e a versão anterior desta linha
-    // era `${regras.size} de ${regras.size}` — o mesmo número duas vezes.
+    // COVERAGE IS A FRACTION OF TWO SOURCES, and the previous version of this
+    // line was `${regras.size} de ${regras.size}` — the same number twice.
     //
-    // Achado da auditoria de 31/08, e é pior que número velho: aquele fato era
-    // ESTRUTURALMENTE incapaz de estar errado. Se metade das regras perdesse a
-    // prova, ele continuaria imprimindo "N de N", e o README vende justamente
-    // essa frase como garantia de que toda regra nasce com dois casos. Número
-    // que não pode acusar não é medição, é decoração — e decoração com cara de
-    // medição é a coisa que este repositório existe para tirar do caminho.
+    // Finding of the 31/08 audit, and it is worse than a stale number: that fact
+    // was STRUCTURALLY incapable of being wrong. If half the rules lost their
+    // proof, it would keep printing "N de N", and the README sells exactly that
+    // sentence as the guarantee that every rule is born with two cases. A number
+    // that cannot accuse is not a measurement, it is decoration — and decoration
+    // dressed as measurement is the thing this repository exists to clear away.
     //
-    // Agora o numerador vem dos `caso.json` e o denominador vem do catálogo de
-    // regras do checker. São fontes diferentes, e é por serem diferentes que a
-    // fração pode ficar desigual e acusar.
+    // Now the numerator comes from the `caso.json` files and the denominator from
+    // the checker's rule catalogue. They are different sources, and it is because
+    // they are different that the fraction can come out uneven and accuse.
+    //
+    // The `de` in the value stays Portuguese: it is DOCUMENT CONTENT, already
+    // written inside the markers of README.md and ESTADO.md. Changing it makes
+    // those documents diverge until someone runs `node tooling/numbers.mjs`.
     'proofs.cobertura': `${regras.size} de ${totalDeRegras}`,
     'proofs.regras-sem-prova': `${Math.max(0, totalDeRegras - regras.size)}`,
   }
 }
 
-/** Os passos do portão, na ordem, do próprio verify.config.mjs. */
+/** The gate's steps, in order, from verify.config.mjs itself. */
 async function grupoVerificar() {
   const rel = 'verify.config.mjs'
   const mod = await import(pathToFileURL(caminho(rel)).href)
   const passos = mod.default
-  exigir(Array.isArray(passos) && passos.length, `${rel}: o default export não é lista de passos`)
+  exigir(Array.isArray(passos) && passos.length, `${rel}: the default export is not a step list`)
   const nomes = passos.map((p) => p.nome)
   exigir(
     nomes.every((n) => typeof n === 'string' && n),
-    `${rel}: passo sem nome`,
+    `${rel}: step with no name`,
   )
 
   const fatos = {
     'verify.passos': `${passos.length}`,
     'verify.lista-passos': nomes.map((n) => `\`${n}\``).join(' · '),
   }
-  // Uma posição por passo, e não só a do `mcp` que o README cita hoje. É de
-  // graça, e faz com que inserir um passo no meio conserte TODA citação de
-  // posição de uma vez — que é exatamente o erro que o README carrega agora
-  // ("5 de 11", quando são 12 passos e o `mcp` é o sexto).
+  // One position per step, and not only the `mcp` one the README cites today. It
+  // is free, and it makes inserting a step in the middle fix EVERY position
+  // citation at once — which is exactly the error the README carries now
+  // ("5 de 11", when there are 12 steps and `mcp` is the sixth).
+  //
+  // The `de` in the value stays Portuguese for the same reason as in
+  // `proofs.cobertura`: it is document content that is already written in the
+  // markers of README.md and ESTADO.md.
   nomes.forEach((n, i) => {
     fatos[`verify.posicao.${n}`] = `${i + 1} de ${passos.length}`
   })
   return fatos
 }
 
-/** O artefato do MCP e o servidor que o lê. */
+/** The MCP artifact and the server that reads it. */
 function grupoMcp() {
   const relArtefato = 'mcp/rules.generated.json'
   const bruto = ler(relArtefato)
@@ -337,20 +369,20 @@ function grupoMcp() {
   try {
     a = JSON.parse(bruto)
   } catch (e) {
-    throw new Torto(`${relArtefato}: não é JSON — ${e.message}`)
+    throw new Torto(`${relArtefato}: not JSON — ${e.message}`)
   }
-  exigir(Array.isArray(a.regras), `${relArtefato}: sem lista "regras"`)
+  exigir(Array.isArray(a.regras), `${relArtefato}: no "regras" list`)
 
   const relServidor = 'mcp/src/index.mjs'
   const ferramentas = [...ler(relServidor).matchAll(/registerTool\(\s*'([a-z_]+)'/g)]
   exigir(
     ferramentas.length,
-    `${relServidor}: nenhum registerTool casado — o servidor mudou de forma`,
+    `${relServidor}: no registerTool matched — the server has changed shape`,
   )
 
-  // O SERVIDOR NÃO INCLUI O CLIENTE DE PROVA. `mcp/src/prova-cliente.mjs` são
-  // 370 linhas que exercitam o servidor de fora; somá-las daria 1.307 e o
-  // documento diria que o servidor é 40% maior do que é.
+  // THE SERVER DOES NOT INCLUDE THE PROOF CLIENT. `mcp/src/prova-cliente.mjs` is
+  // 370 lines that exercise the server from outside; adding them would give 1.307
+  // and the document would say the server is 40% bigger than it is.
   const linhasServidor = arquivosSob('mcp/src', (_f, nome) => nome === 'prova-cliente.mjs')
     .filter((f) => f.endsWith('.mjs'))
     .reduce((n, f) => n + contarLinhas(f), 0)
@@ -360,8 +392,8 @@ function grupoMcp() {
     'mcp.artefato.niveis': `${a.niveis?.length ?? 0}`,
     'mcp.artefato.passos': `${a.gate?.passos.length ?? 0}`,
     'mcp.artefato.provas': `${a.regras.reduce((n, r) => n + (r.provas?.length || 0), 0)}`,
-    // KB de documento, base 1000 — é a unidade em que os dois documentos já
-    // escrevem "78 KB", e trocar a base agora criaria um diff que não é fato.
+    // Document KB, base 1000 — it is the unit the two documents already write
+    // "78 KB" in, and changing the base now would create a diff that is not a fact.
     'mcp.artefato.tamanho': `${Math.round(Buffer.byteLength(bruto, 'utf8') / 1000)} KB`,
     'mcp.ferramentas': `${ferramentas.length}`,
     'lines.mcp-gerador': `${pt(contarLinhas('mcp/generate.mjs'))}`,
@@ -369,34 +401,34 @@ function grupoMcp() {
   }
 }
 
-/** O gerador `rebar novo`: quantos passos ele anuncia e quanto é modelo. */
+/** The `rebar new` generator: how many steps it announces, and how much is template. */
 function grupoNovo() {
   const rel = 'new/index.mjs'
   const fonte = ler(rel)
-  // O gerador imprime `▸ 1/6`, `▸ 2/6` … O denominador É o número de passos, e
-  // ele já está escrito no lugar onde erraria alto: se alguém acrescentar um
-  // passo e esquecer o denominador, a conferência abaixo quebra com exit 2.
+  // The generator prints `▸ 1/6`, `▸ 2/6` … The denominator IS the number of steps,
+  // and it is already written where it would err loudly: if someone adds a step and
+  // forgets the denominator, the check below breaks with exit 2.
   const marcas = [...fonte.matchAll(/▸ (\d+)\/(\d+)\b/g)].map((m) => [+m[1], +m[2]])
-  exigir(marcas.length, `${rel}: nenhuma marca "▸ n/m" — o gerador mudou de forma`)
+  exigir(marcas.length, `${rel}: no "▸ n/m" mark — the generator changed shape`)
   const total = marcas[0][1]
   exigir(
     marcas.every(([, m]) => m === total),
-    `${rel}: as marcas "▸ n/m" não concordam no denominador`,
+    `${rel}: the "▸ n/m" marks do not agree on the denominator`,
   )
   exigir(
     Math.max(...marcas.map(([n]) => n)) === total,
-    `${rel}: o denominador das marcas é ${total}, mas o maior passo impresso é ` +
-      `${Math.max(...marcas.map(([n]) => n))}`,
+    `${rel}: the denominator of the marks is ${total}, but the largest step printed ` +
+      `is ${Math.max(...marcas.map(([n]) => n))}`,
   )
 
   const todos = arquivosSob('new', (_filho, nome) => nome === 'node_modules')
-  // MODELO é o que o gerador COPIA para dentro do projeto criado, e a fronteira
-  // não é adivinhada: é a pasta que carrega um `modelo.json`, que é a mesma
-  // fechadura que o rebar-check usa para tirar esses arquivos da avaliação.
+  // TEMPLATE is what the generator COPIES into the created project, and the border
+  // is not guessed: it is the folder carrying a `modelo.json`, which is the same
+  // lock rebar-check uses to take those files out of the evaluation.
   const pastasModelo = todos
     .filter((f) => f.endsWith('/modelo.json'))
     .map((f) => f.slice(0, -'modelo.json'.length))
-  exigir(pastasModelo.length, 'new/: nenhum modelo.json — a fechadura de modelo sumiu')
+  exigir(pastasModelo.length, 'new/: no modelo.json — the template lock is gone')
   const modelo = todos.filter((f) => pastasModelo.some((p) => f.startsWith(p)))
 
   return {
@@ -406,13 +438,13 @@ function grupoNovo() {
   }
 }
 
-/** O que o git sabe. N/A inteiro quando esta árvore não é repositório git. */
+/** What git knows. Wholly N/A when this tree is not a git repository. */
 function grupoGit() {
-  // `-z` obrigatorio, e aqui e defeito de CORRECAO e nao de mensagem: este
-  // caminho e contado e casado por prefixo de pasta. Sem `-z` um nome
-  // acentuado volta C-quoted e conta como outro arquivo.
+  // `-z` is mandatory, and here it is a CORRECTNESS defect and not a message one:
+  // this path is counted and matched by folder prefix. Without `-z` an accented
+  // name comes back C-quoted and counts as another file.
   const rastreados = git('ls-files', '-z')
-  exigir(rastreados !== null, 'git ls-files não respondeu numa árvore que tem .git')
+  exigir(rastreados !== null, 'git ls-files did not answer in a tree that has .git')
   const arquivos = rastreados.split('\0').filter(Boolean)
   const casos = 'tooling/rebar-check/proofs/cases/'
 
@@ -426,52 +458,57 @@ function grupoGit() {
   )
 
   return {
-    // `git.arquivos-rastreados` e `git.arquivos-fora-dos-casos` SAÍRAM daqui em
-    // 02/09, e a lição é a que este arquivo já tinha escrito e não aplicou.
+    // `git.arquivos-rastreados` and `git.arquivos-fora-dos-casos` LEFT here on
+    // 02/09, and the lesson is the one this file had already written and did not
+    // apply.
     //
-    // O §0 exige que fato derivado mude quando o código muda E SÓ ENTÃO — nunca
-    // pelo próprio ato de ser registrado. A contagem de commits foi excluída por
-    // esse teste, com o raciocínio certo escrito ao lado. Contagem de ARQUIVO
-    // falha pelo MESMO motivo e passou: o commit que gravou 340 acrescentou o
-    // `tooling/numbers.mjs`, e a contagem virou 341. O CI reprovou no commit
-    // seguinte, nos dois sistemas, exatamente como a auditoria previu.
+    // §0 demands that a derived fact change when the code changes AND ONLY THEN —
+    // never by the very act of being recorded. The commit count was excluded by
+    // that test, with the right reasoning written beside it. The FILE count fails
+    // for the SAME reason and passed: the commit that recorded 340 added
+    // `tooling/numbers.mjs`, and the count turned into 341. The CI failed on the
+    // next commit, on both systems, exactly as the audit predicted.
     //
-    // Portão que reprova por causa do próprio commit que o alimenta é portão
-    // impossível de satisfazer, e portão que não fecha é portão que se aprende a
-    // contornar. O número voltou para o documento à mão, com data, do lado das
-    // outras medições históricas.
-    // Só sai de 0 quando o `commit-msg` for burlado. Aí ficar vermelho é o
-    // comportamento certo, e não o incômodo que a contagem total de commits seria.
+    // A gate that fails because of the very commit that feeds it is a gate
+    // impossible to satisfy, and a gate that does not close is a gate people learn
+    // to work around. The number went back into the document by hand, with a date,
+    // beside the other historical measurements.
+    // It only leaves 0 when `commit-msg` is bypassed. Then going red is the right
+    // behavior, and not the nuisance the total commit count would be.
     'git.commits-com-coautoria': `${(coautoria || '').split('\n').filter(Boolean).length}`,
-    'git.primeiro-commit': (primeiro || '').split('\n')[0] || '(sem commit)',
+    'git.primeiro-commit': (primeiro || '').split('\n')[0] || '(no commit)',
   }
 }
 
-/** O manifesto: é dele que sai "única dependência: prettier". */
+/** The manifest: it is where "single dependency: prettier" comes from. */
 function grupoPacote() {
   const rel = 'package.json'
   const pkg = JSON.parse(ler(rel))
   const dev = Object.entries(pkg.devDependencies || {})
   return {
     'package.dependencias': `${Object.keys(pkg.dependencies || {}).length}`,
-    'package.dev-dependencias': dev.map(([n, v]) => `\`${n}\` ${v}`).join(' · ') || 'nenhuma',
+    'package.dev-dependencias': dev.map(([n, v]) => `\`${n}\` ${v}`).join(' · ') || 'none',
   }
 }
 
-/** O domínio provado contra PostgreSQL real. */
+/** The domain proved against a real PostgreSQL. */
 function grupoDominio() {
   const rel = 'domains/privilegio-de-banco/privilegio.test.mjs'
   const testes = [...ler(rel).matchAll(/^\s*test\(/gm)].length
-  exigir(testes, `${rel}: nenhum test( casado — a suíte mudou de forma`)
+  exigir(testes, `${rel}: no test( matched — the suite changed shape`)
   return { 'domain.privilegio.testes': `${testes}` }
 }
 
 /**
- * Grupo → fontes que ele EXIGE. A mesma tabela decide o que é gerado e o que é
- * comparado, para que derivar e conferir nunca divirjam.
+ * Group → the sources it REQUIRES. The same table decides what is generated and
+ * what is compared, so that deriving and checking never diverge.
  */
 const GRUPOS = [
-  { chave: 'regras', exige: ['tooling/rebar-check/index.mjs'], montar: grupoRegras },
+  {
+    chave: 'regras',
+    exige: ['tooling/rebar-check/index.mjs', 'tooling/security/index.mjs'],
+    montar: grupoRegras,
+  },
   { chave: 'proofs', exige: ['tooling/rebar-check/proofs/cases'], montar: grupoProvas },
   { chave: 'verificar', exige: ['verify.config.mjs'], montar: grupoVerificar },
   {
@@ -479,7 +516,7 @@ const GRUPOS = [
     exige: ['mcp/rules.generated.json', 'mcp/src/index.mjs', 'mcp/generate.mjs'],
     montar: grupoMcp,
   },
-  { chave: 'novo', exige: ['new/index.mjs'], montar: grupoNovo },
+  { chave: 'new', exige: ['new/index.mjs'], montar: grupoNovo },
   { chave: 'git', exige: ['.git'], montar: grupoGit },
   { chave: 'pacote', exige: ['package.json'], montar: grupoPacote },
   {
@@ -489,7 +526,7 @@ const GRUPOS = [
   },
 ]
 
-/** Deriva o que esta árvore consegue derivar, e diz o que ficou de fora. */
+/** Derives what this tree can derive, and says what was left out. */
 async function derivar() {
   const fatos = new Map()
   const ausentes = []
@@ -499,40 +536,41 @@ async function derivar() {
       ausentes.push({ chave: g.chave, faltando })
       continue
     }
-    // O grupo `provas` recebe o total de regras porque cobertura é fração de
-    // DUAS fontes — ver a nota em `grupoProvas`. Os grupos correm em ordem de
-    // declaração, e `regras` vem antes de `provas` por isso.
+    // The `provas` group receives the rule total because coverage is a fraction of
+    // TWO sources — see the note in `grupoProvas`. The groups run in declaration
+    // order, and `regras` comes before `provas` for that reason.
     const jaDerivado = fatos.get('rules.total')?.valor
     for (const [id, valor] of Object.entries(await g.montar(Number(jaDerivado)))) {
-      exigir(!fatos.has(id), `fato "${id}" derivado por dois grupos — id duplicado`)
-      exigir(typeof valor === 'string' && valor.length, `fato "${id}" veio vazio`)
+      exigir(!fatos.has(id), `fact "${id}" derived by two groups — duplicate id`)
+      exigir(typeof valor === 'string' && valor.length, `fact "${id}" came out empty`)
       fatos.set(id, { valor, grupo: g.chave, fonte: g.exige[0] })
     }
   }
-  exigir(fatos.size, 'nenhum grupo pôde ser derivado nesta árvore — não há o que conferir')
+  exigir(fatos.size, 'no group could be derived in this tree — there is nothing to check')
   return { fatos, ausentes }
 }
 
-// ────────────────────────────────────────────────────── os documentos e o texto
+// ──────────────────────────────────────────────────── the documents and the text
 
-// A GRAMÁTICA, e ela é minúscula de propósito: um par de comentários HTML, o id
-// no de abertura, nada no de fechamento. Repetir o id no fechamento ajudaria em
-// região longa; aqui a região é um valor curto, e repetir dobraria a poluição
-// justamente no critério em que esta forma ganha das outras duas.
+// THE GRAMMAR, and it is tiny on purpose: a pair of HTML comments, the id in the
+// opening one, nothing in the closing one. Repeating the id in the closing one
+// would help in a long region; here the region is a short value, and repeating
+// would double the pollution in the very criterion where this shape beats the
+// other two.
 const MARCADOR = /<!--n ([a-z0-9][a-z0-9.\-]*)-->([\s\S]*?)<!--\/n-->/g
 const ABERTURA = /<!--n ([a-z0-9][a-z0-9.\-]*)-->/g
 
 /**
- * Todo `.md` da árvore é governado — não uma lista fixa de dois nomes.
+ * Every `.md` in the tree is governed — not a fixed list of two names.
  *
- * Registrar documento à mão é a mesma classe de defeito que este módulo existe
- * para matar: alguém põe marcador no `docs/STACK.md`, esquece de registrar o
- * arquivo, e o portão fica mudo sobre um número que passou a existir. Aqui o
- * marcador basta: onde ele está, o portão confere.
+ * Registering a document by hand is the same class of defect this module exists
+ * to kill: someone puts a marker in `docs/STACK.md`, forgets to register the
+ * file, and the gate goes mute about a number that came into existence. Here the
+ * marker is enough: where it is, the gate checks.
  *
- * `proofs/cases/` fica FORA porque material de prova é byte-exato — é a mesma
- * razão que já o tira do prettier, e reescrever um `README.md` de fixture
- * mudaria o que a regra está lendo.
+ * `proofs/cases/` stays OUT because proof material is byte-exact — it is the same
+ * reason prettier already skips it, and rewriting a fixture's `README.md` would
+ * change what the rule is reading.
  */
 function documentos() {
   const forade = new Set(['node_modules', '.git'])
@@ -551,7 +589,7 @@ function documentos() {
   return saida
 }
 
-/** Linhas (1-based) que caem dentro de cerca de código. */
+/** Lines (1-based) that fall inside a code fence. */
 function linhasEmCerca(texto) {
   const dentro = new Set()
   let aberta = false
@@ -569,23 +607,23 @@ function linhasEmCerca(texto) {
 const linhaDe = (texto, indice) => texto.slice(0, indice).split('\n').length
 
 /**
- * Acha os marcadores de um documento. Devolve também os DEFEITOS de forma —
- * abertura sem fechamento e marcador dentro de cerca —, porque marcador que não
- * casa é pior que marcador ausente: o número fica lá, parecendo conferido.
+ * Finds a document's markers. It also returns the SHAPE defects — an opening with
+ * no closing, and a marker inside a fence —, because a marker that does not match
+ * is worse than a missing marker: the number sits there, looking checked.
  */
 /**
- * Marcador que ABRE parágrafo quebra o markdown renderizado, e por isso é
- * recusado aqui em vez de confiado à memória de quem escreve.
+ * A marker that OPENS a paragraph breaks the rendered markdown, and that is why it
+ * is refused here instead of trusted to the memory of whoever writes.
  *
- * No CommonMark, comentário HTML na coluna 0 abre um BLOCO HTML (tipo 2) quando
- * inicia um bloco — e o resto daquela linha sai como HTML cru, então as crases
- * viram literais em vez de código. No MEIO do parágrafo é inofensivo: bloco
- * HTML tipo 2 não interrompe parágrafo em andamento.
+ * In CommonMark, an HTML comment at column 0 opens an HTML BLOCK (type 2) when it
+ * starts a block — and the rest of that line comes out as raw HTML, so the
+ * backticks become literals instead of code. In the MIDDLE of a paragraph it is
+ * harmless: a type 2 HTML block does not interrupt a paragraph in progress.
  *
- * Achado da auditoria de 31/08: 30 linhas começavam com marcador, e 4 delas
- * abriam parágrafo de verdade — o README mostrava crase literal para quem lê no
- * GitHub. O conserto na prosa é de uma palavra ("São elas: "), e a frase até
- * melhora; o que faltava era alguém avisar.
+ * Finding of the 31/08 audit: 30 lines began with a marker, and 4 of them really
+ * opened a paragraph — the README showed a literal backtick to whoever reads it on
+ * GitHub. The fix in the prose is one word ("They are: "), and the sentence even
+ * improves; what was missing was someone to say so.
  */
 function abreParagrafo(linhas, i) {
   if (!linhas[i].startsWith('<!--n ')) return false
@@ -604,41 +642,48 @@ function marcadoresDe(rel) {
     const linha = linhaDe(texto, m.index)
     casaram.add(m.index)
     if (cerca.has(linha)) {
+      // "cerca" stays Portuguese in the message: the proof of this step, in
+      // tooling/verify/prove-steps.mjs, asserts /cerca/i against this line.
       defeitos.push(
-        `${rel}:${linha}: marcador "${m[1]}" DENTRO de cerca de código — o GitHub ` +
-          'imprime o comentário como texto. Deixe o comando na cerca e o número na prosa ao lado.',
+        `${rel}:${linha}: marker "${m[1]}" INSIDE a code fence (cerca) — GitHub prints ` +
+          'the comment as text. Keep the command in the fence, the number in the prose beside it.',
       )
       continue
     }
     achados.push({ arquivo: rel, id: m[1], linha, atual: m[2] })
   }
 
-  // Abertura sem fechamento não aparece no casamento acima; sem esta varredura
-  // ela some em silêncio, e o número que ela cerca deixa de ser conferido sem
-  // que nada mude na tela.
+  // An opening with no closing does not show up in the matching above; without
+  // this sweep it disappears in silence, and the number it fences stops being
+  // checked with nothing changing on screen.
   //
-  // A comparação é por ÍNDICE e não por linha, e a diferença foi medida: com
-  // linha, uma linha que carrega um marcador fechado e outro aberto — que é
-  // exatamente a forma de uma célula de tabela com dois números — dava a
-  // abertura órfã por fechada e voltava a ficar muda.
+  // The comparison is by INDEX and not by line, and the difference was measured:
+  // by line, a line carrying one closed marker and one open one — which is exactly
+  // the shape of a table cell with two numbers — took the orphan opening for closed
+  // and went mute again.
+  //
+  // "nunca fechado" stays Portuguese: prove-steps.mjs asserts /nunca fechado/.
   for (const m of texto.matchAll(ABERTURA)) {
     const linha = linhaDe(texto, m.index)
     if (!casaram.has(m.index) && !cerca.has(linha)) {
-      defeitos.push(`${rel}:${linha}: marcador "${m[1]}" aberto e nunca fechado com <!--/n-->`)
+      defeitos.push(
+        `${rel}:${linha}: marker "${m[1]}" opened and never closed (nunca fechado) — no <!--/n-->`,
+      )
     }
   }
-  // Marcador que ABRE parágrafo — ver `abreParagrafo`. Fica por último porque
-  // é o único defeito que não impede a conferência do número: ele quebra o
-  // RENDER, não a derivação. Mas quebra para quem lê no GitHub, que é o único
-  // leitor que este arquivo tem.
+  // A marker that OPENS a paragraph — see `abreParagrafo`. It comes last because
+  // it is the only defect that does not stop the number from being checked: it
+  // breaks the RENDER, not the derivation. But it breaks for whoever reads on
+  // GitHub, which is the only reader this file has.
   const linhas = texto.split(String.fromCharCode(10))
   for (let i = 0; i < linhas.length; i++) {
     if (cerca.has(i + 1)) continue
     if (abreParagrafo(linhas, i)) {
+      // "ABRE parágrafo" stays Portuguese: prove-steps.mjs asserts /ABRE parágrafo/.
       defeitos.push(
-        `${rel}:${i + 1}: marcador ABRE parágrafo — no CommonMark isso vira bloco HTML e ` +
-          'o resto da linha sai como HTML cru (as crases viram literais). Ponha uma palavra ' +
-          'de prosa antes, como "São elas: ".',
+        `${rel}:${i + 1}: marker ABRE parágrafo (it opens a paragraph) — in CommonMark that ` +
+          'becomes an HTML block and the rest of the line comes out as raw HTML (the ' +
+          'backticks turn into literals). Put a word of prose before it, like "They are: ".',
       )
     }
   }
@@ -646,7 +691,7 @@ function marcadoresDe(rel) {
   return { texto, achados, defeitos }
 }
 
-/** Reescreve os marcadores conhecidos. Devolve o texto novo e quantos mudaram. */
+/** Rewrites the known markers. Returns the new text and how many changed. */
 function reescrever(texto, fatos) {
   let trocados = 0
   const novo = texto.replace(MARCADOR, (inteiro, id, atual) => {
@@ -658,54 +703,58 @@ function reescrever(texto, fatos) {
   return { novo, trocados }
 }
 
-// ──────────────────────────────────────────────────────── comparar e escrever
+// ────────────────────────────────────────────────────────── compare and write
 
 /**
- * Recorte pelo MEIO, e não pelo fim, e a diferença foi medida.
+ * Cut through the MIDDLE, and not at the end, and the difference was measured.
  *
- * `rules.lista-deterministicas` são 17 ids em crase — 300 caracteres. Colados
- * inteiros duas vezes (velho e novo) empurram as outras divergências para fora
- * da tela com o `limite: 12` do passo. Mas cortar pelo FIM é pior que cortar
- * muito: a lista cresce no fim, então as duas linhas sairiam IDÊNTICAS na tela
- * e o dono leria "mudou" sem ver o quê. Guardando começo e fim, `· hex-cru`
- * aparece na linha `+` e não na `-`, que é a notícia inteira em três palavras.
- * O valor completo sai em `--fatos`.
+ * `rules.lista-deterministicas` is 17 ids in backticks — 300 characters. Pasted
+ * whole twice (old and new) they push the other divergences off the screen with
+ * the step's `limite: 12`. But cutting at the END is worse than cutting a lot:
+ * the list grows at the end, so the two lines would come out IDENTICAL on screen
+ * and the owner would read "it changed" without seeing what. Keeping start and
+ * end, `· hex-cru` shows up on the `+` line and not on the `-` one, which is the
+ * whole news in three words. The complete value comes out in `--fatos`.
  */
 const recortar = (s) => (s.length > 110 ? `${s.slice(0, 60)}…${s.slice(-45)}` : s)
 
-/** ⚠ nomeando cada grupo que ESTA árvore não soube derivar, e o que faltou. */
+/** ⚠ naming each group THIS tree could not derive, and what was missing. */
 function avisarAusentes(ausentes) {
   for (const a of ausentes) {
+    // `⚠ grupo "<key>"` stays Portuguese: prove-steps.mjs asserts /⚠ grupo "git"/.
     console.error(
-      `  ⚠ grupo "${a.chave}" NÃO derivado nem conferido — falta ${a.faltando.join(', ')} nesta árvore`,
+      `  ⚠ grupo "${a.chave}" NOT derived, NOT checked — this tree lacks ${a.faltando.join(', ')}`,
     )
   }
 }
 
 /**
- * ⚠ quando ninguém marcou nada ainda.
+ * ⚠ for when nobody has marked anything yet.
  *
- * Documento sem marcador é N/A, e não reprovação: gritar DIVERGIU sobre um
- * README que ainda não foi marcado é acusar o documento de estar velho quando o
- * que falta é a marcação — a acusação errada, apontando para quem não errou. É
- * o mesmo `na()` do rebar-check.
+ * A document with no marker is N/A, not a failure: shouting DIVERGED about a
+ * README that has not been marked yet is accusing the document of being stale
+ * when what is missing is the markup — the wrong accusation, pointing at whoever
+ * did not err. It is rebar-check's own `na()`.
  *
- * O CUSTO, e é a fresta que esta decisão abre: enquanto nenhum marcador
- * existir, este portão confere zero números. Contra isso sobra esta linha, e
- * ela sai MESMO QUANDO O PASSO PASSA, porque o passo `numeros` do
- * verify.config.mjs declara `avisar: /^\s*⚠/`. O buraco aparece em toda
- * rodada do `verificar` até alguém fechá-lo.
+ * THE COST, and it is the gap this decision opens: while no marker exists, this
+ * gate checks zero numbers. What is left against that is this line, and it goes
+ * out EVEN WHEN THE STEP PASSES, because the `numeros` step of verify.config.mjs
+ * declares `avisar: /^\s*⚠/`. The hole shows up on every run of `verificar`
+ * until someone closes it.
  */
 function avisarSemMarcador(docs, fatos) {
-  // UMA linha só, e o ponteiro do conserto vai DENTRO dela. O executor do
-  // `verificar` extrai por linha com `avisar: /^\s*⚠/`; um segundo parágrafo
-  // explicativo sem o ⚠ seria descartado ali, e o aviso chegaria ao dono sem
-  // dizer o que fazer — que é a mesma queixa que a `dica` de cada passo existe
-  // para não repetir.
+  // ONE line only, and the pointer to the fix goes INSIDE it. The `verificar`
+  // executor extracts line by line with `avisar: /^\s*⚠/`; a second explanatory
+  // paragraph without the ⚠ would be discarded there, and the warning would reach
+  // the owner without saying what to do — which is the same complaint the `dica`
+  // of each step exists not to repeat.
+  //
+  // `⚠ nenhum marcador` stays Portuguese: prove-steps.mjs asserts /⚠ nenhum marcador/.
   console.error(
-    `  ⚠ nenhum marcador em ${docs.length} documento(s) markdown — este portão confere 0 dos ` +
-      `${fatos.size} fatos que sabe derivar. Marque assim: <!--n rules.deterministicas-->` +
-      '17<!--/n--> · a lista de ids sai em `node tooling/numbers.mjs --fatos`',
+    `  ⚠ nenhum marcador · no marker in ${docs.length} markdown document(s) — this gate ` +
+      `checks 0 of the ${fatos.size} facts it knows how to derive. Mark it like this: ` +
+      '<!--n rules.deterministicas-->17<!--/n--> · the id list comes out of ' +
+      '`node tooling/numbers.mjs --fatos`',
   )
 }
 
@@ -722,20 +771,20 @@ function escrever(fatos, ausentes) {
     marcadores += achados.length
     const desconhecidos = achados.filter((a) => !fatos.has(a.id))
     for (const a of desconhecidos) {
-      defeitos.push(`${a.arquivo}:${a.linha}: "${a.id}" não é um fato derivável (veja --fatos)`)
+      defeitos.push(`${a.arquivo}:${a.linha}: "${a.id}" is not a derivable fact (see --fatos)`)
     }
     if (!achados.length) continue
     const { novo, trocados } = reescrever(texto, fatos)
     if (!trocados) continue
-    // Idempotente de propósito: bytes só são tocados quando um valor mudou. É o
-    // que impede uma regeneração de sujar o diff de um commit que não mexeu em
-    // número nenhum.
+    // Idempotent on purpose: bytes are only touched when a value changed. It is
+    // what stops a regeneration from dirtying the diff of a commit that touched no
+    // number at all.
     writeFileSync(caminho(rel), novo, 'utf8')
     escritos.push(`${rel} (${trocados})`)
   }
 
   if (defeitos.length) {
-    for (const d of defeitos) console.error(`  erro ${d}`)
+    for (const d of defeitos) console.error(`  error ${d}`)
     return 1
   }
   if (!marcadores) {
@@ -744,8 +793,8 @@ function escrever(fatos, ausentes) {
   }
   console.log(
     escritos.length
-      ? `numeros: reescrito ${escritos.join(', ')} · ${marcadores} marcador(es) · ${fatos.size} fato(s)`
-      : `numeros: ${marcadores} marcador(es) em ${docs.length} documento(s) já em dia`,
+      ? `numbers: rewrote ${escritos.join(', ')} · ${marcadores} marker(s) · ${fatos.size} fact(s)`
+      : `numbers: ${marcadores} marker(s) in ${docs.length} document(s) already up to date`,
   )
   return 0
 }
@@ -765,13 +814,14 @@ function conferir(fatos, ausentes) {
     for (const a of achados) {
       const fato = fatos.get(a.id)
       if (!fato) {
-        // Fato de grupo N/A nesta árvore não é divergência — é N/A, e sai como
-        // ⚠. Fato que NENHUM grupo produz é defeito do documento, e sai como
-        // erro: o id foi digitado errado, ou o fato deixou de existir.
+        // A fact from a group that is N/A in this tree is not a divergence — it is
+        // N/A, and goes out as ⚠. A fact NO group produces is a defect of the
+        // document, and goes out as an error: the id was mistyped, or the fact
+        // stopped existing.
         const naGrupo = ausentes.some((x) => a.id.startsWith(`${x.chave}.`))
         if (naGrupo) naoDerivados.push(`${a.arquivo}:${a.linha} ${a.id}`)
         else
-          defeitos.push(`${a.arquivo}:${a.linha}: "${a.id}" não é um fato derivável (veja --fatos)`)
+          defeitos.push(`${a.arquivo}:${a.linha}: "${a.id}" is not a derivable fact (see --fatos)`)
         continue
       }
       if (fato.valor !== a.atual) divergencias.push({ ...a, esperado: fato.valor })
@@ -779,39 +829,39 @@ function conferir(fatos, ausentes) {
   }
 
   if (defeitos.length) {
-    console.error(`numeros --verificar: DIVERGIU. ${defeitos.length} marcador(es) malformado(s).`)
-    for (const d of defeitos) console.error(`  erro ${d}`)
-    console.error('\n  Conserto: no documento, não aqui.')
+    console.error(`numbers --verificar: DIVERGED. ${defeitos.length} malformed marker(s).`)
+    for (const d of defeitos) console.error(`  error ${d}`)
+    console.error('\n  Fix: in the document, not here.')
     return 1
   }
   for (const n of naoDerivados) {
-    console.error(`  ⚠ marcador não conferido nesta árvore (grupo N/A): ${n}`)
+    console.error(`  ⚠ marker not checked in this tree (group N/A): ${n}`)
   }
 
   if (divergencias.length) {
     console.error(
-      `numeros --verificar: DIVERGIU. ${divergencias.length} número(s) escrito(s) nos ` +
-        'documentos não são o que a fonte diz hoje.',
+      `numbers --verificar: DIVERGED. ${divergencias.length} number(s) written in the ` +
+        'documents are not what the source says today.',
     )
-    // FORMA DE DIFF UNIFICADO, e não é estética: o passo `numeros` do
-    // verify.config.mjs extrai da saída com /^\s*(erro|✗|[-+] )/, e sem o
-    // `- `/`+ ` no começo nada casa e o executor cai nas últimas linhas — que
-    // seriam a linha de conserto, não o que mudou. O ARQUIVO E A LINHA vão em
-    // cada linha, e não num cabeçalho acima: linha extraída sozinha tem de
-    // dizer sozinha onde consertar.
+    // UNIFIED DIFF SHAPE, and it is not aesthetics: the `numeros` step of
+    // verify.config.mjs extracts from the output with /^\s*(erro|✗|[-+] )/, and
+    // without the `- `/`+ ` at the start nothing matches and the executor falls
+    // back to the last lines — which would be the fix line, not what changed. THE
+    // FILE AND THE LINE go on every line, and not in a header above: a line
+    // extracted alone has to say alone where to fix.
     //
-    // Teto de 12, o mesmo `limite` que o passo impõe: imprimir mais é escrever
-    // para um recorte que já cortou.
+    // Ceiling of 12, the same `limite` the step imposes: printing more is writing
+    // for a crop that has already cropped.
     for (const d of divergencias.slice(0, 12)) {
       console.error(
-        `  - ${d.arquivo}:${d.linha} ${d.id} = ${recortar(d.atual)}   (documento, velho)`,
+        `  - ${d.arquivo}:${d.linha} ${d.id} = ${recortar(d.atual)}   (document, stale)`,
       )
-      console.error(`  + ${d.arquivo}:${d.linha} ${d.id} = ${recortar(d.esperado)}   (fonte, hoje)`)
+      console.error(`  + ${d.arquivo}:${d.linha} ${d.id} = ${recortar(d.esperado)}   (source, now)`)
     }
     if (divergencias.length > 12) {
-      console.error(`  … e mais ${divergencias.length - 12} número(s).`)
+      console.error(`  … and ${divergencias.length - 12} more number(s).`)
     }
-    console.error('\n  Conserto: node tooling/numbers.mjs')
+    console.error('\n  Fix: node tooling/numbers.mjs')
     return 1
   }
 
@@ -820,14 +870,14 @@ function conferir(fatos, ausentes) {
     return 0
   }
   console.log(
-    `numeros --verificar: em dia · ${marcadores} marcador(es) em ${docs.length} documento(s) · ` +
-      `${fatos.size} fato(s) deriváveis` +
-      `${ausentes.length ? ` · ${ausentes.length} grupo(s) N/A nesta árvore` : ''}`,
+    `numbers --verificar: up to date · ${marcadores} marker(s) in ${docs.length} document(s) · ` +
+      `${fatos.size} derivable fact(s)` +
+      `${ausentes.length ? ` · ${ausentes.length} group(s) N/A in this tree` : ''}`,
   )
   return 0
 }
 
-/** O catálogo na tela: é o que a próxima frente lê para saber o que marcar. */
+/** The catalogue on screen: what the next front reads to know what to mark. */
 function listarFatos(fatos, ausentes) {
   avisarAusentes(ausentes)
   const usados = new Map()
@@ -836,12 +886,12 @@ function listarFatos(fatos, ausentes) {
       usados.set(a.id, (usados.get(a.id) || 0) + 1)
     }
   }
-  console.log(`${fatos.size} fato(s) deriváveis · ${usados.size} já marcado(s) em documento\n`)
+  console.log(`${fatos.size} derivable fact(s) · ${usados.size} already marked in a document\n`)
   let grupo = null
   for (const [id, f] of fatos) {
     if (f.grupo !== grupo) {
       grupo = f.grupo
-      console.log(`── ${grupo}  (fonte: ${f.fonte})`)
+      console.log(`── ${grupo}  (source: ${f.fonte})`)
     }
     const marcas = usados.get(id)
     console.log(`  ${marcas ? `${marcas}×` : ' ·'} ${id.padEnd(34)} ${f.valor}`)
@@ -849,13 +899,13 @@ function listarFatos(fatos, ausentes) {
   return 0
 }
 
-// ───────────────────────────────────────────────────────────────────── programa
+// ────────────────────────────────────────────────────────────────────── program
 
 const args = process.argv.slice(2)
 const desconhecidas = args.filter((a) => !/^--(verificar|fatos)$/.test(a))
 if (desconhecidas.length) {
-  console.error(`numeros: opção desconhecida: ${desconhecidas.join(', ')}`)
-  console.error('uso: node tooling/numbers.mjs [--verificar | --fatos]')
+  console.error(`numbers: unknown option: ${desconhecidas.join(', ')}`)
+  console.error('usage: node tooling/numbers.mjs [--verificar | --fatos]')
   process.exit(2)
 }
 
@@ -864,10 +914,10 @@ let ausentes
 try {
   ;({ fatos, ausentes } = await derivar())
 } catch (e) {
-  // Derivação torta sai 2 e NUNCA 1: 1 quer dizer "o documento está velho,
-  // regenere", e mandar regenerar com o medidor quebrado é mandar gravar número
-  // errado por cima de número certo.
-  console.error(`numeros: a DERIVAÇÃO quebrou — ${e.message}`)
+  // A crooked derivation exits 2 and NEVER 1: 1 means "the document is stale,
+  // regenerate", and ordering a regeneration with a broken gauge is ordering a
+  // wrong number written over a right one.
+  console.error(`numbers: the DERIVATION broke — ${e.message}`)
   if (!(e instanceof Torto)) console.error(e.stack)
   process.exit(2)
 }

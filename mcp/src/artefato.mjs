@@ -1,62 +1,63 @@
-// O artefato: como este servidor lê a regra, e por que ele morre sem ela.
+// The artifact: how this server reads the rule, and why it dies without it.
 //
-// A §7.2 do docs/PLANO.md manda uma coisa e proíbe outra. Manda: DERIVADO, NUNCA
-// DUPLICADO — o servidor não guarda cópia da regra, ele lê a fonte gerada. Proíbe:
-// prosa copiada, que é o que o servidor anterior servia (cinco ferramentas devolvendo
-// trechos de markdown do plano).
+// §7.2 of docs/PLANO.md orders one thing and forbids another. It orders: DERIVED,
+// NEVER DUPLICATED — the server keeps no copy of the rule, it reads the generated
+// source. It forbids: copied prose, which is what the previous server served (five
+// tools returning chunks of markdown from the plan).
 //
-// Daí a divisão de trabalho, que é o contrato entre as duas frentes deste módulo:
+// Hence the division of labor, which is the contract between this module's two ends:
 //
-//   tooling/rebar-check/index.mjs   a FONTE. 22 regras, o porquê de cada uma.
-//   mcp/generate.mjs                       o GERADOR. Deriva o artefato da fonte.
-//   mcp/rules.generated.json              o ARTEFATO. É o que este arquivo lê.
-//   node mcp/generate.mjs --verificar      o PORTÃO DE FRESCOR. Regenera em memória,
-//                                       compara com o disco, reprova se divergir.
+//   tooling/rebar-check/index.mjs   the SOURCE. 22 rules, the why of each one.
+//   mcp/generate.mjs                       the GENERATOR. Derives the artifact from the source.
+//   mcp/rules.generated.json              the ARTIFACT. It is what this file reads.
+//   node mcp/generate.mjs --verificar      the FRESHNESS GATE. Regenerates in memory,
+//                                       compares with the disk, fails if it diverges.
 //
-// ESTE SERVIDOR NUNCA LÊ O index.mjs PARA SABER A REGRA. Se lesse, existiriam duas
-// implementações de leitura da fonte — a do gerador e a minha — e elas divergiriam,
-// que é exatamente o defeito que o módulo inteiro existe para não cometer.
+// THIS SERVER NEVER READS index.mjs TO LEARN THE RULE. If it did, there would be two
+// implementations reading the source — the generator's and mine — and they would
+// diverge, which is exactly the defect this whole module exists not to commit.
 
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// fileURLToPath, não `.pathname`: no Windows o pathname vem como "/C:/Users/..." e
-// todo readFileSync depois procura em C:\C:\Users\... É o bug que deixou o instalador
-// de hooks do alicerce morto por semanas.
+// fileURLToPath, not `.pathname`: on Windows the pathname arrives as "/C:/Users/..."
+// and every readFileSync afterwards looks in C:\C:\Users\... It is the bug that left
+// the foundation's hook installer dead for weeks.
 const AQUI = dirname(fileURLToPath(import.meta.url))
 
-/** A raiz do repositório: mcp/src/ → mcp/ → raiz. */
+/** The repository root: mcp/src/ → mcp/ → root. */
 export const RAIZ = join(AQUI, '..', '..')
 
-/** O artefato mora ao lado do gerador, dentro do pacote mcp/. */
+/** The artifact lives next to the generator, inside the mcp/ package. */
 export const CAMINHO_ARTEFATO = join(RAIZ, 'mcp', 'rules.generated.json')
 
-/** Erro com mensagem que diz o que fazer. O `process.exit` fica no chamador. */
+/** An error whose message says what to do. The `process.exit` stays with the caller. */
 export class FalhaDeArtefato extends Error {}
 
-// O formato que este servidor sabe ler. O artefato carrega `formato: 1`; se o gerador
-// um dia mudar a forma e subir para 2, é melhor morrer dizendo isso do que servir
-// campo que não existe mais e responder `undefined` com cara de resposta.
+// The format this server knows how to read. The artifact carries `formato: 1`; if the
+// generator one day changes the shape and goes to 2, dying and saying so beats serving
+// a field that no longer exists and answering `undefined` with the face of an answer.
 const FORMATO_SUPORTADO = 1
 
-// As chaves sem as quais nenhuma ferramenta funciona. Verificar aqui, uma vez, no boot,
-// vale mais que um `?.` em cada uso: o modelo não vê exceção de tool, vê resposta vazia.
+// The keys without which no tool works. Checking here, once, at boot, is worth more
+// than a `?.` at every use: the model does not see a tool exception, it sees an empty
+// answer.
 const CHAVES_OBRIGATORIAS = ['formato', 'fontes', 'codigosDeSaida', 'niveis', 'regras', 'gate']
 
 const COMO_GERAR = [
-  '  gere com:   node mcp/generate.mjs',
-  '  o portão:   node mcp/generate.mjs --verificar   (roda dentro de `npm run verify`,',
-  '              passo `mcp` — regenera em memória e reprova se o disco divergir)',
+  '  generate:   node mcp/generate.mjs',
+  '  the gate:   node mcp/generate.mjs --verificar   (runs inside `npm run verify`,',
+  '              step `mcp` — regenerates in memory and fails if the disk diverges)',
 ].join('\n')
 
 /**
- * Lê o artefato do disco.
+ * Reads the artifact from disk.
  *
- * MORRE ALTO se ele não existir, em vez de servir vazio. Um MCP que responde
- * "nenhuma regra encontrada" quando o artefato sumiu ensina o modelo que o projeto
- * não tem regra — é pior que não responder, porque parece resposta.
+ * DIES LOUD if it does not exist, instead of serving empty. An MCP that answers "no
+ * rule found" when the artifact vanished teaches the model that the project has no
+ * rules — worse than not answering, because it looks like an answer.
  */
 export function carregar(caminho = CAMINHO_ARTEFATO) {
   let cru
@@ -66,18 +67,18 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
     if (e.code === 'ENOENT') {
       throw new FalhaDeArtefato(
         [
-          'o artefato das regras não está no disco.',
-          `  esperado:   ${caminho}`,
+          'the rules artifact is not on disk.',
+          `  expected:   ${caminho}`,
           '',
-          '  Este servidor serve o ARTEFATO GERADO; ele não lê tooling/rebar-check/index.mjs.',
-          '  Sem o artefato a única resposta honesta é morrer — servir vazio ensinaria o modelo',
-          '  que o projeto não tem regra nenhuma.',
+          '  This server serves the GENERATED ARTIFACT; it does not read tooling/rebar-check/index.mjs.',
+          '  Without the artifact the only honest answer is to die — serving empty would teach the',
+          '  model that the project has no rules at all.',
           '',
           COMO_GERAR,
         ].join('\n'),
       )
     }
-    throw new FalhaDeArtefato(`não deu para ler ${caminho}: ${e.message}`)
+    throw new FalhaDeArtefato(`could not read ${caminho}: ${e.message}`)
   }
 
   let json
@@ -86,8 +87,8 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
   } catch (e) {
     throw new FalhaDeArtefato(
       [
-        `${caminho} existe mas não é JSON válido: ${e.message}`,
-        '  Não edite o artefato à mão — ele é gerado.',
+        `${caminho} exists but is not valid JSON: ${e.message}`,
+        '  Do not edit the artifact by hand — it is generated.',
         COMO_GERAR,
       ].join('\n'),
     )
@@ -97,8 +98,8 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
   if (faltando.length) {
     throw new FalhaDeArtefato(
       [
-        `${caminho} não tem: ${faltando.join(', ')}.`,
-        '  Isso não é artefato do rebar, ou é de um formato que este servidor não conhece.',
+        `${caminho} is missing: ${faltando.join(', ')}.`,
+        '  This is not a rebar artifact, or it is in a format this server does not know.',
         COMO_GERAR,
       ].join('\n'),
     )
@@ -107,8 +108,8 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
   if (json.formato !== FORMATO_SUPORTADO) {
     throw new FalhaDeArtefato(
       [
-        `formato ${json.formato} do artefato; este servidor lê o formato ${FORMATO_SUPORTADO}.`,
-        '  O gerador e o servidor estão em versões diferentes. Atualize o pacote mcp/ inteiro.',
+        `artifact format ${json.formato}; this server reads format ${FORMATO_SUPORTADO}.`,
+        '  The generator and the server are on different versions. Update the whole mcp/ package.',
       ].join('\n'),
     )
   }
@@ -116,8 +117,8 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
   if (!Array.isArray(json.regras) || json.regras.length === 0) {
     throw new FalhaDeArtefato(
       [
-        `${caminho} tem zero regras.`,
-        '  Artefato vazio é pior que artefato ausente: parece resposta.',
+        `${caminho} has zero rules.`,
+        '  An empty artifact is worse than a missing one: it looks like an answer.',
         COMO_GERAR,
       ].join('\n'),
     )
@@ -127,37 +128,39 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
 }
 
 /**
- * O sinal de frescor que o SERVIDOR consegue dar — e o que ele não consegue.
+ * The freshness signal the SERVER can give — and the one it cannot.
  *
- * A autoridade sobre frescor é o portão (`node mcp/generate.mjs --verificar`), que
- * regenera o artefato inteiro em memória e compara byte a byte. Isso é caro e é o
- * trabalho dele, não meu: o MCP nunca é a porta.
+ * The authority on freshness is the gate (`node mcp/generate.mjs --verificar`), which
+ * regenerates the whole artifact in memory and compares byte by byte. That is
+ * expensive and it is its job, not mine: the MCP is never the door.
  *
- * O que dá para fazer de graça é comparar o sha256 que o próprio artefato gravou em
- * `fontes[]` com o hash do arquivo hoje. Isso NÃO reimplementa o gerador — não lê
- * regra nenhuma do index.mjs, só passa os bytes pelo sha256 — e responde uma pergunta
- * mais fraca, porém verdadeira: "a fonte mudou desde que isto foi gerado?".
+ * What can be done for free is comparing the sha256 the artifact itself recorded in
+ * `fontes[]` with the file's hash today. That does NOT reimplement the generator — it
+ * reads no rule out of index.mjs, it only runs the bytes through sha256 — and it
+ * answers a weaker but true question: "has the source changed since this was
+ * generated?".
  *
- * Fraco de propósito, nos dois sentidos:
- *   · falso positivo — mexer num comentário do index.mjs muda o hash sem mudar regra;
- *   · nunca falso negativo — se a regra mudou, o hash mudou.
- * Um aviso a mais custa uma linha; um silêncio a menos é o defeito do Herz de volta.
+ * Weak on purpose, in both directions:
+ *   · false positive — touching a comment in index.mjs changes the hash without
+ *     changing a rule;
+ *   · never a false negative — if the rule changed, the hash changed.
+ * One warning too many costs a line; one silence too few is the Herz defect back.
  *
- * Custo medido: 3 arquivos, 205 KB somados, ~2 ms por chamada. Sem cache — cache é a
- * origem da deriva, e este arquivo existe por causa de deriva.
+ * Measured cost: 3 files, 205 KB together, ~2 ms per call. No cache — a cache is the
+ * origin of drift, and this file exists because of drift.
  */
 export function frescor(artefato, raiz = RAIZ) {
   const divergentes = []
   const naoConferidos = []
-  // Separado de `naoConferidos` porque não é a mesma coisa: entrada de árvore é
-  // limitação conhecida e constante; fonte ausente é o artefato afirmando
-  // derivar de um arquivo que não está aqui.
+  // Kept apart from `naoConferidos` because it is not the same thing: a tree entry
+  // is a known and constant limitation; a missing source is the artifact claiming to
+  // derive from a file that is not here.
   const ausentes = []
 
   for (const fonte of artefato.fontes ?? []) {
-    // Entrada de diretório (termina em "/"): o gerador resume uma árvore inteira num
-    // hash só, com um algoritmo que é dele. Reproduzir isso aqui seria manter uma
-    // segunda implementação em dia para sempre — o defeito que o módulo persegue.
+    // A directory entry (ends in "/"): the generator sums a whole tree into a single
+    // hash, with an algorithm of its own. Reproducing that here would mean keeping a
+    // second implementation current forever — the defect this module chases.
     if (fonte.arquivo.endsWith('/')) {
       naoConferidos.push(fonte.arquivo)
       continue
@@ -167,14 +170,16 @@ export function frescor(artefato, raiz = RAIZ) {
     try {
       bytes = readFileSync(alvo)
     } catch {
-      // Fonte ausente não é divergência: o pacote mcp/ pode ter sido copiado para fora
-      // do repositório, e aí o artefato é tudo que existe — e continua servível.
+      // A missing source is not a divergence: the mcp/ package may have been copied
+      // out of the repository, and then the artifact is all there is — and it stays
+      // servable.
       //
-      // Servível, mas NÃO "em dia", e essa diferença era a que faltava. Enquanto
-      // as fontes eram só as quatro de formato, dizer "em dia" com uma delas
-      // fora ainda era defensável. Depois que as decisões viraram fonte, deixou
-      // de ser: apagar o `new/index.mjs` faria o servidor colar uma decisão
-      // derivada de um arquivo que não está mais lá, e afirmar que está em dia.
+      // Servable, but NOT "up to date", and that difference was the one missing.
+      // While the sources were only the four format ones, saying "up to date" with
+      // one of them gone was still defensible. Once the decisions became a source, it
+      // stopped being so: deleting `new/index.mjs` would make the server paste in a
+      // decision derived from a file that is no longer there, and claim it is up to
+      // date.
       naoConferidos.push(fonte.arquivo)
       ausentes.push(fonte.arquivo)
       continue
@@ -187,8 +192,11 @@ export function frescor(artefato, raiz = RAIZ) {
 
   const conferidos = (artefato.fontes?.length ?? 0) - naoConferidos.length
   const comum = { divergentes, naoConferidos, ausentes, conferidos }
-  // Mudou é pior que sumiu, e sumiu é pior que não dá para conferir. A ordem
-  // aqui é essa, de propósito.
+  // Changed is worse than gone, and gone is worse than not checkable. That is the
+  // order here, on purpose.
+  //
+  // The four state values stay in Portuguese: they are identifiers this module and
+  // avisoDeFrescor compare against, not prose. Renaming them is another job.
   if (divergentes.length) return { estado: 'suspeito', ...comum }
   if (conferidos === 0) return { estado: 'desconhecido', ...comum }
   if (ausentes.length) return { estado: 'parcial', ...comum }
@@ -196,38 +204,43 @@ export function frescor(artefato, raiz = RAIZ) {
 }
 
 /**
- * A linha de aviso que vai grudada em TODA resposta quando a fonte mudou.
+ * The warning line that goes glued to EVERY answer when the source has changed.
  *
- * Vai em toda resposta, não numa ferramenta de status: ferramenta de status é
- * discricionária — "o modelo decide se chama", como o próprio repositório do Herz
- * admite. Aviso que só aparece quando alguém pergunta é aviso que ninguém lê.
+ * It goes on every answer, not in a status tool: a status tool is discretionary —
+ * "o modelo decide se chama" [the model decides whether to call it], as the Herz
+ * repository itself admits. A warning that only shows up when somebody asks is a
+ * warning nobody reads.
+ *
+ * The "FRESHNESS WARNING" prefix and the "changed since the artifact was generated"
+ * wording are matched by regex in prova-cliente.mjs. Reword here and reword there.
  */
 export function avisoDeFrescor(f) {
   const rodape = [
-    'O que segue pode estar velho. Quem decide é o portão, não eu:',
-    '  node mcp/generate.mjs --verificar   (e `npm run verify`, passo `mcp`)',
+    'What follows may be old. The gate decides, not me:',
+    '  node mcp/generate.mjs --verificar   (and `npm run verify`, step `mcp`)',
   ]
   if (f.estado === 'suspeito') {
     const quais = f.divergentes.map((d) => d.arquivo).join(', ')
-    return [`AVISO DE FRESCOR: ${quais} mudou desde que o artefato foi gerado.`, ...rodape].join(
-      '\n',
-    )
+    return [
+      `FRESHNESS WARNING: ${quais} changed since the artifact was generated.`,
+      ...rodape,
+    ].join('\n')
   }
-  // `parcial` avisa igual, porque o efeito para quem lê é o mesmo: parte desta
-  // resposta é derivada de um arquivo que esta árvore não tem, e portanto não há
-  // como dizer se envelheceu. Aviso que só sai no caso pior é aviso que dá a
-  // impressão de que o resto foi conferido.
+  // `parcial` warns just the same, because the effect on the reader is the same: part
+  // of this answer is derived from a file this tree does not have, and so there is no
+  // way to say whether it aged. A warning that only comes out in the worst case is a
+  // warning that gives the impression the rest was checked.
   if (f.estado === 'parcial') {
     return [
-      `AVISO DE FRESCOR: ${f.ausentes.join(', ')} não está nesta árvore.`,
-      'Não dá para saber se o que veio de lá envelheceu.',
+      `FRESHNESS WARNING: ${f.ausentes.join(', ')} is not in this tree.`,
+      'There is no way to know whether what came from there has aged.',
       ...rodape,
     ].join('\n')
   }
   return null
 }
 
-/** Caminho de exibição, sempre com "/", para a resposta não mudar entre Windows e Linux. */
+/** Display path, always with "/", so the answer does not change between Windows and Linux. */
 export function exibirCaminho(p) {
   return p.split(sep).join('/')
 }

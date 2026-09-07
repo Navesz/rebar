@@ -1,4 +1,4 @@
 {
   "rule": "orphan-schema",
-  "why": "A falha real é o JSON Schema que alguém escreveu, versionou e nunca ligou a um validador: ele envelhece em silêncio, diverge do dado de verdade e a próxima pessoa o lê como se fosse o contrato vigente. As duas árvores têm o MESMO `esquemas/pessoa.schema.json` e as duas têm código de verdade em `src/` — no lado reprovar esse código valida outro arquivo. Assim a prova impede tanto a regra que reprova qualquer repositório sem código quanto a que aprova qualquer repositório com código."
+  "why": "The real failure is the JSON Schema someone wrote, versioned and never wired to a validator: it ages in silence, diverges from the real data, and the next person reads it as if it were the contract in force. Both trees have the SAME `esquemas/pessoa.schema.json` and both have real code in `src/` — on the fail side that code validates another file. That way the proof blocks both the rule that fails any repository without code and the one that passes any repository with code."
 }

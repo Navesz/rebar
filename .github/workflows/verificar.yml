@@ -1,15 +1,20 @@
-# O portão do rebar. Um comando só, o mesmo que se roda na máquina:
+# The rebar gate. One command only, the same one that runs on the machine:
 #   node tooling/verify/verify.mjs
 #
-# A MATRIZ EXISTE POR UM MOTIVO MEDIDO. O config do alicerce checa sintaxe com
-# `find ferramental -name "*.mjs" -print0 | xargs -0 -n1 node --check`, que não
-# roda no Windows. O defeito sobreviveu porque o CI dele só roda Linux. Aqui o
-# mesmo comando precisa passar nos dois sistemas ou não passa em nenhum.
+# THE MATRIX EXISTS FOR A MEASURED REASON. The alicerce config checks syntax with
+# `find ferramental -name "*.mjs" -print0 | xargs -0 -n1 node --check`, which does
+# not run on Windows. The defect survived because its CI only runs Linux. Here the
+# same command has to pass on both systems or it passes on neither.
 #
-# Há um `npm ci`, e ele tem uma linha só de justificativa: o prettier. A
-# promessa de zero dependência é do CHECKER, não do repositório — `index.mjs`
-# importa só built-ins, e `npx github:Navesz/rebar` roda sem instalar nada.
-# Se um dia aparecer uma SEGUNDA dependência aqui sem ADR, a premissa quebrou.
+# There is one `npm ci`, and it has a single line of justification: prettier. The
+# zero-dependency promise is the CHECKER's, not the repository's — `index.mjs`
+# imports only built-ins, and `npx github:Navesz/rebar` runs without installing
+# anything. If one day a SECOND dependency shows up here with no ADR, the premise
+# broke.
+#
+# The workflow, job and step names stay in Portuguese: they are identifiers, not
+# prose. The README badge addresses this file by name, and renaming the job
+# renames the check that gates a merge.
 
 name: verificar
 
@@ -30,8 +35,8 @@ jobs:
     name: verificar (${{ matrix.so }})
     runs-on: ${{ matrix.so }}
     strategy:
-      # Sem fail-fast: saber que quebrou só no Windows, ou nos dois, é metade do
-      # diagnóstico. Cancelar a outra plataforma esconde exatamente isso.
+      # No fail-fast: knowing that it broke only on Windows, or on both, is half
+      # the diagnosis. Cancelling the other platform hides exactly that.
       fail-fast: false
       matrix:
         so: [windows-latest, ubuntu-latest]
@@ -39,28 +44,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # O passo `auto` roda o rebar-check, e duas regras dele — coautoria-ia
-          # e identidade-git — leem `git log`. Com o clone raso padrão
-          # (fetch-depth: 1) elas enxergariam um commit só e aprovariam qualquer
-          # histórico. Verificação que só vê o último commit não é verificação.
+          # The `auto` step runs rebar-check, and two of its rules — coautoria-ia
+          # and identidade-git — read `git log`. With the default shallow clone
+          # (fetch-depth: 1) they would see a single commit and would pass any
+          # history. Verification that only sees the last commit is not
+          # verification.
           fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
-      # `npm ci` e não `npm install`: o lockfile é a fonte, e o CI não decide
-      # versão. Único pacote instalado é o prettier.
+      # `npm ci` and not `npm install`: the lockfile is the source, and the CI
+      # does not decide the version. The only package installed is prettier.
       - run: npm ci
 
-      # O `mcp/` e pacote separado, com dependencia propria (o SDK do MCP). Sem
-      # este install o passo `mcp-servidor` ficaria pulado no CI, e o unico
-      # teste de ponta a ponta do servidor nao rodaria em lugar nenhum — que e
-      # exatamente o estado de onde este modulo saiu.
+      # `mcp/` is a separate package, with a dependency of its own (the MCP SDK).
+      # Without this install the `mcp-servidor` step would be skipped in the CI,
+      # and the only end-to-end test of the server would run nowhere — which is
+      # exactly the state this module came out of.
       - run: npm ci
         working-directory: mcp
 
       - name: verificar
-        # Um comando. Exit 0 é a única aprovação: 1 reprovou, 2 config errada,
-        # 3 recorte parcial, 127 o ferramental quebrou — todos derrubam o job.
+        # One command. Exit 0 is the only pass: 1 failed, 2 wrong config,
+        # 3 partial slice, 127 the tooling broke — all of them bring the job down.
         run: node tooling/verify/verify.mjs

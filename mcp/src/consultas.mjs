@@ -1,17 +1,18 @@
-// As consultas: funções puras sobre o artefato, sem SDK e sem I/O.
+// The queries: pure functions over the artifact, no SDK and no I/O.
 //
-// Separadas do servidor de propósito. O index.mjs registra ferramentas e fala
-// JSON-RPC; aqui só entra artefato e sai texto. Dá para rodar tudo isto com
-// `node -e` sem subir servidor nenhum, que é como cada saída deste arquivo foi
-// conferida antes de virar resposta de tool.
+// Kept apart from the server on purpose. index.mjs registers tools and speaks
+// JSON-RPC; here only the artifact goes in and text comes out. All of this runs
+// under `node -e` with no server up at all, which is how every output of this
+// file was checked before it became a tool answer.
 //
-// REGRA DE TAMANHO, que vem da §7.2: NADA DE GUIA LONGO. O MCP do Herz serve 17
-// guias, 1.961 linhas, 80 KB, e o próprio repositório admite que "ferramenta MCP é
-// discricionária, o modelo decide se chama" — guia gordo é token pago toda sessão
-// para ser ignorado. Aqui a resposta mais longa é o catálogo inteiro, 22 regras em
-// ~35 linhas, e cada uma aponta o id para pedir o resto sob demanda.
+// SIZE RULE, straight out of §7.2: NO LONG GUIDES. The Herz MCP serves 17 guides,
+// 1,961 lines, 80 KB, and that repository itself admits "ferramenta MCP é
+// discricionária, o modelo decide se chama" [an MCP tool is discretionary, the
+// model decides whether to call it] — a fat guide is a token paid every session
+// to be ignored. Here the longest answer is the whole catalog, 22 rules in ~35
+// lines, and each one points at the id to ask for the rest on demand.
 
-/** Sem acento e em minúscula: "hex-crú" e "HEX CRU" têm de casar com `hex-cru`. */
+/** Unaccented and lowercase: "hex-crú" and "HEX CRU" have to match `hex-cru`. */
 export function normalizar(s) {
   return String(s)
     .normalize('NFD')
@@ -19,21 +20,23 @@ export function normalizar(s) {
     .toLowerCase()
 }
 
-/** `determinística` é longo demais para uma coluna de tabela de 22 linhas. */
+// The keys stay in Portuguese: they are the class VALUES the artifact carries,
+// not prose. Translating them makes every lookup miss and the column go blank.
+/** `determinística` is too long for a column in a 22-row table. */
 const SIGLA_CLASSE = { determinística: 'det', heurística: 'heu' }
 
-/** Ordena por nível (N0 primeiro) e, dentro do nível, por id. */
+/** Sorts by level (N0 first) and, inside a level, by id. */
 function porNivelEId(a, b) {
   return a.nivel === b.nivel ? a.id.localeCompare(b.id) : a.nivel.localeCompare(b.nivel)
 }
 
 /**
- * O catálogo. É a resposta à pergunta que toda IA faz antes de escrever a primeira
- * linha: "o que vai me reprovar aqui?".
+ * The catalog. It is the answer to the question every AI asks before writing the
+ * first line: "what is going to fail me here?".
  *
- * Agrupado por nível porque o nível é a taxonomia que o projeto usa para decidir
- * ONDE a regra morde (N0 é o compilador, N5 é o hook), e uma lista plana de 22 ids
- * esconde justamente isso.
+ * Grouped by level because the level is the taxonomy the project uses to decide
+ * WHERE the rule bites (N0 is the compiler, N5 is the hook), and a flat list of 22
+ * ids hides exactly that.
  */
 export function catalogo(artefato, { nivel, classe, busca } = {}) {
   const alvoNivel = nivel ? normalizar(nivel) : null
@@ -48,12 +51,14 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
   }
 
   if (!regras.length) {
-    const filtros = [nivel && `nível ${nivel}`, classe && `classe ${classe}`, busca && `"${busca}"`]
+    const filtros = [nivel && `level ${nivel}`, classe && `class ${classe}`, busca && `"${busca}"`]
       .filter(Boolean)
       .join(' + ')
     return [
-      `Nenhuma das ${artefato.regras.length} regras casa com ${filtros}.`,
-      `Níveis com regra: ${[...new Set(artefato.regras.map((r) => r.nivel))].sort().join(', ')}.`,
+      `None of the ${artefato.regras.length} rules match ${filtros}.`,
+      `Levels with a rule: ${[...new Set(artefato.regras.map((r) => r.nivel))].sort().join(', ')}.`,
+      // The two class names stay in Portuguese: they are the values the caller has
+      // to pass and the values the artifact stores. Translated, the filter misses.
       'Classes: determinística, heurística.',
     ].join('\n')
   }
@@ -69,33 +74,33 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
       nivelAtual = r.nivel
       const n = descricaoNivel.get(nivelAtual)
       saida.push('')
-      saida.push(n ? `${n.nivel} · ${n.oQueE} — falha como: ${n.falhaComo}` : nivelAtual)
+      saida.push(n ? `${n.nivel} · ${n.oQueE} — fails as: ${n.falhaComo}` : nivelAtual)
     }
     const sigla = SIGLA_CLASSE[r.classe] ?? r.classe
-    // Qual binário roda a regra, e só quando NÃO é o padrão.
+    // Which binary runs the rule, and only when it is NOT the default one.
     //
-    // Sem esta marca a lista mistura os dois módulos e quem lê tenta
-    // `npx rebar --rule=env-committed`, que não conhece a regra e sai com
-    // código 2. Marcar as 23 do rebar-check tambem encheria a coluna de ruído
-    // para dizer "o de sempre"; marcar só a exceção é o que se lê rápido.
+    // Without this mark the list mixes the two modules and whoever reads it tries
+    // `npx rebar --rule=env-committed`, which does not know the rule and exits
+    // with code 2. Marking the 23 of rebar-check too would fill the column with
+    // noise to say "the usual one"; marking only the exception is what reads fast.
     const onde = r.modulo && r.modulo !== 'rebar-check' ? '  ⟨seg⟩' : ''
     saida.push(`  ${r.id.padEnd(larguraId)}  ${sigla}  ${r.titulo}${onde}`)
   }
 
   const det = regras.filter((r) => r.classe === 'determinística').length
   return [
-    `${regras.length} regra(s) — ${det} determinística(s) reprovam, ${regras.length - det} heurística(s) só avisam.`,
+    `${regras.length} rule(s) — ${det} deterministic one(s) fail, ${regras.length - det} heuristic one(s) only warn.`,
     ...saida,
     '',
-    'det = reprova o commit e o CI. heu = aparece no placar, não barra (só com --heuristics).',
+    'det = fails the commit and the CI. heu = shows in the scoreboard, does not block (only with --heuristics).',
     ...(regras.some((r) => r.modulo === 'rebar-security')
-      ? ['⟨seg⟩ = regra do rebar-security. Roda com `rebar-security`, não com `rebar`.']
+      ? ['⟨seg⟩ = a rebar-security rule. Runs with `rebar-security`, not with `rebar`.']
       : []),
-    'Para a razão medida de uma delas e as provas que a travam: rebar_porque { id }.',
+    'For the measured reason behind one of them and the proofs that lock it: rebar_porque { id }.',
   ].join('\n')
 }
 
-/** Índice id → objeto, para regras e decisões, que compartilham o espaço de nomes. */
+/** Index id → object, for rules and decisions, which share the name space. */
 function indexar(artefato) {
   const m = new Map()
   for (const r of artefato.regras) m.set(r.id, { tipo: 'regra', item: r })
@@ -103,7 +108,7 @@ function indexar(artefato) {
   return m
 }
 
-/** Sugestão para id errado: prefixo comum, ou substring. Barato e acerta o caso real. */
+/** Suggestion for a wrong id: common prefix, or substring. Cheap, and it hits the real case. */
 function parecidos(alvo, ids) {
   const a = normalizar(alvo)
   const perto = ids.filter((id) => {
@@ -114,13 +119,14 @@ function parecidos(alvo, ids) {
 }
 
 /**
- * O porquê de uma regra — a ferramenta que decide se a IA obedece ou discute.
+ * The why of a rule — the tool that decides whether the AI obeys or argues.
  *
- * Existe porque regra sem razão é arbitrária, e IA negocia com o arbitrário: apaga o
- * teste, afrouxa o lint, pede exceção. A razão do rebar quase sempre traz o número
- * medido ("100% de falso positivo", "12 repositórios da máquina"), e número medido
- * não se negocia. Por isso o campo `porque` do artefato sai INTEIRO aqui, com o
- * arquivo:linha de onde ele foi lido — o modelo pode ir conferir.
+ * It exists because a rule without a reason is arbitrary, and AI negotiates with the
+ * arbitrary: deletes the test, loosens the lint, asks for an exception. A rebar
+ * reason almost always brings the measured number ("100% false positive", "12
+ * repositories on the machine"), and a measured number is not negotiable. That is
+ * why the artifact's `porque` field comes out WHOLE here, with the file:line it was
+ * read from — the model can go check.
  */
 export function porque(artefato, id) {
   const achado = indexar(artefato).get(String(id).trim())
@@ -133,9 +139,12 @@ export function porque(artefato, id) {
     return {
       ok: false,
       texto: [
-        `"${id}" não é id de regra nem de decisão fechada.`,
-        sugestao.length ? `Perto disso: ${sugestao.join(', ')}` : '',
-        'A lista completa sai em rebar_regras (regras) e rebar_decidir (decisões).',
+        `"${id}" is not a rule id nor a closed-decision id.`,
+        // prova-cliente.mjs matches this line by regex to check that the wrong id
+        // gets a neighbour and the id from another world gets none. Change the
+        // wording here and change it there, or the contract stops being checked.
+        sugestao.length ? `Close to that: ${sugestao.join(', ')}` : '',
+        'The full list comes out of rebar_regras (rules) and rebar_decidir (decisions).',
       ]
         .filter(Boolean)
         .join('\n'),
@@ -150,79 +159,81 @@ function formatarRegra(r, artefato) {
   const nivel = (artefato.niveis ?? []).find((n) => n.nivel === r.nivel)
   const linhas = [
     `${r.id} — ${r.titulo}`,
-    `${r.nivel}${nivel ? ` (${nivel.oQueE})` : ''} · ${r.classe} · implementada em ${r.fonte.arquivo}:${r.fonte.linha}`,
+    `${r.nivel}${nivel ? ` (${nivel.oQueE})` : ''} · ${r.classe} · implemented at ${r.fonte.arquivo}:${r.fonte.linha}`,
   ]
 
   const cabecalho = (r.porque ?? []).filter((p) => p.onde === 'cabecalho')
   const implementacao = (r.porque ?? []).filter((p) => p.onde !== 'cabecalho')
 
   if (cabecalho.length) {
-    linhas.push('', 'POR QUE ELA EXISTE (do cabeçalho da regra, na fonte):')
+    linhas.push('', 'WHY IT EXISTS (from the rule header, in the source):')
     for (const p of cabecalho) linhas.push(`  · ${p.texto}  [${r.fonte.arquivo}:${p.linha}]`)
   }
   if (implementacao.length) {
-    linhas.push('', 'DA IMPLEMENTAÇÃO (por que ela mede assim, e não do jeito ingênuo):')
+    linhas.push('', 'FROM THE IMPLEMENTATION (why it measures this way, and not the naive way):')
     for (const p of implementacao) linhas.push(`  · ${p.texto}  [${r.fonte.arquivo}:${p.linha}]`)
   }
 
   if (r.provas?.length) {
-    linhas.push('', `O QUE TRAVA ESTA REGRA — ${r.provas.length} caso(s) de prova:`)
+    linhas.push('', `WHAT LOCKS THIS RULE — ${r.provas.length} proof case(s):`)
     for (const p of r.provas) {
-      linhas.push(`  ${p.caso}: lado aprovar ${p.aprovar}, lado reprovar ${p.reprovar}`)
+      linhas.push(`  ${p.caso}: pass side ${p.aprovar}, fail side ${p.reprovar}`)
       if (p.porque) linhas.push(`    ${p.porque}`)
     }
   }
 
   if (!cabecalho.length && !implementacao.length && !r.provas?.length) {
-    linhas.push('', 'O artefato não trouxe razão escrita para esta regra. Leia a fonte acima.')
+    linhas.push('', 'The artifact brought no written reason for this rule. Read the source above.')
   }
 
-  linhas.push('', `Para conferir: node tooling/rebar-check/index.mjs --rule=${r.id} .`)
+  linhas.push('', `To check it: node tooling/rebar-check/index.mjs --rule=${r.id} .`)
   return linhas.join('\n')
 }
 
 function formatarDecisao(d, artefato) {
   const linhas = [
-    `${d.id} — DECISÃO FECHADA`,
+    `${d.id} — CLOSED DECISION`,
     d.decisao,
     '',
-    `Provada em ${d.prova.arquivo}:${d.prova.linha}${d.prova.trecho ? `  →  ${d.prova.trecho}` : ''}`,
+    `Proved at ${d.prova.arquivo}:${d.prova.linha}${d.prova.trecho ? `  →  ${d.prova.trecho}` : ''}`,
   ]
   if (d.porque?.length) {
-    linhas.push('', 'POR QUÊ:')
+    linhas.push('', 'WHY:')
     for (const p of d.porque) linhas.push(`  · ${typeof p === 'string' ? p : p.texto}`)
   }
   if (d.regraQueImpoe) {
     const r = artefato.regras.find((x) => x.id === d.regraQueImpoe)
-    linhas.push(
-      '',
-      `Imposta pela regra ${d.regraQueImpoe}${r ? ` (${r.nivel}, ${r.titulo})` : ''}.`,
-    )
+    linhas.push('', `Enforced by rule ${d.regraQueImpoe}${r ? ` (${r.nivel}, ${r.titulo})` : ''}.`)
   } else {
     linhas.push(
       '',
-      'NENHUMA REGRA IMPÕE ESTA DECISÃO HOJE. Ela está registrada e provada em código,',
-      'mas o portão não reprova quem a contrariar — trate como acordo, não como barreira.',
+      'NO RULE ENFORCES THIS DECISION TODAY. It is recorded and proved in code,',
+      'but the gate does not fail whoever contradicts it — treat it as an agreement, not a barrier.',
     )
   }
   return linhas.join('\n')
 }
 
 /**
- * Quantos dos termos aparecem neste campo, casando por PALAVRA, não por substring.
+ * How many of the terms show up in this field, matching by WORD, not by substring.
  *
- * Medido: com `includes` cru, o assunto "cor" trazia `readme`, `notice` e `ci-gateia`
- * no topo — casava dentro de "reCORda", "aCORdo", "enCONTRar" — e a regra que
- * realmente fala de cor, `hex-cru`, ficava fora das oito primeiras. Resposta errada
- * com cara de resposta é o defeito que este módulo inteiro persegue.
+ * The example words below stay in Portuguese, and so do the `${t}s`/`${t}es` plurals
+ * in the code: they are the measurement, and the artifact text being searched is
+ * Portuguese. Translated, the examples stop describing what was measured.
  *
- * Ainda assim não dá para exigir igualdade: "cor" tem de achar "cores", flexão de
- * português é a regra e não a exceção. O corte é o TAMANHO DO TERMO, também medido:
+ * Measured: with raw `includes`, the subject "cor" pulled `readme`, `notice` and
+ * `ci-gateia` to the top — it matched inside "reCORda", "aCORdo", "enCONTRar" — and
+ * the rule that really talks about color, `hex-cru`, fell outside the first eight. A
+ * wrong answer with the face of an answer is the defect this whole module chases.
  *
- *   4 letras ou mais → prefixo livre. "verific" acha "verificar" e "verificação",
- *                      e prefixo longo raramente cai em outra palavra.
- *   3 letras ou menos → só a palavra e o plural dela. Com prefixo livre, "cor"
- *                      trazia "corpo" e "correto", e o topo da lista virava ruído.
+ * Even so, equality cannot be demanded: "cor" has to find "cores"; inflection is the
+ * rule in Portuguese, not the exception. The cut is the TERM LENGTH, also measured:
+ *
+ *   4 letters or more → free prefix. "verific" finds "verificar" and "verificação",
+ *                       and a long prefix rarely lands in another word.
+ *   3 letters or less → only the word and its plural. With a free prefix, "cor"
+ *                       pulled "corpo" and "correto", and the top of the list turned
+ *                       to noise.
  */
 function casa(texto, termos) {
   const palavras = normalizar(texto)
@@ -238,11 +249,12 @@ function casa(texto, termos) {
 }
 
 /**
- * Onde o termo aparece pesa mais que quantas vezes.
+ * Where the term shows up weighs more than how many times.
  *
- * "tailwind" no id de uma regra é a resposta; "tailwind" no meio de um parágrafo de
- * justificativa é contexto. Sem peso por campo, o parágrafo longo sempre ganha do id
- * curto, porque tem mais palavras — e a lista sai ordenada por verbosidade.
+ * "tailwind" in a rule id is the answer; "tailwind" in the middle of a paragraph of
+ * justification is context. Without a per-field weight, the long paragraph always
+ * beats the short id, because it has more words — and the list comes out sorted by
+ * verbosity.
  */
 function pontuar(campos, termos) {
   let pontos = 0
@@ -250,15 +262,18 @@ function pontuar(campos, termos) {
   return pontos
 }
 
-// Palavras que não distinguem nada em português. Medido: "banco de dados" sem esta
-// lista pontuava 35 entradas, porque "de" e "do" estão em todo parágrafo do artefato,
-// e o topo saía ordenado por quem escreveu mais preposição.
-// Vão junto as palavras de PERGUNTA ("posso", "como", "qual"): elas entram porque o
-// modelo escreve a pergunta inteira no parâmetro, e "como" — 4 letras, prefixo livre —
-// casava com "comando" e "completo" em metade do artefato.
+// Words that distinguish nothing in Portuguese. THE LIST ITSELF STAYS PORTUGUESE:
+// it is the stopword filter for the subject the caller types, and the artifact it
+// searches is written in Portuguese. Translate the words and the filter stops
+// filtering. Measured: "banco de dados" without this list scored 35 entries, because
+// "de" and "do" are in every paragraph of the artifact, and the top came out sorted
+// by whoever wrote the most prepositions.
+// The QUESTION words go in too ("posso", "como", "qual"): they are here because the
+// model writes the whole question into the parameter, and "como" — 4 letters, free
+// prefix — matched "comando" and "completo" in half the artifact.
 const VAZIAS = new Set(
-  // Uma string, e não uma lista literal: o prettier quebra lista de 43 itens curtos em
-  // 43 linhas, e uma tela de preposição esconde as três linhas de código ao redor.
+  // One string, and not a literal list: prettier breaks a list of 43 short items into
+  // 43 lines, and a screenful of prepositions hides the three code lines around it.
   (
     'a as ao aos com da das de do dos e em na nas no nos o os ou para pelo por que se sobre um uma ' +
     'como devo esta este isso nao onde pode posso qual quais quando ser sou tem ter'
@@ -266,21 +281,23 @@ const VAZIAS = new Set(
 )
 
 /**
- * "O que este projeto já decidiu sobre X?" — a ferramenta contra a IA que reabre
- * discussão fechada.
+ * "What has this project already decided about X?" — the tool against the AI that
+ * reopens a closed discussion.
  *
- * Ela responde três coisas diferentes, e a terceira é a que importa:
- *   1. decisão fechada sobre o assunto, com o arquivo:linha que a prova;
- *   2. regra que impõe o assunto, com nível;
- *   3. NADA — e aí ela diz que nada impõe isso, em vez de inventar. O artefato tem
- *      um campo `naoDerivado` justamente para os assuntos que o rebar de propósito
- *      NÃO governa, e devolver esse campo é mais útil que devolver silêncio.
+ * It answers three different things, and the third is the one that matters:
+ *   1. a closed decision on the subject, with the file:line that proves it;
+ *   2. a rule that enforces the subject, with its level;
+ *   3. NOTHING — and then it says nothing enforces that, instead of inventing. The
+ *      artifact has a `naoDerivado` field precisely for the subjects rebar on
+ *      purpose does NOT govern, and returning that field beats returning silence.
  */
 export function decidir(artefato, assunto) {
   const termos = normalizar(assunto)
     .split(/[^a-z0-9]+/)
     .filter((t) => t && !VAZIAS.has(t))
-  if (!termos.length) return 'Diga o assunto. Exemplos: "tailwind", "cor", "env", "commit", "css".'
+  // "cor" stays as it is: the examples are queries run against the artifact's own
+  // text, which is Portuguese. An English example here would return nothing.
+  if (!termos.length) return 'Say the subject. Examples: "tailwind", "cor", "env", "commit", "css".'
 
   const achados = []
 
@@ -297,11 +314,11 @@ export function decidir(artefato, assunto) {
     )
     if (p) {
       achados.push({
-        // Decisão fechada é a resposta direta à pergunta "o que já foi decidido";
-        // regra é o mecanismo. Empatou, a decisão vem primeiro.
+        // A closed decision is the direct answer to "what was already decided";
+        // a rule is the mechanism. On a tie, the decision comes first.
         p: p + 1,
-        linha: `[decisão] ${d.id} — ${d.decisao}`,
-        detalhe: `           prova: ${d.prova.arquivo}:${d.prova.linha} · rebar_porque { id: "${d.id}" }`,
+        linha: `[decision] ${d.id} — ${d.decisao}`,
+        detalhe: `           proof: ${d.prova.arquivo}:${d.prova.linha} · rebar_porque { id: "${d.id}" }`,
       })
     }
   }
@@ -321,7 +338,7 @@ export function decidir(artefato, assunto) {
     if (p) {
       achados.push({
         p,
-        linha: `[regra ${r.nivel} ${SIGLA_CLASSE[r.classe] ?? r.classe}] ${r.id} — ${r.titulo}`,
+        linha: `[rule ${r.nivel} ${SIGLA_CLASSE[r.classe] ?? r.classe}] ${r.id} — ${r.titulo}`,
         detalhe: `           rebar_porque { id: "${r.id}" }`,
       })
     }
@@ -339,8 +356,8 @@ export function decidir(artefato, assunto) {
     if (p) {
       achados.push({
         p,
-        linha: `[portão passo ${passo.ordem}] ${passo.nome}`,
-        detalhe: `           ${passo.comando ? passo.comando.join(' ') : 'função interna do verificar'}`,
+        linha: `[gate step ${passo.ordem}] ${passo.nome}`,
+        detalhe: `           ${passo.comando ? passo.comando.join(' ') : 'internal function of the verifier'}`,
       })
     }
   }
@@ -356,43 +373,43 @@ export function decidir(artefato, assunto) {
     if (p) {
       achados.push({
         p,
-        linha: `[prosa] ${ref.assunto} — ${ref.oQueEsta}`,
-        detalhe: `           ${ref.arquivo}:${ref.linha}  (leia lá; não copio prosa para cá)`,
+        linha: `[prose] ${ref.assunto} — ${ref.oQueEsta}`,
+        detalhe: `           ${ref.arquivo}:${ref.linha}  (read it there; I do not copy prose over here)`,
       })
     }
   }
 
   if (!achados.length) {
     return [
-      `Nada no artefato decide "${assunto}".`,
+      `Nothing in the artifact decides "${assunto}".`,
       '',
-      'Isso é resposta, não falha: significa que o portão do rebar NÃO impõe isso hoje,',
-      'e portanto ninguém vai te reprovar por causa disso — mas também ninguém garante.',
+      'That is an answer, not a failure: it means the rebar gate does NOT enforce this',
+      'today, so nobody will fail you over it — and nobody guarantees it either.',
       '',
-      'O que o rebar de propósito NÃO derivou para cá:',
+      'What rebar on purpose did NOT derive over here:',
       ...(artefato.naoDerivado ?? []).map((s) => `  · ${s}`),
       '',
-      'Se for decisão de projeto de verdade, ela ainda não existe legível por máquina.',
-      'O lugar de nascer é a regra em tooling/rebar-check/index.mjs — e aí o artefato',
-      'a recebe de graça, no próximo `node mcp/generate.mjs`.',
+      'If it is a real project decision, it does not exist machine-readable yet.',
+      'The place to be born is the rule in tooling/rebar-check/index.mjs — and then the',
+      'artifact gets it for free, on the next `node mcp/generate.mjs`.',
     ].join('\n')
   }
 
   achados.sort((a, b) => b.p - a.p)
   const topo = achados.slice(0, 8)
   return [
-    `${achados.length} entrada(s) do artefato falam de "${assunto}"${achados.length > topo.length ? `; as ${topo.length} mais fortes` : ''}:`,
+    `${achados.length} artifact entry(ies) talk about "${assunto}"${achados.length > topo.length ? `; the ${topo.length} strongest` : ''}:`,
     '',
     ...topo.flatMap((a) => [a.linha, a.detalhe]),
   ].join('\n')
 }
 
 /**
- * O portão, na ordem, com o comando de cada passo.
+ * The gate, in order, with the command of each step.
  *
- * A §7.2 é explícita: O MCP NUNCA É A PORTA. Esta ferramenta existe para dizer onde
- * a porta fica, não para ser ela. Por isso ela devolve COMANDO — o mesmo que o hook
- * e o CI rodam — em vez de um veredito próprio.
+ * §7.2 is explicit: THE MCP IS NEVER THE DOOR. This tool exists to say where the
+ * door is, not to be it. That is why it returns a COMMAND — the same one the hook
+ * and the CI run — instead of a verdict of its own.
  */
 export function portao(artefato, passoPedido) {
   const passos = artefato.gate?.passos ?? []
@@ -401,33 +418,33 @@ export function portao(artefato, passoPedido) {
     const alvo = normalizar(passoPedido)
     const p = passos.find((x) => normalizar(x.nome) === alvo || String(x.ordem) === alvo)
     if (!p) {
-      return `Passo "${passoPedido}" não existe. Os ${passos.length}: ${passos.map((x) => x.nome).join(', ')}.`
+      return `Step "${passoPedido}" does not exist. The ${passos.length}: ${passos.map((x) => x.nome).join(', ')}.`
     }
     return [
-      `Passo ${p.ordem} de ${passos.length}: ${p.nome}`,
-      p.comando ? `comando: ${p.comando.join(' ')}` : 'tipo: função interna do verificar.mjs',
+      `Step ${p.ordem} of ${passos.length}: ${p.nome}`,
+      p.comando ? `command: ${p.comando.join(' ')}` : 'type: internal function of verificar.mjs',
       '',
-      'QUANDO ESTE REPROVA:',
-      p.dica ?? '(o artefato não trouxe dica para este passo)',
+      'WHEN THIS ONE FAILS:',
+      p.dica ?? '(the artifact brought no hint for this step)',
     ].join('\n')
   }
 
   const largura = Math.max(...passos.map((p) => p.nome.length))
   const linhas = passos.map(
     (p) =>
-      `  ${String(p.ordem).padStart(2)}. ${p.nome.padEnd(largura)}  ${p.comando ? p.comando.join(' ') : '(função interna)'}`,
+      `  ${String(p.ordem).padStart(2)}. ${p.nome.padEnd(largura)}  ${p.comando ? p.comando.join(' ') : '(internal function)'}`,
   )
 
   const codigos = Object.entries(artefato.codigosDeSaida ?? {}).map(([k, v]) => `  ${k} = ${v}`)
 
   return [
-    `A PORTA É ESTE COMANDO, não este MCP: ${artefato.gate?.comando ?? 'npm run verify'}`,
-    `${passos.length} passos, na ordem, parando no primeiro que reprovar:`,
+    `THE DOOR IS THIS COMMAND, not this MCP: ${artefato.gate?.comando ?? 'npm run verify'}`,
+    `${passos.length} steps, in order, stopping at the first one that fails:`,
     ...linhas,
     '',
-    'Códigos de saída do rebar-check:',
+    'Exit codes of rebar-check:',
     ...codigos,
     '',
-    'Para o que fazer quando um passo reprova: rebar_portao { passo: "<nome>" }.',
+    'For what to do when a step fails: rebar_portao { passo: "<name>" }.',
   ].join('\n')
 }
