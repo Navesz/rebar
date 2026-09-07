@@ -226,7 +226,16 @@ const PASTA_TESTE = new Set([
   'proof',
   'proofs',
 ])
-const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar)[-.]|^test_/i
+// `prove` and `proof` next to `provar`, and the omission was measured: the
+// SEVEN `prove-*.mjs` files of this repository -- which are its whole suite --
+// were invisible to `ehTeste`. The pattern learned `provar-` in Portuguese and
+// the translation to English never brought the pair over. Same family as the
+// `novo`/`new` dispatch: a leftover of the rename that the gate does not catch,
+// because nothing executes the consequence.
+//
+// `proven-x.mjs` does NOT match: the separator `[-.]` is required, so the word
+// has to end there.
+const NOME_TESTE = /(\.|^|_)(test|spec|teste|prova)\.|^(provar|testar|prove|proof)[-.]|^test_/i
 
 /**
  * What CANNOT be a test, by extension.
@@ -1729,8 +1738,33 @@ export const REGRAS = [
       const scripts = r.pkg?.scripts || {}
       // Charges only what the repository HAS. Demanding `lint` of a repo with
       // no lint is demanding it adopt a tool — a decision of another level.
-      const alvos = ['lint', 'typecheck', 'test'].filter((g) => scripts[g])
-      if (!alvos.length) return na('package.json has no lint, typecheck or test script')
+      //
+      // THE GATE SCRIPTS ARE IN THE LIST, and leaving them out cost the rule its
+      // own author: the rebar declares `verify` and not `lint`/`typecheck`/`test`,
+      // so this rule — the one that is the whole point of the project — came out
+      // NOT APPLICABLE on the rebar itself. It was exercised in the proofs and in
+      // the generated project, never on the owner.
+      //
+      // `check` AND `validate` ARE DELIBERATELY OUT, and the measurement is why.
+      // The first draft had them, and it failed on the first repository it was
+      // tried against — this one: the rebar declares `check` as
+      // `node tooling/rebar-check/index.mjs .`, and the CI runs that exact command
+      // through the `self` step of the gate. The rule sees the NAME and cannot
+      // read through `verify.config.mjs`, so it accused a repository that does run
+      // the thing. False positive, on the author, on the first try.
+      //
+      // And the case that seemed to justify them does not need them: in the
+      // forensics the `openparts` had a `check` chaining everything and nothing
+      // ran it — but it had NO CI at all, so the `ci` rule already fails it and
+      // this one correctly returns N/A pointing there. Widening recovered no lost
+      // case; it only added false-positive surface. Automatic rule that is wrong
+      // costs more than a missing rule.
+      //
+      // `verify`/`verificar` stay because they name THE GATE, unambiguously, and
+      // bilingual for the same reason as `PASTA_TESTE`: the audited repositories
+      // are Brazilian.
+      const alvos = ['lint', 'typecheck', 'test', 'verify', 'verificar'].filter((g) => scripts[g])
+      if (!alvos.length) return na('package.json has no lint, typecheck, test or gate script')
       const yml = r.workflows.map((w) => ler(r.dir, w) || '').join('\n')
       const efetivo = textoEfetivoDoCi(yml, scripts, r)
       const faltam = alvos.filter((g) => !new RegExp(`\\b${g}\\b`).test(efetivo))

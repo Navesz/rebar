@@ -1,0 +1,11 @@
+name: ci
+on: [push]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      # O portao inteiro, num comando. `check` fica de fora de proposito:
+      # ele e apelido do que o portao ja roda por dentro.
+      - run: npm run verify
