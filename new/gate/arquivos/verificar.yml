@@ -1,11 +1,19 @@
-# O portão deste projeto. Dois passos, e os dois rodam igual na sua máquina:
+# This project's gate. Two steps, and both run the same on your machine:
 #   npm run verificar
 #   npx --yes github:Navesz/rebar .
 #
-# A MATRIZ EXISTE POR UM MOTIVO MEDIDO. O defeito de portabilidade que matou o
-# projeto anterior — um `execFileSync("npx")` que não existe como executável no
-# Windows — sobreviveu um ano porque o CI dele só rodava Linux. Aqui o mesmo
-# comando precisa passar nos dois sistemas ou não passa em nenhum.
+# THE MATRIX EXISTS FOR A MEASURED REASON. The portability defect that killed the
+# previous project — an `execFileSync("npx")` that does not exist as an
+# executable on Windows — survived a year because its CI only ran Linux. Here the
+# same command has to pass on both systems or it passes on neither.
+#
+# The workflow, job and step NAMES stay Portuguese — `verificar`, `régua do
+# rebar`, `régua de segurança`, `publicar`. They are identifiers: the required
+# status checks on GitHub are matched by name, and `npm run verificar` is the
+# script this file invokes. Renaming them is a different job from translating
+# prose, and it breaks branch protection silently. Same for the `so` matrix key
+# and the `id: publicacao` step: `${{ matrix.so }}` and
+# `steps.publicacao.outputs` read them back by that spelling.
 
 name: verificar
 
@@ -25,23 +33,23 @@ jobs:
   verificar:
     name: verificar (${{ matrix.so }})
     runs-on: ${{ matrix.so }}
-    # Teto de tempo, porque o padrão do GitHub é SEIS HORAS.
+    # A time ceiling, because GitHub's default is SIX HOURS.
     #
-    # O número que motivou a linha, medido em 31/08 gerando este projeto: o
-    # `npm run verificar` inteiro leva 26 s com o cache quente, mas o `eslint`
-    # sozinho levou 93 s na PRIMEIRA execução, com o cache de módulos frio — e
-    # antes disso, três tentativas foram mortas em 200 s e em 280 s sem imprimir
-    # uma linha. Lint frio nesta pilha é indistinguível de lint travado enquanto
-    # se olha para ele. Um runner de CI está sempre frio.
+    # The number that motivated the line, measured on 31/08 generating this
+    # project: the whole `npm run verificar` takes 26 s with the cache warm, but
+    # `eslint` alone took 93 s on the FIRST run, with the module cache cold — and
+    # before that, three attempts were killed at 200 s and at 280 s without
+    # printing one line. Cold lint on this stack is indistinguishable from lint
+    # hung while you look at it. A CI runner is always cold.
     #
-    # Sem o teto, uma regressão nesse caminho não vira erro: vira runner ocupado
-    # por seis horas e um PR "em execução" a manhã inteira. Com o teto, é um X
-    # vermelho em 20 minutos — quarenta vezes o pior tempo já medido, com folga
-    # para a instalação e para o build.
+    # Without the ceiling, a regression on that path does not become an error: it
+    # becomes a runner busy for six hours and a PR "in progress" all morning. With
+    # the ceiling, it is a red X in 20 minutes — forty times the worst time ever
+    # measured, with room to spare for the install and for the build.
     timeout-minutes: 20
     strategy:
-      # Sem fail-fast: saber que quebrou só no Windows, ou nos dois, é metade do
-      # diagnóstico. Cancelar a outra plataforma esconde exatamente isso.
+      # No fail-fast: knowing it broke only on Windows, or on both, is half the
+      # diagnosis. Cancelling the other platform hides exactly that.
       fail-fast: false
       matrix:
         so: [windows-latest, ubuntu-latest]
@@ -49,10 +57,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # O rebar-check tem duas regras que leem `git log` — coautoria-ia e
-          # identidade-git. Com o clone raso padrão (fetch-depth: 1) elas
-          # enxergariam um commit só e aprovariam qualquer histórico.
-          # Verificação que só vê o último commit não é verificação.
+          # rebar-check has two rules that read `git log` — coautoria-ia and
+          # identidade-git. With the default shallow clone (fetch-depth: 1) they
+          # would see one commit only and would pass any history. A check that
+          # sees only the last commit is not a check.
           fetch-depth: 0
 
       - uses: actions/setup-node@v7
@@ -60,48 +68,49 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      # `npm ci` e não `npm install`: o lockfile é a fonte, e o CI não decide
-      # versão.
+      # `npm ci` and not `npm install`: the lockfile is the source, and CI does
+      # not decide the version.
       - run: npm ci
 
-      # Um comando só. O corpo dele está no package.json, para que o que roda
-      # aqui seja literalmente o que se roda na máquina antes de abrir o PR.
+      # One command only. Its body is in package.json, so that what runs here is
+      # literally what you run on your machine before opening the PR.
       - name: verificar
         run: npm run verificar
 
-      # A régua do rebar, por cima do que este repositório verifica de si mesmo.
-      # Exit 0 é a única aprovação: 1 reprovou, 2 alvo inválido, 3 recorte
-      # parcial, 127 o ferramental quebrou — todos derrubam o job.
+      # The rebar ruler, on top of what this repository checks of itself. Exit 0
+      # is the only pass: 1 failed, 2 invalid target, 3 partial slice, 127 the
+      # tooling broke — all of them bring the job down.
       - name: régua do rebar
         run: npx --yes github:Navesz/rebar .
 
-      # A RÉGUA DE SEGURANÇA, e ela é um binário DIFERENTE do mesmo pacote —
-      # por isso o `-p`. Sem ele o npx roda o bin padrão, que é o checker de
-      # formato, e este passo repetiria o de cima sem ninguém notar.
+      # THE SECURITY RULER, and it is a DIFFERENT binary from the same package —
+      # hence the `-p`. Without it npx runs the default bin, which is the format
+      # checker, and this step would repeat the one above with nobody noticing.
       #
-      # Aqui pode ser rede: roda uma vez por push, não uma vez por commit. O
-      # que não podia esperar pelo CI está no hook, escrito em shell.
+      # Network is allowed here: it runs once per push, not once per commit. What
+      # could not wait for CI is in the hook, written in shell.
       - name: régua de segurança
         run: npx --yes -p github:Navesz/rebar rebar-security .
 
-  # ─────────────────────────────────────────────────────────────── publicação
+  # ─────────────────────────────────────────────────────────────── publishing
   #
-  # `needs: verificar` é a linha inteira do desenho: o deploy NÃO é um caminho
-  # paralelo ao portão, é o que vem depois dele. Um workflow de publicação
-  # separado subiria a página com o lint quebrado, e o portão viraria o que
-  # este projeto existe para não ser — relatório que ninguém lê.
+  # `needs: verificar` is the whole line of the design: the deploy is NOT a path
+  # parallel to the gate, it is what comes after it. A separate publishing
+  # workflow would put the page up with the lint broken, and the gate would turn
+  # into what this project exists not to be — a report nobody reads.
   #
-  # A matriz roda nos dois sistemas; `needs` espera as DUAS pernas. Vermelho no
-  # Windows não publica.
+  # The matrix runs on both systems; `needs` waits for BOTH legs. Red on Windows
+  # does not publish.
   #
-  # SE ESTE PROJETO NÃO VAI PARA O GITHUB PAGES, apague este job inteiro. Ele
-  # nasce aqui porque o preset `site` já vem com `output: "export"` e com o
-  # `.pages.yml`: sem o job, o projeto tem tudo para publicar e nada que
-  # publique, que foi o estado em que ele nasceu até 2026-09-06.
+  # IF THIS PROJECT IS NOT GOING TO GITHUB PAGES, delete this whole job. It is
+  # born here because the `site` preset already comes with `output: "export"` and
+  # with the `.pages.yml`: without the job, the project has everything to publish
+  # and nothing that publishes, which is the state it was born in until
+  # 2026-09-06.
   #
-  # Do lado do GitHub ainda falta um passo humano, e ele não é arquivo:
-  # Settings › Pages › Source = "GitHub Actions". Sem isso o job roda e o
-  # `deploy-pages` falha dizendo que a origem é outra.
+  # On GitHub's side a human step is still missing, and it is not a file:
+  # Settings › Pages › Source = "GitHub Actions". Without that the job runs and
+  # `deploy-pages` fails saying the source is another one.
   publicar:
     name: publicar no GitHub Pages
     needs: verificar
@@ -109,15 +118,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Só este job recebe a permissão de escrever no Pages. O `contents: read`
-    # do topo continua valendo para os outros.
+    # Only this job gets the permission to write to Pages. The `contents: read`
+    # at the top still holds for the others.
     permissions:
       contents: read
       pages: write
       id-token: write
 
-    # Um deploy por vez, e o mais novo espera em vez de cancelar o que já está
-    # subindo: `cancel-in-progress` aqui deixaria a página no meio do caminho.
+    # One deploy at a time, and the newer one waits instead of cancelling what is
+    # already going up: `cancel-in-progress` here would leave the page halfway.
     concurrency:
       group: pages
       cancel-in-progress: false
@@ -128,19 +137,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      # `node-version: '22'` e nao `node-version-file: '.nvmrc'`: o gerador nao
-      # escreve .nvmrc, e o job acima ja fixa a versao aqui mesmo. Um arquivo a
-      # mais so para dizer o mesmo numero seria uma segunda fonte para divergir
-      # -- e, do jeito que estava, uma fonte que nao existia: o setup-node
-      # morria e este job, o unico com `pages: write`, nunca rodou verde.
+      # `node-version: '22'` and not `node-version-file: '.nvmrc'`: the generator
+      # does not write .nvmrc, and the job above already pins the version right
+      # here. One more file just to say the same number would be a second source
+      # to diverge -- and, the way it was, a source that did not exist: the
+      # setup-node died and this job, the only one with `pages: write`, never ran
+      # green.
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
 
-      # O mesmo `next build` que a régua já rodou. O `out/` não é versionado —
-      # artefato de build no repositório é uma das coisas que o rebar acusa.
+      # The same `next build` the ruler already ran. The `out/` is not versioned —
+      # a build artifact in the repository is one of the things rebar flags.
       - run: npm run build
 
       - uses: actions/configure-pages@v5

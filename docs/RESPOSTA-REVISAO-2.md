@@ -1,28 +1,28 @@
-# Segunda resposta — o que eu errei e o que fica
+# Second response — what I got wrong and what stays
 
-Você tem razão nas quatro alterações que pediu. Uma delas é um erro factual meu, e as outras três melhoram o desenho. Fui verificar todas, e em dois pontos a evidência é mais forte do que a que você trouxe.
+You are right on the four changes you asked for. One of them is a factual error of mine, and the other three improve the design. I went and verified all of them, and at two points the evidence is stronger than the one you brought.
 
 ---
 
-## 1. TanStack Start — eu errei, você estava certo desde o começo
+## 1. TanStack Start — I got it wrong, you were right from the start
 
-Fui à documentação oficial. Ela diz, textualmente:
+I went to the official documentation. It says, verbatim:
 
 > *"TanStack Start is currently in the **Release Candidate** stage! This means it is considered feature-complete and its API is considered stable."*
 
-Continua RC. Sua ressalva original valia, e eu a derrubei com uma fonte ruim.
+Still RC. Your original caveat held, and I knocked it down with a bad source.
 
-O diagnóstico do meu erro é exatamente o que você supôs: aceitei um resumo de busca que misturou artigos de Medium com números de versão `1.x` do repositório TanStack Router. **Versão 1.x com data de 2026 não é o projeto declarando GA** — e eu tratei como se fosse, num documento cuja tese inteira é que afirmação com número precisa de fonte.
+The diagnosis of my error is exactly what you supposed: I accepted a search summary that mixed Medium articles with `1.x` version numbers from the TanStack Router repository. **A 1.x version dated 2026 is not the project declaring GA** — and I treated it as if it were, in a document whose entire thesis is that a claim with a number needs a source.
 
-Placar corrigido: **TanStack Start em RC → sua ressalva estava certa.**
+Scoreboard corrected: **TanStack Start in RC → your caveat was right.**
 
-Consequência prática: a separação `app` → SPA e `site` → SSR/prerender continua, mas TanStack Start entra como candidato em avaliação, não como escolha conservadora. Ainda é o mais natural dentro do ecossistema; só não pode ser vendido como estável.
+Practical consequence: the split `app` → SPA and `site` → SSR/prerender stays, but TanStack Start enters as a candidate under evaluation, not as the conservative choice. It is still the most natural one inside the ecosystem; it just cannot be sold as stable.
 
 ---
 
-## 2. `_queryQueue` — você está certo, e o motivo é pior do que você disse
+## 2. `_queryQueue` — you are right, and the reason is worse than you said
 
-Aceito integralmente não usar interno privado como argumento de segurança. Mas fui ao fonte do `pg@8.23.0` e achei algo que fecha a discussão de vez. Há **duas** depreciações relevantes em `lib/client.js`, não uma:
+I fully accept not using a private internal as a security argument. But I went to the `pg@8.23.0` source and found something that closes the discussion for good. There are **two** relevant deprecations in `lib/client.js`, not one:
 
 ```
 'Client.queryQueue is deprecated and will be removed in pg@9.0.'
@@ -32,30 +32,34 @@ Aceito integralmente não usar interno privado como argumento de segurança. Mas
  async flow control mechanism instead.'
 ```
 
-A segunda é a que mata o padrão atual. O `pool.on('connect')` depende **exatamente** de disparar uma query e deixar as seguintes se enfileirarem atrás. Isso não é só "interno privado" — é comportamento **com data de remoção marcada**.
+The second one is what kills the current pattern. `pool.on('connect')` depends **exactly** on firing a query and letting the following ones queue up behind it. That is not just "a private internal" — it is behavior **with a removal date already marked**.
 
-E confirmei o `pipeline` que você citou: existe no 8.23 (`this.pipeline = Boolean(c.pipeline)`, e `pipeline?: boolean` nos tipos). Com pipelining ligado, a premissa de ordenação some.
+And I confirmed the `pipeline` you cited: it exists in 8.23 (`this.pipeline = Boolean(c.pipeline)`, and `pipeline?: boolean` in the types). With pipelining on, the ordering premise disappears.
 
-Há um argumento a favor do `onConnect` que nenhum de nós dois fez explicitamente: **ele é imune ao pipelining.** O `onConnect` não depende de ordem de fila — ele bloqueia a *entrega* do client. Ligar `pipeline: true` amanhã não quebra a fronteira de segurança. Com `pool.on('connect')`, quebra em silêncio.
+There is one argument for `onConnect` that neither of us made explicitly: **it is immune to pipelining.** `onConnect` does not depend on queue order — it blocks the *handover* of the client. Turning on `pipeline: true` tomorrow does not break the security boundary. With `pool.on('connect')`, it breaks in silence.
 
-Sua formulação está adotada, com esse acréscimo:
+Your formulation is adopted, with this addition:
 
-> O fluxo atual de sucesso não demonstrou bypass porque, sem pipelining, as queries são processadas em ordem — mas esse comportamento está depreciado com remoção marcada para o `pg@9.0`, e `pipeline: true` já o invalida hoje. `onConnect` é adotado porque fornece a semântica diretamente: nenhuma conexão é disponibilizada antes da inicialização privilegiada terminar, independente de ordem de fila.
+> The current success flow did not demonstrate a bypass because, without pipelining, queries are processed in order — but that behavior is deprecated with removal marked for `pg@9.0`, and `pipeline: true` already invalidates it today. `onConnect` is adopted because it provides the semantics directly: no connection is made available before the privileged initialization finishes, regardless of queue order.
 
 ---
 
-## 3. Fixtures declarando a regra esperada — certo, e mais barato do que você imagina
+## 3. Fixtures declaring the expected rule — right, and cheaper than you imagine
 
-Seu modo de falha é real: fixture prova a regra A, regra A quebra, regra B dispara por acaso, fixture continua vermelha, harness fica satisfeito.
+Your failure mode is real: a fixture proves rule A, rule A breaks, rule B fires by accident, the fixture stays red, the harness is satisfied.
 
-Fui ver o harness. Ele hoje verifica duas coisas:
+I went to look at the harness. Today it checks two things:
 
-1. toda regra **declarada** disparou em algum lugar de `reprovar/`
-2. **zero** violação em `aprovar/` — a asserção de falso positivo
+1. every **declared** rule fired somewhere in `fail/`
+2. **zero** violations in `pass/` — the false positive assertion
 
-É cobertura no nível do conjunto, não por arquivo. Seu furo existe.
+That is coverage at the set level, not per file. Your hole exists.
 
-Mas a convenção que falta **já está escrita**. Toda fixture negativa abre com o nome da regra em comentário:
+But the missing convention **is already written**. Every negative fixture opens with the rule name in a comment:
+
+<!-- The marker `// viola:` and the rule id below stay in Portuguese: they are the literal
+     string written in the inherited fixtures and the rule id itself. Translating them would
+     misquote the convention and break the file→rule pairing the harness is meant to read. -->
 
 ```ts
 // viola: sem-io-externo-no-caso-de-uso
@@ -63,79 +67,82 @@ import { readFileSync } from 'node:fs'
 export const ler = () => readFileSync('x')
 ```
 
-Ou seja: as 29 fixtures já declaram o que esperam. O que falta é o harness **ler esse comentário e afirmar o par arquivo→regra**. São ~15 linhas, e transforma as fixtures em contract tests das próprias regras, como você propôs. Adotado.
+That is: the 29 fixtures already declare what they expect. What is missing is the harness **reading that comment and asserting the file→rule pair**. It is ~15 lines, and it turns the fixtures into contract tests of the rules themselves, as you proposed. Adopted.
 
 ---
 
-## 4. MCP — sua reformulação é melhor que a minha, e a minha era literalmente impossível
+## 4. MCP — your reformulation is better than mine, and mine was literally impossible
 
-Você está certo duas vezes.
+You are right twice.
 
-"MCP é caro" é generalização errada. O correto é: **MCP que empurra documentação estática para o contexto é caro.** Uma tool `get_adr("0013")` paga só pelo que foi pedido.
+"MCP is expensive" is the wrong generalization. The correct one is: **an MCP that pushes static documentation into the context is expensive.** A `get_adr("0013")` tool pays only for what was asked.
 
-E "nenhuma prosa mora dentro do servidor" é impossível de cumprir — nome de tool, descrição, schema e descrição de argumento *são* prosa, e são exatamente o que o modelo lê para decidir chamar. Eu escrevi uma regra que o próprio servidor viola por construção.
+And "no prose lives inside the server" is impossible to comply with — tool name, description, schema and argument description *are* prose, and they are exactly what the model reads to decide to call. I wrote a rule that the server itself violates by construction.
 
-Sua formulação entra no lugar:
+Your formulation goes in its place:
 
-> **Nenhuma documentação normativa duplicada mora no MCP.** O servidor explica a semântica da própria ferramenta. Regra arquitetural, decisão, guia e invariante vêm da fonte versionada — nunca há duas verdades.
+> **No duplicated normative documentation lives in the MCP.** The server explains the semantics of the tool itself. Architectural rule, decision, guide and invariant come from the versioned source — there are never two truths.
 
 ---
 
-## 5. Classes de regra — aceito, e acrescento uma armadilha
+## 5. Rule classes — accepted, and I add a trap
 
-Sua correção está certa e a minha generalização era preguiçosa. Três classes:
+Your correction is right and my generalization was lazy. Three classes:
 
-| Classe | Entrada | Exemplos |
+| Class | Entry | Examples |
 |---|---|---|
-| **Determinística** | nasce `error`, depois das fixtures | `domain/` importa `db/` · `@ts-nocheck` · migration antiga editada · `process.env` fora de `config/` |
-| **Heurística** | nasce `warn` + contador | cor literal · raio de busca · densidade de comentário |
-| **Informacional** | permanece métrica | telemetria de token · cobertura |
+| **Deterministic** | born `error`, after the fixtures | `domain/` imports `db/` · `@ts-nocheck` · old migration edited · `process.env` outside `config/` |
+| **Heuristic** | born `warn` + counter | literal color · search radius · comment density |
+| **Informational** | stays a metric | token telemetry · coverage |
 
-E seu ponto sobre warning também treinar o agente é o melhor argumento contra a minha proposta: **40 avisos diários viram ruído**, e ruído ensina a ignorar a saída inteira. Warning não é neutro; é dívida de atenção.
+And your point about a warning also training the agent is the best argument against my proposal: **40 warnings a day turn into noise**, and noise teaches you to ignore the whole output. A warning is not neutral; it is attention debt.
 
-**A armadilha que eu acrescentaria:** regra determinística pode ter *detecção* perfeita e *especificação* incompleta. "`http/` não acessa `db/`" é matemática — até alguém precisar de um import só-de-tipo de `db/tipos`, que é legítimo. O preset que estamos herdando já trata isso, abrindo exceção exatamente para `db/tipos`.
+**The trap I would add:** a deterministic rule can have perfect *detection* and incomplete *specification*. "`http/` does not reach `db/`" is mathematics — until someone needs a type-only import from `db/tipos`, which is legitimate. The preset we are inheriting already handles this, opening an exception exactly for `db/tipos`.
 
-Daí a regra de construção: **regra determinística nasce `error`, mas o conjunto de fixtures precisa incluir o caso-limite legítimo em `aprovar/`, não só a violação em `reprovar/`.** Sem isso, o que nasce `error` é a sua confiança na especificação, não a regra.
+<!-- `db/tipos` is a folder path in the inherited preset, not prose. Renaming it here would
+     make the document describe a path that does not exist. -->
 
----
-
-## 6. Idempotência — você fechou o buraco que eu tinha deixado
-
-Correto, e é grave: se o registro da chave e a mutação de negócio não estiverem na **mesma transação**, o crash entre as duas produz cobrança dupla. Meu desenho não dizia isso. Adotado na forma que você escreveu — claim, replay, verificação de hash divergente, execução e persistência do resultado, tudo num commit só.
-
-E a canonicalização do `requestHash` é o detalhe que faz a diferença entre funcionar e parecer funcionar: `{"a":1,"b":2}` e `{"b":2,"a":1}` são o mesmo pedido e hashes de texto diferentes. Vai documentado, com a canonicalização definida explicitamente — não deixada para o agente inventar.
+Hence the construction rule: **a deterministic rule is born `error`, but the fixture set has to include the legitimate edge case in `pass/`, not only the violation in `fail/`.** Without that, what is born `error` is your confidence in the specification, not the rule.
 
 ---
 
-## 7. Migration — sua distinção é correta
+## 6. Idempotency — you closed the hole I had left
 
-Aceito: **forward-only é estratégia de migration; expand/contract é estratégia de compatibilidade entre versões.** Não são sinônimos, e tratar como se fossem esconde que o problema real é coexistência de `N` e `N+1` durante o rolling deploy. A sequência que você escreveu vai para o ADR na forma quase visual, pelo mesmo motivo do outbox: é difícil um agente inventar outra coisa olhando para um diagrama.
+Correct, and it is serious: if the key record and the business mutation are not in the **same transaction**, a crash between the two produces a double charge. My design did not say that. Adopted in the form you wrote it — claim, replay, divergent hash check, execution and persistence of the result, all in a single commit.
 
----
-
-## 8. O princípio combinado
-
-Adotado como está:
-
-> **Se uma regra pode descer de prosa para enforcement, ela deve descer — mas o enforcement precisa ser mais confiável do que a regra que substitui.**
-
-É melhor do que as duas formulações separadas. A primeira metade sozinha produz CI idiota; a segunda sozinha produz paralisia. Juntas descrevem o único caminho que funciona.
+And the canonicalization of the `requestHash` is the detail that makes the difference between working and looking like it works: `{"a":1,"b":2}` and `{"b":2,"a":1}` are the same request and different text hashes. It goes documented, with the canonicalization defined explicitly — not left for the agent to invent.
 
 ---
 
-## Placar final
+## 7. Migration — your distinction is correct
 
-| Item | Veredito |
+Accepted: **forward-only is a migration strategy; expand/contract is a version-compatibility strategy.** They are not synonyms, and treating them as if they were hides that the real problem is `N` and `N+1` coexisting during the rolling deploy. The sequence you wrote goes into the ADR in almost visual form, for the same reason as the outbox: it is hard for an agent to invent anything else while looking at a diagram.
+
+---
+
+## 8. The combined principle
+
+Adopted as it stands:
+
+> **If a rule can go down from prose to enforcement, it must go down — but the enforcement has to be more reliable than the rule it replaces.**
+
+It is better than the two separate formulations. The first half alone produces an idiotic CI; the second alone produces paralysis. Together they describe the only path that works.
+
+---
+
+## Final scoreboard
+
+| Item | Verdict |
 |---|---|
-| TanStack Start em RC | ❌ **eu errei** — a doc oficial diz RC. Sua ressalva original valia |
-| `_queryQueue` como argumento | ✅ você certo — e há uma segunda depreciação, com remoção no `pg@9.0`, que fecha o caso |
-| `pipeline: true` invalida a ordenação | ✅ confirmado no fonte — e `onConnect` é imune a isso |
-| Fixture deve declarar a regra esperada | ✅ certo — e a convenção já existe em comentário, falta o harness ler |
-| "MCP é caro" | ✅ sua reformulação é melhor — e a minha era autocontraditória |
-| Toda regra nasce `warn` | ✅ você certo — três classes, e warning também é dívida de atenção |
-| Idempotência na mesma transação | ✅ buraco meu, fechado |
-| Canonicalização do `requestHash` | ✅ adotado |
-| forward-only ≠ expand/contract | ✅ adotado |
-| Agent harness é fronteira documental | ✅ correção aceita dos dois lados |
+| TanStack Start in RC | ❌ **I got it wrong** — the official docs say RC. Your original caveat held |
+| `_queryQueue` as an argument | ✅ you are right — and there is a second deprecation, with removal in `pg@9.0`, that closes the case |
+| `pipeline: true` invalidates the ordering | ✅ confirmed in the source — and `onConnect` is immune to it |
+| A fixture must declare the expected rule | ✅ right — and the convention already exists in a comment, the harness just has to read it |
+| "MCP is expensive" | ✅ your reformulation is better — and mine was self-contradictory |
+| Every rule is born `warn` | ✅ you are right — three classes, and a warning is attention debt too |
+| Idempotency in the same transaction | ✅ my hole, closed |
+| Canonicalization of the `requestHash` | ✅ adopted |
+| forward-only ≠ expand/contract | ✅ adopted |
+| The agent harness is a documentation boundary | ✅ correction accepted on both sides |
 
-Das quatro alterações que você pediu, as quatro entram. O documento vai ser corrigido antes de qualquer linha de código ser escrita em cima dele — que é, afinal, o ponto do exercício.
+Of the four changes you asked for, all four go in. The document will be corrected before a single line of code is written on top of it — which is, after all, the point of the exercise.

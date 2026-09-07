@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Cliente mínimo de MCP — a prova de que este servidor RODA.
+// Minimal MCP client — the proof that this server RUNS.
 //
-// Por que existe. O módulo mcp/ estava no disco há dias, 1.412 linhas, e NUNCA tinha
-// sido executado: as dependências jamais foram instaladas, nenhum passo do verificar
-// o tocava, nenhuma regra o cobria. "Escrito" não é "funcional", e a única forma de
-// saber a diferença é falar o protocolo de verdade com ele.
+// Why it exists. The mcp/ module had been on disk for days, 1,412 lines, and had
+// NEVER been executed: the dependencies were never installed, no verifier step
+// touched it, no rule covered it. "Written" is not "working", and the only way to
+// know the difference is to speak the real protocol to it.
 //
-// ZERO DEPENDÊNCIA de propósito, mesmo dentro de um pacote que pode ter dependência:
-// se eu provasse o servidor com o SDK que o próprio servidor usa, um defeito do SDK
-// se cancelaria dos dois lados. Aqui só entra node:child_process e JSON.
+// ZERO DEPENDENCIES on purpose, even inside a package that is allowed to have them:
+// if I proved the server with the SDK the server itself uses, an SDK defect would
+// cancel itself out on both sides. Only node:child_process and JSON come in here.
 //
-// O transporte stdio do MCP é JSON-RPC 2.0 em NDJSON — uma mensagem por linha, sem
-// enquadramento Content-Length (isso é LSP, e confundir os dois é o erro clássico).
+// The MCP stdio transport is JSON-RPC 2.0 in NDJSON — one message per line, no
+// Content-Length framing (that is LSP, and confusing the two is the classic mistake).
 //
-//   node mcp/src/prova-cliente.mjs           roda tudo e imprime as trocas reais
-//   node mcp/src/prova-cliente.mjs --curto   só o veredito de cada passo
+//   node mcp/src/prova-cliente.mjs           runs everything and prints the real traffic
+//   node mcp/src/prova-cliente.mjs --curto   only the verdict of each step
 
 import { spawn } from 'node:child_process'
 import {
@@ -31,8 +31,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// O cliente mora fora deste arquivo desde que apareceu a segunda prova que
-// precisa dele — a do MCP que o gerador escreve, em new/gate/prove-mcp-template.mjs.
+// The client lives outside this file since the second proof that needs it showed
+// up — the one for the MCP the generator writes, in new/gate/prove-mcp-template.mjs.
 import { Cliente, PROTOCOLO, textoDa, trecho } from './cliente-jsonrpc.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
@@ -53,7 +53,7 @@ function ok(t) {
 
 function falhou(t) {
   falhas++
-  console.log(`  FALHA ${t}`)
+  console.log(`  FAIL ${t}`)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,10 +68,10 @@ const ini = await cliente.pedir('initialize', {
 })
 if (ini.result?.serverInfo?.name === 'rebar') {
   ok(
-    `servidor "${ini.result.serverInfo.name}" v${ini.result.serverInfo.version}, protocolo ${ini.result.protocolVersion}`,
+    `server "${ini.result.serverInfo.name}" v${ini.result.serverInfo.version}, protocol ${ini.result.protocolVersion}`,
   )
 } else {
-  falhou(`initialize devolveu ${JSON.stringify(ini).slice(0, 200)}`)
+  falhou(`initialize returned ${JSON.stringify(ini).slice(0, 200)}`)
 }
 cliente.notificar('notifications/initialized', {})
 
@@ -81,43 +81,51 @@ const ferramentas = lista.result?.tools ?? []
 if (ferramentas.length) {
   for (const f of ferramentas) {
     console.log(
-      `  · ${f.name.padEnd(16)} ${Object.keys(f.inputSchema?.properties ?? {}).join(', ') || '(sem parâmetro)'}`,
+      `  · ${f.name.padEnd(16)} ${Object.keys(f.inputSchema?.properties ?? {}).join(', ') || '(no parameter)'}`,
     )
   }
-  ok(`${ferramentas.length} ferramentas`)
+  ok(`${ferramentas.length} tools`)
 } else {
-  falhou('tools/list veio vazio')
+  falhou('tools/list came back empty')
 }
 
-// Cada chamada abaixo é uma pergunta que uma IA de verdade faz neste
-// repositório, e o QUARTO campo é o contrato: esta chamada deve devolver
-// `isError`, sim ou não?
+// Every call below is a question a real AI asks in this repository, and the
+// FOURTH field is the contract: must this call return `isError`, yes or no?
 //
-// Antes ele não existia, e `isError` só escolhia um RÓTULO — o do único caso
-// que deveria errar ("esperado para id errado"), colado em qualquer erro de
-// qualquer uma das sete. Se o `rebar_verificar` passasse a estourar, a prova
-// imprimia um `ok` com aquele rótulo emprestado e o passo `mcp-server` ficava
-// verde sobre um servidor quebrado.
+// Before, it did not exist, and `isError` only picked a LABEL — the one of the
+// single case that was supposed to fail ("expected for a wrong id"), glued onto
+// any error from any of the seven. If `rebar_verificar` started blowing up, the
+// proof printed an `ok` with that borrowed label and the `mcp-server` step went
+// green over a broken server.
+//
+// The `assunto` values stay in Portuguese: they are queries run against the
+// artifact's own text, which is Portuguese. "color" would find nothing.
 const chamadas = [
-  ['rebar_regras', { nivel: 'N1' }, 'o que me reprova quando eu mexer no CSS/lint', false],
-  ['rebar_porque', { id: 'raw-hex' }, 'reprovou hex-cru; por que isso é regra', false],
-  ['rebar_decidir', { assunto: 'cor' }, 'posso escrever #fff no componente?', false],
-  ['rebar_decidir', { assunto: 'mongodb' }, 'assunto que o rebar NÃO governa', false],
-  ['rebar_portao', { passo: 'mcp' }, 'o passo do portão que guarda este módulo', false],
-  ['rebar_verificar', {}, 'a régua no próprio rebar', false],
-  // Os dois que devem errar, um para cada lado do `sugestao.length ? ... : ''`
-  // em consultas.mjs — o ramo que sugere e o que não tem o que sugerir.
+  ['rebar_regras', { nivel: 'N1' }, 'what fails me when I touch the CSS/lint', false],
+  ['rebar_porque', { id: 'raw-hex' }, 'hex-cru failed; why is that a rule', false],
+  ['rebar_decidir', { assunto: 'cor' }, 'can I write #fff in the component?', false],
+  ['rebar_decidir', { assunto: 'mongodb' }, 'a subject rebar does NOT govern', false],
+  ['rebar_portao', { passo: 'mcp' }, 'the gate step that guards this module', false],
+  ['rebar_verificar', {}, 'the ruler on rebar itself', false],
+  // The two that must fail, one for each side of the `sugestao.length ? ... : ''`
+  // in consultas.mjs — the branch that suggests and the one with nothing to suggest.
   //
-  // A sonda daqui era `hex-crus`, com o rótulo "precisa sugerir". Medido: ela
-  // parou de sugerir quando os ids foram para o inglês, porque `hex-` deixou de
-  // ser prefixo de coisa alguma — a regra virou `raw-hex`. O rótulo continuou
-  // afirmando o contrário por seis commits, porque nada comparava. É o defeito
-  // que este contrato existe para não deixar acontecer de novo.
-  ['rebar_porque', { id: 'raw-hexx' }, 'typo de id real: erra sugerindo o certo', true, 'raw-hex'],
+  // The probe here was `hex-crus`, with the label "precisa sugerir" [needs to
+  // suggest]. Measured: it stopped suggesting when the ids went to English, because
+  // `hex-` stopped being a prefix of anything — the rule became `raw-hex`. The label
+  // went on claiming the opposite for six commits, because nothing compared. It is
+  // the defect this contract exists to keep from happening again.
+  [
+    'rebar_porque',
+    { id: 'raw-hexx' },
+    'typo of a real id: fails suggesting the right one',
+    true,
+    'raw-hex',
+  ],
   [
     'rebar_porque',
     { id: 'mongodb-driver' },
-    'id de outro mundo: erra sem inventar vizinho',
+    'an id from another world: fails without inventing a neighbour',
     true,
     null,
   ],
@@ -128,63 +136,65 @@ for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
   const r = await cliente.pedir('tools/call', { name: nome, arguments: args })
   const t = textoDa(r)
   if (!t) {
-    falhou(`${nome} não devolveu texto`)
+    falhou(`${nome} returned no text`)
     continue
   }
   console.log(`\n${trecho(t, nome === 'rebar_porque' ? 2200 : 1600)}\n`)
 
-  // O CONTRATO, nas duas direções. Errar quando não devia é servidor quebrado;
-  // NÃO errar quando devia é contrato silenciosamente afrouxado — um `id`
-  // inexistente que passa a responder como se existisse é pior que o erro.
+  // THE CONTRACT, in both directions. Failing when it should not is a broken
+  // server; NOT failing when it should is a contract silently loosened — a
+  // nonexistent `id` that starts answering as if it existed is worse than the error.
   const erro = r.result.isError === true
   if (erro !== erroEsperado) {
     falhou(
       erroEsperado
-        ? `${nome} devia ter devolvido isError e não devolveu — o contrato de id inexistente afrouxou`
-        : `${nome} devolveu isError e não devia:\n${trecho(t, 400)}`,
+        ? `${nome} should have returned isError and did not — the nonexistent-id contract loosened`
+        : `${nome} returned isError and should not have:\n${trecho(t, 400)}`,
     )
     continue
   }
 
-  // Quem erra tem contrato EXTRA: "não morrer" é metade dele. O quinto campo diz
-  // qual vizinho a mensagem deve oferecer — ou `null` quando o certo é não
-  // oferecer nenhum. As duas direções importam: sugerir nada quando havia um id
-  // parecido é o agente sem saída, e inventar um vizinho para um id de outro
-  // assunto é pior que o erro seco.
+  // Whoever fails has an EXTRA contract: "do not die" is half of it. The fifth
+  // field says which neighbour the message must offer — or `null` when offering
+  // none is the right answer. Both directions matter: suggesting nothing when there
+  // was a similar id leaves the agent with no way out, and inventing a neighbour for
+  // an id from another subject is worse than the dry error.
   if (erroEsperado) {
-    const sugeriu = /^Perto disso: (.+)$/m.exec(t)
+    // This pattern is the message consultas.mjs prints. Reword it there and reword
+    // it here, or this contract quietly stops being checked.
+    const sugeriu = /^Close to that: (.+)$/m.exec(t)
     if (vizinho && sugeriu?.[1]?.split(', ').includes(vizinho) !== true) {
-      falhou(`${nome} devia apontar "${vizinho}" e não apontou:\n${trecho(t, 400)}`)
+      falhou(`${nome} should have pointed at "${vizinho}" and did not:\n${trecho(t, 400)}`)
       continue
     }
     if (!vizinho && sugeriu) {
-      falhou(`${nome} inventou vizinho para um id de outro assunto: ${sugeriu[0]}`)
+      falhou(`${nome} invented a neighbour for an id from another subject: ${sugeriu[0]}`)
       continue
     }
-    // A saída sempre existe, com vizinho ou sem.
+    // The escape hatch always exists, with a neighbour or without one.
     if (!t.includes('rebar_regras')) {
-      falhou(`${nome} errou sem dizer onde está a lista completa`)
+      falhou(`${nome} failed without saying where the full list is`)
       continue
     }
   }
 
-  ok(`${nome}${erro ? ' (isError, como o contrato exige)' : ''} — ${t.length} caracteres`)
+  ok(`${nome}${erro ? ' (isError, as the contract demands)' : ''} — ${t.length} characters`)
 }
 
 cliente.fechar()
 
 /**
- * Monta um repositório de mentira com uma cópia do servidor dentro, para testar o que
- * só dá para testar mexendo no disco.
+ * Builds a fake repository with a copy of the server inside, to test what can only be
+ * tested by touching the disk.
  *
- * A cópia mora fora do repositório de verdade de propósito: os passos 4 e 6 precisam
- * de um artefato ausente e de uma fonte adulterada, e nenhum dos dois pode acontecer
- * em cima do rebar — o dono trabalha nele e outro agente também.
+ * The copy lives outside the real repository on purpose: steps 4 and 6 need a missing
+ * artifact and a tampered source, and neither can happen on top of rebar — the owner
+ * works in it and so does another agent.
  *
- * A árvore imita a de verdade porque o servidor resolve tudo a partir da posição dele:
- * <raiz>/mcp/src/index.mjs → RAIZ = <raiz>. node_modules entra por junção, que no
- * Windows não pede admin e no Linux é symlink comum: o que se testa aqui é o JSON,
- * não a presença do SDK.
+ * The tree imitates the real one because the server resolves everything from its own
+ * position: <root>/mcp/src/index.mjs → RAIZ = <root>. node_modules comes in as a
+ * junction, which on Windows does not ask for admin and on Linux is a plain symlink:
+ * what is tested here is the JSON, not the presence of the SDK.
  */
 function montarCopia(
   prefixo,
@@ -206,13 +216,13 @@ function montarCopia(
   if (fonteAdulterada) {
     const dir = join(base, 'tooling', 'rebar-check')
     mkdirSync(dir, { recursive: true })
-    // Conteúdo diferente do original: é isso, e só isso, que o sha256 enxerga.
-    writeFileSync(join(dir, 'index.mjs'), '// uma regra nova entrou aqui e o MCP não sabe\n')
+    // Content different from the original: that, and only that, is what sha256 sees.
+    writeFileSync(join(dir, 'index.mjs'), '// a new rule came in here and the MCP does not know\n')
   }
   if (semFonte) {
-    // Todas as fontes de arquivo copiadas IDÊNTICAS, menos uma, que fica de
-    // fora. Idênticas de propósito: se alguma divergisse, o estado seria
-    // `suspeito` e a ausência ficaria escondida atrás dela.
+    // Every file source copied IDENTICAL, except one, which is left out. Identical
+    // on purpose: if any of them diverged, the state would be `suspeito` and the
+    // absence would hide behind it.
     const art = JSON.parse(readFileSync(join(AQUI, '..', 'rules.generated.json'), 'utf8'))
     for (const f of art.fontes) {
       if (f.arquivo.endsWith('/') || f.arquivo === semFonte) continue
@@ -226,31 +236,31 @@ function montarCopia(
 }
 
 /**
- * Desmonta a cópia — a junção PRIMEIRO, e com `rmdirSync`, não com `rmSync`.
+ * Takes the copy down — the junction FIRST, and with `rmdirSync`, not `rmSync`.
  *
- * Uma junção do Windows é uma pasta de verdade para quem só olha, e apagar
- * recursivamente uma árvore que tem uma dentro é a receita para levar junto o
- * `mcp/node_modules` do repositório. `rmdirSync` remove a junção e para ali —
- * conferido antes de escrever isto: o alvo continuou intacto.
+ * A Windows junction is a real folder to anyone just looking, and deleting
+ * recursively a tree with one inside is the recipe for taking the repository's
+ * `mcp/node_modules` along with it. `rmdirSync` removes the junction and stops there
+ * — checked before writing this: the target stayed intact.
  */
 function desmontarCopia(base) {
   try {
     rmdirSync(join(base, 'mcp', 'node_modules'))
     rmSync(base, { recursive: true, force: true })
   } catch {
-    // Cópia de teste largada em %TEMP% não estraga nada, e o sistema limpa. Falhar a
-    // prova por causa da faxina seria trocar o defeito real por ruído.
+    // A test copy left behind in %TEMP% spoils nothing, and the system cleans it.
+    // Failing the proof over the housekeeping would trade the real defect for noise.
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4 · o servidor sem artefato tem de MORRER, não servir vazio.
-titulo('4 · sem artefato: o servidor morre com mensagem útil')
+// 4 · the server without an artifact has to DIE, not serve empty.
+titulo('4 · no artifact: the server dies with a useful message')
 let semArtefato
 try {
   semArtefato = montarCopia('rebar-mcp-sem-artefato-', { comArtefato: false })
 } catch (e) {
-  falhou(`não deu para montar a cópia de teste: ${e.message}`)
+  falhou(`could not build the test copy: ${e.message}`)
 }
 
 if (semArtefato) {
@@ -265,30 +275,32 @@ if (semArtefato) {
   console.log(`\n  exit=${codigo}`)
   const util =
     saidaDeErro.includes('node mcp/generate.mjs') && saidaDeErro.includes('rules.generated.json')
-  if (codigo === 1 && util) ok('morreu com exit 1 e disse como gerar o artefato')
-  else falhou(`esperado exit 1 com o comando de geração na mensagem; veio exit ${codigo}`)
+  if (codigo === 1 && util) ok('died with exit 1 and said how to generate the artifact')
+  else falhou(`expected exit 1 with the generation command in the message; got exit ${codigo}`)
   desmontarCopia(semArtefato.base)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5 · o snippet do README tem de FUNCIONAR.
+// 5 · the README snippet has to WORK.
 //
-// Um MCP só serve se estiver configurado, e configuração errada falha calada: o
-// Claude Code simplesmente não lista a ferramenta, e ninguém liga o silêncio ao
-// caminho trocado. Então o snippet não é copiado para cá — é LIDO do README e
-// EXECUTADO. Se alguém mover mcp/src/index.mjs e esquecer o README, esta prova
-// reprova. É o mesmo princípio do resto do módulo: derive, não duplique.
-titulo('5 · o snippet de .mcp.json do README sobe o servidor')
+// An MCP only serves if it is configured, and a wrong configuration fails silently:
+// Claude Code simply does not list the tool, and nobody connects the silence to the
+// wrong path. So the snippet is not copied over here — it is READ from the README and
+// EXECUTED. If somebody moves mcp/src/index.mjs and forgets the README, this proof
+// fails. It is the same principle as the rest of the module: derive, do not duplicate.
+titulo('5 · the .mcp.json snippet from the README starts the server')
 const fence = /```json\n([\s\S]*?)```/.exec(readFileSync(LEIAME, 'utf8'))
 if (!fence) {
-  falhou('não achei bloco ```json no mcp/README.md')
+  falhou('found no ```json block in mcp/README.md')
 } else {
   const config = JSON.parse(fence[1])
   const entrada = config.mcpServers?.rebar
-  console.log(`  cwd: raiz do repositório`)
+  console.log(`  cwd: repository root`)
   console.log(`  ${JSON.stringify(entrada)}`)
   if (entrada?.command !== 'node') {
-    falhou(`o snippet chama "${entrada?.command}"; tem de ser "node" (npx no Windows dá ENOENT)`)
+    falhou(
+      `the snippet calls "${entrada?.command}"; it has to be "node" (npx on Windows gives ENOENT)`,
+    )
   }
   const doSnippet = new Cliente(null, { comando: entrada, cwd: RAIZ, curto: CURTO })
   try {
@@ -300,33 +312,35 @@ if (!fence) {
     const t = await doSnippet.pedir('tools/list', {})
     const n = t.result?.tools?.length ?? 0
     if (r.result?.serverInfo?.name === 'rebar' && n === ferramentas.length) {
-      ok(`o snippet sobe o servidor e lista as mesmas ${n} ferramentas`)
+      ok(`the snippet starts the server and lists the same ${n} tools`)
     } else {
-      falhou(`o snippet subiu algo diferente: ${JSON.stringify(r.result?.serverInfo)}, ${n} tools`)
+      falhou(
+        `the snippet started something else: ${JSON.stringify(r.result?.serverInfo)}, ${n} tools`,
+      )
     }
   } catch (e) {
-    falhou(`o snippet não subiu o servidor: ${e.message}\n${doSnippet.stderr.trim()}`)
+    falhou(`the snippet did not start the server: ${e.message}\n${doSnippet.stderr.trim()}`)
   }
   doSnippet.fechar()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6 · fonte mudou, artefato não: TODA resposta tem de vir com o aviso.
+// 6 · the source changed, the artifact did not: EVERY answer has to carry the warning.
 //
-// É o defeito do Herz reproduzido de propósito — a regra muda e o MCP continua
-// servindo a versão velha. A autoridade sobre isso é o portão (`gerar.mjs
-// --verificar`); o servidor só compara o sha256 que o artefato gravou em `fontes[]`
-// com o hash do arquivo hoje. Sinal fraco, mas nunca falso negativo: se a regra
-// mudou, o hash mudou.
+// It is the Herz defect reproduced on purpose — the rule changes and the MCP goes on
+// serving the old version. The authority on this is the gate (`gerar.mjs
+// --verificar`); the server only compares the sha256 the artifact recorded in
+// `fontes[]` with the file's hash today. A weak signal, but never a false negative:
+// if the rule changed, the hash changed.
 //
-// O aviso vai grudado na RESPOSTA, não numa tool de status, e é isso que este passo
-// prova: uma tool de status só fala quando alguém pergunta, e o modelo não pergunta.
-titulo('6 · fonte adulterada: o aviso de frescor cola em toda resposta')
+// The warning goes glued to the ANSWER, not to a status tool, and that is what this
+// step proves: a status tool only speaks when somebody asks, and the model does not ask.
+titulo('6 · tampered source: the freshness warning sticks to every answer')
 let velho
 try {
   velho = montarCopia('rebar-mcp-velho-', { fonteAdulterada: true })
 } catch (e) {
-  falhou(`não deu para montar a cópia de teste: ${e.message}`)
+  falhou(`could not build the test copy: ${e.message}`)
 }
 
 if (velho) {
@@ -344,10 +358,12 @@ if (velho) {
     })
     const t = textoDa(r)
     console.log(`\n${trecho(t, 700)}\n`)
-    if (t.startsWith('AVISO DE FRESCOR') && t.includes('tooling/rebar-check/index.mjs')) {
-      ok('o aviso veio na frente da resposta, nomeando o arquivo que mudou')
+    // "FRESHNESS WARNING" is the prefix artefato.mjs prints. Reword it there and
+    // reword it here, or this step goes green over a silent server.
+    if (t.startsWith('FRESHNESS WARNING') && t.includes('tooling/rebar-check/index.mjs')) {
+      ok('the warning came in front of the answer, naming the file that changed')
     } else {
-      falhou('a resposta veio sem aviso de frescor')
+      falhou('the answer came with no freshness warning')
     }
   } catch (e) {
     falhou(`${e.message}\n${c.stderr.trim()}`)
@@ -356,14 +372,17 @@ if (velho) {
   desmontarCopia(velho.base)
 }
 
-titulo('7 · fonte AUSENTE: "em dia" não pode sair de árvore incompleta')
+titulo('7 · MISSING source: "em dia" cannot come out of an incomplete tree')
 {
-  // P2 #10. O estado era binário na prática: mudou (suspeito) ou não mudou (em
-  // dia), e "não achei o arquivo" caía no segundo. Enquanto as fontes eram só
-  // as quatro de formato isso ainda era defensável; depois que as decisões
-  // viraram fonte, deixou de ser — apagar o `new/index.mjs` faria o servidor
-  // colar uma decisão derivada de um arquivo que não está mais lá e afirmar que
-  // está em dia.
+  // `em dia` in the title above stays in Portuguese: it is one of the four
+  // freshness state values artefato.mjs returns, not prose.
+  //
+  // P2 #10. The state was binary in practice: changed (`suspeito`) or unchanged
+  // (`em dia`), and "I did not find the file" fell into the second. While the
+  // sources were only the four format ones this was still defensible; once the
+  // decisions became a source, it stopped being so — deleting `new/index.mjs` would
+  // make the server paste in a decision derived from a file that is no longer there
+  // and claim it is up to date.
   const semDecisao = montarCopia('rebar-mcp-parcial-', { semFonte: 'new/index.mjs' })
   const c = new Cliente(semDecisao.servidor, { curto: CURTO })
   try {
@@ -373,17 +392,18 @@ titulo('7 · fonte AUSENTE: "em dia" não pode sair de árvore incompleta')
       arguments: { busca: 'readme' },
     })
     const texto = textoDa(r)
-    if (!/AVISO DE FRESCOR/.test(texto)) {
-      falhou('árvore sem uma das fontes respondeu sem aviso nenhum')
+    // Both patterns are the wording artefato.mjs prints. Reword there, reword here.
+    if (!/FRESHNESS WARNING/.test(texto)) {
+      falhou('a tree missing one of the sources answered with no warning at all')
     } else if (!/new\/index\.mjs/.test(texto)) {
-      falhou(`o aviso não nomeia a fonte que falta:\n${trecho(texto, 300)}`)
+      falhou(`the warning does not name the missing source:\n${trecho(texto, 300)}`)
     } else {
-      ok('o aviso veio, nomeando a fonte ausente')
+      ok('the warning came, naming the missing source')
     }
-    // E o que É conferível continua sendo conferido: nada de divergência
-    // inventada só porque um arquivo faltou.
-    if (/mudou desde que o artefato foi gerado/.test(texto)) {
-      falhou('ausência foi relatada como divergência — são coisas diferentes')
+    // And what IS checkable goes on being checked: no divergence invented just
+    // because a file was missing.
+    if (/changed since the artifact was generated/.test(texto)) {
+      falhou('an absence was reported as a divergence — they are different things')
     }
   } finally {
     await c.fechar()
@@ -391,5 +411,5 @@ titulo('7 · fonte AUSENTE: "em dia" não pode sair de árvore incompleta')
   }
 }
 
-titulo(falhas ? `${falhas} FALHA(S)` : 'tudo passou')
+titulo(falhas ? `${falhas} FAILURE(S)` : 'everything passed')
 process.exit(falhas ? 1 : 0)

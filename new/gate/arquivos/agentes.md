@@ -1,59 +1,59 @@
 <!-- rebar:agentes -->
 
-# {{nome}} — leia antes de escrever qualquer código
+# {{nome}} — read before writing any code
 
-## 1. Ligue o MCP antes de tudo
+## 1. Turn the MCP on first
 
-**Antes da primeira linha de código, chame a ferramenta `rebar_regras`.** Ela
-devolve o que reprova neste projeto HOJE, derivado da fonte — não há cópia das
-regras neste repositório, de propósito: cópia envelhece calada. As outras
-respondem o resto: `rebar_porque`, `rebar_decidir`, `rebar_portao` e
-`rebar_verificar`.
+**Before the first line of code, call the `rebar_regras` tool.** It returns what
+fails in this project TODAY, derived from the source — there is no copy of the
+rules in this repository, on purpose: a copy ages in silence. The others answer
+the rest: `rebar_porque`, `rebar_decidir`, `rebar_portao` and `rebar_verificar`.
 
-**Se `rebar_regras` não existir na sua sessão, PARE e diga ao usuário, literalmente:**
+**If `rebar_regras` does not exist in your session, STOP and tell the user, literally:**
 
-> Este projeto declara um servidor MCP em `.mcp.json` e ele não está ativo na
-> minha sessão. Sem ele eu escrevo sem as regras do projeto, e você só descobre
-> no portão. Ative o servidor `rebar` no seu cliente de IA — no Claude Code:
-> reinicie na raiz do projeto, aprove o `.mcp.json` e confira com `/mcp` — e me
-> chame de novo. Enquanto isso eu sigo pela régua da linha de comando, que dá o
-> mesmo veredito: `npx --yes github:Navesz/rebar .`
+> This project declares an MCP server in `.mcp.json` and it is not active in my
+> session. Without it I write without the project's rules, and you only find out
+> at the gate. Turn the `rebar` server on in your AI client — in Claude Code:
+> restart at the project root, approve the `.mcp.json` and check with `/mcp` —
+> and call me again. Meanwhile I go by the command-line ruler, which gives the
+> same verdict: `npx --yes github:Navesz/rebar .`
 
-O `.mcp.json` já está escrito e aponta para `{{lancador}}`. Não é você que o
-cria: é o cliente que precisa carregá-lo, e isso é decisão do usuário, não sua.
+The `.mcp.json` is already written and points to `{{lancador}}`. You are not the
+one who creates it: the client has to load it, and that is the user's decision,
+not yours.
 
-## 2. O que quebra se você ignorar
+## 2. What breaks if you ignore this
 
-| se você fizer isto | o que acontece de verdade |
+| if you do this | what actually happens |
 | --- | --- |
-| escrever telefone, endereço, preço ou URL de produção dentro de `.tsx` | o build passa, o site publica com o dado errado e ninguém é avisado — falha **em silêncio**, já no ar |
-| inventar um valor plausível para calar um `TROQUE-…` de `conteudo/site.json` | o build para ali de propósito; valor inventado sobe, parece certo e não entrega pedido nenhum. Pergunte o valor real ao usuário |
-| deixar chave, token ou `.env` entrar no commit | `.githooks/pre-commit` barra. Se escapar, não se conserta com commit novo: tem de rotacionar a credencial |
-| assinar `Co-authored-by:` com o seu nome | `.githooks/commit-msg` barra antes de o commit existir, e a régua barra depois, no histórico. A allowlist é de **humanos**, em `.rebar-coauthors`, e quem a edita é o dono |
-| instalar dependência para o que o Next ou o Node já fazem | dependência nova precisa de motivo escrito. Se um built-in resolve, é ele |
+| write a phone number, address, price or production URL inside a `.tsx` | the build passes, the site publishes with the wrong data and nobody is warned — it fails **in silence**, already live |
+| invent a plausible value to silence a `TROQUE-…` in `conteudo/site.json` | the build stops there on purpose; an invented value ships, looks right and delivers no order at all. Ask the user for the real value |
+| let a key, token or `.env` into the commit | `.githooks/pre-commit` blocks it. If it escapes, a new commit does not fix it: you have to rotate the credential |
+| sign `Co-authored-by:` with your own name | `.githooks/commit-msg` blocks it before the commit exists, and the ruler blocks it afterwards, in the history. The allowlist is of **humans**, in `.rebar-coauthors`, and the owner is the one who edits it |
+| install a dependency for what Next or Node already do | a new dependency needs a written reason. If a built-in solves it, it is the built-in |
 
-## 3. A base, para você não inventar
+## 3. The base, so you don't invent one
 
-- **Conteúdo não mora no código.** Texto, telefone, CNPJ, endereço, preço e URL
-  vão em `conteudo/*.json`, validados no build — nunca em `.tsx`, nunca em
-  variável de ambiente.
-- **A pilha já está decidida:** Next 16 App Router com `output: "export"`,
-  React 19, Tailwind 4, shadcn no estilo `base-nova` sobre `@base-ui/react`.
-  Componente novo vem do `shadcn add`, não escrito à mão.
-- **Não instale** Radix, outra biblioteca de UI, de estado, de data ou de
-  formulário, nem SDK de MCP: o servidor é o do rebar, por `.mcp.json`.
-- **O idioma é português do Brasil**, em código, comentário, nome de arquivo e
-  commit. O comentário explica o PORQUÊ, com o número medido quando houver.
-- O `README.md` tem a pilha e os comandos. Nenhum markdown daqui guarda regra:
-  para saber o que reprova, pergunte ao MCP.
+- **Content does not live in code.** Text, phone, CNPJ, address, price and URL
+  go in `conteudo/*.json`, validated at build time — never in `.tsx`, never in
+  an environment variable.
+- **The stack is already decided:** Next 16 App Router with `output: "export"`,
+  React 19, Tailwind 4, shadcn in the `base-nova` style over `@base-ui/react`.
+  A new component comes from `shadcn add`, not written by hand.
+- **Do not install** Radix, another UI, state, date or form library, nor an MCP
+  SDK: the server is rebar's, via `.mcp.json`.
+- **The language is Brazilian Portuguese (português do Brasil)**, in code, comment, file
+  name and commit. The comment explains the WHY, with the measured number when there is one. <!-- keep "português do Brasil" verbatim: portao.test.mjs matches it -->
+- `README.md` has the stack and the commands. No markdown here holds a rule:
+  to know what fails, ask the MCP.
 
-## 4. Antes de dizer que terminou
+## 4. Before you say you are done
 
 ```sh
-npm run verificar   # lint, typecheck, teste e build — o mesmo que o CI roda
+npm run verificar   # lint, typecheck, test and build — the same thing CI runs
 ```
 
-O MCP é atalho para não errar; **a porta é este comando.** Verde comprado
-desligando regra é dívida, não conclusão.
+The MCP is a shortcut to not get it wrong; **the door is this command.** Green
+bought by turning a rule off is debt, not completion.
 
 {{bloco-terceiro}}

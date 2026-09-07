@@ -1,6 +1,6 @@
 {
   "rule": "fake-ui",
-  "why": "A regra acusa a pasta `components/ui/` criada à mão para parecer shadcn. Repositório que não tem essa pasta não imitou convenção nenhuma, e o ramo N/A é o que impede a regra de virar \"todo projeto tem de usar shadcn\" — que é o oposto do que ela mede. O lado `pass` tem um `src/botao.tsx`, componente de verdade fora da convenção, para provar que o N/A é sobre a PASTA e não sobre a ausência de componente. O lado `fail` tem a pasta sem `components.json` e continua reprovando.",
+  "why": "The rule accuses the `components/ui/` folder made by hand to look like shadcn. A repository without that folder imitated no convention at all, and the N/A branch is what keeps the rule from becoming \"every project has to use shadcn\" — which is the opposite of what it measures. The `pass` side has a `src/botao.tsx`, a real component outside the convention, to prove the N/A is about the FOLDER and not about the absence of a component. The `fail` side has the folder with no `components.json` and keeps failing.",
   "pass": {
     "estado": "na"
   }

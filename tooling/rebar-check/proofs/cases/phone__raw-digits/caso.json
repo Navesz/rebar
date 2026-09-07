@@ -1,4 +1,4 @@
 {
   "rule": "phone",
-  "why": "O padrão antigo aceitava ONZE DÍGITOS SEGUIDOS sem pontuação nenhuma, desde que houvesse um `9` na terceira casa — e um código de barras EAN-13 de produto casa com isso. Aceitável numa heurística que só informa; inaceitável numa regra que reprova merge, e a regra acabou de virar determinística. Os dois lados têm o MESMO EAN-13: o lado `fail` acrescenta o mesmo número escrito COM marca de telefone brasileiro, o código de país 55. Quem afrouxar o padrão de volta faz o lado `pass` ficar vermelho acusando um código de barras de ser telefone."
+  "why": "The old pattern accepted ELEVEN DIGITS IN A ROW with no punctuation at all, as long as there was a `9` in the third position — and a product EAN-13 barcode matches that. Acceptable in a heuristic that only informs; unacceptable in a rule that fails a merge, and the rule has just become deterministic. Both sides have the SAME EAN-13: the `fail` side adds the same number written WITH a Brazilian phone marker, country code 55. Whoever loosens the pattern back makes the `pass` side go red, accusing a barcode of being a phone number."
 }

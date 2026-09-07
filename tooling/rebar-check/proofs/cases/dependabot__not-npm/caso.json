@@ -1,6 +1,6 @@
 {
   "rule": "dependabot",
-  "why": "O ramo N/A `não é projeto npm` sai do DENOMINADOR, e ramo que sai do denominador é o lugar por onde a nota sobe sem ninguém consertar nada — foi assim que o package.json quebrado transformava 9 de 10 em 6 de 6. Enquanto o runner lia exit code, este ramo era intravável: `na` e `passou` saem 0 os dois. O lado `pass` é uma árvore sem package.json nenhum e tem de sair N/A, não `passou`: dependabot e renovate são configuração de projeto npm, e cobrar isso de um repositório que não é npm seria inventar dívida. Com a mutação `na(...)` → `null`, este lado vira `passou` e o caso acusa.",
+  "why": "The N/A branch `not an npm project` leaves the DENOMINATOR, and a branch that leaves the denominator is the place where the score climbs with nobody fixing anything — that is how the broken package.json turned 9 of 10 into 6 of 6. While the runner read the exit code, this branch could not be locked: `na` and `passou` both exit 0. The `pass` side is a tree with no package.json at all and has to come out N/A, not `passou`: dependabot and renovate are npm-project configuration, and charging that to a repository that is not npm would be inventing debt. With the mutation `na(...)` → `null`, this side becomes `passou` and the case accuses.",
   "pass": {
     "estado": "na"
   }

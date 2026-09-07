@@ -10,15 +10,16 @@ const fontSans = Geist({ subsets: ['latin'], variable: '--font-sans' })
 const fontMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 /**
- * NENHUM LITERAL DE CONTEÚDO AQUI. Tudo vem de `conteudo/site.json`, validado
- * em `conteudo/esquema.ts`. Trocar o nome do negócio é editar um JSON; não é
- * caçar string em `.tsx`.
+ * NO CONTENT LITERAL HERE. Everything comes from `conteudo/site.json`,
+ * validated in `conteudo/esquema.ts`. Changing the business name is editing a
+ * JSON; it is not hunting strings in `.tsx`.
  *
- * `metadataBase` é a peça que faz o resto funcionar: é ela que transforma
- * `/og.png` na URL ABSOLUTA que sai no HTML. WhatsApp, LinkedIn, Slack e
- * Discord não resolvem caminho relativo e não executam JavaScript — sem a base,
- * a tag sai relativa e o preview do link vem vazio. Foi essa propriedade que o
- * spike de 31/08 mediu no `out/index.html`.
+ * `metadataBase` is the piece that makes the rest work: it is what turns
+ * `/og.png` into the ABSOLUTE URL that goes out in the HTML. WhatsApp,
+ * LinkedIn, Slack and Discord do not resolve a relative path and do not execute
+ * JavaScript — without the base, the tag comes out relative and the link
+ * preview comes up empty. That is the property the 31/08 spike measured in
+ * `out/index.html`.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(site.meta.urlBase),
@@ -28,8 +29,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
-    // O og quer `pt_BR`; o atributo `lang` do HTML quer `pt-BR`. Mesmo dado,
-    // dois formatos — derivado, para o JSON não ter de guardar os dois.
+    // og wants `pt_BR`; the HTML `lang` attribute wants `pt-BR`. Same datum,
+    // two formats — derived, so the JSON does not have to keep both.
     locale: site.meta.idioma.replace('-', '_'),
     url: '/',
     siteName: site.identidade.nome,

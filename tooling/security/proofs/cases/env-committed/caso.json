@@ -1,4 +1,4 @@
 {
   "rule": "env-committed",
-  "why": "Segredo versionado e a classe mais comum do inventario: 7 dos 16 videos. Esta e a fatia mais barata dela, um `git ls-files`. O lado fail tem um `.env` rastreado; o lado pass tem `.env.example` E `.env.sample` rastreados, que sao o CONSERTO da falha e nao a falha -- documentar as variaveis sem os valores e exatamente o que se pede. Quem tirar a exclusao de exemplo faz o lado pass ficar vermelho; quem trocar a checagem por \"existe .env no disco\" faz o lado fail ficar verde, porque `.env` ignorado pelo git nao e achado nenhum."
+  "why": "A versioned secret is the most common class in the inventory: 7 of the 16 videos. This is the cheapest slice of it, one `git ls-files`. The fail side has a tracked `.env`; the pass side has `.env.example` AND `.env.sample` tracked, which are the FIX for the failure and not the failure -- documenting the variables without the values is exactly what is asked for. Whoever removes the example exclusion makes the pass side go red; whoever swaps the check for \"a .env exists on disk\" makes the fail side go green, because a `.env` ignored by git is no finding at all."
 }

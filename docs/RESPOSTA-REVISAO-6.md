@@ -1,160 +1,166 @@
-# Sexta resposta — a contradição é minha, e é a mais instrutiva
+# Sixth response — the contradiction is mine, and it is the most instructive
 
-Você achou um bug lógico dentro da minha própria resposta. Aceito os três pontos, e o primeiro merece um diagnóstico além da correção.
+You found a logic bug inside my own response. I accept the three points, and the first deserves a diagnosis beyond the fix.
 
 ---
 
-## 1. A contradição — e como ela nasceu
+## 1. The contradiction — and how it was born
 
-Você está certo, e as duas coisas são mutuamente exclusivas:
+You are right, and the two things are mutually exclusive:
+
+<!-- `tabela_protegida` is a SQL identifier in the audited codebase, not prose. -->
 
 ```sql
-ALTER ROLE app_login SET role = app;   -- §3, "reforço"
+ALTER ROLE app_login SET role = app;   -- §3, "reinforcement"
 ```
 ```sql
-RESET ROLE;  SELECT * FROM tabela_protegida;  -- §4, esperado: PERMISSION DENIED
+RESET ROLE;  SELECT * FROM tabela_protegida;  -- §4, expected: PERMISSION DENIED
 ```
 
-Se existe o `ALTER ROLE`, o `RESET ROLE` volta para a *connection-time setting*, que é `app` — e `app` **tem** o DML. O `SELECT` teria sucesso. O teste que eu escrevi reprovaria a configuração que eu tinha acabado de propor.
+If the `ALTER ROLE` exists, `RESET ROLE` falls back to the *connection-time setting*, which is `app` — and `app` **has** the DML. The `SELECT` would succeed. The test I wrote would fail the configuration I had just proposed.
 
-**Resolução adotada: o `ALTER ROLE` sai.**
+**Adopted resolution: the `ALTER ROLE` goes out.**
 
 ```
-estado normal      session_user = app_login    current_user = app
+normal state       session_user = app_login    current_user = app
 RESET ROLE     →   current_user = app_login    →  fail closed
 ```
 
-Sua formulação é a certa: *qualquer tentativa de abandonar a role operacional deixa a conexão inútil, não mais privilegiada.* E vale registrar o contraste que você levantou — na arquitetura alternativa, com o `ALTER ROLE`, o teste teria de ser `SET ROLE NONE` e não `RESET ROLE`. Não misturar as duas é a decisão certa; a Stack vem ganhando justamente por reduzir dependência acidental.
+<!-- Quoted verbatim from the external reviewer: his Portuguese stays, the bracket is the translation. -->
 
-### O diagnóstico, que vale mais que a correção
+Your formulation is the right one: *qualquer tentativa de abandonar a role operacional deixa a conexão inútil, não mais privilegiada.* [any attempt to abandon the operational role leaves the connection useless, not more privileged]. And it is worth recording the contrast you raised — in the alternative architecture, with the `ALTER ROLE`, the test would have to be `SET ROLE NONE` and not `RESET ROLE`. Not mixing the two is the right decision; the Stack has been winning precisely by reducing accidental dependency.
 
-Esse `ALTER ROLE` eu acrescentei como "cinto além do suspensório", num parágrafo, **sem conferir contra o teste que eu tinha escrito duas seções antes, no mesmo documento, na mesma sessão.**
+### The diagnosis, which is worth more than the fix
 
-Não é deriva entre documentos ao longo de meses. É incoerência interna de um texto único escrito de uma vez. E é o argumento mais direto que existe a favor da tese do projeto: **não dá para confiar em revisão humana para manter duas seções de um documento consistentes entre si.**
+I added that `ALTER ROLE` as a "belt beyond suspenders", in one paragraph, **without checking it against the test I had written two sections earlier, in the same document, in the same session.**
 
-Consequência concreta que vai para o padrão de ADR: **configuração e teste que a prova moram no mesmo bloco.** Separados por seções, nada garante que continuem falando da mesma coisa — como acabou de não garantir.
+This is not drift between documents over months. It is internal incoherence in a single text written in one sitting. And it is the most direct argument there is in favor of the project's thesis: **you cannot trust human review to keep two sections of one document consistent with each other.**
+
+Concrete consequence, and it goes into the ADR standard: **the configuration and the test that proves it live in the same block.** Split across sections, nothing guarantees they keep talking about the same thing — as it just failed to guarantee.
 
 ---
 
-## 2. "Zero privilégio" está errado — confirmado na doc
+## 2. "Zero privilege" is wrong — confirmed in the doc
 
-Fui a `ddl-priv`. A documentação é explícita:
+I went to `ddl-priv`. The documentation is explicit:
 
 > *"PostgreSQL grants privileges on some types of objects to `PUBLIC` by default … `CONNECT` and `TEMPORARY` privileges for databases; `EXECUTE` privilege for **functions and procedures**; and `USAGE` privilege for languages and data types."*
 
-Então `app_login` nunca teve zero privilégio. A redação corrigida é a sua: **zero privilégio de aplicação, concedido diretamente ou herdado** — e o `PUBLIC` precisa ser auditado, não presumido.
+So `app_login` never had zero privilege. The corrected wording is yours: **zero application privilege, granted directly or inherited** — and `PUBLIC` needs to be audited, not presumed.
 
-E seu ponto sobre `SECURITY DEFINER` é o caminho de escalada real: função criada pelo owner, com `EXECUTE` para `PUBLIC` por padrão, executa **com os privilégios do dono**. Um `app_login` "sem DML" a chama.
+And your point about `SECURITY DEFINER` is the real escalation path: a function created by the owner, with `EXECUTE` to `PUBLIC` by default, runs **with the owner's privileges**. An `app_login` "with no DML" calls it.
 
 ```sql
 ALTER DEFAULT PRIVILEGES FOR ROLE db_owner
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
-REVOKE TEMP ON DATABASE prumo FROM PUBLIC;   -- se não usar tabela temporária
+REVOKE TEMP ON DATABASE prumo FROM PUBLIC;   -- if no temporary table is used
 ```
 
-### Duas armadilhas práticas que eu acrescentaria
+### Two practical traps I would add
 
-**`ALTER DEFAULT PRIVILEGES` só afeta o futuro.** Ele muda o que será criado dali em diante; **funções que já existem precisam de `REVOKE` explícito**. A própria doc reforça o timing: *"For maximum security, issue the `REVOKE` in the same transaction that creates the object; then there is no window in which another user can use the object."* Então o revoke entra na mesma migration que cria a função, e há uma varredura única para o que já existe.
+**`ALTER DEFAULT PRIVILEGES` only affects the future.** It changes what will be created from then on; **functions that already exist need an explicit `REVOKE`**. The doc itself reinforces the timing: *"For maximum security, issue the `REVOKE` in the same transaction that creates the object; then there is no window in which another user can use the object."* So the revoke goes into the same migration that creates the function, and there is a one-off sweep for what already exists.
 
-**As extensões vão quebrar no dia 1.** `pgcrypto` e `citext` criam funções, e elas nascem com `EXECUTE` para `PUBLIC`. Revogar em bloco tira `gen_random_uuid()` da aplicação. Ou seja: o revoke vem acompanhado de `GRANT EXECUTE` explícito para `app` na lista curta do que ela realmente usa. Isso é bom — transforma "quais funções a aplicação chama" de suposição em lista versionada — mas se não for previsto, o primeiro deploy quebra e alguém reverte o endurecimento inteiro por pressa.
+**The extensions will break on day 1.** `pgcrypto` and `citext` create functions, and they are born with `EXECUTE` to `PUBLIC`. Revoking in bulk takes `gen_random_uuid()` away from the application. That is: the revoke comes accompanied by an explicit `GRANT EXECUTE` to `app` on the short list of what it actually uses. This is good — it turns "which functions the application calls" from an assumption into a versioned list — but if it is not anticipated, the first deploy breaks and someone reverts the whole hardening out of haste.
 
 ---
 
-## 3. Privilégio efetivo, não atributo — adotado
+## 3. Effective privilege, not attribute — adopted
 
-Sua distinção é a certa: minha lista provava **configuração**, não **capacidade**.
+Your distinction is the right one: my list proved **configuration**, not **capability**.
+
+<!-- `public.pedido` and `f_sensivel()` are SQL identifiers in the audited codebase, not prose. -->
 
 ```sql
--- catálogo: capacidade efetiva
+-- catalog: effective capability
 pg_has_role('app_login', 'db_owner', 'SET')     → false
-pg_has_role('app_login', 'app',      'USAGE')   → false   -- por INHERIT FALSE
+pg_has_role('app_login', 'app',      'USAGE')   → false   -- due to INHERIT FALSE
 pg_has_role('app_login', 'app',      'SET')     → true
 has_table_privilege('app_login', 'public.pedido', 'SELECT') → false
 has_function_privilege('app_login', 'f_sensivel()', 'EXECUTE') → false
 
--- comportamento: a fuga não funciona
-RESET ROLE        → SELECT protegido → PERMISSION DENIED
+-- behavior: the escape does not work
+RESET ROLE        → protected SELECT → PERMISSION DENIED
 SET ROLE db_owner                    → PERMISSION DENIED
 ```
 
-**Asserção de catálogo pega configuração; execução hostil pega realidade.** Os dois, não um.
+**A catalog assertion catches configuration; hostile execution catches reality.** Both, not one.
 
 ---
 
-## 4. Duplicate-in-flight precisa de limite — buraco real
+## 4. Duplicate-in-flight needs a limit — real hole
 
-Você está certo, e o cenário é concreto: 500 requests com o mesmo `commandId`, o primeiro travando 25 segundos, todos segurando conexão HTTP e possivelmente conexão do pool. **Idempotência vira vetor de esgotamento de recurso.**
+You are right, and the scenario is concrete: 500 requests with the same `commandId`, the first one stuck for 25 seconds, all of them holding an HTTP connection and possibly a pool connection. **Idempotency becomes a resource-exhaustion vector.**
 
-E o agravante que você nomeou é o que mais importa aqui: numa stack para agentes, um laço errado gera duplicata em volume, não uma ou duas.
+And the aggravating factor you named is what matters most here: in a stack for agents, one wrong loop generates duplicates in volume, not one or two.
 
 ```
 duplicate-in-flight
-  → espera limitada
-  → A conclui dentro da janela   → replay
-  → estoura a janela             → 409/202 explícito, cliente tenta depois
+  → bounded wait
+  → A finishes inside the window   → replay
+  → blows the window               → explicit 409/202, client tries later
 ```
 
-O caminho normal continua com a API simples que motivou a escolha; o caso patológico deixa de derrubar o processo.
+The normal path keeps the simple API that motivated the choice; the pathological case stops taking the process down.
 
 ---
 
-## 5. Cross-version — você está certo, eu identifiquei e não decidi
+## 5. Cross-version — you are right, I identified it and did not decide
 
-*"Versão diferente é tratada explicitamente"* não é política, é adiamento com aparência de decisão. Fechando com a sua proposta:
+*"A different version is handled explicitly"* is not a policy, it is postponement with the appearance of a decision. Closing it with your proposal:
 
-**A identidade da idempotência é `(operation, operationVersion, commandId)`.** Não é o `commandId` sozinho com a versão anexada como metadado — a versão faz parte do **escopo**.
+**The identity of idempotency is `(operation, operationVersion, commandId)`.** It is not the `commandId` alone with the version attached as metadata — the version is part of the **scope**.
 
 ```
-createOrder · v1 · uuid     ← escopo próprio
-createOrder · v2 · uuid     ← outro escopo
+createOrder · v1 · uuid     ← its own scope
+createOrder · v2 · uuid     ← another scope
 ```
 
-Consequências, e são o que torna a política utilizável:
+Consequences, and they are what makes the policy usable:
 
-- Hash só é comparado **dentro do mesmo escopo**. Nunca há comparação entre normalizações de versões diferentes.
-- Um retry que chega durante `v2` com key emitida em `v1` **não colide** — cai em escopo distinto e executa como comando novo.
-- A versão antiga continua processável durante todo o TTL de idempotência.
+- A hash is only compared **inside the same scope**. There is never a comparison between normalizations of different versions.
+- A retry arriving during `v2` with a key issued in `v1` **does not collide** — it falls into a distinct scope and executes as a new command.
+- The old version stays processable throughout the entire idempotency TTL.
 
-Isso é mais mecânico para o agente do que qualquer regra sobre "tratar explicitamente", que é o teste real de uma política boa nesta stack.
+That is more mechanical for the agent than any rule about "handling it explicitly", which is the real test of a good policy in this stack.
 
 ---
 
-## 6. `Assumptions` como quarto campo — adotado, com uma exigência
+## 6. `Assumptions` as a fourth field — adopted, with one requirement
 
-Seu argumento é o mais forte da rodada: **várias falhas destas seis rodadas não estavam no claim, estavam numa premissa escondida.** O `RESET ROLE` é o caso puro — a afirmação "SET ROLE restringe o current_user" era verdadeira; a premissa "e a identidade de sessão não é mais privilegiada" nunca foi escrita nem checada.
+Your argument is the strongest of the round: **several failures across these six rounds were not in the claim, they were in a hidden premise.** `RESET ROLE` is the pure case — the statement "SET ROLE restricts current_user" was true; the premise "and the session identity is not more privileged" was never written nor checked.
 
 ```
-Claim:        RESET ROLE não eleva privilégio
+Claim:        RESET ROLE does not elevate privilege
 Owner:        PostgreSQL
 Evidence:     sql-set-role · ddl-priv
 Assumptions:  session_user = app_login
-              app_login não tem SET até db_owner
-              app_login não herda app  (INHERIT FALSE)
-              PUBLIC não oferece caminho privilegiado
+              app_login has no SET to db_owner
+              app_login does not inherit app  (INHERIT FALSE)
+              PUBLIC offers no privileged path
 ```
 
-A exigência que eu acrescentaria: **cada linha de `Assumptions` precisa ser individualmente testável, e vira uma asserção no fitness test.** As quatro acima já viram, respectivamente: `session_user`, `pg_has_role(...,'SET')`, `pg_has_role(...,'USAGE')` e a varredura de `PUBLIC`.
+The requirement I would add: **each `Assumptions` line has to be individually testable, and becomes an assertion in the fitness test.** The four above already do, respectively: `session_user`, `pg_has_role(...,'SET')`, `pg_has_role(...,'USAGE')` and the `PUBLIC` sweep.
 
-Sem isso, `Assumptions` vira mais prosa — e prosa é exatamente o que a Stack está tentando tirar do caminho crítico. Com isso, é o único campo do ADR que se prova sozinho.
+Without that, `Assumptions` becomes more prose — and prose is exactly what the Stack is trying to get off the critical path. With it, it is the only ADR field that proves itself.
 
 ---
 
-## Placar
+## Scoreboard
 
-| Item | Veredito |
+| Item | Verdict |
 |---|---|
-| Contradição `ALTER ROLE` × teste hostil | ✅ **bug meu** — o `ALTER ROLE` sai, fail closed em `app_login` |
-| Não misturar as duas arquiteturas | ✅ adotado |
-| "Zero privilégio" está errado | ✅ confirmado — PUBLIC dá CONNECT, TEMPORARY, EXECUTE, USAGE |
-| `SECURITY DEFINER` como escalada | ✅ adotado, com revoke + grant explícito |
-| Privilégio efetivo via `pg_has_role` | ✅ adotado — catálogo **e** execução hostil |
-| Espera limitada no duplicate-in-flight | ✅ buraco real, fechado |
-| Escopo `(operation, version, commandId)` | ✅ adotado |
-| `Assumptions` no ADR | ✅ adotado, com a exigência de ser testável |
+| `ALTER ROLE` × hostile test contradiction | ✅ **my bug** — the `ALTER ROLE` goes out, fail closed on `app_login` |
+| Do not mix the two architectures | ✅ adopted |
+| "Zero privilege" is wrong | ✅ confirmed — PUBLIC gives CONNECT, TEMPORARY, EXECUTE, USAGE |
+| `SECURITY DEFINER` as escalation | ✅ adopted, with explicit revoke + grant |
+| Effective privilege via `pg_has_role` | ✅ adopted — catalog **and** hostile execution |
+| Bounded wait on duplicate-in-flight | ✅ real hole, closed |
+| Scope `(operation, version, commandId)` | ✅ adopted |
+| `Assumptions` in the ADR | ✅ adopted, with the requirement that it be testable |
 
-O princípio novo entra como está:
+The new principle enters as it stands:
 
-> **A role de fallback deve ser menos privilegiada que a role operacional, e os privilégios efetivos — inclusive os herdados de `PUBLIC` — precisam ser provados, não presumidos.**
+> **The fallback role must be less privileged than the operational role, and the effective privileges — including those inherited from `PUBLIC` — need to be proved, not presumed.**
 
-Seis rodadas. Três erros factuais meus, um bug lógico meu, e uma vulnerabilidade real no código. O padrão dos cinco é o mesmo: **a falha nunca esteve na afirmação, esteve na premissa que ninguém escreveu.** É por isso que o quarto campo do ADR é o que mais vai render.
+Six rounds. Three factual mistakes of mine, one logic bug of mine, and one real vulnerability in the code. The pattern of the five is the same: **the failure was never in the statement, it was in the premise nobody wrote.** That is why the fourth ADR field is the one that will pay off most.

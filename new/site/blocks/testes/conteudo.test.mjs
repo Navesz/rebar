@@ -1,23 +1,31 @@
-// O CONTRATO DE `conteudo/site.json` TESTANDO A SI MESMO.
+// THE `conteudo/site.json` CONTRACT TESTING ITSELF.
 //
-// POR QUE ESTE ARQUIVO EXISTE, e por que ele não é teste de fachada. O esquema
-// já reprova o `next build`, então seria fácil argumentar que ele se prova
-// sozinho — e seria errado, porque o build só exercita UM site: o que está no
-// disco. As duas metades da decisão de 02/09 são justamente sobre sites que o
-// build deste projeto nunca vai ver:
+// WHY THIS FILE EXISTS, and why it is not a façade test. The schema already
+// fails `next build`, so it would be easy to argue that it proves itself — and
+// that would be wrong, because the build exercises ONE site only: the one on
+// disk. The two halves of the 02/09 decision are precisely about sites this
+// project's build will never see:
 //
-//   · o site que NÃO TEM WhatsApp e mesmo assim tem de gerar e buildar;
-//   · o site que DECLARA o botão e deixa o número vazio, que tem de REPROVAR.
+//   · the site that HAS NO WhatsApp and still has to generate and build;
+//   · the site that DECLARES the button and leaves the number empty, which has
+//     to FAIL.
 //
-// Um projeto só pode ser um dos dois. Aqui cabem os dois, e cabem os erros de
-// meio-caminho — endereço pela metade, chave vazia — que ninguém escreve de
-// propósito e todo mundo escreve por engano.
+// A project can only be one of the two. Both fit here, and so do the halfway
+// mistakes — half an address, an empty key — that nobody writes on purpose and
+// everybody writes by accident.
 //
-// Roda no `npm test`, dentro do `npm run verificar`, dentro do CI, nos dois
-// sistemas e SEM REDE. Zero dependência: `node:test`, `node:assert`, `node:fs`.
+// Runs in `npm test`, inside `npm run verificar`, inside CI, on both systems
+// and WITH NO NETWORK. Zero dependency: `node:test`, `node:assert`, `node:fs`.
 //
-// O `.ts` é importado direto: o Node desembrulha tipo sozinho desde a 22.18, e
-// é o mesmo caminho que o portão do rebar usa para carregar este esquema.
+// The `.ts` is imported directly: Node strips types on its own since 22.18, and
+// it is the same path rebar's gate uses to load this schema.
+//
+// THE `assert.match` PATTERNS STAY PORTUGUESE, and so does the fixture below.
+// The patterns match, by text, the messages `conteudo/esquema.ts` prints — and
+// those stay Portuguese because they are read by the owner of a pt-BR site;
+// `esquema.ts` carries the twin note on its side. Translating a pattern here
+// without translating the message there kills the assertion, and the assertion
+// is the whole proof.
 
 import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
@@ -25,31 +33,35 @@ import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// fileURLToPath, não .pathname: no Windows o pathname vem "/C:/Users/...".
+// fileURLToPath, not .pathname: on Windows the pathname comes as "/C:/Users/...".
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-// pathToFileURL, e não o caminho cru: no Windows `import('C:\...')` morre com
-// ERR_UNSUPPORTED_ESM_URL_SCHEME — o loader lê `c:` como esquema de URL.
+// pathToFileURL, and not the raw path: on Windows `import('C:\...')` dies with
+// ERR_UNSUPPORTED_ESM_URL_SCHEME — the loader reads `c:` as a URL scheme.
 const { esquemaSite, linkWhatsapp, ErroDeConteudo } = await import(
   pathToFileURL(join(RAIZ, 'conteudo', 'esquema.ts')).href
 )
 
-// O telefone de teste é MONTADO em pedaços, e não é estilo: a régua do rebar
-// tem uma regra `telefone` que varre `.mjs` como código de produção, e um
-// celular escrito por extenso aqui faria o projeto reprovar na própria régua.
-// Nenhum dos pedaços abaixo casa o padrão sozinho.
+// The test phone is ASSEMBLED in pieces, and that is not style: rebar's ruler
+// has a `telefone` rule that scans `.mjs` as production code, and a mobile
+// number written out in full here would make the project fail its own ruler.
+// None of the pieces below matches the pattern on its own.
 const TEL = { ddi: '55', ddd: '11', celular: ['9', '8765', '4321'] }
 const E164 = TEL.ddi + TEL.ddd + TEL.celular.join('')
 const EXIBICAO = `(${TEL.ddd}) ${TEL.celular[0]}${TEL.celular[1]}-${TEL.celular[2]}`
 
 /**
- * O site MÍNIMO: nome, descrição e urlBase, e mais nada de contato.
+ * The MINIMUM site: name, description and urlBase, and nothing else of contact.
  *
- * É a landing de ferramenta do enunciado, e é a metade da decisão que o esquema
- * antigo tornava impossível — ele exigia telefone, e-mail e cinco campos de
- * endereço de qualquer site que o gerador produzisse.
+ * It is the tool landing page from the statement, and it is the half of the
+ * decision the old schema made impossible — it demanded a phone, an e-mail and
+ * five address fields of every site the generator produced.
  *
- * Função, e não constante, porque cada caso abaixo MUTILA a cópia dele.
+ * A function, not a constant, because each case below MUTILATES its copy.
+ *
+ * THE FIXTURE STAYS PORTUGUESE: it is the content of a Brazilian site, which is
+ * the only kind this schema validates, and `descricao` has to keep landing
+ * inside the 50-to-160-character window the schema demands.
  */
 const minimo = () => ({
   identidade: { nome: 'Padaria do Zé' },
@@ -97,7 +109,7 @@ const comEndereco = () => ({
   cep: '04101-300',
 })
 
-/** O site do Galegos: tudo declarado, tudo preenchido. */
+/** The Galegos site: everything declared, everything filled in. */
 const completo = () => {
   const site = minimo()
   site.identidade.whatsapp = comWhatsapp()
@@ -106,23 +118,23 @@ const completo = () => {
   return site
 }
 
-/** A recusa, com a mensagem, para o teste poder cobrar a RAZÃO e não só o não. */
+/** The refusal, with the message, so the test can charge for the REASON and not just the no. */
 function recusa(bruto) {
   try {
     esquemaSite(bruto, 'site')
   } catch (erro) {
     assert.ok(
       erro instanceof ErroDeConteudo,
-      `esperava ErroDeConteudo, veio ${erro?.name}: ${erro?.message}`,
+      `expected ErroDeConteudo, got ${erro?.name}: ${erro?.message}`,
     )
     return erro.message
   }
-  assert.fail('o esquema ACEITOU um site.json que deveria reprovar')
+  assert.fail('the schema ACCEPTED a site.json that should have failed')
 }
 
-// ── (a) o núcleo obrigatório, e só ele ────────────────────────────────────
+// ── (a) the mandatory core, and only it ───────────────────────────────────
 
-test('um site só com nome, descrição e urlBase é ACEITO — os contatos vêm null', () => {
+test('a site with only name, description and urlBase is ACCEPTED — contacts come back null', () => {
   const site = esquemaSite(minimo(), 'site')
   assert.equal(site.identidade.nome, 'Padaria do Zé')
   assert.equal(site.identidade.whatsapp, null)
@@ -130,7 +142,7 @@ test('um site só com nome, descrição e urlBase é ACEITO — os contatos vêm
   assert.equal(site.identidade.endereco, null)
 })
 
-test('sem o núcleo não há site: nome, urlBase, titulo e descricao continuam obrigatórios', () => {
+test('no core, no site: nome, urlBase, titulo and descricao stay mandatory', () => {
   for (const [caminho, ...resto] of [
     ['identidade', 'nome'],
     ['meta', 'urlBase'],
@@ -145,46 +157,48 @@ test('sem o núcleo não há site: nome, urlBase, titulo e descricao continuam o
   }
 })
 
-// ── (b) a exigência segue o uso ───────────────────────────────────────────
+// ── (b) the demand follows the use ────────────────────────────────────────
 
-test('o site do Galegos — tudo declarado — é aceito e o link aponta para o número', () => {
+test('the Galegos site — all declared — is accepted and the link points at the number', () => {
   const site = esquemaSite(completo(), 'site')
   assert.equal(site.identidade.whatsapp.e164, E164)
   assert.ok(linkWhatsapp(site.identidade.whatsapp).startsWith(`https://wa.me/${E164}?text=`))
   assert.equal(site.identidade.endereco.uf, 'SP')
 })
 
-test('DECLARA o botão e deixa o número vazio: REPROVA — é o Navesz/Galegos#1', () => {
+test('DECLARES the button and leaves the number empty: FAILS — it is Navesz/Galegos#1', () => {
   for (const numero of ['', '   ', undefined]) {
     const site = minimo()
     site.identidade.whatsapp = { ...comWhatsapp(), e164: numero }
     const mensagem = recusa(site)
     assert.match(mensagem, /identidade\.whatsapp\.e164/)
-    // A frase que ensina a saída certa tem de estar lá: quem não tem WhatsApp
-    // apaga o bloco, não inventa um número para o build ficar verde.
+    // The sentence that teaches the right way out has to be there: whoever has
+    // no WhatsApp deletes the block, and does not invent a number to get the
+    // build green. Pattern in Portuguese — see the note in the header.
     assert.match(mensagem, /apague a chave/i)
   }
 })
 
-test('número plausível-porém-morto no bloco declarado continua reprovando', () => {
+test('a plausible-yet-dead number in the declared block keeps failing', () => {
   const site = minimo()
   site.identidade.whatsapp = { ...comWhatsapp(), e164: `${TEL.ddi}${'0'.repeat(11)}` }
   assert.match(recusa(site), /não é telefone de ninguém/)
 })
 
-test('exibição e link divergentes reprovam — mas só quando há bloco para divergir', () => {
+test('display and link diverging fail — but only when there is a block to diverge', () => {
   const site = completo()
   site.identidade.whatsapp.exibicao = '(21) 98765-4321'
   assert.match(recusa(site), /telefones DIFERENTES/)
-  // Sem o bloco não há dois formatos do mesmo número, e nada a cobrar.
+  // With no block there are not two formats of the same number, and nothing to
+  // charge for.
   assert.doesNotThrow(() => esquemaSite(minimo(), 'site'))
 })
 
-test('meio endereço é pior que nenhum: os cinco campos vêm juntos ou a chave sai', () => {
+test('half an address is worse than none: the five fields come together or the key goes', () => {
   const site = minimo()
-  // `delete`, e não desestruturação com descarte: `const { cep: _cep, ... }` deixa
-  // o `no-unused-vars` do projeto gerado com dois avisos, e projeto novo não nasce
-  // com aviso.
+  // `delete`, and not destructuring with a discard: `const { cep: _cep, ... }`
+  // leaves the generated project's `no-unused-vars` with two warnings, and a
+  // new project is not born with a warning.
   const semCep = comEndereco()
   delete semCep.cep
   site.identidade.endereco = semCep
@@ -194,7 +208,7 @@ test('meio endereço é pior que nenhum: os cinco campos vêm juntos ou a chave 
   assert.match(mensagem, /apague a chave "identidade\.endereco"/)
 })
 
-test('vazio não é "não tenho": campo em branco e bloco {} ensinam a apagar a chave', () => {
+test('empty is not "I do not have it": a blank field and a {} block teach deleting the key', () => {
   for (const [chave, vazio] of [
     ['email', ''],
     ['email', '   '],
@@ -209,7 +223,7 @@ test('vazio não é "não tenho": campo em branco e bloco {} ensinam a apagar a 
   }
 })
 
-test('null explícito vale o mesmo que a chave ausente', () => {
+test('an explicit null is worth the same as an absent key', () => {
   const site = minimo()
   site.identidade.whatsapp = null
   site.identidade.email = null
@@ -222,45 +236,46 @@ test('null explícito vale o mesmo que a chave ausente', () => {
   })
 })
 
-// ── (c) o caso inverso: campo preenchido e nunca renderizado ──────────────
+// ── (c) the inverse case: field filled in and never rendered ──────────────
 //
-// QUEM CRAVA ESTE DENTE É O COMPILADOR, não este arquivo: o mapa `CONTATOS` de
-// `app/page.tsx` é cobrado como TOTAL sobre as chaves de `Contato` por um
-// `satisfies`, então bloco sem renderizador — e renderizador sem bloco — não
-// compila. O teste abaixo é a MESMA pergunta feita sem TypeScript, e existe por
-// um motivo prático: ele roda no `npm test`, que vem ANTES do `npm run build`
-// na cadeia do `verificar`, e nomeia o bloco órfão em uma linha em vez de num
-// erro de tipo mapeado. Se ele e o `satisfies` discordarem algum dia, o
-// compilador ganha — este aqui é o alarme, não a fechadura.
+// WHAT SINKS THIS TOOTH IN IS THE COMPILER, not this file: the `CONTATOS` map
+// in `app/page.tsx` is charged as TOTAL over the keys of `Contato` by a
+// `satisfies`, so a block with no renderer — and a renderer with no block —
+// does not compile. The test below is the SAME question asked without
+// TypeScript, and it exists for a practical reason: it runs in `npm test`,
+// which comes BEFORE `npm run build` in the `verificar` chain, and it names the
+// orphan block in one line instead of in a mapped type error. If it and the
+// `satisfies` ever disagree, the compiler wins — this one is the alarm, not the
+// lock.
 
-/** As chaves de contato que o ESQUEMA conhece, derivadas dele, nunca digitadas. */
+/** The contact keys the SCHEMA knows, derived from it, never typed in. */
 function blocosDoEsquema() {
   const contatos = { ...esquemaSite(minimo(), 'site').identidade }
   delete contatos.nome
   return Object.keys(contatos).sort()
 }
 
-/** As chaves que a HOME sabe renderizar, lidas do mapa `CONTATOS`. */
+/** The keys the HOME knows how to render, read from the `CONTATOS` map. */
 function blocosDaHome() {
   const fonte = readFileSync(join(RAIZ, 'app', 'page.tsx'), 'utf8')
   const abre = fonte.indexOf('const CONTATOS = {')
-  assert.notEqual(abre, -1, 'app/page.tsx não tem mais o mapa `CONTATOS` — a home parou de seguir')
+  assert.notEqual(abre, -1, 'app/page.tsx lost the `CONTATOS` map — the home stopped following')
   const fecha = fonte.indexOf('} satisfies', abre)
   assert.notEqual(
     fecha,
     -1,
-    'o mapa `CONTATOS` perdeu o `satisfies` — a totalidade deixou de ser cobrada',
+    'the `CONTATOS` map lost its `satisfies` — totality stopped being charged for',
   )
   return [...fonte.slice(abre, fecha).matchAll(/^ {2}([A-Za-z_$][\w$]*):/gm)]
     .map((m) => m[1])
     .sort()
 }
 
-test('todo bloco declarável tem renderizador na home, e todo renderizador tem bloco', () => {
+test('every declarable block has a renderer on the home, and every renderer has a block', () => {
   assert.deepEqual(
     blocosDaHome(),
     blocosDoEsquema(),
-    'esquema e home derivaram: um bloco que o dono preenche e a página nunca mostra é contato ' +
-      'que ele acha que publicou e não publicou — o inverso do Galegos, e igualmente mudo.',
+    'schema and home have drifted: a block the owner fills in and the page never shows is a ' +
+      'contact he thinks he published and did not — the inverse of Galegos, and just as mute.',
   )
 })

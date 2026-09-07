@@ -1,6 +1,6 @@
 {
   "rule": "ai-coauthorship",
-  "why": "O ramo de repositório de TERCEIRO, que não tem `.rebar-coauthors` — nenhum dos dois lados tem o arquivo. Ali só resta enumerar agentes, e enumeração só prova PRESENÇA. O lado `fail` tem um agente da lista e continua reprovando, então a queda para o plano B não desarmou a regra. O lado `pass` tem um coautor que a lista não conhece e por isso declara `na`: um `✓` ali seria o checker afirmando \"não há IA\" sem ter como saber, que é exatamente a afirmação que os seis agentes do ataque de 2026-08-30 desmentiram. Repositório de terceiro SEM trailer nenhum passa por outro caminho — ausência de coautor é prova de ausência de coautor de IA — e é o caso `coautoria-ia` sem variante.",
+  "why": "The THIRD-PARTY repository branch, which has no `.rebar-coauthors` — neither side has the file. There all that is left is enumerating agents, and enumeration only proves PRESENCE. The `fail` side has an agent from the list and keeps failing, so the fall back to plan B did not unarm the rule. The `pass` side has a co-author the list does not know and therefore declares `na`: a `✓` there would be the checker asserting \"there is no AI\" with no way to know, which is exactly the assertion the six agents of the 2026-08-30 attack disproved. A third-party repository with NO trailer at all passes by another path — the absence of a co-author is proof of the absence of an AI co-author — and that is the `coautoria-ia` case with no variant.",
   "pass": {
     "estado": "na",
     "commits": [

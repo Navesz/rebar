@@ -1,4 +1,4 @@
 {
   "rule": "editorconfig",
-  "why": "Sem .editorconfig cada editor reescreve indentação e fim de linha por conta própria, e num repositório Windows isso vira diff de CRLF em arquivo que ninguém tocou. As duas árvores são idênticas menos esse arquivo: se a regra parar de olhar para ele, o lado reprovar sai 0 e a prova acusa."
+  "why": "Without .editorconfig each editor rewrites indentation and line endings on its own, and in a Windows repository that becomes a CRLF diff in a file nobody touched. The two trees are identical except for that file: if the rule stops looking at it, the fail side exits 0 and the proof accuses."
 }

@@ -1,6 +1,6 @@
 {
   "rule": "shadcn-complete",
-  "why": "Primeiro caso de uma heurística, e o lado N/A dele só é escrevível porque o runner passou a ler estado: `na` e `passou` saem os dois exit 0, então enquanto o veredito vinha do código de saída este lado não podia ser declarado. O ramo `não usa shadcn` é o que impede a heurística de cobrar cva e tailwind-merge de quem nunca escolheu shadcn. `pass/` é um projeto React sem `components.json`; `fail/` tem o `components.json` e um manifesto sem primitiva, sem cva e sem tailwind-merge, e continua avisando — a guarda de leitura desta regra vem DEPOIS do N/A de propósito, para que quem não usa shadcn não ganhe aviso por causa de manifesto quebrado.",
+  "why": "First case of a heuristic, and its N/A side is only writable because the runner started reading state: `na` and `passou` both exit 0, so while the verdict came from the exit code this side could not be declared. The `does not use shadcn` branch is what stops the heuristic from demanding cva and tailwind-merge from someone who never chose shadcn. `pass/` is a React project without `components.json`; `fail/` has the `components.json` and a manifest with no primitive, no cva and no tailwind-merge, and it keeps warning — the read guard of this rule comes AFTER the N/A on purpose, so that whoever does not use shadcn does not earn a warning over a broken manifest. `na` and `passou` stay Portuguese: they are the state values prove.mjs matches on (prove.mjs:198-200), not prose.",
   "pass": {
     "estado": "na"
   }

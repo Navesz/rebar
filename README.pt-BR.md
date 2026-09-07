@@ -6,7 +6,7 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licença](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Regras](https://img.shields.io/badge/regras-<!--n rules.total-->23<!--/n-->-blue)](#o-que-ele-checa)
+[![Regras](https://img.shields.io/badge/regras-<!--n rules.all-->26<!--/n-->-blue)](#o-que-ele-checa)
 [![Portão](https://img.shields.io/badge/port%C3%A3o-<!--n verify.passos-->20<!--/n-->%20passos-blue)](#o-portão)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
@@ -16,7 +16,7 @@
 
 ```bash
 npx github:Navesz/rebar .                    # auditar o que já existe
-npx github:Navesz/rebar novo padaria-do-ze   # começar do lado certo
+npx github:Navesz/rebar new padaria-do-ze   # começar do lado certo
 ```
 
 Zero dependência em tempo de execução. O checker nunca escreve no repositório que audita.
@@ -103,7 +103,7 @@ saída inteira.
 
 ### Toda regra nasce com dois casos
 
-São <!--n proofs.casos-->57<!--/n--> casos, um par por regra, e as <!--n rules.total-->23<!--/n--> regras estão cobertas:
+São <!--n proofs.casos-->58<!--/n--> casos, um par por regra, e as <!--n rules.total-->23<!--/n--> regras estão cobertas:
 
 ```bash
 npm run prove
@@ -123,7 +123,7 @@ das 20 regras eram improváveis por construção** — medido em 30/08/2026, qua
 |---|---|---|
 | `npx github:Navesz/rebar .` | O repositório está no formato certo? | Não olha segurança, não roda a aplicação |
 | `npx -p github:Navesz/rebar rebar-security .` | Ele tem falha de segurança? | Não checa Broken Access Control — o nº 1 do OWASP |
-| `npx github:Navesz/rebar novo <nome>` | Começar um projeto já com portão | Um preset só: `site` |
+| `npx github:Navesz/rebar new <nome>` | Começar um projeto já com portão | Um preset só: `site` |
 
 O `-p` da segunda não é detalhe. Sem ele o `npx` roda o bin padrão do pacote — o checker de
 formato — e o passo da "régua de segurança" repete o de cima sem ninguém notar.
@@ -160,7 +160,7 @@ npm run install-hooks   # aponta core.hooksPath para tooling/hooks
 ### O passo que faltava, e o que a ausência dele custou
 
 Numa renomeação, o `aplicar.mjs` passou a ler `verify.yml` de uma pasta onde o arquivo se
-chama `verificar.yml`. **O `rebar novo` morreu com ENOENT** — e o `npm run verify` ficou verde
+chama `verificar.yml`. **O `rebar new` morreu com ENOENT** — e o `npm run verify` ficou verde
 por seis commits, porque nenhum passo gerava um projeto. O checker se prova, as regras se
 provam, o MCP se prova, o portão se prova por mutação — e o produto não.
 
@@ -175,13 +175,13 @@ avisada antes de escrever, e não depois.
 O artefato é **derivado, nunca duplicado**: o `npm run verify` o regenera em memória e reprova
 se o disco divergir. É impossível mudar uma regra e esquecer o MCP.
 
-Ele carrega <!--n mcp.artefato.regras-->26<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->20<!--/n--> passos de portão e <!--n mcp.artefato.provas-->61<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
+Ele carrega <!--n mcp.artefato.regras-->26<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->20<!--/n--> passos de portão e <!--n mcp.artefato.provas-->62<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
 
 ## Mapa do repositório
 
 | Caminho | O quê |
 |---|---|
-| `tooling/rebar-check/` | a régua de formato e seus <!--n proofs.casos-->57<!--/n--> casos de prova |
+| `tooling/rebar-check/` | a régua de formato e seus <!--n proofs.casos-->58<!--/n--> casos de prova |
 | `tooling/security/` | a régua de segurança |
 | `tooling/verify/` | o executor do portão e as provas por mutação dos passos |
 | `tooling/secret/` | o varredor de segredo, e as seis provas de detecção |

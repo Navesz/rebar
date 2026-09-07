@@ -1,6 +1,6 @@
 {
   "rule": "ai-coauthorship",
-  "why": "As duas árvores têm o MESMO arquivo: só o histórico muda, então a prova mede exatamente o que a regra lê. O lado reprovar usa o trailer do Cursor em caixa baixa (`Co-authored-by:`) porque a regex ingênua procura só `Claude` com C maiúsculo e cobre 15% do problema medido; o lado aprovar tem um commit que CITA Claude e Copilot no corpo, que é o falso positivo que aparece assim que alguém tira o `^` ou o `/m` da regex e passa a casar a palavra solta no meio do texto.",
+  "why": "Both trees have the SAME file: only the history changes, so the proof measures exactly what the rule reads. The fail side uses the Cursor trailer in lower case (`Co-authored-by:`) because the naive regex looks only for `Claude` with a capital C and covers 15% of the measured problem; the pass side has a commit that CITES Claude and Copilot in the body, which is the false positive that shows up the moment somebody removes the `^` or the `/m` from the regex and it starts matching the bare word in the middle of the text.",
   "pass": {
     "commits": [
       {

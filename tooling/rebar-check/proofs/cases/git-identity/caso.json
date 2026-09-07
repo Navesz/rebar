@@ -1,6 +1,6 @@
 {
   "rule": "git-identity",
-  "why": "A falha real é a mesma pessoa commitando ora como `Leonardo Naves <...@users.noreply.github.com>`, ora como `leona <leonardo@empresa.com.br>`: o histórico público passa a carregar o e-mail pessoal e o `git shortlog` conta duas pessoas onde há uma. O lado aprovar tem DOIS commits com a identidade idêntica, então uma regra que contasse commits em vez de combinações distintas de nome/e-mail reprovaria ali e a prova acusaria.",
+  "why": "The real failure is the same person committing now as `Leonardo Naves <...@users.noreply.github.com>`, now as `leona <leonardo@empresa.com.br>`: the public history starts carrying the personal e-mail and `git shortlog` counts two people where there is one. The pass side has TWO commits with the identical identity, so a rule that counted commits instead of distinct name/e-mail combinations would fail there and the proof would accuse.",
   "pass": {
     "commits": [
       {

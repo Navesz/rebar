@@ -1,35 +1,39 @@
-// A IDENTIDADE DO PRIMEIRO COMMIT — uma peça só, porque ela tem de bater com o
-// que foi escrito nos arquivos, e "bater" aqui é literal.
+// THE IDENTITY OF THE FIRST COMMIT — one single piece, because it has to match
+// what was written into the files, and "match" here is literal.
 //
-// Quem aparece no NOTICE e na allowlist TEM de ser quem commita. Se divergirem,
-// o projeto nasce com a allowlist listando uma pessoa e o histórico tendo outra
-// — e a divergência só aparece meses depois, quando a regra `git-identity`
-// acusar, num repositório onde ninguém lembra de onde ela veio.
+// Whoever shows up in the NOTICE and in the allowlist HAS to be who commits. If
+// they diverge, the project is born with the allowlist listing one person and
+// the history holding another — and the divergence only shows up months later,
+// when the `git-identity` rule accuses, in a repository where nobody remembers
+// where it came from.
 //
-// O GERADOR JÁ TENTAVA GARANTIR ISSO, com `-c user.name=… -c user.email=…` na
-// chamada do commit, e o comentário de lá dizia: "Sem isto, uma máquina com
-// config global e GIT_AUTHOR_* divergentes escreveria um nome no arquivo e
-// outro no histórico". Estava exatamente invertido.
+// THE GENERATOR ALREADY TRIED TO GUARANTEE THIS, with `-c user.name=… -c
+// user.email=…` on the commit call, and the comment over there said: "Sem isto,
+// uma máquina com config global e GIT_AUTHOR_* divergentes escreveria um nome
+// no arquivo e outro no histórico" [without this, a machine with a global config
+// and diverging GIT_AUTHOR_* would write one name into the file and another into
+// the history]. It was exactly backwards.
 //
-// A PRECEDÊNCIA DO GIT (P2 #13 da auditoria externa):
+// GIT'S PRECEDENCE (P2 #13 of the external audit):
 //
-//   GIT_AUTHOR_NAME / GIT_AUTHOR_EMAIL          ← ganha
-//   user.name / user.email  (config, e `-c` é config)
+//   GIT_AUTHOR_NAME / GIT_AUTHOR_EMAIL          ← wins
+//   user.name / user.email  (config, and `-c` is config)
 //
-// Então numa máquina com `git config user.email = a@x` E `GIT_AUTHOR_EMAIL =
-// b@y` no ambiente, o gerador escrevia `a@x` nos arquivos (o config vem
-// primeiro no `||` de lá) e o git assinava o commit com `b@y`. O `-c` não
-// consertava nada: ele perde para a variável de ambiente.
+// So on a machine with `git config user.email = a@x` AND `GIT_AUTHOR_EMAIL =
+// b@y` in the environment, the generator wrote `a@x` into the files (the config
+// comes first in that `||` over there) and git signed the commit with `b@y`. The
+// `-c` fixed nothing: it loses to the environment variable.
 //
-// O conserto é usar a fonte que ganha de todas. As quatro variáveis, porque
-// autor e committer são pessoas diferentes para o git e o histórico guarda as
-// duas.
+// The fix is to use the source that beats all of them. All four variables,
+// because author and committer are different people to git and the history keeps
+// both.
 
 /**
- * O ambiente que faz o commit sair com EXATAMENTE esta identidade.
+ * The environment that makes the commit come out with EXACTLY this identity.
  *
- * Devolve uma cópia do ambiente recebido — nunca muta `process.env`, que
- * vazaria a identidade para todo processo filho do gerador daí em diante.
+ * Returns a copy of the environment it was given — it never mutates
+ * `process.env`, which would leak the identity into every child process of the
+ * generator from then on.
  */
 export function ambienteDeIdentidade(dono, email, base = process.env) {
   return {

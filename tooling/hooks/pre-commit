@@ -1,39 +1,41 @@
 #!/bin/sh
-# Hook antes do commit — SÓ O QUE É RÁPIDO.
+# Pre-commit hook — ONLY WHAT IS FAST.
 #
-# Hook lento é hook desligado, e hook desligado verifica zero. O alvo é menos de
-# 5 segundos. Nada de typecheck, nada de teste, nada de build: isso é trabalho
-# do CI, que pode demorar porque ninguém está esperando na frente dele.
+# A slow hook is a disabled hook, and a disabled hook verifies zero. The target
+# is under 5 seconds. No typecheck, no test, no build: that is the CI's work,
+# and the CI is allowed to take long because nobody is waiting in front of it.
 #
-# Aqui moram as duas coisas que precisam ser barradas ANTES de existir, porque
-# depois já é tarde. Nas duas, o commit novo não conserta:
-#   · segredo, uma vez no histórico, exige ROTAÇÃO da credencial;
-#   · trailer de coautoria de IA, uma vez no histórico, só sai reescrevendo o
-#     histórico — que é operação de força, não de rotina.
+# Here live the two things that have to be blocked BEFORE they exist, because
+# afterwards it is already too late. In both, a new commit does not fix it:
+#   · a secret, once in history, demands ROTATING the credential;
+#   · an AI co-authorship trailer, once in history, only comes out by rewriting
+#     history — which is a force operation, not a routine one.
 #
-# Instale com: node tooling/hooks/install.mjs
-# Pule uma vez com: git commit --no-verify
+# Install with: node tooling/hooks/install.mjs
+# Skip once with: git commit --no-verify
 
 set -e
 
 RAIZ=$(git rev-parse --show-toplevel)
 cd "$RAIZ"
 
-# 1. Segredo no que está em stage. Só o stage, não o repositório inteiro: é o
-#    que o commit está prestes a acrescentar, e é o que cabe no orçamento.
+# 1. Secret in what is staged. The stage only, not the whole repository: it is
+#    what the commit is about to add, and it is what fits the budget.
 node tooling/secret/scan-secret.mjs --staged
 
-# 2. Coautoria de IA no histórico. Uma regra só, e o motivo NÃO é tempo: medido
-#    contra este repositório, a regra sozinha leva 0,237 s e o placar completo
-#    leva 0,246 s. O motivo é o veredito. O placar completo sai 1 enquanto
-#    houver UM buraco aberto — e há sempre. Posto no hook, ele barraria todo
-#    commit por dívida velha que o commit não introduziu, e em uma semana
-#    alguém aliasa o --no-verify e o hook deixa de existir. O hook barra só o
-#    que este commit está acrescentando; o placar inteiro é trabalho do CI.
+# 2. AI co-authorship in history. One rule only, and the reason is NOT time:
+#    measured against this repository, the rule alone takes 0.237 s and the full
+#    scoreboard takes 0.246 s. The reason is the verdict. The full scoreboard
+#    exits 1 as long as there is ONE open hole — and there always is. Put in the
+#    hook, it would block every commit over old debt that the commit did not
+#    introduce, and within a week someone aliases --no-verify and the hook stops
+#    existing. The hook blocks only what this commit is adding; the whole
+#    scoreboard is the CI's work.
 #
-#    Divisão de trabalho com o hook commit-msg: o rebar-check lê `git log`, e o
-#    commit em curso ainda não está lá — este passo impede o trailer de FICAR.
-#    Impedir que ele ENTRE é do commit-msg, que roda com a mensagem na mão.
+#    Division of labor with the commit-msg hook: rebar-check reads `git log`, and
+#    the commit in progress is not there yet — this step stops the trailer from
+#    STAYING. Stopping it from GETTING IN is the commit-msg's job, and it runs
+#    with the message in hand.
 node tooling/rebar-check/index.mjs --rule=ai-coauthorship
 
 exit 0

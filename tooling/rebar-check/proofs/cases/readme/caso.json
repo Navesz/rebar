@@ -1,4 +1,4 @@
 {
   "rule": "readme",
-  "why": "O próprio rebar foi a público sem README, enquanto o docs/PLANO.md listava \"README como entregável\" duas vezes como buraco que ele existe para tapar. A régua não enxergava o buraco que o plano dela nomeava. Esta prova trava a volta disso — e trava também o gerador, que vai produzir repositório novo, e repositório novo nasce sem README."
+  "why": "rebar itself went public without a README, while docs/PLANO.md listed \"README as a deliverable\" twice as a hole it exists to close. The ruler could not see the hole its own plan named. This proof locks that from coming back — and locks the generator too, which will produce new repositories, and a new repository is born without a README."
 }

@@ -1,118 +1,124 @@
-# Sétima resposta — eu abri um buraco tentando fechar outro
+# Seventh response — I opened a hole trying to close another
 
-Você está certo, e este é o pior dos meus erros até aqui: os anteriores eram imprecisão ou incoerência. Este **criava uma falha de correção em produção**.
+You are right, and this is the worst of my mistakes so far: the earlier ones were imprecision or incoherence. This one **created a correctness failure in production**.
 
 ---
 
-## 1. A idempotência — concedido, e a causa raiz é pior que o sintoma
+## 1. Idempotency — conceded, and the root cause is worse than the symptom
 
-Meu texto:
+My text:
 
-> *"Retry que chega em `v2` com key emitida em `v1` **não colide** — escopo distinto, comando novo."*
+> *"A retry arriving in `v2` with a key issued in `v1` **does not collide** — distinct scope, new command."*
 
-Seu contra-exemplo mata:
+Your counter-example kills it:
 
 ```
-10:00  charge/v1/ABC  →  cobrança executada  →  resposta se perde
+10:00  charge/v1/ABC  →  charge executed  →  response is lost
        deploy v1 → v2
-10:05  retry commandId=ABC  →  escopo (charge, v2, ABC)  →  não encontra
-                             →  COBRA DE NOVO
+10:05  retry commandId=ABC  →  scope (charge, v2, ABC)  →  not found
+                             →  CHARGES AGAIN
 ```
 
-**A proteção de idempotência morre exatamente no deploy** — o momento em que respostas se perdem com mais frequência, porque é quando conexões caem.
+**Idempotency protection dies exactly at the deploy** — the moment when responses are lost most often, because that is when connections drop.
 
-### A causa raiz: eu nunca disse quem determina a versão
+### The root cause: I never said who determines the version
 
-Escrevi `operationVersion` sem especificar a origem. A leitura natural — e a que eu tinha na cabeça — é *a versão do servidor que está processando*. E é justamente essa que quebra: **a chave passa a identificar a implementação que atendeu, não o comando que o cliente emitiu.**
+I wrote `operationVersion` without specifying the source. The natural reading — and the one I had in my head — is *the version of the server that is processing*. And that is precisely the one that breaks: **the key comes to identify the implementation that served it, not the command the client issued.**
 
-Sua frase vira princípio, e entra literal:
+Your sentence becomes a principle, and enters verbatim:
+
+<!-- Quoted verbatim from the external reviewer: his Portuguese stays, the bracket is the translation. -->
 
 > **Idempotência deve sobreviver a deploys. Se uma alteração de versão pode converter um retry em nova execução, a chave não está identificando o comando — está identificando a implementação que o processou.**
+>
+> [Idempotency must survive deploys. If a version change can convert a retry into a new execution, the key is not identifying the command — it is identifying the implementation that processed it.]
 
-### A política corrigida
+### The corrected policy
 
-`UNIQUE (scope, commandId)` **estável entre versões**. A versão é atributo do registro, não parte da chave.
+`UNIQUE (scope, commandId)` **stable across versions**. The version is an attribute of the record, not part of the key.
 
-| Situação | Comportamento |
+| Situation | Behavior |
 |---|---|
-| Mesma versão · mesmo hash | **Replay** |
-| Mesma versão · hash diferente | **Erro** — key reutilizada |
-| **Versão diferente** | **Nunca executa.** Replay do resultado histórico, ou `version_mismatch` explícito |
+| Same version · same hash | **Replay** |
+| Same version · different hash | **Error** — key reused |
+| **Different version** | **Never executes.** Replay of the historical result, or explicit `version_mismatch` |
 
-Nunca "versão mudou → executa de novo". Quem quer mesmo uma operação `v2` nova **gera um `commandId` novo**.
+Never "version changed → execute again". Whoever really wants a new `v2` operation **generates a new `commandId`**.
 
-### Sua alternativa é válida, com uma condição que precisa estar escrita
+### Your alternative is valid, with one condition that has to be written down
 
-Versão como parte do escopo funciona **se e somente se** `operationVersion` for campo **do cliente**, imutável, carregado em todo retry:
+Version as part of the scope works **if and only if** `operationVersion` is a **client** field, immutable, carried on every retry:
 
 ```json
 { "commandId": "ABC", "operationVersion": 1 }
 ```
 
-Aí o retry pós-deploy ainda procura `charge/v1/ABC` e encontra. Mas isso tem de estar **no contrato** — nunca inferido da versão do servidor em execução. Como não estava escrito, a implementação natural seria a errada.
+Then the post-deploy retry still looks for `charge/v1/ABC` and finds it. But that has to be **in the contract** — never inferred from the version of the running server. Since it was not written, the natural implementation would be the wrong one.
 
-### Um buraco na sua própria correção, e ele importa
+### A hole in your own correction, and it matters
 
-Você escreveu *"replay histórico, se semanticamente possível"*. Quando é possível?
+<!-- Quoted verbatim from the external reviewer: his Portuguese stays, the bracket is the translation. -->
 
-Se `v1` produziu um resultado cuja forma o contrato de resposta de `v2` não expressa, devolver aquele objeto para um cliente `v2` é divergência silenciosa de forma — exatamente o que o desenho contract-first existe para impedir.
+You wrote *"replay histórico, se semanticamente possível"* [historical replay, if semantically possible]. When is it possible?
 
-Mas **falhar sempre também é errado**: o cliente ficaria sem saber se foi cobrado. Ele precisa aprender o desfecho.
+If `v1` produced a result whose shape the `v2` response contract does not express, returning that object to a `v2` client is silent shape divergence — exactly what the contract-first design exists to prevent.
 
-Então a saída é o replay ser **autodescritivo quanto à versão**:
+But **always failing is wrong too**: the client would be left not knowing whether it was charged. It needs to learn the outcome.
+
+So the way out is for the replay to be **self-describing about the version**:
 
 ```
-replay  →  resultado histórico  +  a versão que o produziu, no envelope
+replay  →  historical result  +  the version that produced it, in the envelope
 ```
 
-O cliente `v2` recebe um resultado marcado como `v1` e sabe como interpretá-lo. Sem a marca, ele parseia errado em silêncio — que é o mesmo defeito, uma camada acima. Só há erro `version_mismatch` quando nem o envelope resolve.
+The `v2` client receives a result marked as `v1` and knows how to interpret it. Without the mark, it parses wrong in silence — which is the same defect, one layer up. There is a `version_mismatch` error only when not even the envelope resolves it.
 
 ---
 
-## 2. Extensões — confirmado, e é pior do que "pode não governar"
+## 2. Extensions — confirmed, and it is worse than "may not govern"
 
-Fui à doc do `CREATE EXTENSION`:
+I went to the `CREATE EXTENSION` doc:
 
 > *"In this case the extension object itself will be owned by the calling user, but **the contained objects will be owned by the bootstrap superuser** (unless the extension's script explicitly assigns them to the calling user)."*
 
-Não é "pode não obedecer" — é o **comportamento padrão**. `ALTER DEFAULT PRIVILEGES FOR ROLE db_owner` só governa objetos criados por `db_owner`, e as funções da extensão não são dele.
+It is not "may not obey" — it is the **default behavior**. `ALTER DEFAULT PRIVILEGES FOR ROLE db_owner` only governs objects created by `db_owner`, and the extension's functions do not belong to it.
 
-Sua abordagem adotada: não presumir configuração, **enumerar ACL depois do `CREATE EXTENSION` e depois de todo upgrade de extensão**, e comparar com whitelist. Vira fitness test, não linha de migration.
+Your approach adopted: do not presume configuration, **enumerate the ACL after `CREATE EXTENSION` and after every extension upgrade**, and compare against a whitelist. It becomes a fitness test, not a migration line.
 
 ---
 
-## 3. `pgcrypto` — você está certo, ele sai
+## 3. `pgcrypto` — you are right, it goes out
 
-Confirmado na doc do próprio pgcrypto, sobre o `gen_random_uuid()` dele:
+Confirmed in pgcrypto's own doc, about its `gen_random_uuid()`:
 
 > *"**(Obsolete, this function internally calls the core function of the same name.)**"*
 
-Se o único motivo era esse, a extensão sai. E o ganho **compõe com o item 2**: uma extensão a menos é um conjunto inteiro de funções de propriedade do bootstrap superuser que some da superfície de ACL a auditar.
+If that was the only reason, the extension goes out. And the gain **compounds with item 2**: one extension fewer is an entire set of functions owned by the bootstrap superuser that vanishes from the ACL surface to be audited.
 
-Encaixa no critério da Stack sem ressalva: menos extensão, menos objeto, menos ACL, menos coisa para o agente entender. `citext` continua, e é discussão separada.
-
----
-
-## 4. `SECURITY DEFINER` — regra determinística adicionada
-
-Você está certo que revogar `EXECUTE` não é a história toda. A regra fica com quatro condições, todas verificáveis por catálogo:
-
-```
-SECURITY DEFINER  →  search_path seguro declarado, com pg_temp por último
-                  →  PUBLIC sem EXECUTE
-                  →  owner explícito
-                  →  grant em whitelist
-```
-
-Classe **determinística** — nasce `error`, não `warn`.
+It fits the Stack's criterion without reservation: fewer extensions, fewer objects, fewer ACLs, less for the agent to understand. `citext` stays, and that is a separate discussion.
 
 ---
 
-## 5. `409`, não `202` — decidido
+## 4. `SECURITY DEFINER` — deterministic rule added
 
-Você tem razão que deixei aberto o que são duas semânticas distintas.
+You are right that revoking `EXECUTE` is not the whole story. The rule ends up with four conditions, all verifiable by catalog:
 
-**Escolhido `409`**, com `Retry-After` e Problem Details de `type` estável:
+```
+SECURITY DEFINER  →  safe search_path declared, with pg_temp last
+                  →  PUBLIC without EXECUTE
+                  →  explicit owner
+                  →  grant in whitelist
+```
+
+**Deterministic** class — born `error`, not `warn`.
+
+---
+
+## 5. `409`, not `202` — decided
+
+You are right that I left open what are two distinct semantics.
+
+**`409` chosen**, with `Retry-After` and Problem Details with a stable `type`:
 
 ```
 409 Conflict
@@ -120,40 +126,40 @@ Retry-After: 1
 type: idempotency-command-in-progress
 ```
 
-`202 Accepted` implica que a API **oferece** processamento assíncrono com mecanismo de consulta posterior. Não é o caso: aqui o comando é síncrono e o cliente só precisa tentar de novo. Usar `202` prometeria um endpoint de status que não existe.
+`202 Accepted` implies the API **offers** asynchronous processing with a later query mechanism. That is not the case: here the command is synchronous and the client only needs to try again. Using `202` would promise a status endpoint that does not exist.
 
 ---
 
-## 6. Sua correção sobre `Assumptions` procede
+## 6. Your correction about `Assumptions` holds
 
-*"O único campo do ADR que se prova sozinho"* está impreciso. O correto é o que você desenhou: **`Claim` e `Assumptions` juntos produzem uma obrigação de teste.**
+*"The only ADR field that proves itself"* is imprecise. What is correct is what you drew: **`Claim` and `Assumptions` together produce a test obligation.**
 
 ```
 Claim
-  ↓ depende de
+  ↓ depends on
 Assumptions
-  ↓ cada uma com proof
-Fitness test valida a propriedade
+  ↓ each one with proof
+Fitness test validates the property
 ```
 
-O `Claim` sozinho não é testável — é a conclusão. As `Assumptions` sozinhas são testáveis mas não dizem para quê. Juntos viram especificação executável, que é o ponto.
+The `Claim` alone is not testable — it is the conclusion. The `Assumptions` alone are testable but do not say what for. Together they become an executable specification, which is the point.
 
 ---
 
-## Placar
+## Scoreboard
 
-| Item | Veredito |
+| Item | Verdict |
 |---|---|
-| Retry `v1` virar comando novo em `v2` | ❌ **bug meu, e o pior deles** — cobrança dupla no deploy |
-| Chave estável entre versões, versão como atributo | ✅ adotado |
-| Versão no escopo só se vier do cliente, no contrato | ✅ adotado, com a condição escrita |
-| "Replay se semanticamente possível" | ⚠️ indefinido nos dois lados — resolvido com envelope versionado |
-| Extensões: objetos do bootstrap superuser | ✅ confirmado na doc — é o padrão, não exceção |
-| `pgcrypto` sai | ✅ confirmado obsoleto |
-| `SECURITY DEFINER` + `search_path` | ✅ adotado como regra determinística |
-| `409` com `Retry-After` | ✅ decidido |
-| `Claim` + `Assumptions` = obrigação de teste | ✅ sua formulação é a correta |
+| `v1` retry turning into a new command in `v2` | ❌ **my bug, and the worst of them** — double charge at the deploy |
+| Key stable across versions, version as attribute | ✅ adopted |
+| Version in the scope only if it comes from the client, in the contract | ✅ adopted, with the condition written down |
+| "Replay if semantically possible" | ⚠️ undefined on both sides — resolved with a versioned envelope |
+| Extensions: bootstrap superuser objects | ✅ confirmed in the doc — it is the default, not an exception |
+| `pgcrypto` goes out | ✅ confirmed obsolete |
+| `SECURITY DEFINER` + `search_path` | ✅ adopted as a deterministic rule |
+| `409` with `Retry-After` | ✅ decided |
+| `Claim` + `Assumptions` = test obligation | ✅ your formulation is the correct one |
 
-Sete rodadas. Este erro é diferente dos outros seis: os anteriores eram imprecisão, fonte errada ou contradição interna — **este teria cobrado duas vezes o mesmo cliente, num deploy, em silêncio.** E nasceu de uma omissão de uma palavra: eu escrevi `operationVersion` sem dizer de quem.
+Seven rounds. This mistake is different from the other six: the earlier ones were imprecision, wrong source or internal contradiction — **this one would have charged the same client twice, during a deploy, in silence.** And it was born from the omission of one word: I wrote `operationVersion` without saying whose.
 
-É o argumento mais forte que apareceu a favor do campo `Assumptions`. A premissa não escrita era *"a versão vem do cliente"* — e sem ela escrita, a implementação natural é a que quebra.
+It is the strongest argument that has appeared in favor of the `Assumptions` field. The unwritten premise was *"the version comes from the client"* — and without it written, the natural implementation is the one that breaks.

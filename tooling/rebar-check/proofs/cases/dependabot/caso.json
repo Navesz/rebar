@@ -1,4 +1,4 @@
 {
   "rule": "dependabot",
-  "why": "Projeto npm sem dependabot nem renovate acumula CVE em dependência transitiva sem ninguém abrir um PR. As duas árvores têm package.json — sem ele a regra cai em não-se-aplica e a prova não provaria nada — e diferem só pelo .github/dependabot.yml."
+  "why": "An npm project with neither dependabot nor renovate piles up CVEs in a transitive dependency with nobody opening a PR. Both trees have package.json — without it the rule falls into not-applicable and the proof would prove nothing — and they differ only by .github/dependabot.yml."
 }

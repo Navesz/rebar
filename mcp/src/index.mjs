@@ -1,29 +1,34 @@
 #!/usr/bin/env node
-// Servidor MCP do rebar — as regras deste repositório, servidas do artefato gerado.
+// rebar MCP server — this repository's rules, served from the generated artifact.
 //
-// POR QUE ELE EXISTE, nas palavras do dono: "No Herz e no BMB Compras eu não tive
-// esse problema porque elaborei um MCP com todas as regras de projeto, pra ele sempre
-// ficar na memória e forçar a ser usadas." E o defeito que sobrou: "O MCP não era
-// reescrito quando as regras de projeto foram modificadas."
+// WHY IT EXISTS, in the owner's words: "No Herz e no BMB Compras eu não tive esse
+// problema porque elaborei um MCP com todas as regras de projeto, pra ele sempre
+// ficar na memória e forçar a ser usadas." [On Herz and on BMB Compras I did not have
+// this problem because I built an MCP with all the project rules, so it would always
+// stay in memory and force them to be used.] And the defect that was left over: "O
+// MCP não era reescrito quando as regras de projeto foram modificadas." [The MCP was
+// not rewritten when the project rules were modified.]
 //
-// A correção está em duas peças, e SÓ UMA delas mora aqui:
+// The fix is in two pieces, and ONLY ONE of them lives here:
 //
-//   mcp/generate.mjs           deriva mcp/rules.generated.json da fonte, e o passo `mcp` do
-//                           `npm run verify` regenera em memória e REPROVA se o
-//                           disco divergir. Esse é o portão de frescor.
-//   mcp/src/*  (este)       serve o artefato. Nunca lê tooling/rebar-check/index.mjs.
+//   mcp/generate.mjs           derives mcp/rules.generated.json from the source, and the `mcp`
+//                           step of `npm run verify` regenerates it in memory and
+//                           FAILS if the disk diverges. That is the freshness gate.
+//   mcp/src/*  (this)       serves the artifact. Never reads tooling/rebar-check/index.mjs.
 //
-// O QUE ESTE SERVIDOR NÃO É — §7.2, literal: "O MCP nunca é a porta. A porta é N0–N5."
-// Chamar uma tool daqui é atalho para não errar; quem reprova é `npm run verify`,
-// o hook e o CI. Nenhuma resposta abaixo autoriza nada.
+// WHAT THIS SERVER IS NOT — §7.2, literal: "O MCP nunca é a porta. A porta é N0–N5."
+// [The MCP is never the door. The door is N0–N5.] Calling a tool from here is a
+// shortcut against getting it wrong; what fails you is `npm run verify`, the hook and
+// the CI. No answer below authorizes anything.
 //
-// O QUE MUDOU EM RELAÇÃO À VERSÃO ANTERIOR DESTE ARQUIVO. Ele servia PROSA: cinco
-// ferramentas devolvendo trechos de docs/PLANO.md por seção. Isso contraria a §7.2
-// por dois motivos medidos — prosa é o formato que o Herz provou ignorável (17 guias,
-// 1.961 linhas, 80 KB, "o modelo decide se chama"), e o plano é o que o projeto
-// PRETENDE, enquanto o artefato é o que o portão REPROVA hoje. Quando os dois
-// divergem, quem manda é quem reprova. A prosa continua alcançável: as ferramentas
-// devolvem `arquivo:linha` do PLANO em vez de copiar o texto para cá.
+// WHAT CHANGED FROM THE PREVIOUS VERSION OF THIS FILE. It served PROSE: five tools
+// returning chunks of docs/PLANO.md by section. That contradicts §7.2 for two
+// measured reasons — prose is the format Herz proved ignorable (17 guides, 1,961
+// lines, 80 KB, "o modelo decide se chama" [the model decides whether to call it]),
+// and the plan is what the project INTENDS while the artifact is what the gate FAILS
+// today. When the two diverge, whoever fails you is in charge. The prose stays
+// reachable: the tools return `file:line` from the PLANO instead of copying the text
+// over here.
 
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -48,11 +53,12 @@ import { catalogo, decidir, portao, porque } from './consultas.mjs'
 const executar = promisify(execFile)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Boot: morrer alto se o artefato não existir.
+// Boot: die loud if the artifact does not exist.
 //
-// Um servidor MCP que sobe sem a fonte de dados responde "nenhuma regra encontrada"
-// para tudo, e o modelo conclui que o projeto não tem regra. Resposta vazia com cara
-// de resposta é pior que servidor morto: servidor morto o dono conserta hoje.
+// An MCP server that comes up without its data source answers "no rule found" to
+// everything, and the model concludes the project has no rules. An empty answer with
+// the face of an answer is worse than a dead server: a dead server the owner fixes
+// today.
 // ─────────────────────────────────────────────────────────────────────────────
 try {
   carregar()
@@ -68,12 +74,12 @@ const texto = (t) => ({ content: [{ type: 'text', text: t }] })
 const erro = (t) => ({ content: [{ type: 'text', text: t }], isError: true })
 
 /**
- * Recarrega o artefato A CADA CHAMADA e cola o aviso de frescor na resposta.
+ * Reloads the artifact ON EVERY CALL and glues the freshness warning to the answer.
  *
- * Sem cache de propósito: o módulo inteiro existe porque uma cópia velha continuou
- * sendo servida sem ninguém perceber. Se `node mcp/generate.mjs` rodar enquanto esta
- * sessão está aberta, a próxima chamada já responde com a regra nova. Custo medido:
- * 79 KB de JSON, ~1 ms.
+ * No cache, on purpose: the whole module exists because a stale copy went on being
+ * served with nobody noticing. If `node mcp/generate.mjs` runs while this session is
+ * open, the next call already answers with the new rule. Measured cost: 79 KB of
+ * JSON, ~1 ms.
  */
 function comArtefato(fn) {
   return async (args) => {
@@ -96,41 +102,43 @@ function comArtefato(fn) {
 
 const servidor = new McpServer({ name: 'rebar', version: '0.2.0' })
 
-// ─── 1. o catálogo ───────────────────────────────────────────────────────────
+// ─── 1. the catalog ──────────────────────────────────────────────────────────
 servidor.registerTool(
   'rebar_regras',
   {
-    title: 'As regras que reprovam este repositório',
+    title: 'The rules that fail this repository',
     description:
-      'Lista as regras do rebar-check, agrupadas por nível N0–N7, com id, classe e título. ' +
-      'CHAME ANTES DE ESCREVER CÓDIGO neste repositório ou num projeto gerado por ele: é a lista ' +
-      'do que vai reprovar no commit e no CI. Filtre por nível, classe ou termo para não trazer tudo. ' +
-      'Derivado de mcp/rules.generated.json; a razão de cada regra sai em rebar_porque.',
+      'Lists the rebar-check rules, grouped by level N0–N7, with id, class and title. ' +
+      'CALL IT BEFORE WRITING CODE in this repository or in a project generated by it: it is the ' +
+      'list of what will fail at the commit and in the CI. Filter by level, class or term so it ' +
+      'does not bring everything. Derived from mcp/rules.generated.json; the reason behind each ' +
+      'rule comes out of rebar_porque.',
     inputSchema: {
-      nivel: z.string().optional().describe('N0..N7 — só as regras desse nível'),
+      nivel: z.string().optional().describe('N0..N7 — only the rules at that level'),
       classe: z
         .string()
         .optional()
-        .describe('determinística (reprova) ou heurística (só avisa); aceita prefixo'),
-      busca: z.string().optional().describe('termo no id ou no título, sem acento serve'),
+        // The two class values stay in Portuguese: they are what the artifact stores.
+        .describe('determinística (fails) or heurística (only warns); a prefix is enough'),
+      busca: z.string().optional().describe('term in the id or the title; unaccented works'),
     },
   },
   comArtefato((artefato, args) => catalogo(artefato, args)),
 )
 
-// ─── 2. o porquê ─────────────────────────────────────────────────────────────
+// ─── 2. the why ──────────────────────────────────────────────────────────────
 servidor.registerTool(
   'rebar_porque',
   {
-    title: 'Por que esta regra existe, com o número medido',
+    title: 'Why this rule exists, with the measured number',
     description:
-      'Devolve a razão de uma regra (ou de uma decisão fechada) pelo id: os parágrafos de porquê ' +
-      'lidos da fonte com arquivo:linha, e os casos de prova que a travam. ' +
-      'CHAME QUANDO O PORTÃO REPROVAR e você for tentado a contornar a regra, e ANTES de propor ' +
-      'afrouxar, ignorar ou apagar qualquer verificação. Quase toda razão aqui traz o número que a ' +
-      'mediu; número medido não se negocia.',
+      'Returns the reason behind a rule (or a closed decision) by id: the why paragraphs read ' +
+      'from the source with file:line, and the proof cases that lock it. ' +
+      'CALL IT WHEN THE GATE FAILS and you are tempted to work around the rule, and BEFORE ' +
+      'proposing to loosen, ignore or delete any check. Almost every reason here brings the ' +
+      'number that measured it; a measured number is not negotiable.',
     inputSchema: {
-      id: z.string().describe('id da regra, ex. "hex-cru", ou de uma decisão fechada'),
+      id: z.string().describe('id of the rule, e.g. "hex-cru", or of a closed decision'),
     },
   },
   comArtefato((artefato, { id }) => {
@@ -139,86 +147,89 @@ servidor.registerTool(
   }),
 )
 
-// ─── 3. o que já foi decidido ────────────────────────────────────────────────
+// ─── 3. what has already been decided ────────────────────────────────────────
 servidor.registerTool(
   'rebar_decidir',
   {
-    title: 'O que este projeto já decidiu sobre X',
+    title: 'What this project has already decided about X',
     description:
-      'Procura um assunto no artefato e responde o que o rebar já decidiu sobre ele: decisão fechada ' +
-      'com o arquivo:linha que a prova, regra que a impõe, ou passo do portão. ' +
-      'CHAME ANTES DE PROPOR qualquer escolha de stack, biblioteca, formato ou processo — a decisão ' +
-      'provavelmente já existe e está provada em código. Quando nada casa, ela DIZ que nada impõe ' +
-      'isso, em vez de inventar: isso também é resposta.',
+      'Searches a subject in the artifact and answers what rebar has already decided about it: a ' +
+      'closed decision with the file:line that proves it, a rule that enforces it, or a gate step. ' +
+      'CALL IT BEFORE PROPOSING any choice of stack, library, format or process — the decision ' +
+      'probably already exists and is proved in code. When nothing matches, it SAYS that nothing ' +
+      'enforces that, instead of inventing: that is an answer too.',
     inputSchema: {
-      assunto: z.string().describe('o assunto, em palavras: "cor", "env", "tailwind", "commit"'),
+      // The example subjects stay in Portuguese: they are queries against the
+      // artifact's own text, which is Portuguese.
+      assunto: z.string().describe('the subject, in words: "cor", "env", "tailwind", "commit"'),
     },
   },
   comArtefato((artefato, { assunto }) => decidir(artefato, assunto)),
 )
 
-// ─── 4. o portão ─────────────────────────────────────────────────────────────
+// ─── 4. the gate ─────────────────────────────────────────────────────────────
 servidor.registerTool(
   'rebar_portao',
   {
-    title: 'Os passos do portão, na ordem, e o que fazer quando um reprova',
+    title: 'The gate steps, in order, and what to do when one fails',
     description:
-      'Devolve os passos de `npm run verify` na ordem, o comando de cada um e os códigos de saída; ' +
-      'com { passo } devolve a dica de conserto daquele passo. ' +
-      'CHAME QUANDO O VERIFICAR REPROVAR e a mensagem não bastar, e antes de dizer que algo "passou". ' +
-      'Este MCP não é a porta: a porta é o comando que esta ferramenta devolve.',
+      'Returns the steps of `npm run verify` in order, the command of each one and the exit codes; ' +
+      'with { passo } it returns the repair hint for that step. ' +
+      'CALL IT WHEN THE VERIFIER FAILS and the message is not enough, and before saying that ' +
+      'anything "passed". This MCP is not the door: the door is the command this tool returns.',
     inputSchema: {
-      passo: z.string().optional().describe('nome ou número do passo, ex. "mcp" ou "5"'),
+      passo: z.string().optional().describe('name or number of the step, e.g. "mcp" or "5"'),
     },
   },
   comArtefato((artefato, { passo }) => portao(artefato, passo)),
 )
 
-// ─── 5. rodar a régua ────────────────────────────────────────────────────────
+// ─── 5. run the ruler ────────────────────────────────────────────────────────
 //
-// A única ferramenta que EXECUTA. Ela roda o mesmo binário do hook e do CI
-// (`tooling/rebar-check/index.mjs --json`), então não existe segundo veredito
-// para divergir do primeiro — é atalho para o mesmo comando, não uma opinião nova.
+// The only tool that EXECUTES. It runs the same binary as the hook and the CI
+// (`tooling/rebar-check/index.mjs --json`), so there is no second verdict to diverge
+// from the first — it is a shortcut to the same command, not a new opinion.
 //
-// Roda o CHECKER, não o `npm run verify` inteiro: os 11 passos incluem suíte de
-// teste e prettier no repositório todo, que é caro demais para uma chamada de tool e
-// já é trabalho do portão. Aqui responde a pergunta rápida "as 22 regras passam neste
-// caminho?" — em ~1 s, medido.
+// It runs the CHECKER, not the whole `npm run verify`: the 11 steps include the test
+// suite and prettier over the whole repository, which is too expensive for a tool
+// call and is already the gate's job. Here it answers the quick question "do the 22
+// rules pass on this path?" — in ~1 s, measured.
 //
-// process.execPath e execFile, nunca `npx` nem shell: no Windows `npx` sem
-// shell:true não existe como executável, e é o defeito que sobreviveu no alicerce
-// porque o CI só rodava Linux.
+// process.execPath and execFile, never `npx` and never a shell: on Windows `npx`
+// without shell:true does not exist as an executable, and that is the defect that
+// survived in the foundation because the CI only ran Linux.
 const CHECKER = join(RAIZ, 'tooling', 'rebar-check', 'index.mjs')
 
 servidor.registerTool(
   'rebar_verificar',
   {
-    title: 'Rodar a régua num caminho e devolver o placar',
+    title: 'Run the ruler on a path and return the scoreboard',
     description:
-      'Executa o rebar-check (o mesmo do hook e do CI) num caminho e devolve, por regra, o que passou, ' +
-      'reprovou ou não se aplica, mais o código de saída. ' +
-      'CHAME DEPOIS DE MEXER no repositório, e antes de afirmar que terminou. ' +
-      'ATALHO, NÃO BARREIRA: quem barra é `npm run verify` no hook e no CI; um verde aqui não ' +
-      'substitui o portão, que ainda roda formato, elos, segredo, provas e frescor do MCP.',
+      'Runs rebar-check (the same one as the hook and the CI) on a path and returns, per rule, ' +
+      'what passed, failed or is not applicable, plus the exit code. ' +
+      'CALL IT AFTER TOUCHING the repository, and before claiming you are done. ' +
+      'A SHORTCUT, NOT A BARRIER: what blocks is `npm run verify` in the hook and in the CI; a ' +
+      'green here does not replace the gate, which still runs format, links, secret, proofs and ' +
+      'MCP freshness.',
     inputSchema: {
       caminho: z
         .string()
         .optional()
-        .describe('pasta a auditar; precisa ser repositório git. Padrão: a raiz do rebar'),
-      regra: z.string().optional().describe('id de uma regra só, para iterar rápido'),
+        .describe('folder to audit; it has to be a git repository. Default: the rebar root'),
+      regra: z.string().optional().describe('id of a single rule, to iterate fast'),
     },
   },
   comArtefato(async (artefato, { caminho, regra }) => {
     if (!existsSync(CHECKER)) {
       return erro(
         [
-          `rebar-mcp: o checker não está neste checkout (esperado em ${exibirCaminho(CHECKER)}).`,
-          'As outras ferramentas continuam servindo o artefato; só a execução depende do repositório.',
+          `rebar-mcp: the checker is not in this checkout (expected at ${exibirCaminho(CHECKER)}).`,
+          'The other tools keep serving the artifact; only execution depends on the repository.',
         ].join('\n'),
       )
     }
     if (regra && !artefato.regras.some((r) => r.id === regra)) {
-      return erro(`"${regra}" não é regra. Veja a lista em rebar_regras.`)
+      return erro(`"${regra}" is not a rule. See the list in rebar_regras.`)
     }
 
     const alvo = caminho?.trim() ? caminho.trim() : RAIZ
@@ -236,15 +247,15 @@ servidor.registerTool(
         windowsHide: true,
       })
     } catch (e) {
-      // O checker sai 1 quando reprova: isso é resultado, não falha da chamada.
+      // The checker exits 1 when it fails: that is a result, not a failed call.
       if (typeof e.code !== 'number') {
-        return erro(`rebar-mcp: o checker não rodou: ${e.message}`)
+        return erro(`rebar-mcp: the checker did not run: ${e.message}`)
       }
       codigo = e.code
       saida = e
     }
 
-    const significado = artefato.codigosDeSaida?.[String(codigo)] ?? '(código desconhecido)'
+    const significado = artefato.codigosDeSaida?.[String(codigo)] ?? '(unknown code)'
 
     let avaliacoes
     try {
@@ -252,7 +263,7 @@ servidor.registerTool(
     } catch {
       return erro(
         [
-          `rebar-mcp: exit=${codigo} (${significado}) e a saída não é JSON.`,
+          `rebar-mcp: exit=${codigo} (${significado}) and the output is not JSON.`,
           (saida.stderr || saida.stdout || '').trim().slice(0, 1500),
         ].join('\n'),
       )
@@ -260,52 +271,56 @@ servidor.registerTool(
 
     const blocos = avaliacoes.map((a) => {
       if (a.erro) return `${a.nome}: ${a.erro}`
+      // 'reprovou', 'quebrou', 'na' and 'heurística' below stay in Portuguese: they
+      // are the values rebar-check --json writes, not prose. Translated, every filter
+      // here comes back empty and the scoreboard reads all-green over a red run.
       const reprovou = a.resultados.filter((x) => x.estado === 'reprovou')
       const quebrou = a.resultados.filter((x) => x.estado === 'quebrou')
       const na = a.resultados.filter((x) => x.estado === 'na')
-      // O `nota` do checker conta SÓ determinística — é o placar que decide o exit.
-      // Heurística sai numa linha à parte, senão "13/13" ao lado de sete n/a listados
-      // não fecha a conta e o leitor conclui que alguma coisa sumiu.
+      // The checker's `nota` counts ONLY the deterministic ones — it is the scoreboard
+      // that decides the exit. Heuristics go on a line of their own; otherwise "13/13"
+      // next to seven listed n/a does not add up and the reader concludes something
+      // vanished.
       const heu = a.resultados.filter((x) => x.classe === 'heurística')
       const heuAvisou = heu.filter((x) => x.estado === 'reprovou').length
       const linhas = [
-        `alvo: ${a.nome}`,
-        `determinísticas (estas reprovam): ${a.nota.ok}/${a.nota.total} passaram · ${a.nota.na} não se aplicam · ${a.nota.quebrou} quebrou(aram)`,
-        `heurísticas (só avisam): ${heu.length - heuAvisou - heu.filter((x) => x.estado === 'na').length} passaram · ${heuAvisou} avisaram · ${heu.filter((x) => x.estado === 'na').length} não se aplicam`,
+        `target: ${a.nome}`,
+        `deterministic (these fail): ${a.nota.ok}/${a.nota.total} passed · ${a.nota.na} not applicable · ${a.nota.quebrou} broke`,
+        `heuristic (only warn): ${heu.length - heuAvisou - heu.filter((x) => x.estado === 'na').length} passed · ${heuAvisou} warned · ${heu.filter((x) => x.estado === 'na').length} not applicable`,
       ]
       if (quebrou.length) {
-        linhas.push('', 'QUEBROU (defeito do rebar-check, não do alvo):')
+        linhas.push('', 'BROKE (a rebar-check defect, not a target defect):')
         for (const x of quebrou) linhas.push(`  ${x.id}  ${x.motivo ?? ''}`)
       }
       if (reprovou.length) {
-        linhas.push('', 'REPROVOU:')
+        linhas.push('', 'FAILED:')
         for (const x of reprovou) {
           linhas.push(`  ${x.id} (${x.nivel} ${x.classe})  ${x.motivo ?? ''}`)
         }
-        linhas.push(`  → a razão de cada uma: rebar_porque { id: "${reprovou[0].id}" }`)
+        linhas.push(`  → the reason behind each one: rebar_porque { id: "${reprovou[0].id}" }`)
       }
-      if (!reprovou.length && !quebrou.length) linhas.push('', 'Nenhuma regra reprovou.')
+      if (!reprovou.length && !quebrou.length) linhas.push('', 'No rule failed.')
       if (na.length) {
-        linhas.push('', `não se aplicam: ${na.map((x) => x.id).join(', ')}`)
+        linhas.push('', `not applicable: ${na.map((x) => x.id).join(', ')}`)
       }
       return linhas.join('\n')
     })
 
     return [
       `exit=${codigo} — ${significado}`,
-      `comando: node tooling/rebar-check/index.mjs --json${regra ? ` --rule=${regra}` : ''} ${exibirCaminho(alvo)}`,
+      `command: node tooling/rebar-check/index.mjs --json${regra ? ` --rule=${regra}` : ''} ${exibirCaminho(alvo)}`,
       '',
       blocos.join('\n\n'),
       '',
-      'Isto é a régua, não o portão. O portão é `npm run verify` (rebar_portao mostra os passos).',
+      'This is the ruler, not the gate. The gate is `npm run verify` (rebar_portao shows the steps).',
     ].join('\n')
   }),
 )
 
-// Log de boot vai para stderr, sempre: stdout é o canal JSON-RPC, e qualquer byte
-// solto ali quebra o handshake do cliente.
+// The boot log goes to stderr, always: stdout is the JSON-RPC channel, and any loose
+// byte in there breaks the client handshake.
 console.error(
-  `rebar-mcp: 5 ferramentas, artefato em ${exibirCaminho(CAMINHO_ARTEFATO)}, ${carregar().regras.length} regras.`,
+  `rebar-mcp: 5 tools, artifact at ${exibirCaminho(CAMINHO_ARTEFATO)}, ${carregar().regras.length} rules.`,
 )
 
 await servidor.connect(new StdioServerTransport())

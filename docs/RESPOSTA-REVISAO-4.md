@@ -1,84 +1,84 @@
-# Quarta resposta — errei na camada, e isso vale mais que o erro
+# Fourth response — I got the layer wrong, and that is worth more than the error
 
-Você está certo, e o modo como está certo é a coisa mais útil que saiu destas quatro rodadas.
+You are right, and the way in which you are right is the most useful thing that came out of these four rounds.
 
 ---
 
-## 1. Concedido, e confirmado no fonte que é dono da semântica
+## 1. Conceded, and confirmed in the source that owns the semantics
 
-Fui ao `pg@8.23.0` instalado, não à documentação do PostgreSQL. `lib/query.js`:
+I went to the installed `pg@8.23.0`, not to the PostgreSQL documentation. `lib/query.js`:
 
 ```js
-// linha 114
+// line 114
 // since we pipeline sync immediately after execute we don't need to do anything here
 
-// linhas 198-201
+// lines 198-201
 // if we're not reading pages of rows send the sync command
 connection.sync()
 ```
 
-**Sync por query.** Confirmado no código do driver. Cada query pipelinada tem o próprio error boundary, e uma falha no meio não impede as seguintes.
+**Sync per query.** Confirmed in the driver's code. Each pipelined query has its own error boundary, and a failure in the middle does not stop the ones that follow.
 
-Aplicado ao caso:
+Applied to the case:
 
 ```
-SET ROLE app     → ERRO
-SELECT segredo   → EXECUTA
+SET ROLE app     → ERROR
+SELECT secret    → EXECUTES
 ```
 
-Minha "inversão" da rodada anterior está morta. O pipeline do node-postgres não salva ninguém.
+My "inversion" from the previous round is dead. node-postgres's pipeline saves nobody.
 
-E sua conclusão é a certa, mais simples que as duas que eu tentei:
+And your conclusion is the right one, simpler than the two I tried:
 
-> Nem `pipeline off = perigoso`, nem `pipeline on = seguro`.
-> **`pool.on('connect')` + inicialização async não é fronteira, ponto — independente de pipeline.**
+> Neither `pipeline off = dangerous`, nor `pipeline on = safe`.
+> **`pool.on('connect')` + async initialization is not a boundary, period — regardless of pipeline.**
 
-A formulação que vai para o ADR é a sua:
+The formulation that goes into the ADR is yours:
 
-> A segurança não depende de ordenação, de query queue, de pipelining nem da propagação de erro entre comandos. **`onConnect` constitui uma acquisition barrier:** o client só se torna adquirível após a inicialização privilegiada concluir com sucesso; se ela falha, a conexão é destruída e o `acquire` rejeita.
+> Security does not depend on ordering, on the query queue, on pipelining, nor on error propagation between commands. **`onConnect` constitutes an acquisition barrier:** the client only becomes acquirable after the privileged initialization completes successfully; if it fails, the connection is destroyed and the `acquire` rejects.
 
-Isso elimina o pipeline inteiro da prova de segurança, que é o que uma invariante boa faz — reduz o número de coisas de que ela depende.
+That removes the whole pipeline from the security proof, which is what a good invariant does — it reduces the number of things it depends on.
 
 ---
 
-## 2. O erro real, e por que ele vale mais que o acerto
+## 2. The real error, and why it is worth more than being right
 
-Você diagnosticou melhor do que eu teria: **a fonte era primária, mas primária da abstração errada.**
+You diagnosed it better than I would have: **the source was primary, but primary for the wrong abstraction.**
 
 ```
-propriedade que eu afirmava:  comportamento de erro do node-postgres
-fonte que eu usei:            documentação do libpq / protocolo PostgreSQL
+property I was claiming:  node-postgres error behavior
+source I used:            libpq documentation / PostgreSQL protocol
 ```
 
-O `node-postgres` não é binding de libpq — é implementação própria do protocolo em JS, e **escolheu** Sync por query em vez de Sync por segmento. A doc do PostgreSQL descreve o que o *servidor* faz num pipeline; ela não descreve, e não pode descrever, o que o *driver* decide enviar.
+`node-postgres` is not a libpq binding — it is its own implementation of the protocol in JS, and it **chose** Sync per query instead of Sync per segment. The PostgreSQL docs describe what the *server* does in a pipeline; they do not describe, and cannot describe, what the *driver* decides to send.
 
-Foi uma conclusão plausível, bem fundamentada e errada — exatamente a classe de falha que a stack existe para tornar difícil. Fiz num documento sobre não fazer isso.
+It was a plausible, well-grounded and wrong conclusion — exactly the class of failure the stack exists to make hard. I did it in a document about not doing it.
 
-Seu princípio novo entra, e substitui o meu:
+Your new principle goes in, and replaces mine:
 
-> **Afirmação verificável precisa de fonte primária da camada responsável pela propriedade afirmada.**
+> **A verifiable claim needs a primary source from the layer responsible for the property claimed.**
 
-Com a regra operacional que decorre dele: **não pule camada.**
+With the operational rule that follows from it: **do not skip a layer.**
 
-| Propriedade afirmada | Quem é dono |
+| Property claimed | Who owns it |
 |---|---|
-| MVCC, isolamento, `SKIP LOCKED` | PostgreSQL |
-| Sync por query, error boundary, `onConnect` | node-postgres |
-| Serialização, mapa de status | oRPC |
-| SQL gerado | Kysely |
-| Preview de link não executa JS | crawler / especificação OG |
+| MVCC, isolation, `SKIP LOCKED` | PostgreSQL |
+| Sync per query, error boundary, `onConnect` | node-postgres |
+| Serialization, status map | oRPC |
+| Generated SQL | Kysely |
+| Link preview does not execute JS | crawler / OG specification |
 
-Meu "a fonte precisa ser primária" era insuficiente e você mostrou com um caso vivo. Registrado como o terceiro princípio da stack, ao lado dos outros dois.
+My "the source needs to be primary" was insufficient and you showed it with a live case. Recorded as the stack's third principle, next to the other two.
 
-E há uma consequência prática que eu tiraria disso: **num ADR, a citação precisa nomear o componente, não só a URL.** "PostgreSQL docs" e "node-postgres source" respondem perguntas diferentes, e escrever qual dos dois está sendo invocado força a pergunta "essa camada é dona disso?".
+And there is a practical consequence I would draw from it: **in an ADR, the citation has to name the component, not just the URL.** "PostgreSQL docs" and "node-postgres source" answer different questions, and writing down which of the two is being invoked forces the question "does that layer own this?".
 
 ---
 
-## 3. `@expect-rule` — adotado com a gramática rígida
+## 3. `@expect-rule` — adopted with the strict grammar
 
-Concordo com fechar por gramática, incluindo o item que você acrescentou: **o harness rejeita qualquer fixture em `reprovar/` sem pelo menos um marcador.** Sem isso, um arquivo novo entra na pasta, fica vermelho por qualquer motivo, e ninguém percebe que ele não prova nada.
+I agree with closing it by grammar, including the item you added: **the harness rejects any fixture in `fail/` without at least one marker.** Without that, a new file lands in the folder, goes red for whatever reason, and nobody notices it proves nothing.
 
-Múltiplos marcadores por fixture, como você escreveu:
+Multiple markers per fixture, as you wrote:
 
 ```ts
 // @expect-rule no-db-import
@@ -87,26 +87,26 @@ Múltiplos marcadores por fixture, como você escreveu:
 
 ---
 
-## 4. O teste de concorrência — adotado, e é o que faltava
+## 4. The concurrency test — adopted, and it is what was missing
 
-Sua sugestão vira teste de integração obrigatório:
+Your suggestion becomes a mandatory integration test:
 
 ```
-20 requests concorrentes · mesmo commandId · mesmo payload
-  → 1 mutação de negócio
-  → 1 linha de outbox
-  → 20 respostas semanticamente iguais
+20 concurrent requests · same commandId · same payload
+  → 1 business mutation
+  → 1 outbox row
+  → 20 semantically equal responses
 ```
 
-Isso é melhor do que qualquer prosa sobre idempotência, porque falha de verdade quando o desenho está errado. E cobre os dois modos: o `UNIQUE (scope, commandId)` sozinho impede a segunda mutação, mas só o teste concorrente prova que o replay não enfileira uma segunda outbox.
+This is better than any prose about idempotency, because it really fails when the design is wrong. And it covers both modes: `UNIQUE (scope, commandId)` on its own stops the second mutation, but only the concurrent test proves the replay does not enqueue a second outbox.
 
 ---
 
-## 5. Canonicalização — seu refinamento está certo e eu tinha deixado passar
+## 5. Canonicalization — your refinement is right and I had let it slip
 
-Você está certo que "DTO depois do Zod" não é suficiente. O Zod devolve objeto JavaScript, e JavaScript carrega `undefined`, `Date`, `bigint`, `NaN`, `Infinity` — nada disso existe no modelo JSON sobre o qual o RFC 8785 opera. Passar direto ao JCS é bug esperando data.
+You are right that "DTO after Zod" is not enough. Zod returns a JavaScript object, and JavaScript carries `undefined`, `Date`, `bigint`, `NaN`, `Infinity` — none of that exists in the JSON model RFC 8785 operates on. Handing it straight to JCS is a bug waiting for its date.
 
-A cadeia fica como você escreveu:
+The chain stays as you wrote it:
 
 ```
 Contract parse
@@ -120,21 +120,21 @@ RFC 8785
 hash
 ```
 
-E o ponto mais forte é o último: **o contrato declara explicitamente o que entra na identidade do comando.** `correlationId`, `clientTimestamp` e metadado de trace são válidos no request e **não** tornam o comando semanticamente diferente. Se o hash for sobre o payload inteiro, dois retries com trace diferente viram comandos diferentes e a idempotência não existe.
+And the strongest point is the last one: **the contract declares explicitly what enters the command's identity.** `correlationId`, `clientTimestamp` and trace metadata are valid in the request and do **not** make the command semantically different. If the hash is over the whole payload, two retries with a different trace become different commands and idempotency does not exist.
 
-Então: `idempotencyPayload(input)` como projeção explícita, versionada junto do contrato e testada — não o payload inteiro.
+So: `idempotencyPayload(input)` as an explicit projection, versioned alongside the contract and tested — not the whole payload.
 
 ---
 
-## Placar
+## Scoreboard
 
-| Item | Veredito |
+| Item | Verdict |
 |---|---|
-| "pipeline é mais seguro" | ❌ **errei** — `pg` manda Sync por query; confirmado em `lib/query.js:198-201` |
-| `pool.on('connect')` não é fronteira, independente de pipeline | ✅ sua conclusão, adotada |
-| Fonte primária **da camada certa** | ✅ princípio novo, substitui o meu |
-| `@expect-rule` com gramática rígida + fixture sem marcador é erro | ✅ adotado |
-| Teste concorrente de idempotência | ✅ adotado |
-| Projeção explícita para o hash | ✅ adotado |
+| "pipeline is safer" | ❌ **I got it wrong** — `pg` sends Sync per query; confirmed in `lib/query.js:198-201` |
+| `pool.on('connect')` is not a boundary, regardless of pipeline | ✅ your conclusion, adopted |
+| Primary source **from the right layer** | ✅ new principle, replaces mine |
+| `@expect-rule` with strict grammar + a fixture without a marker is an error | ✅ adopted |
+| Concurrent idempotency test | ✅ adopted |
+| Explicit projection for the hash | ✅ adopted |
 
-Três rodadas, três erros factuais meus, os três pegos por você. O padrão dos três é o mesmo: eu parei de verificar cedo demais, na camada onde a resposta *parecia* estar. Se serve de argumento a favor do projeto — a stack inteira existe porque disciplina não escala, e eu acabei de fornecer três amostras.
+Three rounds, three factual errors of mine, all three caught by you. The pattern in all three is the same: I stopped verifying too early, at the layer where the answer *looked* like it was. If it serves as an argument for the project — the whole stack exists because discipline does not scale, and I have just supplied three samples.

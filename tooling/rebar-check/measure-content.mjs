@@ -1,126 +1,138 @@
 #!/usr/bin/env node
-// medir-conteudo — recontar o número que RECUSA a promoção de
-// `conteudo-fora-do-codigo` a determinística.
+// measure-content — recount the number that REFUSES the promotion of
+// `conteudo-fora-do-codigo` to deterministic.
 //
-// POR QUE ESTE ARQUIVO EXISTE
+// WHY THIS FILE EXISTS
 //
-// O comentário da regra, em `index.mjs`, carrega o número mais caro do
-// repositório: "Medido depois: 37 de 262 (14,1%)" de vocabulário de interface
-// entre as frases que a definição de literal de conteúdo acha. É esse 14,1% que
-// mantém a regra heurística — com 14% de ruído, determinística barra merge por
-// rótulo de campo.
+// The rule's comment, in `index.mjs`, carries the most expensive number in the
+// repository: "Measured after: 37 of 262 (14,1%)" of interface vocabulary among
+// the phrases the content-literal definition finds. It is that 14,1% that keeps
+// the rule heuristic — with 14% noise, a deterministic rule blocks merges over
+// a field label.
 //
-// O número não se reproduzia. A auditoria de 31/08 chegou a outra contagem
-// porque REIMPLEMENTOU a definição a partir da prosa do comentário em vez de
-// executá-la, e este repositório já publicou número errado quatro vezes pelo
-// mesmo mecanismo. A resposta certa não é recontar à mão uma quinta vez: é
-// tornar RECONTÁVEL. Daí a regra deste arquivo:
+// The number did not reproduce. The audit of 31/08 arrived at another count
+// because it REIMPLEMENTED the definition from the comment's prose instead of
+// running it, and this repository has already published a wrong number four
+// times by the same mechanism. The right answer is not to recount by hand a
+// fifth time: it is to make it RECOUNTABLE. Hence this file's rule:
 //
-//   NADA DA DEFINIÇÃO É REESCRITO AQUI. Tudo vem por `import` do index.mjs.
+//   NOTHING OF THE DEFINITION IS REWRITTEN HERE. It all comes by `import`
+//   from index.mjs.
 //
-// `frasesDeConteudo`, `PRECO_BRL`, `RE_JSX`, `semComentarioNemImport` e
-// `lerRepo` são importados, e não copiados, porque a definição são os CINCO
-// juntos e não só o casador de frases: `lerRepo` é quem decide QUAIS arquivos
-// entram (produção, sem teste, sem fixture, sem `.rebarignore`, sem
-// `new/gate/` nem `new/site/blocks/`), e o denominador é metade do número.
-// Reimplementar a seleção de arquivos é exatamente o erro que a auditoria
-// cometeu. Se um dia a definição mudar no index.mjs, esta ferramenta muda junto
-// sem ninguém tocar nela — e é para isso que ela serve.
+// `frasesDeConteudo`, `PRECO_BRL`, `RE_JSX`, `semComentarioNemImport` and
+// `lerRepo` are imported, not copied, because the definition is the FIVE
+// together and not just the phrase matcher: `lerRepo` is what decides WHICH
+// files go in (production, no test, no fixture, no `.rebarignore`, no
+// `new/gate/` and no `new/site/blocks/`), and the denominator is half the
+// number. Reimplementing the file selection is exactly the mistake the audit
+// made. If one day the definition changes in index.mjs, this tool changes with
+// it without anyone touching it — and that is what it is for.
 //
-// SOBRE A CLASSIFICAÇÃO, E POR QUE ELA PODE ENUMERAR AQUI
+// ABOUT THE CLASSIFICATION, AND WHY IT MAY ENUMERATE HERE
 //
-// "Vocabulário de interface" era uma classificação FEITA À MÃO, frase a frase.
-// Mão não se reproduz. Aqui ela é um LÉXICO — marcadores nomeados, escritos
-// abaixo, que qualquer um lê e contesta por número de linha.
+// "Interface vocabulary" was a classification done BY HAND, phrase by phrase.
+// A hand does not reproduce. Here it is a LEXICON — named markers, written
+// below, that anyone reads and contests by line number.
 //
-// Isso parece contradizer o comentário da própria regra, que recusa enumerar
-// verbo de instrução. Não contradiz, e a diferença é o que a coisa FAZ com o
-// achado: a regra ACUSA, e lista incompleta que acusa reprova merge por rótulo
-// de campo; este arquivo CONTA, e lista incompleta que conta erra um número que
-// vem impresso ao lado da lista que o produziu. Enumeração é proibida no
-// enforcement e é a única forma honesta de medição. Por isso `--frases`
-// existe: discordar de uma classificação aqui é apontar uma linha, não uma
-// impressão.
+// This looks like it contradicts the comment of the rule itself, which refuses
+// to enumerate instruction verbs. It does not, and the difference is what the
+// thing DOES with the finding: the rule ACCUSES, and an incomplete list that
+// accuses fails a merge over a field label; this file COUNTS, and an incomplete
+// list that counts gets wrong a number that comes printed next to the list that
+// produced it. Enumeration is forbidden in enforcement and is the only honest
+// form of measurement. That is why `--frases` exists: to disagree with a
+// classification here is to point at a line, not at an impression.
 //
-// Este arquivo NUNCA reprova. Sai 0 em qualquer medição — ele mede, não julga.
-// Sai 2 só quando a invocação está errada, que não é medição nenhuma.
+// This file NEVER fails. It exits 0 on any measurement — it measures, it does
+// not judge. It exits 2 only when the invocation is wrong, which is no
+// measurement at all.
 //
-// Uso:
+// Usage:
 //   node tooling/rebar-check/measure-content.mjs <repo>...
 //   node tooling/rebar-check/measure-content.mjs <repo>... --frases
 //   node tooling/rebar-check/measure-content.mjs <repo>... --json
 
 import { PRECO_BRL, RE_JSX, frasesDeConteudo, lerRepo, semComentarioNemImport } from './index.mjs'
 
-// ─────────────────────────────────────────────────────────────── o léxico
+// ──────────────────────────────────────────────────────────── the lexicon
 
 /**
- * Os marcadores de VOCABULÁRIO DE INTERFACE: texto que fala do PROGRAMA em vez
- * de falar do negócio. Ordem importa — a frase é classificada pelo primeiro que
- * casa, para que a soma por marcador feche com o total sem contar duas vezes.
+ * The markers of INTERFACE VOCABULARY: text that talks about the PROGRAM
+ * instead of talking about the business. Order matters — the phrase is
+ * classified by the first one that matches, so that the sum per marker closes
+ * with the total without counting twice.
  *
- * Cada um saiu de frases que estão na amostra, e a nota diz qual, para que
- * ninguém precise adivinhar de onde veio o padrão.
+ * Each one came out of phrases that are in the sample, and the note says which,
+ * so that nobody has to guess where the pattern came from.
+ *
+ * THE REGEXES BELOW STAY IN PORTUGUESE, and so do the phrases quoted in their
+ * notes. Neither is prose: the regexes are the vocabulary this instrument LOOKS
+ * FOR inside the audited repositories, and the quotes are the literal text
+ * those repositories carry — the specimens each pattern was measured against.
+ * Those repositories are Brazilian. Translated, either one measures nothing.
  */
 const MARCADORES = [
   {
     id: 'estado-vazio',
-    // A frase ANUNCIA ausência de dado, e só conta no COMEÇO dela: "Nenhuma
-    // proposta salva ainda." é estado vazio, "Cada peça recebe número próprio"
-    // que menciona nenhum no meio não é. Seis na amostra, todas de tela vazia.
+    // The phrase ANNOUNCES absence of data, and it only counts at its START:
+    // "Nenhuma proposta salva ainda." is an empty state, "Cada peça recebe
+    // número próprio", which mentions nenhum in the middle, is not. Six in the
+    // sample, all of them empty screens.
     re: /^nenhum(a|as|s)?\b/i,
   },
   {
     id: 'estado-de-erro',
-    // Fala de falha do programa. "Não deu para gerar o arquivo:" e "Não deu
-    // para falar com o Banco Central agora" são as duas formas do ducado; "Um
-    // erro escapou de todos os tratamentos" é o boundary do LinhaK.
+    // Talks about a failure of the program. "Não deu para gerar o arquivo:" and
+    // "Não deu para falar com o Banco Central agora" are the two shapes in
+    // ducado; "Um erro escapou de todos os tratamentos" is LinhaK's boundary.
     re: /não deu para|não foi possível|\berros?\b|falhou|falha ao|tente novamente|deu errado/i,
   },
   {
     id: 'carregando',
-    // Estado transitório. ZERO na amostra dos 11 — o "Carregando o índice de
-    // preços…" que a auditoria nomeou mora num `<div>`, e `<div>` não está em
-    // PROSA. O marcador fica porque a ausência dele é o achado.
+    // Transient state. ZERO in the sample of the 11 — the "Carregando o índice
+    // de preços…" the audit named lives in a `<div>`, and `<div>` is not in
+    // PROSA. The marker stays because its absence is the finding.
     re: /\bcarregando\b|\baguarde\b|\bprocessando\b|\bsalvando\b|\benviando\b/i,
   },
   {
     id: 'instrucao',
-    // Imperativo de INTERAÇÃO, na segunda pessoa. Duas restrições, e as duas
-    // custaram medição:
+    // INTERACTION imperative, in the second person. Two restrictions, and both
+    // cost measurement:
     //
-    // O INFINITIVO FICA FORA, e é ele que separa as duas vozes nesta amostra:
-    // "Selecionar tampo inteiro, plano e com umidade adequada" é etapa de
-    // produção de móvel, "Selecione a forma de pagamento" é operar a tela. As
-    // cinco linhas de tarefa do caderno da DÉCIMA ("Pesquisar", "Definir",
-    // "Verificar", "Confirmar", "Manter") saem por aqui, sem exceção escrita.
+    // THE INFINITIVE STAYS OUT, and it is the infinitive that separates the two
+    // voices in this sample: "Selecionar tampo inteiro, plano e com umidade
+    // adequada" is a step in making furniture, "Selecione a forma de pagamento"
+    // is operating the screen. The five task lines of DÉCIMA's notebook
+    // ("Pesquisar", "Definir", "Verificar", "Confirmar", "Manter") leave through
+    // here, with no written exception.
     //
-    // O VERBO TEM DE ABRIR ORAÇÃO — começo da frase, depois de pontuação forte,
-    // ou depois de travessão/ponto médio, que é como rótulo de interface encadeia
-    // ("Opcional — use para tirar ingredientes"). Casar em qualquer posição
-    // custava DOIS falsos nas 262, os dois em homógrafo verbo/substantivo:
-    // "Reflexo difuso, toque visual nobre e melhor tolerância a micro-riscos" e
-    // "Abaixo disso, use apenas o símbolo e preserve o ponto central". Não
-    // custou nenhum verdadeiro: "Verifique sua conexão e recarregue a página"
-    // entra pelo "Verifique", que abre a segunda oração.
+    // THE VERB HAS TO OPEN A CLAUSE — start of the phrase, after strong
+    // punctuation, or after an em dash/middle dot, which is how an interface
+    // label chains ("Opcional — use para tirar ingredientes"). Matching at any
+    // position cost TWO false positives in the 262, both on a verb/noun
+    // homograph: "Reflexo difuso, toque visual nobre e melhor tolerância a
+    // micro-riscos" and "Abaixo disso, use apenas o símbolo e preserve o ponto
+    // central". It cost no true positive: "Verifique sua conexão e recarregue a
+    // página" comes in through "Verifique", which opens the second clause.
     re: /(?:^|[.!?:…]\s+|[—–·]\s*)(?:clique|toque|arraste|solte|digite|informe|preencha|complete|selecione|escolha|marque|adicione|registre|baixe|envie|salve|confira|verifique|recarregue|use|monte|role|aperte|pressione|abra|feche|tente|refaça)\b/iu,
   },
   {
     id: 'nome-do-programa',
-    // O texto chama o programa pelo nome. Léxico curto de propósito: cada termo
-    // aqui foi conferido contra as 262, e os que acusavam prosa de negócio
-    // FICARAM DE FORA — `servidor` casava "o servidor preenche" do protocolo
-    // KWP2000 do LinhaK, e `campos` casava "Este documento define os campos" do
-    // certificado da DÉCIMA. Termo que erra numa amostra de 262 não entra.
-    // `programa` entrou pelo mesmo teste e passou: um único casamento nas 262
-    // ("Seu cofre sai daqui em formato que outro programa abre"), zero falsos.
+    // The text calls the program by its name. A short lexicon on purpose: every
+    // term here was checked against the 262, and the ones that accused business
+    // prose STAYED OUT — `servidor` matched "o servidor preenche" from LinhaK's
+    // KWP2000 protocol, and `campos` matched "Este documento define os campos"
+    // from DÉCIMA's certificate. A term that errs in a sample of 262 does not
+    // get in. `programa` came in through the same test and passed: a single
+    // match in the 262 ("Seu cofre sai daqui em formato que outro programa
+    // abre"), zero false positives.
     re: /\b(o app|este aplicativo|esta página|a página|as telas|a navegação|javascript|navegador|deste computador|neste computador|neste aparelho|os filtros|a busca|programa)\b/i,
   },
   {
     id: 'sobra-de-depuracao',
-    // Texto que nunca foi escrito para o visitante. Um na amostra:
-    // "esperado 0x… · recebido 0x …", que o próprio comentário da regra já
-    // tinha nomeado ao conferir as seis frases em minúscula.
+    // Text that was never written for the visitor. One in the sample:
+    // "esperado 0x… · recebido 0x …", which the rule's own comment had already
+    // named when it checked the six lowercase phrases.
     re: /\b0x/,
   },
 ]
@@ -130,13 +142,14 @@ function classificar(frase) {
   return null
 }
 
-// ─────────────────────────────────────────────────────────────── a medição
+// ───────────────────────────────────────────────────────── the measurement
 
 /**
- * Aplica a definição IMPORTADA a um repositório. As duas formas de literal
- * saem separadas porque elas se contam diferente no index.mjs, e juntá-las é
- * como se erra o total: a FRASE conta uma por nó de texto, o PREÇO conta um
- * por ARQUIVO (`PRECO_BRL.exec` roda uma vez e o achado é registrado uma vez).
+ * Applies the IMPORTED definition to a repository. The two shapes of literal
+ * come out separately because they count differently in index.mjs, and joining
+ * them is how the total gets wrong: the PHRASE counts one per text node, the
+ * PRICE counts one per FILE (`PRECO_BRL.exec` runs once and the finding is
+ * registered once).
  */
 function medir(dir) {
   const r = lerRepo(dir)
@@ -159,13 +172,13 @@ function medir(dir) {
   return { dir, nome: r.nome, arquivosJsx, arquivosComPreco, frases }
 }
 
-// ─────────────────────────────────────────────────────────────────── saída
+// ────────────────────────────────────────────────────────────────── output
 
 const cor = process.stdout.isTTY && !process.env.NO_COLOR
 const forte = (s) => (cor ? `\x1b[1m${s}\x1b[0m` : s)
 const fraco = (s) => (cor ? `\x1b[2m${s}\x1b[0m` : s)
 
-/** Percentual com UMA casa e vírgula: é o formato em que o número foi publicado. */
+/** Percentage with ONE decimal and a comma: the format the number was published in. */
 function pct(parte, todo) {
   if (!todo) return '—'
   return `${(Math.round((parte / todo) * 1000) / 10).toFixed(1).replace('.', ',')}%`
@@ -174,10 +187,10 @@ function pct(parte, todo) {
 function imprimir(medicoes, mostrarFrases) {
   const larg = Math.max(12, ...medicoes.map((m) => (m.nome ?? m.dir).length))
   console.log(
-    `\n${forte('repositório'.padEnd(larg))}  ${forte('jsx'.padStart(5))} ` +
-      `${forte('frases'.padStart(7))} ${forte('preços'.padStart(7))} ` +
-      `${forte('literais'.padStart(9))} ${forte('interface'.padStart(10))} ` +
-      `${forte('conteúdo'.padStart(9))}`,
+    `\n${forte('repository'.padEnd(larg))}  ${forte('jsx'.padStart(5))} ` +
+      `${forte('phrases'.padStart(7))} ${forte('prices'.padStart(7))} ` +
+      `${forte('literals'.padStart(9))} ${forte('interface'.padStart(10))} ` +
+      `${forte('content'.padStart(9))}`,
   )
 
   const tot = { jsx: 0, frases: 0, precos: 0, interface: 0 }
@@ -208,12 +221,12 @@ function imprimir(medicoes, mostrarFrases) {
   )
 
   console.log(
-    `\n${forte('vocabulário de interface')}: ${tot.interface} de ${tot.frases} = ` +
+    `\n${forte('interface vocabulary')}: ${tot.interface} of ${tot.frases} = ` +
       forte(pct(tot.interface, tot.frases)),
   )
-  console.log(fraco('  (é o número que recusa a promoção da regra a determinística)'))
+  console.log(fraco('  (the number that refuses the promotion of the rule to deterministic)'))
 
-  console.log(`\n${forte('por marcador')}`)
+  console.log(`\n${forte('by marker')}`)
   for (const mk of MARCADORES) {
     const n = medicoes.reduce(
       (s, m) => s + (m.frases ?? []).filter((f) => f.marcador === mk.id).length,
@@ -223,12 +236,12 @@ function imprimir(medicoes, mostrarFrases) {
   }
 
   if (mostrarFrases) {
-    console.log(`\n${forte('as frases, uma a uma')}`)
+    console.log(`\n${forte('the phrases, one by one')}`)
     let i = 0
     for (const m of medicoes) {
       for (const f of m.frases ?? []) {
         i++
-        const rot = f.marcador ? `[${f.marcador}]` : '[conteúdo]'
+        const rot = f.marcador ? `[${f.marcador}]` : '[content]'
         console.log(`${String(i).padStart(4)} ${rot.padEnd(22)} ${m.nome}/${f.rel}`)
         console.log(`     ${f.frase}`)
       }
@@ -245,12 +258,12 @@ const desconhecidas = args.filter((a) => a.startsWith('--') && !/^--(frases|json
 const alvos = args.filter((a) => !a.startsWith('--'))
 
 if (desconhecidas.length) {
-  console.error(`medir-conteudo: opção desconhecida: ${desconhecidas.join(', ')}`)
+  console.error(`measure-content: unknown option: ${desconhecidas.join(', ')}`)
   process.exit(2)
 }
 if (!alvos.length) {
-  console.error('medir-conteudo: informe pelo menos um repositório.')
-  console.error('uso: node tooling/rebar-check/measure-content.mjs <repo>... [--frases] [--json]')
+  console.error('measure-content: give at least one repository.')
+  console.error('usage: node tooling/rebar-check/measure-content.mjs <repo>... [--frases] [--json]')
   process.exit(2)
 }
 
@@ -277,6 +290,7 @@ if (json) {
   imprimir(medicoes, mostrarFrases)
 }
 
-// Medir não é julgar: sai 0 mesmo quando um alvo não é repositório git — o erro
-// dele aparece na linha dele, e o resto da tabela continua valendo.
+// Measuring is not judging: it exits 0 even when a target is not a git
+// repository — its error shows up on its own line, and the rest of the table
+// still holds.
 process.exit(0)

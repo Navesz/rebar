@@ -1,49 +1,57 @@
 #!/bin/sh
-# Hook antes do commit — SÓ O QUE É RÁPIDO.
+# Pre-commit hook — ONLY WHAT IS FAST.
 #
-# Hook lento é hook desligado, e hook desligado verifica zero. O alvo é menos de
-# 5 segundos. Nada de typecheck, nada de teste, nada de build: isso é trabalho
-# do CI, que pode demorar porque ninguém está esperando na frente dele.
+# A slow hook is a hook turned off, and a hook turned off verifies zero. The
+# target is under 5 seconds. No typecheck, no test, no build: that is CI's work,
+# and CI can take its time because nobody is waiting in front of it.
 #
-# Aqui mora a única coisa que precisa ser barrada ANTES de existir, porque
-# depois já é tarde: segredo, uma vez no histórico, exige ROTAÇÃO da credencial,
-# e o commit seguinte não desfaz isso.
+# Here lives the one thing that has to be blocked BEFORE it exists, because
+# afterwards it is already late: a secret, once in the history, demands ROTATION
+# of the credential, and the next commit does not undo that.
 #
-# A outra metade — trailer de coautoria de IA — é barrada pelo hook commit-msg,
-# que roda com a mensagem na mão e impede o trailer de ENTRAR. Num repositório
-# que nasce com os dois hooks instalados, impedir a entrada basta; varrer o
-# histórico inteiro a cada commit é o trabalho que a régua do rebar faz no CI.
+# The other half — the AI co-authorship trailer — is blocked by the commit-msg
+# hook, which runs with the message in hand and keeps the trailer from GETTING
+# IN. In a repository born with both hooks installed, blocking the entrance is
+# enough; sweeping the whole history on every commit is the work rebar's ruler
+# does in CI.
 #
-# Instale com: node .githooks/install.mjs
-# Pule uma vez com: git commit --no-verify
+# Install with: node .githooks/install.mjs
+# Skip once with: git commit --no-verify
 
 set -e
 
 RAIZ=$(git rev-parse --show-toplevel)
 cd "$RAIZ"
 
-# Só o que está em stage, não o repositório inteiro: é o que este commit está
-# prestes a acrescentar, e é o que cabe no orçamento de tempo.
+# Only what is staged, not the whole repository: it is what this commit is about
+# to add, and it is what fits in the time budget.
 node .githooks/scan-secret.mjs --staged
 
-# ARQUIVO DE AMBIENTE RASTREADO e achado por si so, sem olhar o conteudo: um
-# `.env` vazio hoje recebe a chave amanha, e ai ja passou pela revisao. E a
-# regra `env-committed` do rebar-security, e ela e N5 -- depois do commit o
-# conserto nao e apagar o arquivo, e rotacionar a credencial.
+# TRACKED ENVIRONMENT FILE, caught on its own, without looking at the content:
+# an empty `.env` today gets the key tomorrow, and by then it has already gone
+# through review. It is rebar-security's `env-committed` rule, and it is N5 --
+# after the commit the fix is not deleting the file, it is rotating the
+# credential.
 #
-# Escrita aqui em vez de `npx rebar-security` porque hook nao pode depender de
-# rede: um `npx` a cada commit e lento e morre offline. Sao dois comandos.
+# Written here instead of `npx rebar-security` because a hook cannot depend on
+# the network: an `npx` on every commit is slow and dies offline. It is two
+# commands.
 #
-# `.env.example`, `.env.sample` e afins ficam de fora -- sao o conserto da
-# falha, nao a falha.
+# `.env.example`, `.env.sample` and the like stay out -- they are the fix for
+# the failure, not the failure.
+#
+# `exemplo` and `modelo` in the second grep stay Portuguese: they are the
+# suffixes Brazilian repositories actually use on their example env files, and
+# this pattern is what SEARCHES for them. Translating them makes the hook block
+# a `.env.exemplo` that is not a failure.
 ENVS=$(git diff --cached --name-only --diff-filter=AM \
   | grep -E '(^|/)\.env($|\.)' \
   | grep -vE '\.(example|exemplo|sample|template|dist|modelo)$' || true)
 if [ -n "$ENVS" ]; then
-  echo "[env] arquivo de ambiente em stage:"
+  echo "[env] environment file staged:"
   echo "$ENVS" | sed 's/^/  /'
-  echo "  Apagar nao basta se ja foi commitado: rotacione a credencial."
-  echo "  Se for exemplo, renomeie para .env.example."
+  echo "  Deleting is not enough if it was already committed: rotate the credential."
+  echo "  If it is an example, rename it to .env.example."
   exit 1
 fi
 

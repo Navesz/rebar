@@ -1,45 +1,46 @@
-// Cliente mínimo de MCP sobre stdio — a peça que deixa uma prova FALAR com um
-// servidor em vez de descrevê-lo.
+// Minimal MCP client over stdio — the piece that lets a proof TALK to a server
+// instead of describing it.
 //
-// Estava dentro de `prova-cliente.mjs`, que sobe o servidor DESTE pacote. Saiu
-// para cá quando apareceu a segunda prova que precisava dele: a do MCP que o
-// gerador escreve nos projetos novos, em `new/gate/prove-mcp-template.mjs`.
-// Copiar as sessenta linhas seria a segunda fonte a envelhecer sozinha — e um
-// defeito no cliente se cancelaria dos dois lados, que é o mesmo motivo pelo
-// qual ele não usa o SDK que o servidor usa.
+// It lived inside `prova-cliente.mjs`, which starts the server of THIS package.
+// It moved here when the second proof that needed it showed up: the one for the
+// MCP the generator writes into new projects, in
+// `new/gate/prove-mcp-template.mjs`. Copying the sixty lines would be the second
+// source aging on its own — and a defect in the client would cancel itself out
+// on both sides, which is the same reason it does not use the SDK the server
+// uses.
 //
-// ZERO DEPENDÊNCIA de propósito, mesmo dentro de um pacote que pode ter
-// dependência.
+// ZERO DEPENDENCIES on purpose, even inside a package that is allowed to have
+// dependencies.
 //
-// O transporte stdio do MCP é JSON-RPC 2.0 em NDJSON — uma mensagem por linha,
-// sem enquadramento Content-Length (isso é LSP, e confundir os dois é o erro
-// clássico).
+// The MCP stdio transport is JSON-RPC 2.0 in NDJSON — one message per line, no
+// Content-Length framing (that is LSP, and confusing the two is the classic
+// mistake).
 
 import { spawn } from 'node:child_process'
 
-/** A versão do protocolo que este cliente fala. O servidor responde com a dele. */
+/** The protocol version this client speaks. The server answers with its own. */
 export const PROTOCOLO = '2025-06-18'
 
-/** Corta resposta longa: a prova é que a resposta veio certa, não o texto inteiro. */
+/** Cuts a long answer: the proof is that the answer came right, not the whole text. */
 export function trecho(t, limite = 900) {
   const s = String(t)
-  return s.length <= limite ? s : `${s.slice(0, limite)}\n   … (+${s.length - limite} caracteres)`
+  return s.length <= limite ? s : `${s.slice(0, limite)}\n   … (+${s.length - limite} characters)`
 }
 
-/** O texto de uma resposta de `tools/call`, que vem em pedaços. */
+/** The text of a `tools/call` answer, which arrives in pieces. */
 export function textoDa(resposta) {
   return (resposta.result?.content ?? []).map((c) => c.text).join('\n')
 }
 
 export class Cliente {
   /**
-   * Por padrão sobe o servidor com `process.execPath`, o node que está rodando
-   * esta prova. Com `comando` explícito, sobe do jeito que um `.mcp.json` manda
-   * — que é como se prova um snippet publicado em vez de prometê-lo.
+   * By default it starts the server with `process.execPath`, the node running
+   * this proof. With an explicit `comando`, it starts it the way a `.mcp.json`
+   * says — which is how a published snippet gets proved instead of promised.
    *
-   * `cwd` importa mais do que parece nas provas do gerador: o servidor do
-   * projeto deriva a raiz do próprio caminho, e um cwd errado o faria responder
-   * sobre outro repositório.
+   * `cwd` matters more than it looks in the generator's proofs: the project's
+   * server derives the root from its own path, and a wrong cwd would make it
+   * answer about another repository.
    */
   constructor(caminhoDoServidor, { comando = null, cwd = null, curto = false } = {}) {
     const [exe, args] = comando
@@ -82,15 +83,12 @@ export class Cliente {
     this.proc.stdin.write(`${JSON.stringify(objeto)}\n`)
   }
 
-  /** Requisição com id: devolve a resposta correspondente. 15 s é folga generosa. */
+  /** Request with an id: returns the matching answer. 15 s is generous slack. */
   pedir(metodo, params) {
     const id = this.proximoId++
     const req = { jsonrpc: '2.0', id, method: metodo, params }
     return new Promise((resolve, reject) => {
-      const relogio = setTimeout(
-        () => reject(new Error(`sem resposta para ${metodo} em 15 s`)),
-        15_000,
-      )
+      const relogio = setTimeout(() => reject(new Error(`no answer for ${metodo} in 15 s`)), 15_000)
       this.pendentes.set(id, (msg) => {
         clearTimeout(relogio)
         if (!this.curto) console.log(`  ← ${trecho(JSON.stringify(msg), 700)}`)
@@ -100,12 +98,12 @@ export class Cliente {
     })
   }
 
-  /** Notificação: sem id, sem resposta. O `initialized` é obrigatório no MCP. */
+  /** Notification: no id, no answer. `initialized` is mandatory in MCP. */
   notificar(metodo, params) {
     this.enviar({ jsonrpc: '2.0', method: metodo, params })
   }
 
-  /** O handshake inteiro, que é igual em toda prova. */
+  /** The whole handshake, which is the same in every proof. */
   async apresentar(nome) {
     const ini = await this.pedir('initialize', {
       protocolVersion: PROTOCOLO,
@@ -117,12 +115,12 @@ export class Cliente {
   }
 
   /**
-   * Fecha e ESPERA o processo morrer de fato.
+   * Closes and WAITS for the process to actually die.
    *
-   * O `await` não é zelo: no Windows não se apaga uma pasta que ainda é o `cwd`
-   * de um processo vivo, e `kill()` só pede. Sem esperar, a prova que monta um
-   * projeto num tmpdir passa nos cinco casos e morre com EPERM na limpeza —
-   * medido.
+   * The `await` is not fussiness: on Windows you cannot delete a folder that is
+   * still the `cwd` of a live process, and `kill()` only asks. Without waiting,
+   * the proof that builds a project in a tmpdir passes all five cases and dies
+   * with EPERM during cleanup — measured.
    */
   fechar() {
     if (this.proc.exitCode !== null || this.proc.signalCode !== null) return Promise.resolve()
@@ -130,7 +128,7 @@ export class Cliente {
       this.proc.once('exit', () => resolve())
       this.proc.stdin.end()
       this.proc.kill()
-      // Rede de segurança: um servidor que ignore o sinal não trava a prova.
+      // Safety net: a server that ignores the signal does not hang the proof.
       setTimeout(() => resolve(), 5000).unref()
     })
   }

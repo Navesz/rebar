@@ -1,6 +1,6 @@
 {
   "rule": "raw-hex",
-  "why": "Os dois ramos N/A da regra, um por pasta. A heurística só acusa hex que JÁ EXISTE como token no CSS, porque a versão ingênua dela deu 100% de falso positivo quando medida — hex solto tem contexto legítimo demais, material de three.js e véu de overlay. `pass/` não tem .css nenhum e `fail/` tem um .css escrito só com cores nomeadas: nos dois a tabela de tokens sai vazia, e sem tabela a comparação não existe. Trocar qualquer um dos dois `na` por `null` faz a heurística afirmar \"não há cor duplicada\" num repositório onde ela não olhou para cor nenhuma.",
+  "why": "The two N/A branches of the rule, one per folder. The heuristic only accuses hex that ALREADY EXISTS as a token in the CSS, because the naive version of it gave 100% false positives when measured — loose hex has far too much legitimate context, three.js material and overlay veil. `pass/` has no .css at all and `fail/` has a .css written only with named colors: in both the token table comes out empty, and with no table the comparison does not exist. Swapping either of the two `na` for `null` makes the heuristic claim \"no duplicated color\" in a repository where it looked at no color at all. `na` stays as it is: it is the state value prove.mjs matches on (prove.mjs:198-200), not prose.",
   "pass": {
     "estado": "na"
   },

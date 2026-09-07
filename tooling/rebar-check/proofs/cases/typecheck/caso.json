@@ -1,4 +1,4 @@
 {
   "rule": "typecheck",
-  "why": "Projeto TypeScript cujo unico contato com o compilador e o build: o erro de tipo so aparece quando alguem tenta empacotar, ou em producao, nunca numa checagem que o CI possa chamar sozinha."
+  "why": "A TypeScript project whose only contact with the compiler is the build: the type error only shows up when someone tries to package, or in production, never in a check CI can call on its own."
 }

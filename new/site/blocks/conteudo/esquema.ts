@@ -1,90 +1,95 @@
 /**
- * O contrato de `conteudo/site.json`, escrito à mão em TypeScript puro.
+ * The contract of `conteudo/site.json`, written by hand in plain TypeScript.
  *
- * ZERO DEPENDÊNCIA — não é zod, e não é por gosto. A regra da casa vale para
- * tudo que o `npx` executa, e este arquivo executa dentro do `next build`.
+ * ZERO DEPENDENCIES — it is not zod, and not out of taste. The house rule holds
+ * for everything `npx` runs, and this file runs inside `next build`.
  *
- * Ele é N2 e N0 ao mesmo tempo: a mesma declaração VALIDA em tempo de build
- * (lança e reprova o build se o JSON divergir) e PRODUZ o tipo — `Site` sai de
- * `typeof esquemaSite`, então não existe a segunda declaração que envelhece
- * separada do dado.
+ * It is N2 and N0 at the same time: the same declaration VALIDATES at build time
+ * (it throws and fails the build if the JSON diverges) and PRODUCES the type —
+ * `Site` comes out of `typeof esquemaSite`, so there is no second declaration
+ * ageing apart from the data.
  *
- * O que o §12.3 do plano fechou e este arquivo é o dente: identidade do
- * negócio — telefone, endereço, nome — é CONTEÚDO VALIDADO, não variável de
- * ambiente. A prova está no PR `Navesz/Galegos#1`, que o dono estacionou de
- * propósito: mover o número para env var fazia o build passar, o deploy subir e
- * o `wa.me` nascer sem destinatário, com o cardápio parando de entregar pedido
- * EM SILÊNCIO. Aqui o campo faltando não é silêncio: é build vermelho.
+ * What §12.3 of the plan settled and this file is the tooth of: the identity of
+ * the business — phone, address, name — is VALIDATED CONTENT, not an environment
+ * variable. The proof is in PR `Navesz/Galegos#1`, which the owner parked on
+ * purpose: moving the number to an env var made the build pass, the deploy ship
+ * and `wa.me` be born with no recipient, with the menu stopping delivering
+ * orders IN SILENCE. Here a missing field is not silence: it is a red build.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * O QUE FOI CONSERTADO EM 31/08 (o mesmo desastre, outra mecânica).
+ * WHAT WAS FIXED ON 31/08 (the same disaster, another mechanism).
  *
- * O gerador entregava `identidade.whatsapp.e164 = "5500000000000"`. O padrão
- * `/^[1-9]\d{9,14}$/` casa, o `next build` saía 0, e o HTML publicado carregava
- * `https://wa.me/5500000000000` em DUAS posições — botão e rodapé. Link que
- * sobe, parece certo e não entrega pedido nenhum: exatamente o `Galegos#1`,
- * cometido pelo próprio gerador. A causa não é regex frouxo; é o PLACEHOLDER
- * SER PLAUSÍVEL. Vazio, o esquema pegava. Plausível, ele aprovava.
+ * The generator shipped `identidade.whatsapp.e164 = "5500000000000"`. The
+ * pattern `/^[1-9]\d{9,14}$/` matches, `next build` exited 0, and the published
+ * HTML carried `https://wa.me/5500000000000` in TWO places — button and footer.
+ * A link that ships, looks right and delivers no order at all: exactly
+ * `Galegos#1`, committed by the generator itself. The cause is not a loose
+ * regex; it is the PLACEHOLDER BEING PLAUSIBLE. Empty, the schema caught it.
+ * Plausible, it approved it.
  *
- * A DISCIPLINA, que vale para todo campo daqui em diante: placeholder é INERTE
- * E BARULHENTO, nunca plausível e silencioso.
- *   · INERTE     — impossível de confundir com valor real (`TROQUE-PELO-…`),
- *                  e impossível de virar link, e-mail ou endereço por acidente.
- *   · BARULHENTO — REPROVA o build até ser trocado, porque site com telefone
- *                  errado não deveria publicar. Um build vermelho custa cinco
- *                  minutos; um `wa.me` morto custa os pedidos de meses.
+ * THE DISCIPLINE, which holds for every field from here on: a placeholder is
+ * INERT AND LOUD, never plausible and silent.
+ *   · INERT — impossible to mistake for a real value (`TROQUE-PELO-…`), and
+ *             impossible to turn into a link, e-mail or address by accident.
+ *   · LOUD  — it FAILS the build until it is replaced, because a site with the
+ *             wrong phone should not publish. A red build costs five minutes; a
+ *             dead `wa.me` costs months of orders.
  *
- * Duas camadas, de propósito, e a segunda existe porque a primeira não pega
- * digitação à mão:
- *   1. `conferirSentinelas` varre o JSON INTEIRO ANTES da validação campo a
- *      campo e lança UMA mensagem com TODOS os placeholders restantes. Sem
- *      isso o dono conserta um campo, roda o build, descobre o próximo, e paga
- *      nove ciclos de build para preencher nove campos (medido: 9 campos ainda
- *      com sentinela no projeto recém-gerado).
- *   2. Os validadores recusam também o valor PLAUSÍVEL-PORÉM-MORTO que o dono
- *      pode digitar de volta: `5500000000000`, `(00) 00000-0000`,
- *      `contato@exemplo.com.br`, `https://exemplo.com.br`, CEP `00000-000`, UF
- *      que não existe. Mate a camada 1 e a 2 ainda reprova; mate a 2 e a 1
- *      ainda reprova o que sai do gerador.
+ * Two layers, on purpose, and the second exists because the first does not catch
+ * typing by hand:
+ *   1. `conferirSentinelas` scans the WHOLE JSON BEFORE field-by-field
+ *      validation and throws ONE message with ALL the remaining placeholders.
+ *      Without it the owner fixes one field, runs the build, discovers the next,
+ *      and pays nine build cycles to fill nine fields (measured: 9 fields still
+ *      holding a sentinel in the freshly generated project).
+ *   2. The validators also refuse the PLAUSIBLE-BUT-DEAD value the owner may
+ *      type back in: `5500000000000`, `(00) 00000-0000`,
+ *      `contato@exemplo.com.br`, `https://exemplo.com.br`, CEP `00000-000`, a UF
+ *      that does not exist. Kill layer 1 and 2 still fails; kill 2 and 1 still
+ *      fails what comes out of the generator.
  * ─────────────────────────────────────────────────────────────────────────
- * O QUE FOI CONSERTADO EM 02/09: A EXIGÊNCIA SEGUE O USO.
+ * WHAT WAS FIXED ON 02/09: THE DEMAND FOLLOWS THE USE.
  *
- * A §12.3 decidiu ONDE o telefone mora — dentro do projeto, versionado e
- * validado, em vez de numa variável de ambiente que o deploy esquece. Este
- * arquivo tinha lido aquilo como OUTRA COISA: que todo site TEM de ter
- * telefone, e-mail e endereço completo. Eram nove campos obrigatórios de
- * identidade, cinco deles só de endereço, cobrados de qualquer site que o
- * gerador produzisse. "Se você tem telefone, ele mora aqui e é validado" não é
- * "você tem de ter telefone": um site pode ter só e-mail, pode não ter endereço
- * físico, pode ser a landing de uma ferramenta.
+ * §12.3 decided WHERE the phone lives — inside the project, versioned and
+ * validated, instead of in an environment variable the deploy forgets. This file
+ * had read that as SOMETHING ELSE: that every site MUST have a phone, an e-mail
+ * and a full address. There were nine required identity fields, five of them
+ * address alone, charged to any site the generator produced. "If you have a
+ * phone, it lives here and is validated" is not "you must have a phone": a site
+ * can have only e-mail, can have no physical address, can be the landing page of
+ * a tool.
  *
- * A REGRA AGORA, e ela é mais simples que a anterior:
+ * THE RULE NOW, and it is simpler than the previous one:
  *
- *   · OBRIGATÓRIO é o que TODA página renderiza sem perguntar — nome, título,
- *     descrição, urlBase. Sem eles não há `<title>` nem `og:image`, e o
- *     `og:image` é a razão de este preset existir. Nenhum deles é fato que o
- *     negócio possa não ter, e o gerador preenche todos sozinho.
- *   · CONDICIONAL é o contato: `whatsapp`, `email`, `endereco`. A DECLARAÇÃO É
- *     A PRESENÇA DA CHAVE no JSON. Chave presente ⇒ o bloco inteiro é exigido e
- *     validado. Chave ausente ⇒ o campo vale `null` e ninguém cobra nada.
+ *   · REQUIRED is what EVERY page renders without asking — name, title,
+ *     description, urlBase. Without them there is no `<title>` and no
+ *     `og:image`, and `og:image` is the reason this preset exists. None of them
+ *     is a fact the business may not have, and the generator fills them all by
+ *     itself.
+ *   · CONDITIONAL is the contact: `whatsapp`, `email`, `endereco`. THE
+ *     DECLARATION IS THE PRESENCE OF THE KEY in the JSON. Key present ⇒ the
+ *     whole block is required and validated. Key absent ⇒ the field is `null`
+ *     and nobody charges anything.
  *
- * POR QUE A PRESENÇA, e não uma lista `home.blocos: [...]` dizendo o que a home
- * renderiza: lista é uma SEGUNDA fonte da mesma verdade, e duas fontes da mesma
- * verdade divergem. Esse é o defeito do Galegos em outra roupa — o
- * `src/lib/whatsapp.ts` tinha o mesmo número em dois formatos, mantidos à mão,
- * divergindo. Com a presença como declaração existe UMA fonte.
+ * WHY THE PRESENCE, and not a `home.blocos: [...]` list saying what the home
+ * renders: a list is a SECOND source of the same truth, and two sources of the
+ * same truth diverge. That is the Galegos defect in other clothes — its
+ * `src/lib/whatsapp.ts` had the same number in two formats, kept by hand,
+ * diverging. With presence as the declaration there is ONE source.
  *
- * E o desastre do Galegos — botão na tela, campo vazio — deixa de ser questão
- * de validação e vira ERRO DE TIPO: o campo opcional é `T | null`, e
- * `linkWhatsapp` recebe o bloco, não o site. Renderizar o botão sem estreitar o
- * `null` NÃO COMPILA. O `next build` reprova antes de qualquer HTML sair.
+ * And the Galegos disaster — button on screen, empty field — stops being a
+ * matter of validation and becomes a TYPE ERROR: the optional field is
+ * `T | null`, and `linkWhatsapp` takes the block, not the site. Rendering the
+ * button without narrowing the `null` DOES NOT COMPILE. `next build` fails
+ * before any HTML comes out.
  *
- * O CASO INVERSO — campo preenchido e nunca renderizado, que é o mais fácil de
- * esquecer — é fechado do lado do molde, em `app/page.tsx`: o mapa `CONTATOS`
- * é TOTAL sobre as chaves opcionais de `identidade`, cobrado por `satisfies`.
- * Apagar o botão e deixar o número no JSON não compila; acrescentar um bloco ao
- * esquema sem renderizador na home não compila. As duas direções são o mesmo
- * dente, e quem o crava é o compilador — sem regra nova e sem heurística.
+ * THE INVERSE CASE — field filled in and never rendered, the easiest one to
+ * forget — is closed on the template side, in `app/page.tsx`: the `CONTATOS` map
+ * is TOTAL over the optional keys of `identidade`, charged by `satisfies`.
+ * Deleting the button and leaving the number in the JSON does not compile;
+ * adding a block to the schema with no renderer on the home does not compile.
+ * The two directions are the same tooth, and the compiler is what drives it —
+ * with no new rule and no heuristic.
  * ─────────────────────────────────────────────────────────────────────────
  */
 
@@ -95,65 +100,76 @@ export class ErroDeConteudo extends Error {
   }
 }
 
-// ── sentinelas ────────────────────────────────────────────────────────────
+// ── sentinels ─────────────────────────────────────────────────────────────
 
 /**
- * O que marca um campo como NÃO PREENCHIDO.
+ * What marks a field as NOT FILLED IN.
  *
- * `TROQUE-` em caixa alta, seguido de mais caixa alta e hífen. O hífen é o que
- * torna o token seguro: prosa brasileira de verdade escreve "Troque seu carro"
- * ou "TROQUE SEU CARRO", com ESPAÇO — e nenhuma das duas casa. Casar por espaço
- * reprovaria a home legítima de uma concessionária, que é o oposto do que esta
- * regra existe para fazer.
+ * `TROQUE-` in caps, followed by more caps and a hyphen. THE TOKEN STAYS
+ * PORTUGUESE — it is not prose: it is the literal string the generator writes
+ * into the site.json of Brazilian projects, and `new/site/aplicar.mjs` carries a
+ * deliberate second copy of it. Translating it leaves every generated
+ * placeholder undetected.
+ *
+ * The hyphen is what makes the token safe: real Brazilian prose writes "Troque
+ * seu carro" or "TROQUE SEU CARRO", with a SPACE — and neither one matches.
+ * Matching on the space would fail the legitimate home page of a car
+ * dealership, which is the opposite of what this rule exists to do.
  */
 export const SENTINELA = /\bTROQUE-[A-Z-]{3,}/
 
 /**
- * A frase que acompanha todo campo de bloco OPCIONAL, e ela é metade da
- * instrução: sem ela o dono que não tem WhatsApp fica preso, porque a mensagem
- * só sabe mandar preencher. "Não tenho" se escreve APAGANDO a chave, nunca
- * deixando em branco — string vazia é indistinguível de campo que alguém tentou
- * preencher e desistiu, e é justamente esse o silêncio que o §12.3 persegue.
+ * The sentence that goes with every OPTIONAL block field, and it is half the
+ * instruction: without it the owner who has no WhatsApp is stuck, because the
+ * message only knows how to order a fill-in. "I don't have one" is written by
+ * DELETING the key, never by leaving it blank — an empty string is
+ * indistinguishable from a field someone tried to fill in and gave up on, and
+ * that is exactly the silence §12.3 is after.
  */
 const OU_APAGUE = (bloco: string) =>
-  `Se o negócio não tem, APAGUE a chave "${bloco}" inteira de conteudo/site.json — o molde deixa de renderizar o bloco e ninguém cobra nada. Vazio não é "não tenho".`
+  `If the business does not have one, DELETE the whole "${bloco}" key from conteudo/site.json — the template stops rendering the block and nobody charges anything. Empty is not "I don't have one".`
 
 /**
- * O que escrever em cada campo. Fica aqui, e não só no `.pages.yml`, porque
- * esta é a mensagem de ERRO que o dono lê às 23h com o build vermelho — o
- * `.pages.yml` é documentação, este mapa é o que aparece na hora do aperto.
+ * What to write in each field. It lives here, and not only in `.pages.yml`,
+ * because this is the ERROR message the owner reads at 11pm with a red build —
+ * `.pages.yml` is documentation, this map is what shows up when it hurts.
  *
- * Campo de bloco condicional leva o `OU_APAGUE` junto: a mensagem que só sabe
- * mandar preencher é a que faz quem não tem o campo inventar um valor.
+ * A conditional block field carries `OU_APAGUE` along: the message that only
+ * knows how to order a fill-in is the one that makes whoever lacks the field
+ * invent a value.
+ *
+ * The example VALUES stay Brazilian — DDI, DDD, CEP, UF, "Padaria do Zé" — for
+ * the same reason the schema exists: they are the data of the business this
+ * generator serves, not prose.
  */
 const COMO_PREENCHER: Record<string, string> = {
-  'identidade.nome': 'O nome do negócio como o cliente o chama. Ex.: "Padaria do Zé".',
-  'identidade.whatsapp.e164': `Só dígitos, com DDI e DDD, do jeito que o wa.me aceita — sem +, sem espaço, sem parêntese. O molde é 55DD9NNNNNNNN — DDI, DDD e o número, colados. ${OU_APAGUE('identidade.whatsapp')}`,
-  'identidade.whatsapp.exibicao': `O MESMO número de cima, formatado para o visitante ler, no molde (DD) 9NNNN-NNNN. ${OU_APAGUE('identidade.whatsapp')}`,
+  'identidade.nome': 'The name of the business as the customer calls it. E.g.: "Padaria do Zé".',
+  'identidade.whatsapp.e164': `Digits only, with DDI and DDD, the way wa.me takes it — no +, no space, no parentheses. The template is 55DD9NNNNNNNN — DDI, DDD and the number, glued together. ${OU_APAGUE('identidade.whatsapp')}`,
+  'identidade.whatsapp.exibicao': `The SAME number from above, formatted for the visitor to read, in the template (DD) 9NNNN-NNNN. ${OU_APAGUE('identidade.whatsapp')}`,
   'identidade.whatsapp.chamadaAcao':
-    'O texto do botão que abre a conversa. Ex.: "Falar no WhatsApp".',
+    'The text of the button that opens the conversation. E.g.: "Falar no WhatsApp".',
   'identidade.whatsapp.mensagem':
-    'A frase que já vai escrita na conversa quando o visitante toca o botão.',
-  'identidade.email': `O e-mail que alguém abre e responde. Ex.: "contato@padariadoze.com.br". ${OU_APAGUE('identidade.email')}`,
-  'identidade.endereco.logradouro': `Rua e número. Ex.: "Rua das Palmeiras, 512". ${OU_APAGUE('identidade.endereco')}`,
-  'identidade.endereco.bairro': `O bairro. Ex.: "Vila Mariana". ${OU_APAGUE('identidade.endereco')}`,
-  'identidade.endereco.cidade': `A cidade. Ex.: "São Paulo". ${OU_APAGUE('identidade.endereco')}`,
-  'identidade.endereco.uf': `A sigla do estado, duas maiúsculas. Ex.: "SP". ${OU_APAGUE('identidade.endereco')}`,
-  'identidade.endereco.cep': `O CEP com hífen. Ex.: "04101-300". ${OU_APAGUE('identidade.endereco')}`,
+    'The sentence already written into the conversation when the visitor taps the button.',
+  'identidade.email': `The e-mail somebody opens and answers. E.g.: "contato@padariadoze.com.br". ${OU_APAGUE('identidade.email')}`,
+  'identidade.endereco.logradouro': `Street and number. E.g.: "Rua das Palmeiras, 512". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.bairro': `The neighbourhood. E.g.: "Vila Mariana". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.cidade': `The city. E.g.: "São Paulo". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.uf': `The state code, two capitals. E.g.: "SP". ${OU_APAGUE('identidade.endereco')}`,
+  'identidade.endereco.cep': `The CEP with a hyphen. E.g.: "04101-300". ${OU_APAGUE('identidade.endereco')}`,
   'meta.urlBase':
-    'O endereço onde o site vai ficar, com https:// e SEM barra no fim. Ex.: "https://padariadoze.com.br".',
-  'meta.titulo': 'O título da aba e do resultado no Google. Ex.: "Padaria do Zé".',
+    'The address where the site will live, with https:// and NO trailing slash. E.g.: "https://padariadoze.com.br".',
+  'meta.titulo': 'The title of the tab and of the Google result. E.g.: "Padaria do Zé".',
   'meta.gabaritoDeTitulo':
-    'O molde do título das páginas filhas, com %s onde entra o nome da página. Ex.: "%s · Padaria do Zé".',
+    'The template for the title of child pages, with %s where the page name goes. E.g.: "%s · Padaria do Zé".',
   'meta.descricao':
-    'De 50 a 160 caracteres dizendo o que o negócio faz. É este texto que aparece no Google e no preview do link no WhatsApp.',
+    'From 50 to 160 characters saying what the business does. This is the text that shows up on Google and in the link preview on WhatsApp.',
   'meta.nomeCurto':
-    'Até 12 caracteres — é o nome que fica embaixo do ícone do app instalado. Ex.: "Padaria".',
-  'meta.og.alt': 'Descrição da imagem de compartilhamento, para quem usa leitor de tela.',
-  'home.titulo': 'O título grande da primeira tela. Costuma ser o nome do negócio.',
+    'Up to 12 characters — it is the name that sits under the icon of the installed app. E.g.: "Padaria".',
+  'meta.og.alt': 'Description of the sharing image, for whoever uses a screen reader.',
+  'home.titulo': 'The big title of the first screen. Usually the name of the business.',
 }
 
-/** Todo texto do JSON, com o caminho até ele, para a varredura de sentinela. */
+/** Every text in the JSON, with the path to it, for the sentinel scan. */
 function caminharTextos(valor: unknown, caminho: string, saida: Array<[string, string]>): void {
   if (typeof valor === 'string') {
     saida.push([caminho, valor])
@@ -172,7 +188,7 @@ function caminharTextos(valor: unknown, caminho: string, saida: Array<[string, s
 
 export type Pendencia = { caminho: string; valor: string; instrucao: string }
 
-/** Os campos que ainda estão com placeholder, na ordem em que aparecem no JSON. */
+/** The fields still holding a placeholder, in the order they appear in the JSON. */
 export function acharSentinelas(bruto: unknown): Pendencia[] {
   const textos: Array<[string, string]> = []
   caminharTextos(bruto, '', textos)
@@ -181,18 +197,21 @@ export function acharSentinelas(bruto: unknown): Pendencia[] {
     .map(([caminho, valor]) => ({
       caminho,
       valor,
-      instrucao: COMO_PREENCHER[caminho] ?? 'Escreva o valor real deste campo.',
+      instrucao: COMO_PREENCHER[caminho] ?? 'Write the real value of this field.',
     }))
 }
 
+// The word "placeholder" is load-bearing in the two messages below: the gate step
+// in `verify.config.mjs` tests the thrown message with `/placeholder/i` to check
+// the build fails for the RIGHT reason. It is the same word in both languages.
 const PORQUE_REPROVA =
-  'POR QUE O BUILD PARA AQUI EM VEZ DE PUBLICAR: um placeholder plausível — "5500000000000",\n' +
-  '"contato@exemplo.com.br" — sobe, parece certo e não entrega pedido nenhum. É o mesmo defeito\n' +
-  'do PR Navesz/Galegos#1 (§12.3), estacionado justamente porque o link subia sem destinatário e\n' +
-  'o cardápio parava de entregar EM SILÊNCIO. Placeholder aqui é inerte e barulhento: impossível\n' +
-  'de confundir com valor real, e reprova até ser trocado.'
+  'WHY THE BUILD STOPS HERE INSTEAD OF PUBLISHING: a plausible placeholder — "5500000000000",\n' +
+  '"contato@exemplo.com.br" — ships, looks right and delivers no order at all. It is the same\n' +
+  'defect as PR Navesz/Galegos#1 (§12.3), parked precisely because the link went up with no\n' +
+  'recipient and the menu stopped delivering IN SILENCE. A placeholder here is inert and loud:\n' +
+  'impossible to mistake for a real value, and it fails until it is replaced.'
 
-/** Uma mensagem com TODOS os campos por preencher, para caber num build só. */
+/** One message with EVERY field left to fill, so it fits in a single build. */
 function conferirSentinelas(bruto: unknown): void {
   const pendentes = acharSentinelas(bruto)
   if (!pendentes.length) return
@@ -200,55 +219,56 @@ function conferirSentinelas(bruto: unknown): void {
     .map((p) => `  ${p.caminho} = ${JSON.stringify(p.valor)}\n      → ${p.instrucao}`)
     .join('\n')
   throw new ErroDeConteudo(
-    `conteudo/site.json ainda tem ${pendentes.length} campo(s) com PLACEHOLDER. ` +
-      `Troque, em conteudo/site.json:\n\n${lista}\n\n${PORQUE_REPROVA}\n`,
+    `conteudo/site.json still has ${pendentes.length} field(s) holding a PLACEHOLDER. ` +
+      `Replace them, in conteudo/site.json:\n\n${lista}\n\n${PORQUE_REPROVA}\n`,
   )
 }
 
 /**
- * A recusa campo a campo, para quando a sentinela é digitada de volta à mão ou
- * a varredura de cima é removida. Roda ANTES da checagem de tamanho: sem isso
- * `uf: "TROQUE-PELA-UF"` morreria com "no máximo 2 caracteres", que manda o
- * dono ENCURTAR o placeholder em vez de trocá-lo.
+ * The field-by-field refusal, for when the sentinel is typed back in by hand or
+ * the scan above is removed. It runs BEFORE the length check: without it
+ * `uf: "TROQUE-PELA-UF"` would die with "at most 2 characters", which tells the
+ * owner to SHORTEN the placeholder instead of replacing it.
  */
 function recusarSentinela(limpo: string, caminho: string): void {
   if (!SENTINELA.test(limpo)) return
   const curto = caminho.replace(/^site\./, '')
   throw new ErroDeConteudo(
-    `conteudo/site.json em "${curto}": ainda está com o placeholder ${JSON.stringify(limpo)}. ` +
-      `${COMO_PREENCHER[curto] ?? 'Escreva o valor real deste campo.'} ` +
-      'O build reprova de propósito — placeholder que publica é pedido perdido em silêncio (§12.3).',
+    `conteudo/site.json at "${curto}": still holding the placeholder ${JSON.stringify(limpo)}. ` +
+      `${COMO_PREENCHER[curto] ?? 'Write the real value of this field.'} ` +
+      'The build fails on purpose — a placeholder that publishes is an order lost in silence (§12.3).',
   )
 }
 
-// ── primitivos ────────────────────────────────────────────────────────────
+// ── primitives ────────────────────────────────────────────────────────────
 
-/** Descrição curta do que VEIO, para a mensagem dizer o que consertar. */
+/** Short description of what CAME IN, so the message can say what to fix. */
 function descrever(valor: unknown): string {
-  if (valor === undefined) return 'nada (campo ausente)'
+  if (valor === undefined) return 'nothing (field absent)'
   if (valor === null) return 'null'
   if (typeof valor === 'string') {
-    return valor.length <= 60 ? JSON.stringify(valor) : `texto de ${valor.length} caracteres`
+    return valor.length <= 60 ? JSON.stringify(valor) : `text of ${valor.length} characters`
   }
-  if (Array.isArray(valor)) return `lista de ${valor.length} item(ns)`
-  if (typeof valor === 'object') return `objeto com ${Object.keys(valor).length} campo(s)`
+  if (Array.isArray(valor)) return `list of ${valor.length} item(s)`
+  if (typeof valor === 'object') return `object with ${Object.keys(valor).length} field(s)`
   return JSON.stringify(valor)
 }
 
 /**
- * O caminho do campo entra na mensagem SEMPRE. Sem ele, "esperava texto, veio
- * nada" manda o dono procurar em 60 linhas de JSON qual dos campos sumiu.
+ * The field path goes into the message ALWAYS. Without it, "expected text, got
+ * nothing" sends the owner hunting through 60 lines of JSON for which field went
+ * missing.
  */
 function falhar(caminho: string, esperado: string, recebido: unknown): never {
   throw new ErroDeConteudo(
-    `conteudo/site.json inválido em "${caminho}": esperava ${esperado}, veio ${descrever(recebido)}.`,
+    `conteudo/site.json invalid at "${caminho}": expected ${esperado}, got ${descrever(recebido)}.`,
   )
 }
 
-/** Recusa que não é de FORMATO e sim de VALOR MORTO: diz o porquê, não só o quê. */
+/** A refusal that is not about FORMAT but about a DEAD VALUE: it says why, not just what. */
 function falharMorto(caminho: string, recebido: string, porque: string): never {
   throw new ErroDeConteudo(
-    `conteudo/site.json em "${caminho.replace(/^site\./, '')}": ${JSON.stringify(recebido)} ${porque}`,
+    `conteudo/site.json at "${caminho.replace(/^site\./, '')}": ${JSON.stringify(recebido)} ${porque}`,
   )
 }
 
@@ -258,11 +278,11 @@ type Inferir<V> = V extends Validador<infer T> ? T : never
 export const texto =
   (min = 1, max = 300): Validador<string> =>
   (valor, caminho) => {
-    if (typeof valor !== 'string') falhar(caminho, 'texto', valor)
+    if (typeof valor !== 'string') falhar(caminho, 'text', valor)
     const limpo = valor.trim()
     recusarSentinela(limpo, caminho)
-    if (limpo.length < min) falhar(caminho, `texto com ao menos ${min} caractere(s)`, valor)
-    if (limpo.length > max) falhar(caminho, `texto com no máximo ${max} caracteres`, valor)
+    if (limpo.length < min) falhar(caminho, `text with at least ${min} character(s)`, valor)
+    if (limpo.length > max) falhar(caminho, `text with at most ${max} characters`, valor)
     return limpo
   }
 
@@ -270,8 +290,8 @@ export const inteiro =
   (min: number, max: number): Validador<number> =>
   (valor, caminho) => {
     if (typeof valor !== 'number' || !Number.isInteger(valor))
-      falhar(caminho, 'número inteiro', valor)
-    if (valor < min || valor > max) falhar(caminho, `inteiro entre ${min} e ${max}`, valor)
+      falhar(caminho, 'whole number', valor)
+    if (valor < min || valor > max) falhar(caminho, `integer between ${min} and ${max}`, valor)
     return valor
   }
 
@@ -279,7 +299,7 @@ export const padrao =
   (re: RegExp, formato: string, max = 300): Validador<string> =>
   (valor, caminho) => {
     const limpo = texto(1, max)(valor, caminho)
-    if (!re.test(limpo)) falhar(caminho, `texto no formato ${formato}`, valor)
+    if (!re.test(limpo)) falhar(caminho, `text in the format ${formato}`, valor)
     return limpo
   }
 
@@ -289,23 +309,24 @@ export const objeto =
   ): Validador<{ [K in keyof F]: Inferir<F[K]> }> =>
   (valor, caminho) => {
     if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
-      falhar(caminho, 'objeto', valor)
+      falhar(caminho, 'object', valor)
     }
     const bruto = valor as Record<string, unknown>
     const saida: Record<string, unknown> = {}
     for (const chave of Object.keys(campos)) {
       saida[chave] = campos[chave](bruto[chave], caminho ? `${caminho}.${chave}` : chave)
     }
-    // Campo desconhecido REPROVA, e essa é a escolha cara de propósito. Campo a
-    // mais é quase sempre campo renomeado no esquema e esquecido no JSON — ou o
-    // contrário. Tolerar a sobra é deixar o dono editar um campo que ninguém lê,
-    // que é a falha silenciosa que o §12.3 existe para não repetir.
+    // An unknown field FAILS, and that is the expensive choice, on purpose. An
+    // extra field is almost always a field renamed in the schema and forgotten in
+    // the JSON — or the other way round. Tolerating the leftover is letting the
+    // owner edit a field nobody reads, which is the silent failure §12.3 exists
+    // not to repeat.
     const sobra = Object.keys(bruto).filter((chave) => !(chave in campos))
     if (sobra.length) {
       throw new ErroDeConteudo(
-        `conteudo/site.json inválido em "${caminho || 'site'}": campo(s) que o esquema não conhece — ${sobra
+        `conteudo/site.json invalid at "${caminho || 'site'}": field(s) the schema does not know — ${sobra
           .map((chave) => JSON.stringify(chave))
-          .join(', ')}. Conhecidos: ${Object.keys(campos).join(', ')}.`,
+          .join(', ')}. Known: ${Object.keys(campos).join(', ')}.`,
       )
     }
     return saida as { [K in keyof F]: Inferir<F[K]> }
@@ -314,43 +335,52 @@ export const objeto =
 export const lista =
   <T>(item: Validador<T>, min = 1, max = 24): Validador<T[]> =>
   (valor, caminho) => {
-    if (!Array.isArray(valor)) falhar(caminho, 'lista', valor)
+    if (!Array.isArray(valor)) falhar(caminho, 'list', valor)
     if (valor.length < min || valor.length > max) {
-      falhar(caminho, `lista com ${min} a ${max} item(ns)`, valor)
+      falhar(caminho, `list with ${min} to ${max} item(s)`, valor)
     }
     return valor.map((item_, i) => item(item_, `${caminho}[${i}]`))
   }
 
 /**
- * A EXIGÊNCIA CONDICIONAL, e ela cabe num combinador porque a decisão é uma só:
- * **a presença da chave no JSON é a declaração de que a página usa aquilo.**
+ * THE CONDITIONAL DEMAND, and it fits in one combinator because the decision is
+ * a single one: **the presence of the key in the JSON is the declaration that
+ * the page uses that thing.**
  *
- * Chave ausente (ou `null`) ⇒ o valor é `null`, ninguém cobra nada, e o tipo
- * que sai é `T | null` — é esse `| null` que faz o molde ter de estreitar antes
- * de renderizar, e é por isso que "botão na tela e campo vazio" não compila.
+ * Key absent (or `null`) ⇒ the value is `null`, nobody charges anything, and the
+ * type that comes out is `T | null` — it is that `| null` that forces the
+ * template to narrow before rendering, and that is why "button on screen and
+ * empty field" does not compile.
  *
- * Chave presente ⇒ `dentro` roda INTEIRO. Para um bloco, isso significa que os
- * campos dele viram obrigatórios JUNTOS: meio endereço — rua e cidade, sem CEP
- * — é pior que nenhum, porque o visitante lê um endereço que não leva a lugar
- * nenhum e ninguém do lado do dono fica sabendo.
+ * Key present ⇒ `dentro` runs WHOLE. For a block, that means its fields become
+ * required TOGETHER: half an address — street and city, no CEP — is worse than
+ * none, because the visitor reads an address that leads nowhere and nobody on
+ * the owner's side ever finds out.
  *
- * TRÊS RECUSAS QUE PARECEM UMA SÓ E NÃO SÃO:
+ * THREE REFUSALS THAT LOOK LIKE ONE AND ARE NOT:
  *
- *   · `"identidade.email": ""`  — string vazia
- *   · `"identidade.endereco": {}` — bloco sem campo nenhum
- *   · `"identidade.endereco": { "cidade": "São Paulo" }` — bloco pela metade
+ *   · `"identidade.email": ""`  — empty string
+ *   · `"identidade.endereco": {}` — block with no fields at all
+ *   · `"identidade.endereco": { "cidade": "São Paulo" }` — half a block
  *
- * As duas primeiras são a MESMA intenção mal escrita — "eu não tenho isto" — e
- * merecem a mensagem que ensina a escrever "não tenho": apague a chave. Sem
- * essa interceptação a mensagem sairia do validador de dentro ("esperava texto
- * com ao menos 1 caractere"), que manda o dono INVENTAR um valor, que é como o
- * `contato@exemplo.com.br` nasce. A terceira é outra coisa — alguém começou e
- * parou — e leva a frase do bloco incompleto anexada ao erro de dentro, que já
- * diz qual campo falta.
+ * The first two are the SAME intent written badly — "I don't have this" — and
+ * deserve the message that teaches how to write "I don't have one": delete the
+ * key. Without that interception the message would come out of the inner
+ * validator ("expected text with at least 1 character"), which tells the owner
+ * to INVENT a value, which is how `contato@exemplo.com.br` is born. The third is
+ * something else — somebody started and stopped — and gets the incomplete-block
+ * sentence appended to the inner error, which already says which field is
+ * missing.
  */
 const ehObjetoSimples = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
+// THIS MESSAGE STAYS PORTUGUESE — DO NOT TRANSLATE IT ON ITS OWN.
+// `testes/conteudo.test.mjs` matches it twice, by text: with the pattern
+// `/não é "não tenho"/` and with `new RegExp('a chave "identidade\\.<key>" sai do
+// arquivo')`. Translating the string here fails both assertions, and that test
+// file is the one thing that proves an empty key teaches the owner to delete it.
+// It moves when the test moves, in one change.
 function falharVazio(caminho: string, oque: string): never {
   const curto = caminho.replace(/^site\./, '')
   throw new ErroDeConteudo(
@@ -373,6 +403,11 @@ export const opcional =
     } catch (erro) {
       if (!(erro instanceof ErroDeConteudo)) throw erro
       const curto = caminho.replace(/^site\./, '')
+      // THIS MESSAGE STAYS PORTUGUESE — DO NOT TRANSLATE IT ON ITS OWN.
+      // `testes/conteudo.test.mjs` matches it three times, by text: `/apague a
+      // chave/i`, `/PELA METADE/` and `/apague a chave "identidade\.endereco"/`.
+      // Those are the assertions that prove a half-filled block names the missing
+      // field AND teaches the way out. It moves when the test moves, in one change.
       throw new ErroDeConteudo(
         `${erro.message}\n\n` +
           `"${curto}" é um bloco OPCIONAL e ele está PELA METADE. Ou complete o campo acima, ` +
@@ -383,42 +418,47 @@ export const opcional =
     }
   }
 
-// ── o que é plausível e mesmo assim está morto ────────────────────────────
+// ── what is plausible and dead all the same ───────────────────────────────
 
 /**
- * Seis zeros seguidos. `5500000000000` traz onze; `(00) 00000-0000` traz nove.
- * Nenhum plano de numeração entrega assinante com essa corrida — o corte em
- * seis dá folga para o número real mais zerado que existe e ainda mata todo
- * placeholder de teclado.
+ * Six zeros in a row. `5500000000000` carries eleven; `(00) 00000-0000` carries
+ * nine. No numbering plan hands out a subscriber with that run — cutting at six
+ * leaves room for the most zero-heavy real number there is and still kills every
+ * keyboard placeholder.
  */
 const ZEROS_DEMAIS = /0{6,}/
 
-/** `1111111111`, `0000000000`: passa em qualquer regex de formato e não existe. */
+/** `1111111111`, `0000000000`: passes any format regex and does not exist. */
 const UM_DIGITO_SO = /^(\d)\1+$/
 
 /**
- * Host que existe para ser exemplo, e por isso nunca é destino.
+ * A host that exists to be an example, and is therefore never a destination.
  *
- * `exemplo.com.br` é o pior deles: está REGISTRADO, resolve, e o e-mail mandado
- * para lá some sem bounce — a mesma falha silenciosa do telefone, só que na
- * caixa de entrada. `.invalid`, `.test`, `.example` e `.localhost` são
- * reservados pela RFC 2606 e não resolvem nunca; recusá-los aqui é o que
- * transforma o padrão inerte do gerador (`<nome>.exemplo.invalid`) de barulho
- * em dente — o aviso do gerador pedia para trocar, agora o build cobra.
+ * `exemplo.com.br` is the worst of them: it is REGISTERED, it resolves, and mail
+ * sent there vanishes with no bounce — the same silent failure as the phone,
+ * only in the inbox. `.invalid`, `.test`, `.example` and `.localhost` are
+ * reserved by RFC 2606 and never resolve; refusing them here is what turns the
+ * generator's inert default (`<nome>.exemplo.invalid`) from noise into a tooth —
+ * the generator's warning asked for a replacement, now the build charges it.
  */
 function hostDeMentira(host: string): boolean {
   const h = host.toLowerCase().replace(/\.$/, '')
 
-  // POR RÓTULO, NÃO POR PREFIXO. A versão anterior ancorava no INÍCIO do host,
-  // e a auditoria de 31/08 derrubou a defesa inteira com um subdomínio:
+  // BY LABEL, NOT BY PREFIX. The previous version anchored at the START of the
+  // host, and the 31/08 audit brought the whole defense down with a subdomain:
   //
-  //   recusava  https://exemplo.com.br        · contato@exemplo.com.br
-  //   PASSAVA   https://www.exemplo.com.br    · contato@mail.exemplo.com.br
-  //   PASSAVA   https://seu-dominio.com.br    · seu@email.com
+  //   refused  https://exemplo.com.br        · contato@exemplo.com.br
+  //   PASSED   https://www.exemplo.com.br    · contato@mail.exemplo.com.br
+  //   PASSED   https://seu-dominio.com.br    · seu@email.com
   //
-  // Um `www.` na frente é o que qualquer pessoa escreve primeiro, então a
-  // defesa caía no caso mais comum. Agora o rótulo proibido conta em QUALQUER
-  // posição: `www.exemplo.com.br` tem "exemplo" entre os rótulos e é recusado.
+  // A `www.` in front is what anybody writes first, so the defense fell in the
+  // most common case. Now the forbidden label counts in ANY position:
+  // `www.exemplo.com.br` has "exemplo" among its labels and is refused.
+  //
+  // THE LABELS BELOW STAY PORTUGUESE. They are not prose: they are the
+  // placeholder hostnames Brazilian generators and templates ship, and this list
+  // is the scanner that finds them. Translating them blinds the check exactly
+  // where it works.
   const PROIBIDOS = new Set([
     'exemplo',
     'example',
@@ -448,60 +488,66 @@ function hostDeMentira(host: string): boolean {
   ])
   if (h.split('.').some((rotulo) => PROIBIDOS.has(rotulo))) return true
 
-  // Reservados pela RFC 2606: não resolvem nunca, em nenhum registrador.
+  // Reserved by RFC 2606: they never resolve, at any registrar.
   if (/\.(invalid|test|example|localhost)$/.test(h)) return true
 
   return false
 }
 
-// ── validadores de formato ────────────────────────────────────────────────
+// ── format validators ─────────────────────────────────────────────────────
 
 /**
- * URL de origem, SEM barra no fim. A barra é cobrada porque `robots.ts` e
- * `sitemap.ts` concatenam `${urlBase}/sitemap.xml`; com a barra sobrando o
- * arquivo sai anunciado como `https://dominio.com.br//sitemap.xml`, que é 404
- * e ninguém percebe — o build passa e o Search Console é que reclama, semanas
- * depois.
+ * The origin URL, with NO trailing slash. The slash is charged because
+ * `robots.ts` and `sitemap.ts` concatenate `${urlBase}/sitemap.xml`; with the
+ * slash left over the file goes out announced as
+ * `https://dominio.com.br//sitemap.xml`, which is a 404 and nobody notices — the
+ * build passes and it is Search Console that complains, weeks later.
  */
 export const urlBase: Validador<string> = (valor, caminho) => {
   const limpo = padrao(
     /^https:\/\/[^\s/?#]+$/,
-    'https://dominio.com.br (sem barra no fim)',
+    'https://dominio.com.br (no trailing slash)',
     200,
   )(valor, caminho)
   if (hostDeMentira(limpo.slice('https://'.length))) {
     falharMorto(
       caminho,
       limpo,
-      'é domínio de exemplo, não o endereço do site. Ele vira o og:url, o sitemap e o robots.txt: ' +
-        'publicado assim, o cartão de compartilhamento aponta para um lugar que não existe e ninguém ' +
-        'percebe. Escreva o domínio de verdade (ex.: https://padariadoze.com.br), ou gere o projeto de ' +
-        'novo passando o domínio como segundo argumento.',
+      'is an example domain, not the address of the site. It becomes the og:url, the sitemap and ' +
+        'the robots.txt: published like this, the sharing card points at a place that does not exist ' +
+        'and nobody notices. Write the real domain (e.g.: https://padariadoze.com.br), or generate ' +
+        'the project again passing the domain as the second argument.',
     )
   }
   return limpo
 }
 
-/** Caminho servido de `public/`. Absoluto, porque vira URL absoluta no og. */
-export const caminhoPublico = padrao(/^\/[^\s?#]*$/, '/arquivo.ext', 200)
+/** A path served from `public/`. Absolute, because it becomes an absolute URL in the og. */
+export const caminhoPublico = padrao(/^\/[^\s?#]*$/, '/file.ext', 200)
 
 export const corHex = padrao(/^#[0-9a-fA-F]{6}$/, '#rrggbb', 7)
 
 /**
- * Só dígitos, com DDI. É o que o `wa.me` aceita — ele rejeita pontuação.
+ * Digits only, with DDI. It is what `wa.me` takes — it rejects punctuation.
  *
- * E não basta casar o formato: `5500000000000` casava, e era o defeito. O
- * `wa.me` com número que não existe NÃO dá erro visível do lado de cá — abre o
- * WhatsApp, diz ao cliente que o número é inválido, e o cliente vai embora. Do
- * lado do dono não chega nada, nem um log. Por isso a recusa é aqui, no build.
+ * And matching the format is not enough: `5500000000000` matched, and that was
+ * the defect. `wa.me` with a number that does not exist gives NO visible error on
+ * this side — it opens WhatsApp, tells the customer the number is invalid, and
+ * the customer leaves. Nothing reaches the owner, not even a log. That is why the
+ * refusal is here, at build time.
  */
 export const telefoneE164: Validador<string> = (valor, caminho) => {
   const limpo = padrao(
     /^[1-9]\d{9,14}$/,
-    'só dígitos, com DDI (ex.: 55 + DDD + número)',
+    'digits only, with DDI (e.g.: 55 + DDD + number)',
     15,
   )(valor, caminho)
   if (ZEROS_DEMAIS.test(limpo) || UM_DIGITO_SO.test(limpo)) {
+    // THIS REASON STAYS PORTUGUESE — DO NOT TRANSLATE IT ON ITS OWN.
+    // `testes/conteudo.test.mjs` matches it by text with the pattern
+    // `/não é telefone de ninguém/` — the assertion that proves a
+    // plausible-but-dead number inside a declared block still fails.
+    // It moves when the test moves, in one change.
     falharMorto(
       caminho,
       limpo,
@@ -514,45 +560,50 @@ export const telefoneE164: Validador<string> = (valor, caminho) => {
 }
 
 /**
- * O número como o visitante LÊ. Separado do `e164` de propósito — o Galegos
- * tinha o mesmo número em dois formatos dentro de `src/lib/whatsapp.ts` e a
- * causa era não existir campo para cada uso. Tendo dois campos, aparece o risco
- * novo: os dois divergirem. Quem cobra a igualdade é `conferirCoerencia`.
+ * The number as the visitor READS it. Separate from `e164` on purpose — Galegos
+ * had the same number in two formats inside `src/lib/whatsapp.ts` and the cause
+ * was that there was no field per use. With two fields, the new risk shows up:
+ * the two diverging. `conferirCoerencia` is what charges the equality.
  */
 export const telefoneExibicao: Validador<string> = (valor, caminho) => {
   const limpo = texto(8, 30)(valor, caminho)
   const digitos = limpo.replace(/\D/g, '')
   if (digitos.length < 10 || digitos.length > 11) {
-    falhar(caminho, 'telefone com DDD, como o visitante lê, no molde (DD) 9NNNN-NNNN', valor)
+    falhar(
+      caminho,
+      'phone with DDD, as the visitor reads it, in the template (DD) 9NNNN-NNNN',
+      valor,
+    )
   }
   if (ZEROS_DEMAIS.test(digitos) || UM_DIGITO_SO.test(digitos)) {
     falharMorto(
       caminho,
       limpo,
-      'é máscara de formulário, não telefone. É o número que o visitante vê no rodapé e digita no ' +
-        'celular dele. Escreva o real, no molde (DD) 9NNNN-NNNN.',
+      'is a form mask, not a phone. It is the number the visitor sees in the footer and types into ' +
+        'their own mobile. Write the real one, in the template (DD) 9NNNN-NNNN.',
     )
   }
   return limpo
 }
 
 export const email: Validador<string> = (valor, caminho) => {
-  const limpo = padrao(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'nome@dominio', 120)(valor, caminho)
+  const limpo = padrao(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'name@domain', 120)(valor, caminho)
   if (hostDeMentira(limpo.slice(limpo.indexOf('@') + 1))) {
     falharMorto(
       caminho,
       limpo,
-      'é e-mail de exemplo. `exemplo.com.br` está registrado de verdade: a mensagem do cliente sai, ' +
-        'não volta bounce nenhum, e some — o mesmo silêncio do telefone, na caixa de entrada. ' +
-        'Escreva o e-mail que alguém abre e responde.',
+      'is an example e-mail. `exemplo.com.br` is genuinely registered: the customer message goes ' +
+        'out, no bounce comes back, and it vanishes — the same silence as the phone, in the inbox. ' +
+        'Write the e-mail somebody opens and answers.',
     )
   }
   return limpo
 }
 
 /**
- * As 27 unidades federativas, fechadas em lista. Um `/^[A-Z]{2}$/` aceita `XX`,
- * `AA` e `ZZ` — e endereço com UF que não existe some do mapa sem avisar.
+ * The 27 federative units, closed as a list. A `/^[A-Z]{2}$/` accepts `XX`, `AA`
+ * and `ZZ` — and an address with a UF that does not exist drops off the map with
+ * no warning.
  */
 const UFS = [
   'AC',
@@ -585,9 +636,9 @@ const UFS = [
 ]
 
 export const uf: Validador<string> = (valor, caminho) => {
-  const limpo = padrao(/^[A-Z]{2}$/, 'UF em duas maiúsculas', 2)(valor, caminho)
+  const limpo = padrao(/^[A-Z]{2}$/, 'UF in two capitals', 2)(valor, caminho)
   if (!UFS.includes(limpo)) {
-    falharMorto(caminho, limpo, `não é uma UF brasileira. As que existem: ${UFS.join(', ')}.`)
+    falharMorto(caminho, limpo, `is not a Brazilian UF. The ones that exist: ${UFS.join(', ')}.`)
   }
   return limpo
 }
@@ -598,59 +649,63 @@ export const cep: Validador<string> = (valor, caminho) => {
     falharMorto(
       caminho,
       limpo,
-      'casa o formato e não é CEP de lugar nenhum. Escreva o do endereço (ex.: "04101-300").',
+      'matches the format and is the CEP of nowhere. Write the one for the address ' +
+        '(e.g.: "04101-300").',
     )
   }
   return limpo
 }
 
-export const dataIso = padrao(/^\d{4}-\d{2}-\d{2}$/, 'AAAA-MM-DD', 10)
+export const dataIso = padrao(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD', 10)
 
-/** O `%s` é o buraco onde o Next encaixa o título da página filha. */
+/** The `%s` is the hole where Next slots the title of the child page. */
 export const gabaritoDeTitulo: Validador<string> = (valor, caminho) => {
   const limpo = texto(4, 120)(valor, caminho)
   if (!limpo.includes('%s'))
-    falhar(caminho, 'gabarito contendo %s (onde entra o título da página)', valor)
+    falhar(caminho, 'template containing %s (where the page title goes)', valor)
   return limpo
 }
 
-// ── o contrato do site ────────────────────────────────────────────────────
+// ── the contract of the site ──────────────────────────────────────────────
 
 const formaDoSite = objeto({
-  // Identidade do negócio. §12.3: isto é CONTEÚDO VALIDADO, não env var.
+  // The identity of the business. §12.3: this is VALIDATED CONTENT, not an env
+  // var.
   //
-  // `nome` é o único obrigatório aqui, e é obrigatório porque TODA página o
-  // renderiza sem perguntar: ele é o `applicationName`, o `og:siteName` e o
-  // `name` do manifesto. Os três blocos abaixo dele são CONDICIONAIS — a
-  // presença da chave é a declaração de uso. Ver o cabeçalho, 02/09.
+  // `nome` is the only required field here, and it is required because EVERY
+  // page renders it without asking: it is the `applicationName`, the
+  // `og:siteName` and the `name` of the manifest. The three blocks below it are
+  // CONDITIONAL — the presence of the key is the declaration of use. See the
+  // header, 02/09.
   identidade: objeto({
     nome: texto(2, 80),
 
-    // O BLOCO DO BOTÃO DE WHATSAPP, e ele carrega a própria cópia de propósito.
-    // `chamadaAcao` e `mensagem` moravam em `home`, e ali eram exatamente o
-    // caso inverso que o item (c) descreve: sem botão, dois campos que o dono
-    // escreve, revisa e publica, e que nada renderiza. Dentro do bloco eles só
-    // existem quando o botão existe, e somem junto com ele.
+    // THE WHATSAPP BUTTON BLOCK, and it carries its own copy on purpose.
+    // `chamadaAcao` and `mensagem` used to live in `home`, and there they were
+    // exactly the inverse case item (c) describes: with no button, two fields
+    // the owner writes, reviews and publishes, and that nothing renders. Inside
+    // the block they only exist when the button exists, and they disappear with
+    // it.
     whatsapp: opcional(
       objeto({
-        // O que entra no link. Sem pontuação, porque o `wa.me` a rejeita.
+        // What goes into the link. No punctuation, because `wa.me` rejects it.
         e164: telefoneE164,
-        // O que o visitante lê.
+        // What the visitor reads.
         exibicao: telefoneExibicao,
-        // O rótulo do botão.
+        // The label of the button.
         chamadaAcao: texto(4, 40),
-        // O texto que já vai escrito na conversa do WhatsApp. Está aqui, e não
-        // dentro do `page.tsx`, porque é frase que o dono reescreve — e a regra
-        // `conteudo-fora-do-codigo` acusaria a frase se ela morasse no
-        // componente.
+        // The text already written into the WhatsApp conversation. It is here,
+        // and not inside `page.tsx`, because it is a sentence the owner
+        // rewrites — and the `conteudo-fora-do-codigo` rule would flag the
+        // sentence if it lived in the component.
         mensagem: texto(10, 200),
       }),
     ),
 
-    // Um site pode ter só e-mail — é o caso da landing de ferramenta.
+    // A site can have only e-mail — that is the tool landing page case.
     email: opcional(email),
 
-    // Endereço é tudo-ou-nada: os cinco campos juntos, ou a chave fora.
+    // The address is all-or-nothing: the five fields together, or the key out.
     endereco: opcional(
       objeto({
         logradouro: texto(4, 120),
@@ -669,16 +724,16 @@ const formaDoSite = objeto({
     gabaritoDeTitulo,
     descricao: texto(50, 160),
     nomeCurto: texto(2, 12),
-    // Data do sitemap. É CONTEÚDO e não `new Date()` porque `new Date()` no
-    // build faz o mesmo commit gerar bytes diferentes a cada rodada, e build
-    // que não é reprodutível não dá para comparar.
+    // The sitemap date. It is CONTENT and not `new Date()` because `new Date()`
+    // at build time makes the same commit produce different bytes every run, and
+    // a build that is not reproducible cannot be compared.
     atualizadoEm: dataIso,
     cores: objeto({ tema: corHex, fundo: corHex }),
     og: objeto({
       caminho: caminhoPublico,
-      // 1200×630 não é decoração: é a proporção que WhatsApp, LinkedIn e
-      // Twitter recortam sem cortar. Fixo no esquema para o campo não virar
-      // um número qualquer que ninguém confere.
+      // 1200×630 is not decoration: it is the ratio WhatsApp, LinkedIn and
+      // Twitter crop without cutting. Fixed in the schema so the field does not
+      // become just any number nobody checks.
       largura: inteiro(1200, 1200),
       altura: inteiro(630, 630),
       alt: texto(10, 140),
@@ -687,13 +742,14 @@ const formaDoSite = objeto({
 
   home: objeto({
     titulo: texto(4, 90),
-    // Subtítulo e destaques NÃO levam sentinela, e a linha está escrita aqui de
-    // propósito: o corte é entre FATO VERIFICÁVEL do negócio (contato,
-    // endereço, domínio, e a descrição que viaja no preview do link) e TEXTO DE
-    // MARKETING. Fato errado desvia pedido e visita em silêncio; "Primeiro
-    // destaque" não engana ninguém — o dono vê no primeiro `npm run dev` e o
-    // texto já se anuncia como exemplo. Reprovar o build por causa de copy é o
-    // caminho rápido para o dono apagar a validação inteira.
+    // Subtitle and highlights do NOT carry a sentinel, and the line is drawn
+    // here on purpose: the cut is between VERIFIABLE FACT about the business
+    // (contact, address, domain, and the description that travels in the link
+    // preview) and MARKETING COPY. A wrong fact diverts orders and visits in
+    // silence; "Primeiro destaque" fools nobody — the owner sees it on the first
+    // `npm run dev` and the text announces itself as an example. Failing the
+    // build over copy is the fast road to the owner deleting the whole
+    // validation.
     subtitulo: texto(20, 220),
     destaques: lista(objeto({ titulo: texto(3, 60), texto: texto(20, 240) }), 1, 6),
   }),
@@ -702,20 +758,24 @@ const formaDoSite = objeto({
 type FormaDoSite = Inferir<typeof formaDoSite>
 
 /**
- * O número que o visitante LÊ tem de ser o número para onde o link VAI.
+ * The number the visitor READS has to be the number the link GOES to.
  *
- * Este é o defeito do Galegos na forma original: dois formatos do mesmo
- * telefone, mantidos à mão, divergindo. Quando divergem, o rodapé mostra um
- * número e o botão abre outro — e ninguém percebe, porque as duas coisas
- * "funcionam".
+ * This is the Galegos defect in its original form: two formats of the same
+ * phone, kept by hand, diverging. When they diverge, the footer shows one number
+ * and the button opens another — and nobody notices, because both things "work".
  */
 function conferirCoerencia(site: FormaDoSite): void {
-  // Só há coerência a cobrar se houver botão. Sem o bloco não há dois formatos
-  // do mesmo número para divergir — é a exigência seguindo o uso, aqui também.
+  // There is only coherence to charge if there is a button. With no block there
+  // are no two formats of the same number to diverge — the demand following the
+  // use, here too.
   const zap = site.identidade.whatsapp
   if (zap === null) return
   const visivel = zap.exibicao.replace(/\D/g, '')
   if (!zap.e164.endsWith(visivel)) {
+    // THIS MESSAGE STAYS PORTUGUESE — DO NOT TRANSLATE IT ON ITS OWN.
+    // `testes/conteudo.test.mjs` matches it by text with `/telefones DIFERENTES/`
+    // — the assertion that proves the footer number and the link number are
+    // charged against each other. It moves when the test moves, in one change.
     throw new ErroDeConteudo(
       'conteudo/site.json: identidade.whatsapp.exibicao e identidade.whatsapp.e164 são telefones ' +
         `DIFERENTES — o rodapé mostra ${JSON.stringify(zap.exibicao)} ` +
@@ -727,9 +787,9 @@ function conferirCoerencia(site: FormaDoSite): void {
 }
 
 /**
- * A porta única. Sentinela primeiro (uma mensagem com tudo que falta), depois o
- * formato campo a campo, depois a coerência entre campos — nessa ordem porque é
- * a ordem em que o dono resolve: preencher, corrigir, conferir.
+ * The single door. Sentinel first (one message with everything missing), then
+ * the format field by field, then the coherence between fields — in that order
+ * because it is the order the owner works in: fill, correct, check.
  */
 export const esquemaSite: Validador<FormaDoSite> = (valor, caminho) => {
   conferirSentinelas(valor)
@@ -741,31 +801,32 @@ export const esquemaSite: Validador<FormaDoSite> = (valor, caminho) => {
 export type Site = FormaDoSite
 
 /**
- * OS BLOCOS CONDICIONAIS, num tipo só — é `identidade` menos o `nome`.
+ * THE CONDITIONAL BLOCKS, in one type — it is `identidade` minus `nome`.
  *
- * Ele não é conveniência: é o que torna a totalidade do mapa `CONTATOS` da home
- * cobrável por `satisfies`. Acrescentar um quarto bloco condicional aqui embaixo
- * (um Instagram, um horário de funcionamento) passa a REPROVAR o `next build`
- * enquanto a home não souber renderizá-lo — que é o item (c) fechado na direção
- * mais fácil de esquecer, e fechado pelo compilador, sem regra nova.
+ * It is not a convenience: it is what makes the totality of the home's
+ * `CONTATOS` map chargeable by `satisfies`. Adding a fourth conditional block
+ * down here (an Instagram, opening hours) starts FAILING `next build` until the
+ * home knows how to render it — which is item (c) closed in the direction
+ * easiest to forget, and closed by the compiler, with no new rule.
  */
 export type Contato = Omit<Site['identidade'], 'nome'>
 
-/** O bloco do botão, já estreitado. É o que `linkWhatsapp` exige receber. */
+/** The button block, already narrowed. It is what `linkWhatsapp` demands to receive. */
 export type Whatsapp = NonNullable<Contato['whatsapp']>
 
 /**
- * O link do WhatsApp é MONTADO em código a partir do número que é conteúdo.
- * Essa divisão é o conserto do `Navesz/Galegos#1` feito do lado certo: o
- * formato do link é código (não muda por negócio), o destinatário é conteúdo
- * validado (muda, e falta dele reprova o build em vez de sumir em produção).
+ * The WhatsApp link is BUILT in code out of the number that is content. That
+ * split is the fix for `Navesz/Galegos#1` done on the right side: the shape of
+ * the link is code (it does not change per business), the recipient is validated
+ * content (it changes, and its absence fails the build instead of vanishing in
+ * production).
  *
- * O PARÂMETRO É O BLOCO, E NÃO O SITE, e essa troca é o dente do 02/09. Com
- * `site` na assinatura, um site sem WhatsApp ainda COMPILAVA a chamada e o
- * `wa.me` nascia sem destinatário em tempo de execução — o Galegos, de novo.
- * Com `Whatsapp` na assinatura, `linkWhatsapp(site.identidade.whatsapp)` é erro
- * de tipo enquanto ninguém estreitar o `null`: o desastre deixa de depender de
- * validação e passa a depender de compilar.
+ * THE PARAMETER IS THE BLOCK, NOT THE SITE, and that swap is the tooth of 02/09.
+ * With `site` in the signature, a site without WhatsApp still COMPILED the call
+ * and `wa.me` was born with no recipient at run time — Galegos, again. With
+ * `Whatsapp` in the signature, `linkWhatsapp(site.identidade.whatsapp)` is a type
+ * error until somebody narrows the `null`: the disaster stops depending on
+ * validation and starts depending on compiling.
  */
 export function linkWhatsapp(whatsapp: Whatsapp): string {
   return `https://wa.me/${whatsapp.e164}?text=${encodeURIComponent(whatsapp.mensagem)}`

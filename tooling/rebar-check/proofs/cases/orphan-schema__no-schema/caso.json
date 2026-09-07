@@ -1,6 +1,6 @@
 {
   "rule": "orphan-schema",
-  "why": "Sem nenhum `.schema.json` rastreado não há contrato para envelhecer em silêncio, e a regra não tem objeto. O ramo importa porque o lado positivo dela é uma busca por SUBSTRING no texto de todas as fontes: sem a guarda, um repositório sem schema nenhum passaria por um caminho que nunca foi exercitado, e \"passou\" ali é uma afirmação sobre zero arquivos. O lado `pass` tem código de verdade e nenhum schema; o lado `fail` tem `esquemas/pessoa.schema.json` que ninguém cita e continua reprovando.",
+  "why": "With no tracked `.schema.json` there is no contract to age in silence, and the rule has no object. The branch matters because the positive side of it is a SUBSTRING search over the text of every source: without the guard, a repository with no schema at all would go through a path that was never exercised, and \"passou\" there is a claim about zero files. The `pass` side has real code and no schema; the `fail` side has `esquemas/pessoa.schema.json` that nobody cites and keeps failing. \"passou\" stays Portuguese: it is the state value prove.mjs matches on (prove.mjs:198-200), not prose.",
   "pass": {
     "estado": "na"
   }

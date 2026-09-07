@@ -1,18 +1,23 @@
-# Pages CMS (MIT) — EMITIDO E DESCONECTADO DE PROPÓSITO.
+# Pages CMS (MIT) — EMITTED AND DISCONNECTED ON PURPOSE.
 #
-# Este arquivo descreve os campos de `conteudo/site.json` para um editor visual.
-# Ele NÃO liga o CMS a nada, e não deve ligar sozinho: conectar o Pages CMS
-# exige dar ACESSO DE ESCRITA neste repositório a um serviço de terceiro
-# hospedado, e isso é decisão do dono, não do gerador. Decisão de 31/08:
-# emitir sempre, conectar nunca.
+# This file describes the fields of `conteudo/site.json` for a visual editor.
+# It does NOT connect the CMS to anything, and must not connect on its own:
+# connecting Pages CMS means giving WRITE ACCESS to this repository to a hosted
+# third-party service, and that is the owner's decision, not the generator's.
+# Decision of 31/08: always emit, never connect.
 #
-# Para conectar, o dono vai a pagescms.org e autoriza o repositório — cinco
-# minutos. O ponto de emitir mesmo desconectado é que a alternativa seria uma
-# refatoração no dia em que ele quisesse, e aí não faria.
+# To connect, the owner goes to pagescms.org and authorizes the repository —
+# five minutes. The point of emitting it even disconnected is that the
+# alternative would be a refactor on the day he wanted it, and then he would not
+# do it.
 #
-# Enquanto estiver desconectado, este arquivo é DOCUMENTAÇÃO legível do
-# contrato: quem for editar o JSON à mão lê aqui o que cada campo é. A verdade
-# executável continua sendo `conteudo/esquema.ts`, que reprova o build.
+# While it is disconnected, this file is readable DOCUMENTATION of the contract:
+# whoever edits the JSON by hand reads here what each field is. The executable
+# truth is still `conteudo/esquema.ts`, which fails the build.
+#
+# The `name:` values are the KEYS of `conteudo/site.json` and stay in
+# Portuguese — they are identifiers, not prose. `UF` and `CEP` stay too: they
+# are the Brazilian address fields the schema validates.
 
 media: public
 
@@ -22,113 +27,114 @@ content:
     type: file
     path: conteudo/site.json
     fields:
-      # A EXIGÊNCIA SEGUE O USO. Só `nome` é obrigatório: ele é o
-      # `applicationName`, o `og:siteName` e o `name` do manifesto, e toda
-      # página o renderiza sem perguntar. WhatsApp, e-mail e endereço são
-      # BLOCOS CONDICIONAIS — a presença da chave em `conteudo/site.json` é a
-      # declaração de que a home renderiza aquilo. Não tem WhatsApp? Apague a
-      # chave `whatsapp` inteira; o botão some junto e o build passa. Deixar
-      # vazio NÃO é "não tenho": o build reprova, de propósito.
+      # THE DEMAND FOLLOWS THE USE. Only `nome` is mandatory: it is the
+      # `applicationName`, the `og:siteName` and the manifest's `name`, and
+      # every page renders it without asking. WhatsApp, e-mail and address are
+      # CONDITIONAL BLOCKS — the presence of the key in `conteudo/site.json` is
+      # the declaration that the home renders that. No WhatsApp? Delete the
+      # whole `whatsapp` key; the button goes with it and the build passes.
+      # Leaving it empty is NOT "I do not have it": the build fails, on purpose.
       - name: identidade
-        label: Identidade do negócio
+        label: Business identity
         type: object
-        description: Telefone e endereço são CONTEÚDO validado, não variável de ambiente (§12.3). Só o nome é obrigatório; os blocos de contato existem se forem usados.
+        description: Phone and address are validated CONTENT, not an environment variable (§12.3). Only the name is mandatory; the contact blocks exist if they are used.
         fields:
-          - { name: nome, label: Nome, type: string, required: true }
-          # Bloco tudo-ou-nada: os quatro campos juntos, ou a chave fora do
-          # arquivo. Campo vazio aqui é o `wa.me` sem destinatário do
-          # `Navesz/Galegos#1`, e o esquema reprova o build antes disso subir.
+          - { name: nome, label: Name, type: string, required: true }
+          # All-or-nothing block: the four fields together, or the key out of
+          # the file. An empty field here is the `wa.me` with no recipient from
+          # `Navesz/Galegos#1`, and the schema fails the build before that ships.
           - name: whatsapp
-            label: WhatsApp — o bloco inteiro é opcional
+            label: WhatsApp — the whole block is optional
             type: object
-            description: Apague este bloco se o negócio não atende por WhatsApp. Se ele existir, os quatro campos são obrigatórios.
+            description: Delete this block if the business does not answer on WhatsApp. If it exists, the four fields are mandatory.
             required: false
             fields:
-              - { name: e164, label: 'Número com DDI, só dígitos', type: string, required: true }
-              - { name: exibicao, label: Como aparece na tela, type: string, required: true }
-              - { name: chamadaAcao, label: Texto do botão, type: string, required: true }
+              - { name: e164, label: 'Number with DDI, digits only', type: string, required: true }
+              - { name: exibicao, label: How it shows on screen, type: string, required: true }
+              - { name: chamadaAcao, label: Button text, type: string, required: true }
               - {
                   name: mensagem,
-                  label: Mensagem já escrita na conversa,
+                  label: Message already written into the conversation,
                   type: text,
                   required: true,
                 }
           - {
               name: email,
-              label: 'E-mail — opcional, apague a chave se não houver',
+              label: 'E-mail — optional, delete the key if there is none',
               type: string,
               required: false,
             }
-          # Meio endereço é pior que nenhum: o visitante lê um lugar que não
-          # existe. Os cinco campos vêm juntos, ou a chave sai do arquivo.
+          # Half an address is worse than none: the visitor reads a place that
+          # does not exist. The five fields come together, or the key leaves the
+          # file.
           - name: endereco
-            label: Endereço — o bloco inteiro é opcional
+            label: Address — the whole block is optional
             type: object
-            description: Apague este bloco se o negócio não tem endereço físico ao público. Se ele existir, os cinco campos são obrigatórios juntos.
+            description: Delete this block if the business has no physical address open to the public. If it exists, the five fields are mandatory together.
             required: false
             fields:
-              - { name: logradouro, label: Logradouro e número, type: string, required: true }
-              - { name: bairro, label: Bairro, type: string, required: true }
-              - { name: cidade, label: Cidade, type: string, required: true }
+              - { name: logradouro, label: Street and number, type: string, required: true }
+              - { name: bairro, label: Neighborhood, type: string, required: true }
+              - { name: cidade, label: City, type: string, required: true }
               - { name: uf, label: UF, type: string, required: true }
               - { name: cep, label: CEP, type: string, required: true }
 
       - name: meta
-        label: Metadados e compartilhamento
+        label: Metadata and sharing
         type: object
         fields:
-          - { name: urlBase, label: 'URL do site, sem barra no fim', type: string, required: true }
-          - { name: idioma, label: Idioma, type: string, required: true }
-          - { name: titulo, label: Título, type: string, required: true }
+          - { name: urlBase, label: 'Site URL, no trailing slash', type: string, required: true }
+          - { name: idioma, label: Language, type: string, required: true }
+          - { name: titulo, label: Title, type: string, required: true }
           - {
               name: gabaritoDeTitulo,
-              label: 'Gabarito de título, com %s',
+              label: 'Title template, with %s',
               type: string,
               required: true,
             }
           - {
               name: descricao,
-              label: 'Descrição, de 50 a 160 caracteres',
+              label: 'Description, from 50 to 160 characters',
               type: text,
               required: true,
             }
           - {
               name: nomeCurto,
-              label: 'Nome curto, até 12 caracteres',
+              label: 'Short name, up to 12 characters',
               type: string,
               required: true,
             }
-          - { name: atualizadoEm, label: Atualizado em, type: date, required: true }
+          - { name: atualizadoEm, label: Updated on, type: date, required: true }
           - name: cores
-            label: Cores
+            label: Colors
             type: object
             fields:
-              - { name: tema, label: Cor de tema, type: string, required: true }
-              - { name: fundo, label: Cor de fundo, type: string, required: true }
+              - { name: tema, label: Theme color, type: string, required: true }
+              - { name: fundo, label: Background color, type: string, required: true }
           - name: og
-            label: Cartão de compartilhamento
+            label: Sharing card
             type: object
             fields:
-              - { name: caminho, label: Arquivo em public/, type: string, required: true }
-              - { name: largura, label: Largura, type: number, required: true }
-              - { name: altura, label: Altura, type: number, required: true }
-              - { name: alt, label: Texto alternativo, type: string, required: true }
+              - { name: caminho, label: File in public/, type: string, required: true }
+              - { name: largura, label: Width, type: number, required: true }
+              - { name: altura, label: Height, type: number, required: true }
+              - { name: alt, label: Alternative text, type: string, required: true }
 
       - name: home
-        label: Página inicial
+        label: Home page
         type: object
         fields:
-          # `chamadaAcao` e `mensagemWhatsapp` moravam AQUI e mudaram para
-          # dentro do bloco `identidade.whatsapp`. Eram a cópia de um botão que
-          # pode não existir: sem WhatsApp, dois campos que o dono escreve,
-          # revisa, publica — e que nada renderiza. Dentro do bloco, eles somem
-          # junto com o botão.
-          - { name: titulo, label: Título, type: string, required: true }
-          - { name: subtitulo, label: Subtítulo, type: text, required: true }
+          # `chamadaAcao` and `mensagemWhatsapp` used to live HERE and moved
+          # inside the `identidade.whatsapp` block. They were the copy of a
+          # button that may not exist: with no WhatsApp, two fields the owner
+          # writes, reviews, publishes — and that nothing renders. Inside the
+          # block, they go away along with the button.
+          - { name: titulo, label: Title, type: string, required: true }
+          - { name: subtitulo, label: Subtitle, type: text, required: true }
           - name: destaques
-            label: Destaques
+            label: Highlights
             type: object
             list: { min: 1, max: 6 }
             fields:
-              - { name: titulo, label: Título, type: string, required: true }
-              - { name: texto, label: Texto, type: text, required: true }
+              - { name: titulo, label: Title, type: string, required: true }
+              - { name: texto, label: Text, type: text, required: true }

@@ -1,112 +1,114 @@
-# Domínio · Privilégio de banco
+# Domain · Database privilege
 
-**Estado: PROVADO** · 16/16 asserções verdes contra PostgreSQL 17.2 real · 26/08/2026
+**Status: PROVEN** · 16/16 assertions green against a real PostgreSQL 17.2 · 26/08/2026
 
-O primeiro domínio fechado do rebar. Não "o documento parece correto" — o critério é o
-que foi combinado na revisão: `Claim` + `Assumptions` + migration + teste positivo +
-teste hostil + modo de falha observado + nenhum bypass conhecido.
+The first closed domain of rebar. Not "the document looks correct" — the criterion is the
+one agreed in the review: `Claim` + `Assumptions` + migration + positive test +
+hostile test + observed failure mode + no known bypass.
 
 ---
 
 ## Claim
 
-> Abandonar a role operacional **nunca eleva privilégio**.
+> Abandoning the operational role **never elevates privilege**.
 
 | | |
 |---|---|
 | **Owner** | PostgreSQL — `sql-set-role`, `ddl-priv`, `sql-createextension` |
-| **Evidence** | `migrations/0001_papeis.sql`, `migrations/0002_tabela_protegida.sql`, e as 16 asserções de `privilegio.test.mjs` rodando contra PostgreSQL 17.2 |
+| **Evidence** | `migrations/0001_papeis.sql`, `migrations/0002_tabela_protegida.sql`, and the 16 assertions of `privilegio.test.mjs` running against PostgreSQL 17.2 |
 
-### Assumptions — cada uma vira asserção
+### Assumptions — each one becomes an assertion
 
-| Premissa | Prova executável |
+| Premise | Executable proof |
 |---|---|
 | `session_user = app_login` | `SELECT session_user` |
-| `app_login` não pode virar `db_owner` | `pg_has_role('app_login','db_owner','SET') = false` |
-| `app_login` não herda `app` | `pg_has_role('app_login','app','USAGE') = false` |
-| `app_login` pode virar `app` | `pg_has_role('app_login','app','SET') = true` |
-| **Não existe `role` de connection-time** | `current_setting('role', true)` vazio após `RESET ROLE` |
-| `PUBLIC` não oferece caminho privilegiado | `has_function_privilege(…,'EXECUTE') = false` na isca `SECURITY DEFINER` |
-| Nenhuma das três roles é superusuário nem contorna RLS | `pg_roles` |
-| O conjunto de memberships é exatamente `{app_login → app}` | `pg_auth_members` |
+| `app_login` cannot become `db_owner` | `pg_has_role('app_login','db_owner','SET') = false` |
+| `app_login` does not inherit `app` | `pg_has_role('app_login','app','USAGE') = false` |
+| `app_login` can become `app` | `pg_has_role('app_login','app','SET') = true` |
+| **There is no connection-time `role`** | `current_setting('role', true)` empty after `RESET ROLE` |
+| `PUBLIC` offers no privileged path | `has_function_privilege(…,'EXECUTE') = false` on the `SECURITY DEFINER` bait |
+| None of the three roles is a superuser or bypasses RLS | `pg_roles` |
+| The set of memberships is exactly `{app_login → app}` | `pg_auth_members` |
 
-A premissa do connection-time é a que decide o caso e vinha **escondida atrás de uma
-elipse** na citação do documento. São três vetores, e o terceiro não passa por SQL:
-`ALTER ROLE`, `ALTER DATABASE`, e `options=-c role=app` na string de conexão ou `PGOPTIONS`.
+The connection-time premise is the one that decides the case, and it came **hidden behind
+an ellipsis** in the document's quotation. There are three vectors, and the third does not
+go through SQL: `ALTER ROLE`, `ALTER DATABASE`, and `options=-c role=app` in the connection
+string or `PGOPTIONS`.
 
 ---
 
-## O que rodar
+## What to run
 
 ```bash
 npm test
 ```
 
-Precisa de um PostgreSQL em `127.0.0.1:55432` com o banco `rebar_teste` e as duas
-migrations aplicadas — a 0001 como superusuário, a **0002 como `db_owner`**. Que a 0002
-rode como `db_owner` faz parte do que o teste prova.
+It needs a PostgreSQL at `127.0.0.1:55432` with the `rebar_teste` database and the two
+migrations applied — 0001 as superuser, **0002 as `db_owner`**. That 0002 runs as
+`db_owner` is part of what the test proves.
 
 ---
 
-## Achado que só o código encontrou
+## The finding only the code found
 
-Nem a revisão humana nem os seis agentes pegaram, porque só aparece quando a conexão
-volta ao pool:
+Neither the human review nor the six agents caught it, because it only shows up when the
+connection goes back to the pool:
 
-> **`onConnect` é barreira por conexão FÍSICA, não por checkout.**
+> **`onConnect` is a barrier per PHYSICAL connection, not per checkout.**
 
 ```
 checkout            current_user = app          ✓
 RESET ROLE          current_user = app_login
 release  →  pool
-PRÓXIMO checkout    current_user = app_login    ← onConnect não rodou de novo
+NEXT checkout       current_user = app_login    ← onConnect did not run again
 ```
 
-Neste desenho **falha fechado**: o request seguinte perde privilégio e toma `42501`. Mas
-num desenho em que o `session_user` fosse privilegiado — **o estado atual do prumo**, onde
-`POSTGRES_USER=prumo` é o superusuário do cluster — falharia **aberto**: uma conexão do
-pool rodando como superusuário para *todo request seguinte*, não só para o que chamou
-`RESET ROLE`.
+In this design it **fails closed**: the next request loses privilege and takes a `42501`.
+But in a design where the `session_user` were privileged — **prumo's current state**, where
+`POSTGRES_USER=prumo` is the cluster superuser — it would fail **open**: one pool
+connection running as superuser for *every request that follows*, not only for the one
+that called `RESET ROLE`.
 
-Isso agrava o achado original. Não é "`RESET ROLE` dá superusuário neste request", é
-"**neste request e em todos os próximos daquela conexão**".
+This aggravates the original finding. It is not "`RESET ROLE` gives superuser in this
+request", it is "**in this request and in every next one on that connection**".
 
-### O conserto, e por que ele encaixa
+### The fix, and why it fits
 
 ```sql
 BEGIN;
-SET LOCAL ROLE app;   -- primeira instrução de toda transação, no UnitOfWork
+SET LOCAL ROLE app;   -- first statement of every transaction, in the UnitOfWork
 …
-COMMIT;               -- reverte sozinho, ninguém precisa lembrar de limpar
+COMMIT;               -- reverts on its own, nobody has to remember to clean up
 ```
 
-Medido: `SET LOCAL ROLE` **cura uma conexão já envenenada** e reverte no COMMIT. A Stack
-já exige *"uma transação por caso de uso, aberta só no `UnitOfWork`"* — então o conserto
-não adiciona disciplina nova, só move a existente para onde ela já estava.
+Measured: `SET LOCAL ROLE` **cures an already poisoned connection** and reverts at COMMIT.
+The Stack already demands *"uma transação por caso de uso, aberta só no `UnitOfWork`"*
+[one transaction per use case, opened only in the `UnitOfWork`] — so the fix adds no new
+discipline, it only moves the existing one to where it already was.
 
-`onConnect` continua, como barreira de aquisição e defesa em profundidade.
-
----
-
-## Fronteira ainda aberta
-
-**O canal de tenant não está fechado.** Custom GUC é `USERSET`: a própria sessão troca o
-próprio contexto de tenant. Há um teste que **documenta a falha** em vez de escondê-la —
-quando o canal for fechado, aquele teste inverte.
-
-Por isso o domínio fecha em **isolamento de role**, não em isolamento de tenant. São dois
-domínios, e misturá-los num commit só foi o que a revisão desaconselhou.
+`onConnect` stays, as an acquisition barrier and defense in depth.
 
 ---
 
-## Placar
+## Boundary still open
 
-| Categoria | Asserções |
+**The tenant channel is not closed.** A custom GUC is `USERSET`: the session itself swaps
+its own tenant context. There is a test that **documents the failure** instead of hiding
+it — when the channel is closed, that test inverts.
+
+That is why the domain closes on **role isolation**, not on tenant isolation. They are two
+domains, and mixing them into a single commit is what the review advised against.
+
+---
+
+## Scoreboard
+
+| Category | Assertions |
 |---|---|
-| Positivo | 3 |
-| Hostil | 5 |
-| Catálogo (privilégio efetivo) | 3 |
-| Barreira de aquisição (camada driver) | 1 |
-| RLS | 2 — uma passa, uma documenta a fronteira aberta |
-| Achado + conserto | 2 |
-| **Total** | **16 verdes** |
+| Positive | 3 |
+| Hostile | 5 |
+| Catalog (effective privilege) | 3 |
+| Acquisition barrier (driver layer) | 1 |
+| RLS | 2 — one passes, one documents the open boundary |
+| Finding + fix | 2 |
+| **Total** | **16 green** |

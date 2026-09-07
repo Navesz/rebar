@@ -1,20 +1,21 @@
 /**
- * O ponto único onde `site.json` vira dado tipado — e o ponto onde o build
- * morre se ele divergir do esquema.
+ * The single point where `site.json` becomes typed data — and the point where
+ * the build dies if it diverges from the schema.
  *
- * A validação roda no ESCOPO DO MÓDULO de propósito. `app/layout.tsx` importa
- * daqui, o `next build` avalia este módulo para pré-renderizar a rota, e um
- * campo faltando lança antes de qualquer HTML sair. É o que separa esquema de
- * decoração: decoração é o que só roda quando alguém lembra de chamar.
+ * The validation runs at MODULE SCOPE on purpose. `app/layout.tsx` imports from
+ * here, `next build` evaluates this module to pre-render the route, and a missing
+ * field throws before any HTML comes out. That is what separates a schema from
+ * decoration: decoration is what only runs when somebody remembers to call it.
  */
 import bruto from './site.json'
 import { esquemaSite, type Site } from './esquema'
 
 export const site: Site = esquemaSite(bruto, 'site')
 export type { Site }
-// `Contato` e `Whatsapp` saem por aqui porque quem renderiza importa DESTE
-// arquivo, nunca do esquema: a porta é uma só. `Contato` é o que faz o mapa da
-// home ser cobrado como total; `Whatsapp` é o bloco já estreitado que
-// `linkWhatsapp` exige — sem ele o botão não compila sem tratar o `null`.
+// `Contato` and `Whatsapp` go out through here because whoever renders imports
+// from THIS file, never from the schema: there is one door only. `Contato` is
+// what makes the home's map charged as total; `Whatsapp` is the already-narrowed
+// block `linkWhatsapp` demands — without it the button does not compile without
+// handling the `null`.
 export type { Contato, Whatsapp } from './esquema'
 export { linkWhatsapp } from './esquema'

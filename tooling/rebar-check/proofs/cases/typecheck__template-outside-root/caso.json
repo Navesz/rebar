@@ -1,6 +1,6 @@
 {
   "rule": "typecheck",
-  "why": "A FECHADURA da exclusao de modelo, que e o que separa uma porta de saida de um bypass. O marcador so vale quando o prefixo dele e EXATAMENTE uma raiz de modelo conhecida. No lado aprovar ele esta em new/site/blocks/ e a arvore sai da avaliacao; no lado reprovar o mesmo arquivo esta um nivel abaixo, em new/site/blocks/app/, e tem de ser RECUSADO — a arvore continua avaliada e a regra acusa. Sem essa travar, um modelo.json em qualquer pasta esconderia qualquer arvore, que foi exatamente o ataque de tres bytes que o caso.json ja aceitou uma vez.",
+  "why": "The LOCK on the template exclusion, which is what separates an escape hatch from a bypass. The marker only holds when its prefix is EXACTLY a known template root. On the pass side it is at new/site/blocks/ and the tree leaves the evaluation; on the fail side the same file is one level below, at new/site/blocks/app/, and it has to be REFUSED — the tree stays evaluated and the rule accuses. Without that lock, a modelo.json in any folder would hide any tree, which was exactly the three-byte attack the caso.json accepted once already.",
   "pass": {
     "estado": "na"
   }

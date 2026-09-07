@@ -1,4 +1,4 @@
 {
   "rule": "ci",
-  "why": "Repositório sem workflow nenhum não tem portão: o que passa é o que o autor lembrou de rodar na máquina dele. A regra lê a lista rastreada pelo git, então o lado aprovar também prova que um workflow só vale depois de commitado — arquivo não rastreado não conta."
+  "why": "A repository with no workflow at all has no gate: what gets through is whatever the author remembered to run on his own machine. The rule reads the list tracked by git, so the pass side also proves that a workflow only counts once committed — an untracked file does not count."
 }

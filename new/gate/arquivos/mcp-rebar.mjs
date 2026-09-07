@@ -1,132 +1,134 @@
 #!/usr/bin/env node
-// O SERVIDOR MCP DESTE PROJETO. Zero dependência, offline, e nada congelado dentro.
+// THE MCP SERVER OF THIS PROJECT. Zero dependencies, offline, and nothing frozen inside.
 //
-// ═════════════════════════════════════════════ 1. o que este arquivo era, e por que mudou
+// ═════════════════════════════════════════ 1. what this file was, and why it changed
 //
-// Até 2026-09-02 este arquivo era um LANÇADOR: ele não servia nada, só chamava
-// `npx --yes github:Navesz/rebar --mcp` e entregava o stdio para o servidor MCP
-// do rebar. A auditoria de 31/08 suspeitou que a cadeia não podia funcionar. Foi
-// medido, e não podia mesmo. O comando exato e a saída exata, de um projeto
-// recém-gerado num tmpdir:
+// Until 2026-09-02 this file was a LAUNCHER: it served nothing, it only called
+// `npx --yes github:Navesz/rebar --mcp` and handed stdio to rebar's MCP server.
+// The audit of 2026-08-31 suspected the chain could not work. It was measured,
+// and it could not. The exact command and the exact output — verbatim, as
+// measured, not translated — from a freshly generated project in a tmpdir:
 //
 //   $ node .rebar/mcp.mjs
 //   rebar: --mcp pede as dependências do pacote mcp/, que não estão instaladas.
 //          Instale uma vez: cd mcp && npm install
 //   rebar-mcp: o rebar não respondeu como servidor MCP (saída 2).
 //
-// E o defeito é ESTRUTURAL, não um esquecimento. A raiz do rebar tem ZERO
-// dependência por regra da casa, então o SDK de MCP mora em `mcp/`, que é um
-// pacote SEPARADO. O `npx` instala o pacote da raiz e só ele: o checkout que ele
-// monta no cache tem os arquivos de `mcp/` e não tem `mcp/node_modules` — 22 MB,
-// 93 pacotes, 3.399 arquivos na medição de 2026-09-02. Não existe versão desta
-// cadeia que funcione sem acrescentar um `npm install` de 22 MB a toda invocação
-// do rebar, inclusive às que só querem rodar a régua.
+// And the defect is STRUCTURAL, not an oversight. rebar's root has ZERO
+// dependencies by house rule, so the MCP SDK lives in `mcp/`, which is a
+// SEPARATE package. `npx` installs the root package and only it: the checkout it
+// assembles in the cache has the files of `mcp/` and does not have
+// `mcp/node_modules` — 22 MB, 93 packages, 3,399 files, measured 2026-09-02.
+// There is no version of this chain that works without adding a 22 MB
+// `npm install` to every invocation of rebar, including the ones that only want
+// to run the ruler.
 //
-// ═══════════════════════════════════════════════════ 2. as duas saídas, e a conta
+// ═══════════════════════════════════════════════ 2. the two ways out, and the sum
 //
-// (a) APONTAR PARA O REBAR — uma fonte, sempre em dia. Foi o que se tentou.
-//     Custo medido em 2026-09-02, nesta máquina, com o cache do npx JÁ QUENTE:
-//     8,4 s e 9,1 s por subida. Mais: exige rede em toda sessão, exige que
-//     `github:Navesz/rebar` continue público e com esse nome, e — o que decide —
-//     NÃO FUNCIONA HOJE, pelo parágrafo acima. Um cliente de MCP que espera 9 s
-//     por um handshake costuma desistir antes; um que espera 9 s para receber
-//     saída 2 desiste com certeza.
+// (a) POINT AT REBAR — one source, always current. That is what was tried. Cost
+//     measured 2026-09-02, on this machine, with the npx cache ALREADY WARM:
+//     8.4 s and 9.1 s per startup. On top of that: it needs network in every
+//     session, it needs `github:Navesz/rebar` to stay public and under that
+//     name, and — the deciding one — IT DOES NOT WORK TODAY, per the paragraph
+//     above. An MCP client that waits 9 s for a handshake usually gives up
+//     first; one that waits 9 s to receive exit 2 gives up for sure.
 //
-// (b) O PROJETO CARREGA O PRÓPRIO — offline, instantâneo, e é o que este arquivo
-//     é agora. O preço declarado no pedido era: "passa a ter um arquivo que
-//     envelhece, e aí precisa do portão de frescor dele também".
+// (b) THE PROJECT CARRIES ITS OWN — offline, instant, and it is what this file
+//     is now. The price stated in the request was: "passa a ter um arquivo que
+//     envelhece, e aí precisa do portão de frescor dele também" [it comes to
+//     have a file that ages, and then it needs its freshness gate too].
 //
-// ESSE PREÇO NÃO É PAGO AQUI, e é essa a decisão de desenho. Não há artefato.
-// Nenhuma regra está escrita neste arquivo em forma de texto congelado: toda
-// resposta é DERIVADA, na hora da chamada, dos arquivos deste projeto no disco.
-// A regra do placeholder é lida de `conteudo/esquema.ts`; a lista de
-// placeholders que ainda faltam é varrida em `conteudo/site.json` naquele
-// segundo; a pilha sai das versões reais em `package.json`; os passos do portão
-// saem de `package.json → scripts`; o que barra o commit sai dos hooks que estão
-// em `.githooks/`. Não existe cópia para envelhecer, então não existe portão de
-// frescor para escrever — que é uma resposta melhor ao defeito do Herz do que um
-// portão seria, porque portão de frescor prova que a cópia bate com a fonte, e
-// aqui não há segunda cópia.
+// THAT PRICE IS NOT PAID HERE, and that is the design decision. There is no
+// artifact. No rule is written in this file as frozen text: every answer is
+// DERIVED, at call time, from this project's files on disk. The placeholder rule
+// is read from `conteudo/esquema.ts`; the list of placeholders still missing is
+// scanned in `conteudo/site.json` in that second; the stack comes from the real
+// versions in `package.json`; the gate steps come from `package.json → scripts`;
+// what blocks the commit comes from the hooks in `.githooks/`. There is no copy
+// to age, so there is no freshness gate to write — which is a better answer to
+// the Herz defect than a gate would be, because a freshness gate proves the copy
+// matches the source, and here there is no second copy.
 //
-// A consequência é dura de propósito e está exposta em toda resposta: quando o
-// arquivo que impõe uma regra NÃO ESTÁ no disco, a ferramenta não recita a regra
-// — ela responde DESARMADA. Regra recitada com o guarda ausente é pior que
-// silêncio, porque soa igual a regra em vigor.
+// The consequence is harsh on purpose and it is exposed in every answer: when
+// the file that enforces a rule IS NOT on disk, the tool does not recite the
+// rule — it answers DESARMADA (unarmed). A rule recited with the guard gone is
+// worse than silence, because it sounds exactly like a rule in force.
 //
-// ═════════════════════════════════════════════════════ 3. e as 22 regras do rebar?
+// ══════════════════════════════════════════════════ 3. and rebar's 22 rules?
 //
-// Continuam alcançáveis, e por execução, nunca por cópia: `rebar_verificar` com
-// `{ regua: true }` roda a MESMA linha que o CI deste projeto roda, e devolve o
-// placar. Medido em 2026-09-02: 9,3 s o `npx` sozinho, 17,2 s de ponta a ponta
-// numa chamada de ferramenta. Rede obrigatória. Por isso é opção, e não padrão.
-// Sem rede ela diz que não conseguiu, e nomeia o comando — nunca inventa um
-// verde.
+// They stay reachable, and by execution, never by copy: `rebar_verificar` with
+// `{ regua: true }` runs the SAME line this project's CI runs, and returns the
+// scoreboard. Measured 2026-09-02: 9.3 s for `npx` alone, 17.2 s end to end in
+// one tool call. Network mandatory. That is why it is an option, not the
+// default. With no network it says it could not, and it names the command — it
+// never invents a green.
 //
-// ══════════════════════════════════════════════ 4. por que sem o SDK de MCP
+// ══════════════════════════════════════════ 4. why without the MCP SDK
 //
-// O `AGENTS.md` deste projeto proíbe instalar SDK de MCP, e esta é a razão de a
-// proibição ser possível: o transporte stdio do MCP é JSON-RPC 2.0 em linhas
-// terminadas por `\n`, e um servidor que só publica ferramentas precisa de
-// quatro métodos — `initialize`, `tools/list`, `tools/call` e `ping`. São as ~90
-// linhas da seção 6. O SDK resolveria o mesmo com 22 MB e uma árvore de
-// dependência que este projeto teria de auditar, atualizar e explicar para
-// sempre, num repositório que vai para a mão de um cliente.
+// This project's `AGENTS.md` forbids installing an MCP SDK, and this is the
+// reason the ban is possible: MCP's stdio transport is JSON-RPC 2.0 in lines
+// terminated by `\n`, and a server that only publishes tools needs four
+// methods — `initialize`, `tools/list`, `tools/call` and `ping`. That is the ~90
+// lines of section 6. The SDK would solve the same thing with 22 MB and a
+// dependency tree this project would have to audit, update and explain forever,
+// in a repository that goes into a client's hands.
 //
-// ═════════════════════════════════════════════════════ 5. o que o stdout é aqui
+// ═══════════════════════════════════════════════ 5. what stdout is here
 //
-// O stdout é o CANAL DO PROTOCOLO e nada mais. Uma linha de prosa nele não vira
-// aviso: vira mensagem malformada, e o cliente derruba a sessão sem dizer por
-// quê. Por isso existe exatamente UMA escrita em stdout neste arquivo, dentro de
-// `enviar()`, e `testes/portao.test.mjs` conta essa ocorrência e reprova se
-// aparecer uma segunda — ou se aparecer a chamada de registro do console, que
-// escreve no mesmo canal. Ela não é nomeada aqui de propósito: a régua varre o
-// texto deste arquivo, e ela já reprovou uma vez por causa de um comentário que
-// citava a chamada proibida em vez de descrevê-la. Todo aviso humano vai para o
-// stderr, por `grito()`.
+// stdout is the PROTOCOL CHANNEL and nothing else. A line of prose in it does
+// not become a warning: it becomes a malformed message, and the client drops the
+// session without saying why. That is why there is exactly ONE write to stdout
+// in this file, inside `enviar()`, and `testes/portao.test.mjs` counts that
+// occurrence and fails if a second one shows up — or if the console logging call
+// shows up, which writes to the same channel. It is not named here on purpose:
+// the ruler scans the text of this file, and it failed once already because of a
+// comment that quoted the forbidden call instead of describing it. Every notice
+// meant for a human goes to stderr, through `grito()`.
 
 import { execFile, execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// ─────────────────────────────────────────────────────────────── 1. onde estamos
+// ─────────────────────────────────────────────────────────────── 1. where we are
 //
-// A raiz sai do CAMINHO DESTE ARQUIVO, não de `process.cwd()`. O cliente de MCP
-// escolhe o diretório de trabalho por conta dele e nem sempre é a raiz do
-// projeto; este arquivo, porém, está sempre em `<raiz>/.rebar/mcp.mjs` — quem o
-// põe lá é o portão, e `conferirPonteiroMcp` reprova a geração se o `.mcp.json`
-// e o disco discordarem. Subir dois níveis é, portanto, um fato do gerador.
+// The root comes from THIS FILE'S PATH, not from `process.cwd()`. The MCP client
+// picks the working directory on its own and it is not always the project root;
+// this file, however, always sits at `<root>/.rebar/mcp.mjs` — the gate is what
+// puts it there, and `conferirPonteiroMcp` fails the generation if `.mcp.json`
+// and the disk disagree. Going up two levels is, therefore, a fact of the generator.
 //
-// fileURLToPath, não `.pathname`: no Windows o pathname vem "/C:/Users/...",
-// com barra antes da letra do drive, e todo join a partir dele aponta para o nada.
+// fileURLToPath, not `.pathname`: on Windows the pathname comes as "/C:/Users/...",
+// with a slash before the drive letter, and every join from it points at nothing.
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = dirname(AQUI)
 
-// A pasta que o `core.hooksPath` tem de apontar para o portão deste projeto
-// existir de verdade. O gerador a escreve com este nome; se mudar lá, muda aqui.
+// The folder `core.hooksPath` has to point at for this project's gate to exist
+// for real. The generator writes it with this name; if it changes there, it
+// changes here.
 const PASTA_HOOKS = '.githooks'
 
-// A régua publicada. É o comando que o CI deste projeto roda e a única coisa que
-// este arquivo sabe sobre o rebar: um endereço, nenhuma regra.
+// The published ruler. It is the command this project's CI runs and the only
+// thing this file knows about rebar: an address, no rules.
 const ESPEC_REBAR = 'github:Navesz/rebar'
 const REGUA = `npx --yes ${ESPEC_REBAR} .`
-// Binário DIFERENTE do mesmo pacote, daí o `-p`: sem ele o npx roda o bin
-// padrão e a "régua de segurança" seria a de formato com outro nome. As duas
-// respondem separado porque falham por motivos separados — formato errado e
-// falha de segurança não se consertam do mesmo jeito nem com a mesma pressa.
+// A DIFFERENT binary of the same package, hence the `-p`: without it npx runs
+// the default bin and the "security ruler" would be the format one under another
+// name. The two answer separately because they fail for separate reasons — wrong
+// format and a security failure are not fixed the same way nor with the same hurry.
 const REGUA_SEGURANCA = `npx --yes -p ${ESPEC_REBAR} rebar-security .`
 
-// Tudo o que for para humano vai para o stderr. Ver a seção 5 do cabeçalho.
+// Everything meant for a human goes to stderr. See section 5 of the header.
 const grito = (t) => process.stderr.write(`mcp: ${t}\n`)
 
-// ────────────────────────────────────── 2. leitura do projeto, sempre na hora
+// ────────────────────────────────────── 2. reading the project, always at call time
 //
-// Sem cache, de propósito e com o custo medido: os arquivos lidos somam menos de
-// 40 KB no projeto recém-gerado (2026-09-02), e uma leitura completa fica na
-// casa do milissegundo. Guardar isso em memória traria de volta, pela porta dos
-// fundos, exatamente o defeito que este desenho existe para não ter — a sessão
-// que começou de manhã continuaria respondendo o `site.json` da manhã depois de
-// o dono trocar os placeholders à tarde.
+// No cache, on purpose and with the cost measured: the files read add up to less
+// than 40 KB in a freshly generated project (2026-09-02), and a full read lands
+// in the millisecond range. Keeping that in memory would bring back, through the
+// back door, exactly the defect this design exists not to have — the session
+// that started in the morning would go on answering with the morning's
+// `site.json` after the owner swapped the placeholders in the afternoon.
 
 const caminho = (rel) => join(RAIZ, ...rel.split('/'))
 const tem = (rel) => existsSync(caminho(rel))
@@ -145,20 +147,21 @@ function lerJson(rel) {
   try {
     return JSON.parse(bruto)
   } catch {
-    // JSON quebrado NÃO é o mesmo que arquivo ausente, e as duas respostas
-    // seguintes são diferentes: ausente é "a regra está desarmada", quebrado é
-    // "o build vai morrer aqui". Quem chama distingue pelo `undefined`.
+    // Broken JSON is NOT the same as a missing file, and the two answers that
+    // follow are different: missing is "the rule is unarmed", broken is "the
+    // build is going to die here". The caller tells them apart by the `undefined`.
     return undefined
   }
 }
 
 /**
- * `arquivo:linha` da primeira linha que contém a agulha.
+ * `file:line` of the first line that contains the needle.
  *
- * É o que substitui a citação: em vez de copiar para cá o texto que impõe a
- * regra — cópia que envelheceria —, a resposta manda o agente OLHAR a linha que
- * a impõe hoje. Quando a agulha some do arquivo, a função devolve o arquivo sem
- * linha, e a resposta passa a dizer que não achou; nunca aponta linha errada.
+ * It is what replaces the quotation: instead of copying the text that enforces
+ * the rule over here — a copy that would age —, the answer sends the agent to
+ * LOOK at the line that enforces it today. When the needle disappears from the
+ * file, the function returns the file with no line, and the answer starts saying
+ * it did not find it; it never points at the wrong line.
  */
 function ondeEsta(rel, agulha) {
   const texto = ler(rel)
@@ -168,30 +171,33 @@ function ondeEsta(rel, agulha) {
   return i === -1 ? rel : `${rel}:${i + 1}`
 }
 
-// ────────────────────────────────── 3. a sentinela de placeholder, lida do build
+// ─────────────────────────── 3. the placeholder sentinel, read from the build
 //
-// A regra "o build reprova se o placeholder não for trocado" é imposta por
-// `conteudo/esquema.ts`, e a forma dela é uma expressão regular declarada lá.
-// ELA É LIDA DE LÁ, não copiada para cá, e o motivo é o mesmo do arquivo
-// inteiro: se o esquema afrouxar ou apertar a sentinela, esta ferramenta muda
-// junto no mesmo instante. Uma segunda cópia da regex daria a resposta de ontem
-// com cara de resposta de hoje — e essa resposta é justamente "o seu build vai
-// passar", que é a pior de todas para estar errada.
+// The rule "the build fails if the placeholder is not swapped" is enforced by
+// `conteudo/esquema.ts`, and its shape is a regular expression declared there.
+// IT IS READ FROM THERE, not copied over here, and the reason is the same as the
+// whole file's: if the schema loosens or tightens the sentinel, this tool moves
+// with it in the same instant. A second copy of the regex would give yesterday's
+// answer with today's face — and that answer is precisely "your build is going
+// to pass", the worst of all to be wrong about.
+// The needle is the DECLARATION as it is written in `conteudo/esquema.ts`, so it
+// stays Portuguese: it is an identifier of that file, not prose. Translating it
+// here makes the search miss and every answer come back "no sentinel".
 const DECL_SENTINELA = 'export const SENTINELA'
 
 function sentinela() {
   const fonte = ler('conteudo/esquema.ts')
-  if (fonte === null) return { re: null, motivo: 'conteudo/esquema.ts não está no disco' }
+  if (fonte === null) return { re: null, motivo: 'conteudo/esquema.ts is not on disk' }
   const linha = fonte.split('\n').find((l) => l.includes(DECL_SENTINELA))
   if (!linha) {
-    return { re: null, motivo: `não achei \`${DECL_SENTINELA}\` em conteudo/esquema.ts` }
+    return { re: null, motivo: `did not find \`${DECL_SENTINELA}\` in conteudo/esquema.ts` }
   }
-  // Recorta entre a primeira e a última barra da linha. `new RegExp` sobre um
-  // literal do PRÓPRIO projeto, nunca sobre entrada de quem chama a ferramenta.
+  // Slices between the first and the last slash of the line. `new RegExp` over a
+  // literal of the PROJECT ITSELF, never over input from whoever calls the tool.
   const abre = linha.indexOf('/')
   const fecha = linha.lastIndexOf('/')
   if (abre === -1 || fecha <= abre) {
-    return { re: null, motivo: 'a linha da SENTINELA não tem um literal de regex reconhecível' }
+    return { re: null, motivo: 'the SENTINELA line has no recognizable regex literal' }
   }
   try {
     return {
@@ -200,17 +206,17 @@ function sentinela() {
       onde: ondeEsta('conteudo/esquema.ts', DECL_SENTINELA),
     }
   } catch (e) {
-    return { re: null, motivo: `a SENTINELA de conteudo/esquema.ts não compila: ${e.message}` }
+    return { re: null, motivo: `SENTINELA of conteudo/esquema.ts does not compile: ${e.message}` }
   }
 }
 
-/** Todo campo de `conteudo/site.json` que ainda casa com a sentinela, com o caminho no JSON. */
+/** Every field of `conteudo/site.json` that still matches the sentinel, with its path in the JSON. */
 function placeholdersPendentes() {
   const s = sentinela()
   const dado = lerJson('conteudo/site.json')
-  if (dado === null) return { erro: 'conteudo/site.json não está no disco', itens: [] }
+  if (dado === null) return { erro: 'conteudo/site.json is not on disk', itens: [] }
   if (dado === undefined)
-    return { erro: 'conteudo/site.json não é JSON válido — o build morre aqui', itens: [] }
+    return { erro: 'conteudo/site.json is not valid JSON — the build dies here', itens: [] }
   if (!s.re) return { erro: s.motivo, itens: [] }
 
   const itens = []
@@ -228,14 +234,15 @@ function placeholdersPendentes() {
   return { erro: null, itens, imposta_em: s.onde }
 }
 
-// ─────────────────────────────────────────────── 4. o estado do portão, derivado
+// ─────────────────────────────────────────────── 4. the gate state, derived
 
-/** Mesmo diretório, respondido pelo sistema de arquivos e não por string.
+/** Same directory, answered by the file system and not by string.
  *
- * `realpathSync.native` resolve link simbólico E canoniza a caixa das letras no
- * Windows, onde `.GITHOOKS` e `.githooks` são a mesma pasta e a comparação de
- * texto diria que não. Só cai na comparação de texto quando um dos dois lados
- * não existe — e aí a diferença já foi decidida antes de chegar aqui.
+ * `realpathSync.native` resolves the symlink AND canonicalizes letter case on
+ * Windows, where `.GITHOOKS` and `.githooks` are the same folder and a text
+ * comparison would say they are not. It falls back to the text comparison only
+ * when one of the two sides does not exist — and by then the difference was
+ * already decided before reaching here.
  */
 function mesmaPasta(a, b) {
   try {
@@ -246,25 +253,27 @@ function mesmaPasta(a, b) {
 }
 
 /**
- * Os hooks só valem se o git souber deles. `core.hooksPath` é o que liga
- * `.githooks/` ao git, e ele NÃO vem junto no clone — quem clona este projeto
- * recebe os arquivos e nenhum hook armado. É a diferença entre "o arquivo existe"
- * e "o commit é barrado", e a resposta tem de dizer qual das duas é o caso.
+ * The hooks only count if git knows about them. `core.hooksPath` is what ties
+ * `.githooks/` to git, and it does NOT come along in the clone — whoever clones
+ * this project gets the files and no armed hook. It is the difference between
+ * "the file exists" and "the commit is blocked", and the answer has to say which
+ * of the two is the case.
  *
- * LER O VALOR NÃO BASTA, e é o que esta função fazia até 2026-09-06: ela
- * devolvia `valor`, e quem chamava concluía `armado = valor !== null`. Só que
- * `core.hooksPath` é uma string livre — o git grava sem conferir nada:
+ * READING THE VALUE IS NOT ENOUGH, and that is what this function did until
+ * 2026-09-06: it returned `valor`, and the caller concluded
+ * `armado = valor !== null`. Except `core.hooksPath` is a free string — git
+ * writes it without checking anything:
  *
- *   $ git config core.hooksPath .hooks-que-nunca-existiram   # sai 0, calado
- *   $ git commit ...                                          # nenhum hook roda
+ *   $ git config core.hooksPath .hooks-que-nunca-existiram   # exits 0, silent
+ *   $ git commit ...                                          # no hook runs
  *
- * A partir daí o git não executa hook nenhum e não avisa, e este MCP respondia
- * `armado_no_git: true` — que é pior que não saber, porque é justamente o que faz
- * o agente parar de perguntar. Mesmo desfecho quando o valor aponta para uma
- * pasta que EXISTE mas é outra: o git roda os hooks de lá e os `.githooks/`
- * deste projeto ficam inertes no disco.
+ * From there on git executes no hook and does not warn, and this MCP answered
+ * `armado_no_git: true` — which is worse than not knowing, because it is
+ * precisely what makes the agent stop asking. Same outcome when the value points
+ * at a folder that EXISTS but is another one: git runs the hooks from there and
+ * this project's `.githooks/` sit inert on disk.
  *
- * Então são três estados, e a resposta diz qual é junto com o porquê.
+ * So there are three states, and the answer says which one it is along with the why.
  */
 function hooksArmados() {
   let bruto = null
@@ -278,23 +287,33 @@ function hooksArmados() {
         stdio: ['ignore', 'pipe', 'ignore'],
       }).trim() || null
   } catch {
-    // Sai não-zero quando a chave não existe — que é o caso comum e não é falha.
+    // Exits non-zero when the key does not exist — the common case, and not a failure.
     bruto = null
   }
 
+  // THE THREE `motivo` STRINGS BELOW ARE A CONTRACT, not prose.
+  // `new/gate/prove-mcp-template.mjs` matches them by regex over `porque_nao`
+  // (/is not configured/, /does NOT exist on disk/, /and not to \.githooks\//),
+  // one per case. Change a word here and change it there IN THE SAME COMMIT:
+  // separately, the proof goes green over a gate wide open, which is the one
+  // outcome this whole file exists to prevent.
+  //
+  // They were kept in Portuguese for a while precisely because the proof matched
+  // them — the tail wagging the dog. These strings are served to an AI by the
+  // MCP, and what the AI reads is the whole reason this repository is in
+  // English.
   if (bruto === null) {
     return {
       valor: null,
       armado: false,
-      motivo:
-        '`core.hooksPath` não está configurado — os arquivos estão no disco e o git os ignora.',
+      motivo: '`core.hooksPath` is not configured — the files are on disk and git ignores them.',
     }
   }
 
-  // Caminho relativo em `core.hooksPath` resolve a partir do TOPO da árvore de
-  // trabalho, não do diretório onde o comando roda. É o que o git documenta, e
-  // resolver do cwd daria "armado" ou "quebrado" conforme a pasta de onde se
-  // chamasse este servidor.
+  // A relative path in `core.hooksPath` resolves from the TOP of the work tree,
+  // not from the directory where the command runs. It is what git documents, and
+  // resolving from the cwd would say "armed" or "broken" depending on the folder
+  // this server happened to be called from.
   const destino = resolve(RAIZ, bruto)
 
   if (!existsSync(destino)) {
@@ -302,8 +321,8 @@ function hooksArmados() {
       valor: bruto,
       armado: false,
       motivo:
-        `\`core.hooksPath\` aponta para ${JSON.stringify(bruto)}, que NÃO existe no disco. ` +
-        'O git aceita qualquer string aqui e não confere nada: nenhum hook roda, e sem erro nenhum.',
+        `\`core.hooksPath\` points at ${JSON.stringify(bruto)}, which does NOT exist on disk. ` +
+        'Git accepts any string here and checks nothing: no hook runs, and with no error at all.',
     }
   }
 
@@ -312,15 +331,15 @@ function hooksArmados() {
       valor: bruto,
       armado: false,
       motivo:
-        `\`core.hooksPath\` aponta para ${JSON.stringify(bruto)}, e não para ${PASTA_HOOKS}/. ` +
-        'O git executa os hooks de lá; os deste projeto estão no disco e nunca rodam.',
+        `\`core.hooksPath\` points at ${JSON.stringify(bruto)}, and not to ${PASTA_HOOKS}/. ` +
+        'Git runs the hooks from there; the ones in this project are on disk and never run.',
     }
   }
 
   return { valor: bruto, armado: true, motivo: null }
 }
 
-/** As dependências reais, com as versões reais. Nunca uma lista escrita à mão. */
+/** The real dependencies, with the real versions. Never a hand-written list. */
 function pilha() {
   const pkg = lerJson('package.json')
   if (!pkg) return null
@@ -328,21 +347,21 @@ function pilha() {
   const devs = { ...(pkg.devDependencies || {}) }
   const next = ler('next.config.ts') || ler('next.config.mjs') || ler('next.config.js') || ''
   return {
-    nome: pkg.name || '(sem nome no package.json)',
+    nome: pkg.name || '(no name in package.json)',
     deps,
     devs,
     scripts: pkg.scripts || {},
-    // `output: "export"` muda o que é POSSÍVEL escrever, não só como se publica.
+    // `output: "export"` changes what it is POSSIBLE to write, not just how it is published.
     exportEstatico: /output\s*:\s*['"]export['"]/.test(next),
     baseUi: Boolean(deps['@base-ui/react'] || devs['@base-ui/react']),
   }
 }
 
 /**
- * As regras DESTE projeto, derivadas dos arquivos que as impõem.
+ * The rules of THIS project, derived from the files that enforce them.
  *
- * Cada entrada declara quem a impõe. Se o arquivo não está no disco, o estado é
- * DESARMADA e a entrada diz isso na cara — ver a seção 2 do cabeçalho.
+ * Each entry declares who enforces it. If the file is not on disk, the state is
+ * DESARMADA and the entry says so to your face — see section 2 of the header.
  */
 function regrasDoProjeto() {
   const p = pilha()
@@ -356,6 +375,10 @@ function regrasDoProjeto() {
       id,
       titulo,
       imposta_por: imposta,
+      // `ativa` / `DESARMADA` STAY PORTUGUESE — they are the state token, not
+      // prose: `testes/portao.test.mjs` asserts /DESARMADA/ over this answer, and
+      // two filters further down compare against it by string. Renaming the token
+      // makes the mutation test pass on a project with no guard left.
       estado: presentes.length === imposta.length ? 'ativa' : 'DESARMADA',
       falta: imposta.filter((rel) => !tem(rel)),
       ...corpo,
@@ -365,68 +388,73 @@ function regrasDoProjeto() {
   const regras = [
     regra(
       'conteudo-fora-do-codigo',
-      'Texto, telefone, endereço, preço e URL não moram no componente',
+      'Text, phone, address, price and URL do not live in the component',
       ['conteudo/site.json', 'conteudo/esquema.ts', 'conteudo/carregar.ts'],
       {
-        onde: 'conteudo/site.json — é o único lugar. `conteudo/esquema.ts` diz o formato de cada campo.',
+        onde: 'conteudo/site.json — it is the only place. `conteudo/esquema.ts` says the format of each field.',
         porque:
-          'Literal em .tsx faz o build PASSAR e o site publicar com o dado errado. A falha não ' +
-          'aparece em lugar nenhum: aparece no cliente que liga para o telefone antigo. ' +
-          'Em JSON validado, o mesmo erro para o build antes de publicar.',
+          'A literal in .tsx makes the build PASS and the site publish with the wrong data. The ' +
+          'failure shows up nowhere: it shows up in the client who calls the old phone number. ' +
+          'In validated JSON, the same mistake stops the build before publishing.',
         como:
-          'Importe de `conteudo/carregar.ts`, que valida no escopo do módulo — o `next build` ' +
-          'avalia esse módulo para pré-renderizar a rota, então campo faltando lança antes de sair HTML.',
+          'Import from `conteudo/carregar.ts`, which validates at module scope — `next build` ' +
+          'evaluates that module to pre-render the route, so a missing field throws before any HTML comes out.',
         nunca:
-          'Nem `.tsx` com texto cru, nem variável de ambiente: as duas somem em produção sem aviso.',
+          'Neither `.tsx` with raw text, nor an environment variable: both vanish in production with no warning.',
       },
     ),
     regra(
       'placeholder-barra-o-build',
-      'O build reprova enquanto sobrar um TROQUE-…',
+      // `TROQUE-` STAYS PORTUGUESE: it is the literal placeholder token the
+      // generator writes into the site.json of Brazilian projects, and the one
+      // the SENTINELA of `conteudo/esquema.ts` matches. Translating it here would
+      // name a token that exists in no generated file.
+      'The build fails while one TROQUE-… is left',
       ['conteudo/esquema.ts', 'conteudo/site.json'],
       {
         imposta_em: ph.imposta_em || 'conteudo/esquema.ts',
-        pendentes_agora: ph.erro ? `não consegui varrer: ${ph.erro}` : ph.itens.length,
+        pendentes_agora: ph.erro ? `could not scan: ${ph.erro}` : ph.itens.length,
         campos: ph.itens.map((i) => i.campo),
         porque:
-          'O placeholder é INERTE de propósito — impossível de confundir com valor real. Um valor ' +
-          'plausível inventado para calar o build sobe, parece certo e não entrega pedido nenhum.',
+          'The placeholder is INERT on purpose — impossible to mistake for a real value. A ' +
+          'plausible value invented to shut the build up ships, looks right and delivers no order at all.',
         como:
-          'Pergunte o valor real ao usuário e troque em `conteudo/site.json`. NUNCA invente, ' +
-          'e NUNCA afrouxe a SENTINELA para o build passar.',
+          'Ask the user for the real value and swap it in `conteudo/site.json`. NEVER invent, ' +
+          'and NEVER loosen the SENTINELA so the build passes.',
       },
     ),
     regra(
       'segredo-nao-entra-no-commit',
-      'Chave, token e .env são barrados antes de o commit existir',
+      'Key, token and .env are blocked before the commit exists',
       ['.githooks/pre-commit', '.githooks/scan-secret.mjs'],
       {
         armado_no_git: armadoNoGit,
         core_hooksPath: hooks.valor,
         porque:
-          'Segredo no histórico não se conserta com commit novo: exige ROTACIONAR a credencial. ' +
-          'Por isso é a única coisa barrada ANTES de existir, e não auditada depois.',
+          'A secret in history is not fixed by a new commit: it demands ROTATING the credential. ' +
+          'That is why it is the only thing blocked BEFORE it exists, and not audited afterwards.',
         como: armadoNoGit
-          ? 'Já armado. O hook varre só o que está em stage, para caber em menos de 5 s.'
-          : `${hooks.motivo} ARME AGORA: \`node .githooks/install.mjs\`.`,
+          ? 'Already armed. The hook scans only what is staged, to fit in under 5 s.'
+          : // `hooks.motivo` is one of the three Portuguese state strings above — see the note there.
+            `${hooks.motivo} ARM IT NOW: \`node .githooks/install.mjs\`.`,
       },
     ),
     regra(
       'coautoria-e-de-humano',
-      'Você não assina o commit',
+      'You do not sign the commit',
       ['.githooks/commit-msg', '.githooks/check-message.mjs', '.rebar-coauthors'],
       {
         armado_no_git: armadoNoGit,
         porque:
-          'A allowlist de `.rebar-coauthors` é de PESSOAS do projeto. Trailer `Co-authored-by` de ' +
-          'IA é barrado duas vezes: pelo hook, antes de o commit existir, e pela régua depois, no ' +
-          'histórico — onde já não se desfaz sem reescrever.',
-        como: 'Não acrescente trailer nenhum em seu nome. Quem edita a allowlist é o dono.',
+          'The `.rebar-coauthors` allowlist is of PEOPLE on the project. A `Co-authored-by` trailer ' +
+          'from an AI is blocked twice: by the hook, before the commit exists, and by the ruler ' +
+          'afterwards, in history — where it can no longer be undone without rewriting.',
+        como: 'Do not add any trailer in your own name. The owner is the one who edits the allowlist.',
       },
     ),
     regra(
       'pilha-fechada',
-      'A pilha já está decidida; componente novo vem do shadcn',
+      'The stack is already decided; a new component comes from shadcn',
       ['package.json'],
       {
         instalado: p
@@ -435,83 +463,83 @@ function regrasDoProjeto() {
               .sort()
           : [],
         nao_instale: [
-          ...(p?.baseUi ? ['@radix-ui/* — o estilo aqui é base-nova sobre @base-ui/react'] : []),
-          'qualquer segunda biblioteca de UI, de estado, de data ou de formulário',
-          'SDK de MCP — este servidor não usa nenhum, de propósito (ver o topo de .rebar/mcp.mjs)',
+          ...(p?.baseUi ? ['@radix-ui/* — the styling here is base-nova over @base-ui/react'] : []),
+          'any second library for UI, for state, for dates or for forms',
+          'an MCP SDK — this server uses none, on purpose (see the top of .rebar/mcp.mjs)',
         ],
         porque:
-          'Dependência nova precisa de motivo escrito. Se um built-in do Node ou do próprio Next ' +
-          'resolve, é ele — este repositório vai para a mão de um cliente e cada dependência vira ' +
-          'auditoria e atualização para sempre.',
+          'A new dependency needs a written reason. If a built-in of Node or of Next itself solves ' +
+          'it, that is the one — this repository goes into the hands of a client and every ' +
+          'dependency becomes an audit and an update forever.',
       },
     ),
     regra(
       'export-estatico',
-      'O build é estático, e isso proíbe metade do Next',
+      'The build is static, and that forbids half of Next',
       ['next.config.ts'],
       {
         ativo: Boolean(p?.exportEstatico),
         porque:
-          'Com `output: "export"` o `next build` emite arquivos; sem ele emite um servidor, e a ' +
-          'hospedagem estática publica uma pasta vazia. Essa falha NÃO aparece no build: aparece no deploy.',
+          'With `output: "export"` `next build` emits files; without it it emits a server, and ' +
+          'static hosting publishes an empty folder. That failure does NOT show up in the build: it shows up in the deploy.',
         nao_use: p?.exportEstatico
           ? [
-              'route handlers (app/**/route.ts) e middleware — não existem no export',
-              'server actions e qualquer render por requisição',
-              'next/image otimizado — o otimizador exige servidor; aqui `images.unoptimized` está ligado',
+              'route handlers (app/**/route.ts) and middleware — they do not exist in the export',
+              'server actions and any per-request render',
+              'optimized next/image — the optimizer demands a server; here `images.unoptimized` is on',
             ]
-          : ['(o export não está ligado neste next.config — confira antes de publicar)'],
+          : ['(the export is not on in this next.config — check before publishing)'],
       },
     ),
     regra(
       'portao-antes-de-pronto',
-      'Nada é "pronto" antes de `npm run verificar`',
+      'Nothing is "done" before `npm run verificar`',
       ['package.json'],
       {
-        comando: p?.scripts?.verificar || '(não há script `verificar` no package.json)',
+        comando: p?.scripts?.verificar || '(there is no `verificar` script in package.json)',
         passos: p?.scripts?.verificar ? p.scripts.verificar.split('&&').map((s) => s.trim()) : [],
         porque:
-          'É o MESMO comando que o CI roda. Verde comprado desligando regra é dívida, não conclusão.',
-        como: 'Rode e cole a saída. Este MCP é atalho para não errar; a porta é este comando.',
+          'It is the SAME command the CI runs. Green bought by switching a rule off is debt, not a conclusion.',
+        como: 'Run it and paste the output. This MCP is a shortcut against getting it wrong; the door is this command.',
       },
     ),
-    regra('idioma-unico', 'Português do Brasil, em tudo', ['AGENTS.md'], {
+    regra('idioma-unico', 'Brazilian Portuguese, in everything', ['AGENTS.md'], {
       porque:
-        'Código, comentário, nome de arquivo e mensagem de commit. O comentário explica o PORQUÊ, ' +
-        'com o número medido quando houver — não repete o que a linha abaixo dele já diz.',
-      cobrada_por: `a régua do rebar, regra \`idioma-unico\`: ${REGUA}`,
+        'Code, comment, file name and commit message. The comment explains the WHY, with the ' +
+        'measured number when there is one — it does not repeat what the line below it already says.',
+      cobrada_por: `rebar's ruler, rule \`idioma-unico\`: ${REGUA}`,
     }),
   ]
 
   return regras
 }
 
-// ───────────────────────────────────────────────────────── 5. as cinco ferramentas
+// ───────────────────────────────────────────────────────── 5. the five tools
 //
-// Os nomes são os mesmos que o `AGENTS.md` deste projeto manda chamar, e isso é
-// contrato: o texto que instrui o agente e as ferramentas que ele encontra têm
-// de bater, senão a instrução vira ruído na primeira sessão.
+// The names are the same ones this project's `AGENTS.md` orders to be called,
+// and that is a contract: the text that instructs the agent and the tools it
+// finds have to match, otherwise the instruction becomes noise in the first session.
 //
-// O ASSUNTO, porém, é OUTRO — e é o ponto do pedido. As mesmas cinco perguntas,
-// respondidas sobre ESTE SITE e não sobre o repositório do rebar: quem abre este
-// projeto daqui a seis meses quer saber onde mora o conteúdo daqui, o que
-// reprova o build daqui e o que barra o commit daqui.
+// The SUBJECT, though, is ANOTHER one — and that is the point of the request.
+// The same five questions, answered about THIS SITE and not about rebar's
+// repository: whoever opens this project six months from now wants to know where
+// the content here lives, what fails the build here and what blocks the commit here.
 
 const emJson = (v) => JSON.stringify(v, null, 2)
 
 const FERRAMENTAS = [
   {
     name: 'rebar_regras',
-    title: 'As regras que reprovam ESTE projeto, derivadas do disco agora',
+    title: 'The rules that fail THIS project, derived from disk right now',
     description:
-      'Lista as regras deste projeto: onde mora o conteúdo, o que barra o build, o que barra o ' +
-      'commit e qual é a pilha. CHAME ANTES DA PRIMEIRA LINHA DE CÓDIGO. Cada regra nomeia o ' +
-      'arquivo que a impõe e diz se ela está ATIVA ou DESARMADA neste checkout — nada aqui é ' +
-      'texto congelado, tudo é lido do disco no instante da chamada.',
+      "Lists this project's rules: where the content lives, what blocks the build, what blocks the " +
+      'commit and what the stack is. CALL BEFORE THE FIRST LINE OF CODE. Each rule names the ' +
+      'file that enforces it and says whether it is `ativa` or `DESARMADA` (unarmed) in this ' +
+      'checkout — nothing here is frozen text, everything is read from disk at the instant of the call.',
     inputSchema: {
       type: 'object',
       properties: {
-        busca: { type: 'string', description: 'termo no id ou no título, para não trazer tudo' },
+        busca: { type: 'string', description: 'term in the id or title, so as not to list all' },
       },
     },
     executar: ({ busca }) => {
@@ -520,16 +548,20 @@ const FERRAMENTAS = [
         const t = String(busca).toLowerCase()
         regras = regras.filter((r) => `${r.id} ${r.titulo}`.toLowerCase().includes(t))
         if (!regras.length) {
-          return `Nenhuma regra deste projeto casa com "${busca}". Chame sem filtro para ver as ${regrasDoProjeto().length}.`
+          return `No rule of this project matches "${busca}". Call with no filter to see all ${regrasDoProjeto().length}.`
         }
       }
       const desarmadas = regras.filter((r) => r.estado === 'DESARMADA')
       const cabeca = [
-        `As regras de ${pilha()?.nome ?? 'este projeto'}, derivadas do disco em ${new Date().toISOString()}.`,
+        `The rules of ${pilha()?.nome ?? 'this project'}, derived from disk at ${new Date().toISOString()}.`,
+        // `DESARMADA(S)` and the closing `Avise o usuário.` STAY PORTUGUESE:
+        // `testes/portao.test.mjs` asserts /DESARMADA/ and /Avise o usuário/ over
+        // this very line to prove the server warns instead of reciting. They are
+        // the contract with that proof, not prose.
         desarmadas.length
-          ? `ATENÇÃO: ${desarmadas.length} regra(s) DESARMADA(S) — o arquivo que as impõe não está aqui. Avise o usuário.`
-          : 'Todas as regras abaixo têm o arquivo que as impõe presente no disco.',
-        `Estas são as regras DESTE site. As do rebar-check rodam por \`${REGUA}\`, e as de segurança por \`${REGUA_SEGURANCA}\` — use rebar_verificar { regua: true }.`,
+          ? `WARNING: ${desarmadas.length} rule(s) DESARMADA(S) — the file that enforces them is not here. Avise o usuário.`
+          : 'Every rule below has the file that enforces it present on disk.',
+        `These are the rules of THIS site. The rebar-check ones run through \`${REGUA}\`, and the security ones through \`${REGUA_SEGURANCA}\` — use rebar_verificar { regua: true }.`,
         '',
       ].join('\n')
       return cabeca + emJson(regras)
@@ -538,15 +570,15 @@ const FERRAMENTAS = [
 
   {
     name: 'rebar_porque',
-    title: 'Por que esta regra existe, com o arquivo que a impõe',
+    title: 'Why this rule exists, with the file that enforces it',
     description:
-      'Devolve a razão de uma regra pelo id, e o arquivo:linha que a impõe HOJE. CHAME QUANDO O ' +
-      'PORTÃO REPROVAR e você for tentado a contornar a regra, e ANTES de propor afrouxar, ignorar ' +
-      'ou apagar qualquer verificação.',
+      'Returns the reason for a rule by id, and the file:line that enforces it TODAY. CALL WHEN ' +
+      'THE GATE FAILS and you are tempted to work around the rule, and BEFORE proposing to ' +
+      'loosen, ignore or delete any check.',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'id da regra, ex. "placeholder-barra-o-build"' },
+        id: { type: 'string', description: 'the rule id, e.g. "placeholder-barra-o-build"' },
       },
       required: ['id'],
     },
@@ -556,12 +588,12 @@ const FERRAMENTAS = [
       if (!r) {
         return {
           erro: true,
-          texto: `"${id}" não é regra deste projeto.\nDisponíveis: ${regras.map((x) => x.id).join(', ')}`,
+          texto: `"${id}" is not a rule of this project.\nAvailable: ${regras.map((x) => x.id).join(', ')}`,
         }
       }
-      // O tamanho em linhas, e não uma citação: citar aqui seria a cópia que
-      // este arquivo inteiro existe para não ter. A resposta manda LER o
-      // arquivo, que é a fonte que o portão usa.
+      // The size in lines, and not a quotation: quoting here would be the copy
+      // this whole file exists not to have. The answer orders the file to be
+      // READ, which is the source the gate uses.
       const provas = r.imposta_por.map((rel) => {
         const fonte = ler(rel)
         return {
@@ -576,18 +608,21 @@ const FERRAMENTAS = [
 
   {
     name: 'rebar_decidir',
-    title: 'O que este projeto já decidiu sobre X',
+    title: 'What this project has already decided about X',
     description:
-      'Procura um assunto nas decisões já fechadas deste projeto — pilha, conteúdo, publicação, ' +
-      'commit, idioma — e responde com o arquivo que prova a decisão. CHAME ANTES DE PROPOR ' +
-      'qualquer escolha de biblioteca, formato ou processo. Quando nada casa, ela DIZ que nada ' +
-      'impõe isso, em vez de inventar.',
+      "Searches a subject among this project's already-closed decisions — stack, content, " +
+      'publishing, commit, language — and answers with the file that proves the decision. CALL ' +
+      'BEFORE PROPOSING any choice of library, format or process. When nothing matches, it SAYS ' +
+      'that nothing enforces it, instead of inventing.',
     inputSchema: {
       type: 'object',
       properties: {
         assunto: {
+          // The examples STAY PORTUGUESE, and they are examples on purpose: the
+          // matcher vocabulary below is Portuguese, so a subject asked in English
+          // matches nothing. Ask in the words the project is written in.
           type: 'string',
-          description: 'em palavras: "cor", "imagem", "rota", "commit", "teste"',
+          description: 'in words, in Portuguese: "cor", "imagem", "rota", "commit", "teste"',
         },
       },
       required: ['assunto'],
@@ -595,6 +630,11 @@ const FERRAMENTAS = [
     executar: ({ assunto }) => {
       const p = pilha()
       const t = String(assunto).toLowerCase()
+      // EVERY `sobre` LIST STAYS PORTUGUESE — it is not prose: it is the
+      // matcher's vocabulary, compared word by word against `assunto` down below.
+      // The project it answers about is written in Portuguese and so is the
+      // question the agent asks. Translating these lists makes the tool answer
+      // "nothing decides about this" for every subject that does have a decision.
       const decisoes = [
         {
           sobre: [
@@ -611,13 +651,13 @@ const FERRAMENTAS = [
             'dependência',
           ],
           decisao: p
-            ? `Fechada. Instalado hoje: ${
+            ? `Closed. Installed today: ${
                 Object.entries(p.deps)
                   .map(([n, v]) => `${n}@${v}`)
-                  .join(', ') || '(nada em dependencies)'
+                  .join(', ') || '(nothing in dependencies)'
               }.` +
-              ` Componente novo vem do \`shadcn add\`, não escrito à mão. Dependência nova precisa de motivo escrito.`
-            : 'Não consegui ler package.json — decisão indeterminada.',
+              ` A new component comes from \`shadcn add\`, not hand-written. A new dependency needs a written reason.`
+            : 'Could not read package.json — decision undetermined.',
           prova: 'package.json',
         },
         {
@@ -635,9 +675,9 @@ const FERRAMENTAS = [
             'json',
           ],
           decisao:
-            'Fechada. Todo dado do negócio mora em `conteudo/site.json`, validado por ' +
-            '`conteudo/esquema.ts` no escopo do módulo. Literal em `.tsx` ou em variável de ' +
-            'ambiente é proibido — as duas formas quebram em silêncio depois de publicado.',
+            'Closed. Every business datum lives in `conteudo/site.json`, validated by ' +
+            '`conteudo/esquema.ts` at module scope. A literal in `.tsx` or in an environment ' +
+            'variable is forbidden — both forms break in silence after publishing.',
           prova: 'conteudo/esquema.ts',
         },
         {
@@ -656,10 +696,10 @@ const FERRAMENTAS = [
             'servidor',
           ],
           decisao: p?.exportEstatico
-            ? 'Fechada: `output: "export"`. O build emite arquivos, não servidor. Logo NÃO existem ' +
-              'route handlers, middleware, server actions nem otimização de imagem neste projeto.'
-            : 'O `output: "export"` NÃO está ligado neste next.config — confira antes de publicar, ' +
-              'porque a hospedagem estática publicaria uma pasta vazia.',
+            ? 'Closed: `output: "export"`. The build emits files, not a server. So there are NO ' +
+              'route handlers, middleware, server actions or image optimization in this project.'
+            : '`output: "export"` is NOT on in this next.config — check before publishing, ' +
+              'because static hosting would publish an empty folder.',
           prova: 'next.config.ts',
         },
         {
@@ -675,9 +715,9 @@ const FERRAMENTAS = [
             'git',
           ],
           decisao:
-            'Fechada. `.githooks/pre-commit` barra segredo antes de o commit existir; ' +
-            '`.githooks/commit-msg` barra trailer de coautoria que não esteja na allowlist de ' +
-            'humanos em `.rebar-coauthors`. Armar: `node .githooks/install.mjs`.',
+            'Closed. `.githooks/pre-commit` blocks a secret before the commit exists; ' +
+            '`.githooks/commit-msg` blocks a co-authorship trailer that is not in the allowlist of ' +
+            'humans in `.rebar-coauthors`. To arm: `node .githooks/install.mjs`.',
           prova: '.githooks/pre-commit',
         },
         {
@@ -693,33 +733,33 @@ const FERRAMENTAS = [
             'comentário',
           ],
           decisao:
-            'Fechada: português do Brasil em código, comentário, nome de arquivo e commit. O ' +
-            'comentário explica o PORQUÊ, com o número medido quando houver.',
+            'Closed: Brazilian Portuguese in code, comment, file name and commit. The comment ' +
+            'explains the WHY, with the measured number when there is one.',
           prova: 'AGENTS.md',
         },
         {
           sobre: ['teste', 'verificar', 'portao', 'portão', 'ci', 'lint', 'typecheck'],
           decisao: p?.scripts?.verificar
-            ? `Fechada: \`npm run verificar\` = ${p.scripts.verificar}. É o mesmo comando do CI.`
-            : 'Não há script `verificar` no package.json — o portão deste projeto está incompleto.',
+            ? `Closed: \`npm run verificar\` = ${p.scripts.verificar}. It is the same command as the CI.`
+            : "There is no `verificar` script in package.json — this project's gate is incomplete.",
           prova: 'package.json',
         },
       ]
 
-      // CASA POR PALAVRA, e não por substring, e o motivo é um falso positivo
-      // medido: com `t.includes(s)` a pergunta "build" casava a decisão de
-      // PILHA, porque "b-u-i-l-d" contém "ui". Resposta errada com cara de
-      // resposta é o defeito que este servidor inteiro persegue.
+      // MATCHES BY WORD, and not by substring, and the reason is a measured false
+      // positive: with `t.includes(s)` the question "build" matched the STACK
+      // decision, because "b-u-i-l-d" contains "ui". A wrong answer with the face
+      // of an answer is the defect this whole server hunts.
       const palavras = t.split(/[^a-zà-ú]+/i).filter(Boolean)
       const casou = decisoes.filter((d) =>
         d.sobre.some((s) => palavras.some((p) => p === s || (p.length >= 4 && s.startsWith(p)))),
       )
       if (!casou.length) {
         return (
-          `Nada neste projeto decide sobre "${assunto}".\n\n` +
-          'Isso é resposta, não lacuna: escolha o que for razoável e ESCREVA O PORQUÊ no ' +
-          `comentário. Se quiser conferir contra a régua do rebar, rode \`${REGUA}\`.\n` +
-          `Assuntos que têm decisão fechada aqui: ${decisoes.map((d) => d.sobre[0]).join(', ')}.`
+          `Nothing in this project decides about "${assunto}".\n\n` +
+          'That is an answer, not a gap: pick whatever is reasonable and WRITE THE WHY in the ' +
+          `comment. To check it against rebar's ruler, run \`${REGUA}\`.\n` +
+          `Subjects that do have a closed decision here: ${decisoes.map((d) => d.sobre[0]).join(', ')}.`
         )
       }
       return emJson(
@@ -734,15 +774,15 @@ const FERRAMENTAS = [
 
   {
     name: 'rebar_portao',
-    title: 'O portão deste projeto, na ordem, e o que fazer quando um passo reprova',
+    title: "This project's gate, in order, and what to do when a step fails",
     description:
-      'Devolve os passos de `npm run verificar` LIDOS do package.json, mais o estado dos hooks de ' +
-      'git. CHAME QUANDO O VERIFICAR REPROVAR e a mensagem não bastar, e antes de dizer que algo ' +
-      '"passou". Este MCP não é a porta: a porta é o comando que esta ferramenta devolve.',
+      'Returns the steps of `npm run verificar` READ from package.json, plus the state of the git ' +
+      'hooks. CALL WHEN VERIFICAR FAILS and the message is not enough, and before saying that ' +
+      'something "passed". This MCP is not the door: the door is the command this tool returns.',
     inputSchema: {
       type: 'object',
       properties: {
-        passo: { type: 'string', description: 'nome do passo, ex. "build" ou "lint"' },
+        passo: { type: 'string', description: 'the step name, e.g. "build" or "lint"' },
       },
     },
     executar: ({ passo }) => {
@@ -753,7 +793,7 @@ const FERRAMENTAS = [
         ? cadeia.split('&&').map((s) => {
             const cmd = s.trim()
             const nome = cmd.replace(/^npm (run )?/, '')
-            return { nome, comando: cmd, roda: p.scripts[nome] || '(script não encontrado)' }
+            return { nome, comando: cmd, roda: p.scripts[nome] || '(script not found)' }
           })
         : []
 
@@ -762,63 +802,65 @@ const FERRAMENTAS = [
         if (!alvo) {
           return {
             erro: true,
-            texto: `"${passo}" não é passo deste portão. São: ${passos.map((x) => x.nome).join(', ') || '(nenhum)'}`,
+            texto: `"${passo}" is not a step of this gate. They are: ${passos.map((x) => x.nome).join(', ') || '(none)'}`,
           }
         }
         const dica = {
-          lint: 'Conserte o código. Desligar a regra no eslint.config é dívida, não conserto.',
-          typecheck: 'Tipo `any` para calar o erro é o mesmo defeito com outro nome.',
-          test: 'Teste que passou a falhar depois de uma mudança sua está certo até prova em contrário.',
+          lint: 'Fix the code. Switching the rule off in eslint.config is debt, not a fix.',
+          typecheck: 'Type `any` to shut the error up is the same defect under another name.',
+          test: 'A test that started failing after a change of yours is right until proven otherwise.',
           build:
-            'A causa mais comum aqui NÃO é código: é placeholder. O `conteudo/esquema.ts` lança no ' +
-            'escopo do módulo e o build para antes de sair HTML. Chame rebar_verificar para ver quais faltam.',
+            'The most common cause here is NOT code: it is a placeholder. `conteudo/esquema.ts` throws at ' +
+            'module scope and the build stops before any HTML comes out. Call rebar_verificar to see which ones are missing.',
         }[alvo.nome]
         return emJson({
           ...alvo,
-          quando_reprova: dica || 'Leia a saída do comando; ela nomeia o arquivo.',
+          quando_reprova: dica || 'Read the command output; it names the file.',
         })
       }
 
       return emJson({
-        a_porta: cadeia || '(não há script `verificar` — o portão deste projeto está incompleto)',
+        a_porta: cadeia || "(there is no `verificar` script — this project's gate is incomplete)",
         passos,
         hooks_de_git: {
           core_hooksPath: hooks.valor,
           armado: hooks.armado,
-          // Presente só quando NÃO está armado, e é o campo que diz qual dos três
-          // desarmados é: sem configuração, destino inexistente, ou outra pasta.
+          // Present only when it is NOT armed, and it is the field that says which
+          // of the three unarmed states it is: no configuration, nonexistent
+          // target, or another folder. Its text is Portuguese on purpose — see
+          // the note in `hooksArmados`.
           porque_nao: hooks.motivo,
           arquivos_no_disco: ['.githooks/pre-commit', '.githooks/commit-msg'].filter((r) => tem(r)),
           como_armar: 'node .githooks/install.mjs',
           porque:
-            'O hook NÃO vem armado no clone. Sem `core.hooksPath` o arquivo está no disco e o git ' +
-            'não o executa: o portão parece instalado e verifica zero.',
+            'The hook does NOT come armed in the clone. Without `core.hooksPath` the file is on ' +
+            'disk and git does not execute it: the gate looks installed and checks zero.',
         },
-        regua_do_rebar: `${REGUA}   (formato; rede necessária)`,
-        // Binário separado porque falha por motivo separado: formato
-        // errado e falha de segurança não se consertam do mesmo jeito
-        // nem com a mesma pressa.
-        regua_de_seguranca: `${REGUA_SEGURANCA}   (segurança; rede necessária)`,
-        aviso: 'Este MCP é atalho. Quem barra é o comando acima, o hook e o CI.',
+        regua_do_rebar: `${REGUA}   (format; network required)`,
+        // A separate binary because it fails for a separate reason: wrong format
+        // and a security failure are not fixed the same way nor with the same
+        // hurry.
+        regua_de_seguranca: `${REGUA_SEGURANCA}   (security; network required)`,
+        aviso: 'This MCP is a shortcut. What blocks is the command above, the hook and the CI.',
       })
     },
   },
 
   {
     name: 'rebar_verificar',
-    title: 'Varrer este projeto agora e devolver o placar',
+    title: 'Scan this project now and return the scoreboard',
     description:
-      'Varredura LOCAL e instantânea: placeholders que ainda faltam em conteudo/site.json, regras ' +
-      'desarmadas e hooks não armados. Com { regua: true } roda também a régua publicada do rebar ' +
-      `(\`${REGUA}\`), que custa ~17 s e EXIGE REDE. ` +
-      'CHAME DEPOIS DE MEXER no projeto e antes de afirmar que terminou. ATALHO, NÃO BARREIRA: ' +
-      'quem barra é `npm run verificar`, o hook e o CI.',
+      'LOCAL and instant scan: placeholders still missing in conteudo/site.json, unarmed rules ' +
+      'and hooks that are not armed. With { regua: true } it also runs the published rebar ruler ' +
+      `(\`${REGUA}\`), which costs ~17 s and DEMANDS NETWORK. ` +
+      'CALL AFTER TOUCHING the project and before claiming you are done. SHORTCUT, NOT BARRIER: ' +
+      'what blocks is `npm run verificar`, the hook and the CI.',
     inputSchema: {
       type: 'object',
       properties: {
         regua: {
           type: 'boolean',
-          description: 'roda também a régua publicada do rebar (~17 s, rede necessária)',
+          description: 'also runs the published rebar ruler (~17 s, network required)',
         },
       },
     },
@@ -828,31 +870,32 @@ const FERRAMENTAS = [
       const hooks = hooksArmados()
 
       const reprovas = []
-      if (ph.erro) reprovas.push(`conteúdo: ${ph.erro}`)
+      if (ph.erro) reprovas.push(`content: ${ph.erro}`)
       else if (ph.itens.length) {
         reprovas.push(
-          `conteúdo: ${ph.itens.length} placeholder(s) em conteudo/site.json — o \`next build\` PARA aqui. ` +
-            `Campos: ${ph.itens.map((i) => i.campo).join(', ')}`,
+          `content: ${ph.itens.length} placeholder(s) in conteudo/site.json — \`next build\` STOPS here. ` +
+            `Fields: ${ph.itens.map((i) => i.campo).join(', ')}`,
         )
       }
+      // `DESARMADA` is the state token, not prose — see the note in `regrasDoProjeto`.
       for (const r of regras.filter((x) => x.estado === 'DESARMADA')) {
-        reprovas.push(`regra ${r.id}: DESARMADA — falta ${r.falta.join(', ')}`)
+        reprovas.push(`rule ${r.id}: DESARMADA — missing ${r.falta.join(', ')}`)
       }
       if (hooks.valor === null && tem('.githooks/pre-commit')) {
         reprovas.push(
-          'hooks: os arquivos estão em .githooks/ mas `core.hooksPath` não está configurado — ' +
-            'o git não os executa. Arme com `node .githooks/install.mjs`.',
+          'hooks: the files are in .githooks/ but `core.hooksPath` is not configured — ' +
+            'git does not execute them. Arm with `node .githooks/install.mjs`.',
         )
       }
 
       const local = {
-        placar_local: reprovas.length ? 'REPROVA' : 'passa',
+        placar_local: reprovas.length ? 'FAIL' : 'pass',
         reprovas,
         placeholders_pendentes: ph.erro ? null : ph.itens,
         conferido_em: new Date().toISOString(),
         aviso:
-          'Isto é a varredura local, e ela NÃO substitui `npm run verificar` (lint, typecheck, ' +
-          'teste e build) nem a régua do rebar.',
+          'This is the local scan, and it does NOT replace `npm run verificar` (lint, typecheck, ' +
+          "test and build) nor rebar's ruler.",
       }
 
       if (!regua) return emJson(local)
@@ -861,23 +904,24 @@ const FERRAMENTAS = [
   },
 ]
 
-// ────────────────────────────────────────────── a única coisa que executa rede
+// ──────────────────────────────────────── the only thing that runs the network
 //
-// Fica separada e é chamada só sob pedido explícito, porque custa 9,3 s medidos
-// em 2026-09-02 com o cache do npx quente, e porque falha quando não há rede —
-// e uma ferramenta que às vezes leva 9 s e às vezes falha não pode ser o
-// caminho padrão de nada.
+// It stays apart and is called only on explicit request, because it costs 9.3 s
+// measured on 2026-09-02 with the npx cache warm, and because it fails when
+// there is no network — and a tool that sometimes takes 9 s and sometimes fails
+// cannot be the default path of anything.
 //
-// `process.execPath` sobre o `npx-cli.js` real, nunca o `npx` do PATH: no
-// Windows `npx` é `npx.cmd`, um roteiro de lote, e o CreateProcess não roda
-// `.cmd` sem interpretador. O erro é ENOENT sobre um comando que ESTÁ no PATH, e
-// ele sobreviveu um ano no projeto anterior porque só o Linux era testado.
+// `process.execPath` over the real `npx-cli.js`, never the `npx` from the PATH:
+// on Windows `npx` is `npx.cmd`, a batch script, and CreateProcess does not run
+// `.cmd` without an interpreter. The error is ENOENT over a command that IS on
+// the PATH, and it survived a year in the previous project because only Linux
+// was tested.
 function resolverNpx() {
   const dirNode = dirname(process.execPath)
   const candidatos = [
-    // Windows: node.exe e node_modules/npm/ dividem a mesma pasta.
+    // Windows: node.exe and node_modules/npm/ share the same folder.
     join(dirNode, 'node_modules', 'npm', 'bin', 'npx-cli.js'),
-    // POSIX: o npm fica em ../lib/node_modules. Vale para nvm, fnm e homebrew.
+    // POSIX: npm sits in ../lib/node_modules. Holds for nvm, fnm and homebrew.
     join(dirNode, '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
     join(dirNode, '..', 'libexec', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
   ]
@@ -885,21 +929,22 @@ function resolverNpx() {
 }
 
 /**
- * ASSÍNCRONA, e a primeira versão disto era síncrona. A troca não é estilo.
+ * ASYNCHRONOUS, and the first version of this was synchronous. The swap is not style.
  *
- * Node roda num fio só. Com a variante síncrona do `spawn`, o processo INTEIRO
- * fica parado enquanto o `npx` resolve — e o que fica parado junto é o laço que
- * lê o stdin, isto é, o servidor deixa de responder a qualquer outra pergunta do
- * agente, inclusive ao `ping` com que o cliente decide se a sessão está viva.
- * Medido em 2026-09-02, essa parada é de 9,3 s com o cache do npx quente, e
- * cresce sem teto conhecido com a rede ruim: um atalho que congela a sessão
- * quando a rede piora é pior que atalho nenhum, que é a tese deste arquivo.
+ * Node runs on a single thread. With the synchronous variant of `spawn`, the
+ * WHOLE process stands still while `npx` resolves — and what stands still with
+ * it is the loop that reads stdin, that is, the server stops answering any other
+ * question from the agent, including the `ping` the client uses to decide
+ * whether the session is alive. Measured on 2026-09-02, that stall is 9.3 s with
+ * the npx cache warm, and it grows with no known ceiling on a bad network: a
+ * shortcut that freezes the session when the network gets worse is worse than no
+ * shortcut at all, which is the thesis of this file.
  *
- * Com `execFile` o filho corre ao lado, o laço de stdin continua girando e o
- * teto de tempo é REAL. 90 s é generoso para uma resolução fria de `npx` e curto
- * o bastante para o agente receber uma negativa em vez de esperar sem saber —
- * medido em 2026-09-02 contra uma especificação inexistente: negativa nomeando o
- * comando em 4,3 s, sem verde inventado.
+ * With `execFile` the child runs alongside, the stdin loop keeps spinning and
+ * the time ceiling is REAL. 90 s is generous for a cold `npx` resolution and
+ * short enough for the agent to get a refusal instead of waiting without knowing
+ * — measured on 2026-09-02 against a nonexistent spec: refusal naming the
+ * command in 4.3 s, with no invented green.
  */
 function rodarRegua() {
   const args = ['--yes', ESPEC_REBAR, '.', '--json']
@@ -914,27 +959,27 @@ function rodarRegua() {
   }
 
   return new Promise((resolver) => {
-    // A linha de comando é CONSTANTE deste arquivo — nada que vem do cliente de
-    // MCP entra nela. O `shell: true` do plano B existe só para o layout de
-    // instalação em que o npx-cli.js não está ao lado do Node.
+    // The command line is a CONSTANT of this file — nothing coming from the MCP
+    // client enters it. The `shell: true` of plan B exists only for the install
+    // layout where npx-cli.js is not next to Node.
     const chamada = npx
       ? [process.execPath, [npx, ...args], opcoes]
       : ['npx', args, { ...opcoes, shell: true }]
 
     execFile(...chamada, (erro, stdout, stderr) => {
-      // O checker sai 1 quando REPROVA, e isso é resultado, não falha da
-      // chamada: o `--json` continua no stdout e é ele que interessa.
+      // The checker exits 1 when it FAILS, and that is a result, not a failure of
+      // the call: the `--json` is still on stdout and it is what matters.
       if (erro && !stdout) {
         const expirou = erro.killed || erro.signal
         return resolver({
           rodou: false,
           motivo: expirou
-            ? `a régua não respondeu em ${opcoes.timeout / 1000} s e foi encerrada`
-            : `a régua não chegou a rodar: ${erro.message}`,
+            ? `the ruler did not answer in ${opcoes.timeout / 1000} s and was terminated`
+            : `the ruler never got to run: ${erro.message}`,
           comando,
           leia:
-            'Sem rede a régua não roda. As regras locais acima continuam valendo, e o CI ' +
-            'roda esta mesma linha — o veredito dele não muda por causa disto.',
+            'With no network the ruler does not run. The local rules above still hold, and the CI ' +
+            'runs this same line — its verdict does not change because of this.',
           stderr: (stderr || '').slice(0, 1000),
         })
       }
@@ -944,7 +989,7 @@ function rodarRegua() {
       } catch {
         return resolver({
           rodou: false,
-          motivo: 'a régua respondeu algo que não é JSON',
+          motivo: 'the ruler answered something that is not JSON',
           saida: (stdout || stderr || '').slice(0, 2000),
           comando,
         })
@@ -954,40 +999,40 @@ function rodarRegua() {
   })
 }
 
-// ───────────────────────────────── 6. o transporte: JSON-RPC 2.0 por stdio, à mão
+// ──────────────────────── 6. the transport: JSON-RPC 2.0 over stdio, by hand
 //
-// O contrato do transporte stdio do MCP: uma mensagem JSON por linha, sem
-// newline embutido. `JSON.stringify` nunca emite newline cru, então serializar e
-// concatenar `\n` já satisfaz o enquadramento — não há caso a tratar.
+// The contract of MCP's stdio transport: one JSON message per line, with no
+// embedded newline. `JSON.stringify` never emits a raw newline, so serializing
+// and concatenating `\n` already satisfies the framing — there is no case to handle.
 //
-// Notificação é mensagem SEM `id`, e a resposta a ela é NENHUMA. Responder uma
-// notificação é o erro que trava clientes estritos, porque eles não têm a quem
-// entregar a resposta.
+// A notification is a message WITHOUT `id`, and the answer to it is NONE.
+// Answering a notification is the error that hangs strict clients, because they
+// have no one to hand the answer to.
 
 const VERSAO = '1.0.0'
 
-// As versões do protocolo que este servidor atende. Ele só usa `tools`, que
-// existe igual nas três, então negociar é escolher a que o cliente pediu quando
-// ela está aqui — e cair na mais nova quando não está, que é o que a
-// especificação manda fazer com versão desconhecida.
+// The protocol versions this server serves. It only uses `tools`, which exists
+// the same in all three, so negotiating is picking the one the client asked for
+// when it is here — and falling back to the newest when it is not, which is what
+// the spec orders for an unknown version.
 const PROTOCOLOS = ['2024-11-05', '2025-03-26', '2025-06-18']
 
-// O que o cliente mostra ao modelo assim que a sessão abre. É o ÚNICO texto
-// deste servidor que chega ao agente sem ele ter chamado nada, então é aqui que
-// mora a ordem de partida — e a frase que ele repassa ao usuário quando alguma
-// coisa está desarmada.
+// What the client shows the model the moment the session opens. It is the ONLY
+// text of this server that reaches the agent without it having called anything,
+// so this is where the starting order lives — and the sentence it passes on to
+// the user when something is unarmed.
 const INSTRUCOES = [
-  'Este é o servidor MCP deste projeto. Ele responde sobre ESTE site, lendo os arquivos do disco a cada chamada — nada aqui é cópia congelada.',
+  'This is the MCP server of this project. It answers about THIS site, reading the files from disk on every call — nothing here is a frozen copy.',
   '',
-  'ANTES DA PRIMEIRA LINHA DE CÓDIGO, chame `rebar_regras`. Ela diz onde mora o conteúdo, o que barra o build, o que barra o commit e qual é a pilha.',
-  'DEPOIS DE MEXER e antes de dizer que terminou, chame `rebar_verificar`.',
+  'BEFORE THE FIRST LINE OF CODE, call `rebar_regras`. It says where the content lives, what blocks the build, what blocks the commit and what the stack is.',
+  'AFTER TOUCHING anything and before saying you are done, call `rebar_verificar`.',
   '',
-  'Se alguma regra voltar como DESARMADA, ou se os hooks não estiverem armados, DIGA AO USUÁRIO antes de continuar: o portão parece instalado e verifica zero.',
+  'If any rule comes back as DESARMADA (unarmed), or if the hooks are not armed, TELL THE USER before going on: the gate looks installed and checks zero.',
   '',
-  `Este servidor é atalho, não porta. Quem barra é \`npm run verificar\`, o hook de commit e o CI — e a régua publicada, \`${REGUA}\`.`,
+  `This server is a shortcut, not a door. What blocks is \`npm run verificar\`, the commit hook and the CI — and the published ruler, \`${REGUA}\`.`,
 ].join('\n')
 
-// A ÚNICA escrita em stdout deste arquivo. Ver a seção 5 do cabeçalho.
+// The ONLY write to stdout in this file. See section 5 of the header.
 const enviar = (m) => process.stdout.write(`${JSON.stringify(m)}\n`)
 
 const responder = (id, result) => enviar({ jsonrpc: '2.0', id, result })
@@ -995,7 +1040,7 @@ const falhar = (id, code, message) => enviar({ jsonrpc: '2.0', id, error: { code
 
 function despachar(m) {
   const { id, method, params } = m
-  // Notificação: sem `id`. Nada volta, nem para método desconhecido.
+  // Notification: no `id`. Nothing goes back, not even for an unknown method.
   const ehNotificacao = id === undefined || id === null
 
   if (method === 'initialize') {
@@ -1003,7 +1048,7 @@ function despachar(m) {
     return responder(id, {
       protocolVersion: PROTOCOLOS.includes(pedida) ? pedida : PROTOCOLOS[PROTOCOLOS.length - 1],
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'rebar', title: 'rebar — as regras deste projeto', version: VERSAO },
+      serverInfo: { name: 'rebar', title: 'rebar — the rules of this project', version: VERSAO },
       instructions: INSTRUCOES,
     })
   }
@@ -1026,19 +1071,19 @@ function despachar(m) {
   if (method === 'tools/call') {
     const alvo = FERRAMENTAS.find((f) => f.name === params?.name)
     if (!alvo) {
-      return falhar(id, -32602, `ferramenta desconhecida: ${params?.name}`)
+      return falhar(id, -32602, `unknown tool: ${params?.name}`)
     }
-    // `Promise.resolve` cobre as duas formas sem duplicar caminho: quatro
-    // ferramentas só leem disco e devolvem string na hora; `rebar_verificar`
-    // com `{ regua: true }` devolve promessa, porque ela roda um processo
-    // filho e NÃO PODE parar o laço que lê o stdin — ver `rodarRegua`.
+    // `Promise.resolve` covers both shapes without duplicating the path: four
+    // tools only read disk and return a string on the spot; `rebar_verificar`
+    // with `{ regua: true }` returns a promise, because it runs a child process
+    // and CANNOT stop the loop that reads stdin — see `rodarRegua`.
     return Promise.resolve()
       .then(() => alvo.executar(params?.arguments ?? {}))
       .then((saida) => {
-        // Erro de USO — id que não existe, assunto sem decisão — volta como
-        // resultado com `isError`, e não como erro de JSON-RPC. A diferença
-        // importa: erro de protocolo o cliente esconde do modelo, e o modelo
-        // fica sem saber que errou o argumento.
+        // A USAGE error — an id that does not exist, a subject with no decision —
+        // comes back as a result with `isError`, and not as a JSON-RPC error. The
+        // difference matters: a protocol error the client hides from the model,
+        // and the model is left not knowing it got the argument wrong.
         const corpo = typeof saida === 'string' ? { texto: saida } : saida
         responder(id, {
           content: [{ type: 'text', text: corpo.texto }],
@@ -1046,24 +1091,24 @@ function despachar(m) {
         })
       })
       .catch((e) => {
-        // Falha de leitura de disco não pode derrubar a sessão: ela vira
-        // resposta, com o nome da ferramenta, para o agente poder consertar.
+        // A disk read failure cannot drop the session: it turns into an answer,
+        // with the tool name, so the agent can fix it.
         responder(id, {
           content: [
-            { type: 'text', text: `mcp: ${alvo.name} falhou lendo este projeto: ${e.message}` },
+            { type: 'text', text: `mcp: ${alvo.name} failed reading this project: ${e.message}` },
           ],
           isError: true,
         })
       })
   }
 
-  return falhar(id, -32601, `método não implementado: ${method}`)
+  return falhar(id, -32601, `method not implemented: ${method}`)
 }
 
-// Quantas chamadas estão no ar. Existe por causa do encerramento logo abaixo, e
-// vale para o caso real, não só para o teste: o cliente pode fechar o cano
-// enquanto `rebar_verificar { regua: true }` ainda está com o processo filho
-// rodando, e sair ali entregaria silêncio no lugar da resposta.
+// How many calls are in flight. It exists because of the shutdown just below, and
+// it holds for the real case, not only for the test: the client can close the
+// pipe while `rebar_verificar { regua: true }` still has the child process
+// running, and exiting there would deliver silence in place of the answer.
 let noAr = 0
 let canoFechado = false
 
@@ -1084,10 +1129,10 @@ process.stdin.on('data', (pedaco) => {
     try {
       m = JSON.parse(linha)
     } catch {
-      // Sem `id` não há a quem responder, então o erro de parse vai para o
-      // stderr e a sessão continua: uma linha suja não é motivo para derrubar
-      // um servidor que o agente vai precisar na próxima pergunta.
-      grito(`linha ilegível no stdin, ignorada (${linha.length} bytes)`)
+      // With no `id` there is no one to answer, so the parse error goes to
+      // stderr and the session carries on: one dirty line is no reason to drop
+      // a server the agent is going to need on the next question.
+      grito(`unreadable line on stdin, ignored (${linha.length} bytes)`)
       continue
     }
     noAr += 1
@@ -1101,22 +1146,24 @@ process.stdin.on('data', (pedaco) => {
         continue
       }
     } catch (e) {
-      if (m?.id !== undefined && m?.id !== null) falhar(m.id, -32603, `erro interno: ${e.message}`)
-      else grito(`erro interno numa notificação: ${e.message}`)
+      if (m?.id !== undefined && m?.id !== null)
+        falhar(m.id, -32603, `internal error: ${e.message}`)
+      else grito(`internal error in a notification: ${e.message}`)
     }
     noAr -= 1
   }
 })
 
-// Cliente fechou o cano: a sessão acabou e o processo sai limpo — MAS só depois
-// de responder o que já estava no ar. Sem o `talvezSair` ele ficaria vivo
-// segurando um stdin morto até alguém matá-lo; sem o contador, sairia no meio de
-// uma chamada e o agente veria a sessão cair sem resposta e sem erro.
+// The client closed the pipe: the session is over and the process exits clean —
+// BUT only after answering what was already in flight. Without `talvezSair` it
+// would stay alive holding a dead stdin until someone killed it; without the
+// counter, it would exit mid-call and the agent would see the session drop with
+// no answer and no error.
 process.stdin.on('end', () => {
   canoFechado = true
   talvezSair()
 })
 
 grito(
-  `servidor pronto em ${relative(process.cwd(), RAIZ) || '.'} — ${FERRAMENTAS.length} ferramentas, zero dependência`,
+  `server ready in ${relative(process.cwd(), RAIZ) || '.'} — ${FERRAMENTAS.length} tools, zero dependencies`,
 )

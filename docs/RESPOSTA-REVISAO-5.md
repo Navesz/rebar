@@ -1,228 +1,230 @@
-# Quinta resposta — o `RESET ROLE` é real, e pior do que você achou
+# Fifth response — the `RESET ROLE` is real, and worse than you thought
 
-Você encontrou a falha mais grave de todas as cinco rodadas. Fui verificar no código e na documentação do PostgreSQL, e o buraco existe — só que a identidade de sessão não é "mais privilegiada que `app`". É o **superusuário do cluster**.
+You found the most serious flaw of all five rounds. I went to check the code and the PostgreSQL documentation, and the hole exists — except the session identity is not "more privileged than `app`". It is the **cluster superuser**.
 
 ---
 
-## 1. O que está no disco
+## 1. What is on disk
 
 ```
 .env.example:12   DATABASE_URL=postgres://prumo:prumo@localhost:5432/prumo
 ci.yml:52         POSTGRES_USER: prumo
-main.ts:42        pool de migration   → config.databaseUrl
-main.ts:54        pool da aplicação   → config.databaseUrl   ← a MESMA credencial
+main.ts:42        migration pool    → config.databaseUrl
+main.ts:54        application pool  → config.databaseUrl   ← the SAME credential
 ```
 
-E o comentário da própria migration `0002` já documenta metade do problema:
+And the comment in migration `0002` itself already documents half the problem:
 
 > *"`POSTGRES_USER: prumo` in the compose file makes `prumo` the cluster **superuser**, so the app was connecting as a superuser and every policy was decoration."*
 
-O autor viu o sintoma, criou `prumo_app`, e fechou o `current_user`. **Não fechou o `session_user`** — e os dois pools continuam usando a mesma string de conexão.
+The author saw the symptom, created `prumo_app`, and closed off `current_user`. **He did not close off `session_user`** — and both pools still use the same connection string.
 
-Estado real de uma conexão de runtime hoje:
+Real state of a runtime connection today:
 
 ```
 session_user = prumo      ← SUPERUSER
-current_user = prumo_app  ← restrito, via SET ROLE
+current_user = prumo_app  ← restricted, via SET ROLE
 ```
 
-E o teste em `database.test.ts:192` afirma apenas `current_user`. O `session_user` nunca é olhado.
+And the test at `database.test.ts:192` asserts only `current_user`. `session_user` is never looked at.
 
 ---
 
-## 2. A documentação do PostgreSQL fecha o caso
+## 2. The PostgreSQL documentation closes the case
 
-Fui à camada dona da semântica — `sql-set-role`:
+I went to the layer that owns the semantics — `sql-set-role`:
 
 > *"`RESET ROLE` sets the current user identifier to the connection-time setting … Otherwise, `RESET ROLE` sets the current user identifier to the current **session user** identifier."*
 
-E, decisivo:
+And, decisive:
 
 > *"These forms can be executed by **any user**."*
 
-`RESET ROLE` **não é privilegiado**. Qualquer código de aplicação com acesso a SQL cru emite aquilo. Em Kysely, é uma linha.
+`RESET ROLE` **is not privileged**. Any application code with raw SQL access emits that. In Kysely, it is one line.
 
-Ou seja, hoje:
+That is, today:
 
 ```sql
-SET ROLE prumo_app;   -- aplicação "segura"
+SET ROLE prumo_app;   -- "safe" application
 RESET ROLE;           -- current_user = prumo = SUPERUSER
-                      -- RLS contornada, DDL disponível
+                      -- RLS bypassed, DDL available
 ```
 
-Isso não precisa de atacante. Um agente tentando "resolver um erro de permissão" escreve exatamente isso, e o comentário do commit vai dizer que resolveu.
+This needs no attacker. An agent trying to "solve a permission error" writes exactly that, and the commit message will say it solved it.
 
-**Sua frase está certa e eu a endureceria:** `SET ROLE` reduz o `current_user`, mas não apaga a identidade privilegiada que abriu a sessão. E aqui a identidade que abriu a sessão é a mais privilegiada que existe.
+**Your sentence is right and I would harden it:** `SET ROLE` reduces `current_user`, but it does not erase the privileged identity that opened the session. And here the identity that opened the session is the most privileged one there is.
 
 ---
 
-## 3. Sua arquitetura de três identidades — adotada
+## 3. Your three-identity architecture — adopted
 
 ```
-db_owner     dono do schema · nunca usado pelo runtime
-app          NOLOGIN · DML · NOBYPASSRLS · sem DDL
-app_login    LOGIN · NOINHERIT · zero privilégio direto
+db_owner     schema owner · never used by the runtime
+app          NOLOGIN · DML · NOBYPASSRLS · no DDL
+app_login    LOGIN · NOINHERIT · zero direct privilege
 ```
 
 ```sql
 GRANT app TO app_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 ```
 
-*(As opções separadas de `INHERIT`, `SET` e `ADMIN` na membership entraram no PostgreSQL **16**, não 17 — funciona nos dois.)*
+*(The separate `INHERIT`, `SET` and `ADMIN` options on membership landed in PostgreSQL **16**, not 17 — it works on both.)*
 
-O `INHERIT FALSE` é a peça que faz a coisa funcionar, e vale registrar por quê: com `INHERIT TRUE`, o `app_login` teria os privilégios de `app` **automaticamente**, sem precisar de `SET ROLE` — e o `RESET ROLE` o deixaria ainda com o DML. Com `INHERIT FALSE`, ele não tem nada até fazer `SET ROLE` explícito.
+`INHERIT FALSE` is the piece that makes the thing work, and it is worth recording why: with `INHERIT TRUE`, `app_login` would have `app`'s privileges **automatically**, with no need for `SET ROLE` — and `RESET ROLE` would leave it still holding the DML. With `INHERIT FALSE`, it has nothing until it does an explicit `SET ROLE`.
 
-Resultado:
+Result:
 
 ```
-RESET ROLE  →  current_user = app_login  →  zero privilégio
+RESET ROLE  →  current_user = app_login  →  zero privilege
 ```
 
-**A escapatória passa a reduzir privilégio, nunca elevar.** É exatamente a propriedade que se quer, e é melhor que "impedir `RESET ROLE`", porque não depende de impedir nada.
+**The escape hatch now reduces privilege, never elevates it.** It is exactly the property you want, and it is better than "block `RESET ROLE`", because it does not depend on blocking anything.
 
-### Um reforço adicional que a doc permite
+### An additional reinforcement the doc allows
 
-O trecho que você não citou: `RESET ROLE` volta para *"the connection-time setting"* se existir uma. Então:
+The passage you did not quote: `RESET ROLE` falls back to *"the connection-time setting"* if one exists. So:
 
 ```sql
 ALTER ROLE app_login SET role = app;
 ```
 
-faz até o `RESET ROLE` cair de volta em `app`. É cinto além do suspensório — **não substitui** a separação de identidades, porque `SET ROLE app_login` continua possível. Mas com as duas coisas juntas, nenhum caminho leva a privilégio maior.
+makes even `RESET ROLE` fall back into `app`. It is belt beyond suspenders — it **does not replace** the identity separation, because `SET ROLE app_login` is still possible. But with the two together, no path leads to greater privilege.
 
 ---
 
-## 4. O teste hostil — adotado, e é o melhor que você propôs
+## 4. The hostile test — adopted, and it is the best thing you proposed
+
+<!-- `tabela_protegida` is a SQL identifier in the audited codebase, not prose. -->
 
 ```sql
 RESET ROLE;
 SELECT * FROM tabela_protegida;
--- esperado: PERMISSION DENIED
+-- expected: PERMISSION DENIED
 ```
 
-Concordo que isso vale mais que checar `current_user`. Checar `current_user` prova que a configuração foi aplicada; o teste hostil prova que **a fuga não funciona**. São perguntas diferentes, e só a segunda é sobre segurança.
+I agree this is worth more than checking `current_user`. Checking `current_user` proves the configuration was applied; the hostile test proves **the escape does not work**. They are different questions, and only the second is about security.
 
-O conjunto de asserções fica:
+The assertion set becomes:
 
 ```
 session_user == app_login
 current_user == app
 
-session_user:  não superuser · não BYPASSRLS · não CREATEDB
-               não CREATEROLE · sem DML direto
+session_user:  not superuser · not BYPASSRLS · not CREATEDB
+               not CREATEROLE · no direct DML
 
-hostil:  RESET ROLE  →  SELECT protegido  →  PERMISSION DENIED
-         SET ROLE db_owner                →  PERMISSION DENIED
+hostile:  RESET ROLE  →  protected SELECT  →  PERMISSION DENIED
+          SET ROLE db_owner                →  PERMISSION DENIED
 ```
 
-Acrescentei a última linha: provar que não dá para *subir* para o owner também, não só que o reset não ajuda.
+I added the last line: prove you cannot *climb* to the owner either, not only that the reset does not help.
 
 ---
 
-## 5. `1 outbox ≠ 1 efeito externo` — você está certo, e eu quase enterrei isso
+## 5. `1 outbox ≠ 1 external effect` — you are right, and I nearly buried it
 
-Meu teste de "20 requests → 1 linha de outbox" está correto, mas a formulação corria o risco de sugerir exactly-once no efeito externo. Não é. O outbox é **at-least-once por construção**:
+My "20 requests → 1 outbox row" test is correct, but the wording risked suggesting exactly-once on the external effect. It is not. The outbox is **at-least-once by construction**:
 
 ```
-worker pega a linha  →  envia  →  destinatário recebe  →  PROCESSO MORRE
-                                                          antes de marcar entregue
+worker picks up the row  →  sends  →  recipient receives  →  PROCESS DIES
+                                                             before marking delivered
         ↓ restart
-worker pega a mesma linha  →  envia de novo
+worker picks up the same row  →  sends again
 ```
 
-A regra que já estava na Stack — *"idempotência do consumidor é obrigatória"* — não pode sumir agora que idempotência e outbox foram unificadas. Vai explícita, nos três níveis:
+The rule that was already in the Stack — *"consumer idempotency is mandatory"* — cannot vanish now that idempotency and outbox have been unified. It goes explicit, at all three levels:
 
-| Camada | Garantia |
+| Layer | Guarantee |
 |---|---|
-| Retry de API | **não** cria segunda linha de outbox |
-| Retry do outbox | **pode** reenviar a mesma linha |
-| Consumidor | **deve** deduplicar por `outboxId` |
+| API retry | does **not** create a second outbox row |
+| Outbox retry | **may** resend the same row |
+| Consumer | **must** deduplicate by `outboxId` |
 
-Só com cooperação do destinatário o efeito externo se aproxima de exactly-once. Onde o destinatário não coopera, isso vira decisão consciente e documentada, não suposição.
-
----
-
-## 6. Duplicate-in-flight — você pegou o teste tomando uma decisão sozinho
-
-Correto, e é sutil. "20 respostas semanticamente iguais" escolhe a semântica **esperar e replicar**:
-
-```
-A executando · B..T chegam com mesmo commandId · esperam · recebem o replay de A
-```
-
-A alternativa válida seria `409` / `202 command in progress` e o cliente tenta de novo.
-
-Escolho **esperar/replay**, pelo motivo que você deu — é API mais simples para o agente e para o frontend, e evita que o cliente tenha de implementar backoff para um caso que o servidor sabe resolver. Mas vai **escrita no ADR como decisão**, não deduzida do teste. Um teste que decide arquitetura sem o documento perceber é exatamente a classe de coisa que a Stack existe para impedir.
+Only with the recipient's cooperation does the external effect come close to exactly-once. Where the recipient does not cooperate, that becomes a conscious, documented decision, not an assumption.
 
 ---
 
-## 7. Versionamento do hash — buraco real
+## 6. Duplicate-in-flight — you caught the test making a decision on its own
 
-Seu exemplo é o certo:
+Correct, and it is subtle. "20 semantically equal responses" picks the **wait and replay** semantics:
+
+```
+A executing · B..T arrive with the same commandId · wait · receive A's replay
+```
+
+The valid alternative would be `409` / `202 command in progress` and the client tries again.
+
+I choose **wait/replay**, for the reason you gave — it is a simpler API for the agent and for the frontend, and it spares the client from implementing backoff for a case the server knows how to solve. But it goes **written into the ADR as a decision**, not deduced from the test. A test that decides architecture without the document noticing is exactly the class of thing the Stack exists to prevent.
+
+---
+
+## 7. Hash versioning — real hole
+
+Your example is the right one:
 
 ```
 v1: quantity default = 1
 v2: quantity default = 10
 ```
 
-Mesmo payload bruto, normalizações diferentes, hashes diferentes — e um `commandId` sobrevive a deploy. Numa janela de idempotência longa, isso vira ou falso conflito ou replay indevido.
+Same raw payload, different normalizations, different hashes — and a `commandId` survives a deploy. In a long idempotency window, that becomes either a false conflict or an undue replay.
 
-Persistido junto: `operation`, `idempotencySchemaVersion`, `requestHash`. E a comparação de hash só é válida dentro da mesma versão de esquema; versão diferente é tratada explicitamente, nunca comparada às cegas.
+Persisted alongside: `operation`, `idempotencySchemaVersion`, `requestHash`. And the hash comparison is only valid within the same schema version; a different version is handled explicitly, never compared blindly.
 
 ---
 
-## 8. Unicode no JCS — o detalhe que teria custado caro
+## 8. Unicode in JCS — the detail that would have cost dearly
 
-Você está certo: o RFC 8785 **não** faz normalização Unicode; ele preserva as strings. Então `é` como `U+00E9` e `e` + acento combinante são visualmente idênticos, byte-distintos, e produzem hashes diferentes.
+You are right: RFC 8785 does **not** do Unicode normalization; it preserves the strings. So `é` as `U+00E9` and `e` + combining accent are visually identical, byte-distinct, and produce different hashes.
 
-A cadeia ganha uma etapa, e o contrato decide onde ela se aplica:
+The chain gains one step, and the contract decides where it applies:
 
 ```
 contract parse
   ↓
-normalização semântica  ← NFC apenas onde o contrato declarar
+semantic normalization  ← NFC only where the contract declares it
   ↓
-projeção JSON-safe
+JSON-safe projection
   ↓
 RFC 8785
   ↓
 hash
 ```
 
-**Não normalizar tudo cegamente** — nome de arquivo, chave criptográfica e identificador externo podem depender dos bytes exatos. O contrato marca quais campos têm semântica de texto humano.
+**Do not normalize everything blindly** — a filename, a cryptographic key and an external identifier may depend on the exact bytes. The contract marks which fields have human-text semantics.
 
 ---
 
-## 9. `claim → owner → evidence` — adotado
+## 9. `claim → owner → evidence` — adopted
 
-Sua nomenclatura entra como formato obrigatório de citação em ADR:
+Your naming enters as the mandatory citation format in ADRs:
 
 ```
-Claim:     onConnect bloqueia a aquisição do client
+Claim:     onConnect blocks client acquisition
 Owner:     node-postgres
 Evidence:  pg-pool@3.14.0 lib/index.js:288-301
 ```
 
-Isso torna a revisão mecânica, e força a pergunta que eu falhei em fazer duas vezes: **essa camada é dona disso?**
+This makes review mechanical, and forces the question I failed to ask twice: **does this layer own this?**
 
 ---
 
-## Placar
+## Scoreboard
 
-| Item | Veredito |
+| Item | Verdict |
 |---|---|
-| `RESET ROLE` como escapatória | ✅ **real e confirmado** — e o `session_user` é o superusuário do cluster, não só "mais privilegiado" |
-| `RESET ROLE` é irrestrito | ✅ confirmado na doc: *"can be executed by any user"* |
-| Três identidades com `INHERIT FALSE` | ✅ adotado — a fuga passa a reduzir privilégio |
-| Teste hostil de `RESET ROLE` | ✅ adotado, mais `SET ROLE db_owner` |
-| 1 outbox ≠ 1 efeito externo | ✅ você evitou que eu enterrasse a regra do consumidor |
-| Duplicate-in-flight é decisão de produto | ✅ escolhido esperar/replay, e escrito como decisão |
-| Versionamento do hash | ✅ adotado |
-| JCS não normaliza Unicode | ✅ adotado, com NFC seletivo pelo contrato |
-| `claim → owner → evidence` | ✅ adotado |
+| `RESET ROLE` as an escape hatch | ✅ **real and confirmed** — and `session_user` is the cluster superuser, not just "more privileged" |
+| `RESET ROLE` is unrestricted | ✅ confirmed in the doc: *"can be executed by any user"* |
+| Three identities with `INHERIT FALSE` | ✅ adopted — the escape now reduces privilege |
+| Hostile `RESET ROLE` test | ✅ adopted, plus `SET ROLE db_owner` |
+| 1 outbox ≠ 1 external effect | ✅ you kept me from burying the consumer rule |
+| Duplicate-in-flight is a product decision | ✅ wait/replay chosen, and written as a decision |
+| Hash versioning | ✅ adopted |
+| JCS does not normalize Unicode | ✅ adopted, with selective NFC by contract |
+| `claim → owner → evidence` | ✅ adopted |
 
-Sua prioridade está certa e vira a próxima decisão fechada:
+Your priority is right and becomes the next closed decision:
 
-> **O runtime nunca autentica com credencial de privilégio superior a `app`. `RESET ROLE` deve reduzir privilégio, ou no pior caso mantê-lo — jamais elevá-lo.**
+> **The runtime never authenticates with a credential more privileged than `app`. `RESET ROLE` must reduce privilege, or at worst keep it — never elevate it.**
 
-Cinco rodadas. As três primeiras corrigiram erros meus; esta corrigiu um erro que estava no código há um dia e passava por dois testes verdes.
+Five rounds. The first three fixed mistakes of mine; this one fixed a mistake that had been in the code for a day and passed two green tests.
