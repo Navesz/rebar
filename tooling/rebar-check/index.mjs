@@ -2737,9 +2737,33 @@ export const REGRAS = [
         for (const m of (ler(r.dir, a) || '').matchAll(/#[0-9a-f]{6}/gi))
           noCss.add(m[0].toLowerCase())
       if (!noCss.size) return na('no hex color in the CSS')
+      // COMMENTS OUT of the code side, for the same reason as in `phone` and in
+      // the `.env.example` sweep: A HEX IN A COMMENT PAINTS NOTHING. What the
+      // rule is after is the color the program EMITS from two places, because
+      // that is the one that will diverge; a comment that names a color is a
+      // note ABOUT the color, and a note does not drift from the token — it
+      // does not render.
+      //
+      // Measured on 2026-09-08 on `assay`: `✗ raw-hex  1 color(s) defined in
+      // both places: #9aa3ad`, and the only occurrence in code was
+      // `ferramental/imagens.mjs:531`, inside the comment that says the palette
+      // IS read from `app/globals.css` and not retyped, quoting the hex to name
+      // WHICH color it is talking about. The rule was charging a file for the
+      // note that documents this rule's own earlier finding. Not new either:
+      // the `env-example__only-in-comment` case already writes the number down
+      // — of the seven occurrences the literal-color rule turned up in herz,
+      // FIVE were comments about the rule.
+      //
+      // The CSS side goes on being read RAW, and that is deliberate: a hex in a
+      // CSS comment only makes the token table bigger, and the table on its own
+      // accuses nobody — it takes an occurrence in code for an accusation to
+      // exist. Running `semComentario` over CSS would buy nothing and would
+      // bring in a risk of its own, because there `//` is not a comment: it is
+      // the middle of a `url(//cdn…)`, and erasing the rest of that line would
+      // take a real token out of the table.
       const dup = new Set()
       for (const [, t] of r.fontes)
-        for (const m of t.matchAll(/#[0-9a-f]{6}/gi)) {
+        for (const m of semComentario(t).matchAll(/#[0-9a-f]{6}/gi)) {
           if (noCss.has(m[0].toLowerCase())) dup.add(m[0].toLowerCase())
         }
       return dup.size

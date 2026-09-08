@@ -30,6 +30,25 @@
 # file, and prints how many findings it declined to charge. Silence there would
 # be worse than a false positive. This file cannot do that — it is a path list —
 # so it stays as small as the fact allows.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# AND IT DOES NOT WORK FOR THE CHECK ON THE PULL REQUEST. Measured, not assumed:
+# this file was committed and GitGuardian re-scanned two commits afterwards and
+# reported the SAME incident (37073092) on the SAME two paths. The
+# "GitGuardian Security Checks" status comes from the GitHub App, which is
+# configured on the dashboard and outside this repository; `ignored_paths` is
+# read by `ggshield`, the CLI, which nothing here runs.
+#
+# It stays anyway, and the reason is the one this repository is built on: the
+# alternative is a red check with no written explanation, which is how a check
+# stops being read. Here the exclusion is declared, reviewable and dated, and
+# whoever opens the incident finds the argument instead of guessing it. What
+# closes the check is ONE action on the GitGuardian dashboard — resolve the
+# incident as a false positive — and that is a human's to take, not this file's.
+#
+# If it ever starts working, the evidence is simple: the check goes green
+# without anybody touching the dashboard. Delete these last two paragraphs then.
+# ─────────────────────────────────────────────────────────────────────────────
 secret:
   ignored_paths:
     - 'tooling/security/proofs/cases/*/fail/**'
