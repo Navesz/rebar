@@ -54,6 +54,25 @@ updates:
       - dependency-name: 'typescript'
         versions: ['>=6.1.0']
 
+      # AND A SECOND CEILING, same shape, different package. With TypeScript
+      # unblocked, the grouped PR started carrying `eslint ^10` and CI died on
+      #
+      #   TypeError: Error while loading rule 'react/display-name':
+      #   contextOrFilename.getFilename is not a function
+      #
+      # Measured on 2026-09-08:
+      #
+      #   npm view eslint-plugin-react peerDependencies
+      #   { eslint: '^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7' }
+      #
+      # ESLint 10 is not in there, and `eslint-config-next` depends on
+      # `eslint-plugin-react@^7.37.0` -- so the incompatibility arrives from the
+      # inside and there is no version to pick here. `>=10` is the exact
+      # complement of that ceiling; 9.x still flows. Release it when the peer
+      # opens.
+      - dependency-name: 'eslint'
+        versions: ['>=10']
+
     # Grouped so it does not open seven PRs a week. A dependency PR nobody reads
     # is noise that teaches people to close dependency PRs without reading.
     #
