@@ -71,6 +71,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -663,7 +664,38 @@ export function repoFalso({ respostas = {}, fluxo, registro, comGh = true, comRe
 
   const pastaGit = resolverNoPath('git')
   if (!pastaGit) throw new Error('git is not on PATH — the proof cannot build a repository')
-  const caminhos = [dirname(pastaGit.caminho)]
+
+  // THE PATH KEEPS `git` AND HAS TO BE ABLE TO DROP `gh`, and on one of the two
+  // CI runners those are the same directory. Measured on 2026-09-08: the Ubuntu
+  // runner ships both in /usr/bin, so a PATH built as "just the folder git is
+  // in" still exposes `gh` — the case that asks for its absence could not be
+  // SET UP, and its own guard said so and failed the step. Windows passed,
+  // because there git and gh live apart. A proof that only holds on the machine
+  // where two binaries happen to sit in different folders is not a proof.
+  //
+  // So when they share a folder, git gets its own directory with a link to it,
+  // and PATH carries only that. If the link cannot be made, the case THROWS:
+  // a case that does not run is not a case that passed, and skipping quietly is
+  // exactly the mute pass this file exists to forbid.
+  const pastaDoGit = dirname(pastaGit.caminho)
+  const ghAoLado = ['gh', 'gh.exe'].some((n) => existsSync(join(pastaDoGit, n)))
+  const caminhos = []
+  if (!comGh && ghAoLado) {
+    const so = join(dir, 'bin-git')
+    mkdirSync(so, { recursive: true })
+    const alvo = join(so, process.platform === 'win32' ? 'git.exe' : 'git')
+    try {
+      symlinkSync(pastaGit.caminho, alvo)
+    } catch (erro) {
+      throw new Error(
+        `git and gh share ${pastaDoGit} and git could not be linked into an isolated ` +
+          `directory (${erro.code ?? erro.message}) — THIS CASE CANNOT RUN HERE`,
+      )
+    }
+    caminhos.push(so)
+  } else {
+    caminhos.push(pastaDoGit)
+  }
   if (process.platform === 'win32' && process.env.SystemRoot) {
     caminhos.push(join(process.env.SystemRoot, 'System32'))
   }

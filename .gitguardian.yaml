@@ -1,0 +1,35 @@
+# GitGuardian, and the one thing in this repository that is credential-shaped on
+# purpose.
+#
+# THE PROBLEM, MEASURED. Pull request #27 added the `hardcoded-secret` rule, and
+# a rule of this house is born with two cases: one tree that must FAIL and one
+# that must PASS. The failing tree contains strings shaped like an AWS access
+# key, a GitHub token, an LLM API key and a bare `const apiKey = '<32 hex>'` —
+# because a proof that the scanner detects credentials cannot be written with
+# anything that is not credential-shaped. GitGuardian flagged two of them as
+# "Generic High Entropy Secret", which is correct about the shape and wrong
+# about the fact: nothing there was ever issued, and nothing there can be
+# revoked.
+#
+# WHY THIS IS NOT "TURNING THE CHECK OFF". A security check left permanently red
+# is worse than no check: it teaches everyone to scroll past it, which is the
+# exact failure this project exists to name. The choice is between a declared,
+# reviewable exclusion in the repository and a red mark nobody reads any more.
+#
+# THE SCOPE IS AS NARROW AS THE FACT. Only the `fail/` side of the security
+# proof cases — the side whose entire job is to carry a planted defect. The
+# `pass/` side is NOT excluded, and that is deliberate: it carries the named
+# false positives (a placeholder, a documented prefix, a `process.env` read),
+# and if a real credential were ever pasted there, GitGuardian is the second
+# reader that would catch it. Nothing else in the tree is excluded, including
+# the rest of `tooling/`.
+#
+# The house's own scanner solves the same problem by a different route and does
+# not need this file: `tooling/secret/scan-secret.mjs` recognises proof material
+# by the `caso.json` marker in an ancestor directory, still READS and COUNTS the
+# file, and prints how many findings it declined to charge. Silence there would
+# be worse than a false positive. This file cannot do that — it is a path list —
+# so it stays as small as the fact allows.
+secret:
+  ignored_paths:
+    - 'tooling/security/proofs/cases/*/fail/**'
