@@ -372,3 +372,39 @@ test('the generator path named in the dispatcher exists on disk', () => {
     `the dispatcher points at ${m[1]}/${m[2]}, which is not on disk`,
   )
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O PROJETO GERADO NASCE COM UM LOCKFILE QUE O `npm ci` DO RUNNER ACEITA
+//
+// Três projetos seguidos bateram no mesmo muro — rebar-site, navesz-portfolio e
+// assay — e as três vezes o conserto ficou no consumidor:
+//
+//   npm error Missing: @emnapi/runtime@1.11.3 from lock file
+//
+// A causa não é o projeto, é a ferramenta: essas dependências são OPCIONAIS e
+// resolvidas por plataforma, e o npm da máquina que gera escreve uma árvore que
+// o npm do runner recusa. Fixar a versão obriga o npm a gravá-las.
+//
+// E o `npm ci` LOCAL aceita a árvore que o runner recusa, então conferir na
+// própria máquina dá falso verde. Este teste é estrutural de propósito: ele não
+// tenta reproduzir o npm, ele confere que a trava que resolve está lá.
+test('o gerador fixa as opcionais de plataforma no package.json', () => {
+  const fonte = readFileSync(join(AQUI, 'aplicar.mjs'), 'utf8')
+  // Sem recortar o objeto: a versão que tentava capturar o bloco com regex
+  // não-gulosa parava no `}` do spread `...(pkg.overrides ?? {})` e reprovava o
+  // conserto correto. O que importa é que o gerador escreva `overrides` e que os
+  // três pacotes estejam no arquivo — recortar o literal é precisão que este
+  // teste não precisa e que ele erra.
+  assert.match(
+    fonte,
+    /pkg\.overrides = \{/,
+    'o gerador parou de escrever `pkg.overrides` — o próximo projeto nasce com um lockfile ' +
+      'que o `npm ci` do CI recusa, e o build local não acusa',
+  )
+  for (const pacote of ['@emnapi/core', '@emnapi/runtime', '@emnapi/wasi-threads']) {
+    assert.ok(
+      fonte.includes(`'${pacote}'`),
+      `${pacote} saiu dos overrides — foi ele que reprovou o CI de três projetos seguidos`,
+    )
+  }
+})

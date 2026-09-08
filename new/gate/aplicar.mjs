@@ -732,6 +732,32 @@ function garantirScripts(destino, avisos) {
   // `ci-gateia` rule looks for the word `test`, which is in both.
   pkg.scripts.verificar = elos.map((n) => (n === 'test' ? 'npm test' : `npm run ${n}`)).join(' && ')
 
+  // AS OPCIONAIS DE PLATAFORMA, FIXADAS. Sem isto o projeto nasce com um
+  // lockfile que o `npm ci` do runner RECUSA, e o CI reprova no primeiro push:
+  //
+  //   npm error `npm ci` can only install packages when your package.json and
+  //   package-lock.json are in sync.
+  //   npm error Missing: @emnapi/runtime@1.11.3 from lock file
+  //
+  // A causa nao e o projeto, e a ferramenta: o npm da maquina que gera escreve
+  // uma arvore que o npm do runner nao aceita, porque essas dependencias sao
+  // OPCIONAIS e resolvidas por plataforma. `npm install --package-lock-only` e
+  // instalacao incremental gravam MENOS, nao mais. Fixar a versao obriga o npm a
+  // grava-las.
+  //
+  // E o pior: `npm ci` LOCAL aceita a arvore que o runner recusa, entao conferir
+  // na propria maquina da FALSO VERDE. So o CI acusa.
+  //
+  // TRES PROJETOS SEGUIDOS bateram nisto -- rebar-site, navesz-portfolio e
+  // assay -- e as tres vezes o conserto ficou no consumidor. Esta linha e a
+  // terceira vez virando a ultima.
+  pkg.overrides = {
+    ...(pkg.overrides ?? {}),
+    '@emnapi/core': '1.11.3',
+    '@emnapi/runtime': '1.11.3',
+    '@emnapi/wasi-threads': '1.2.3',
+  }
+
   escrever(destino, 'package.json', `${JSON.stringify(pkg, null, 2)}\n`)
   return elos
 }
