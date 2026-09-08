@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "THE FALSE POSITIVE ON THE AUTHOR, and it is not hypothetical: rebar's own script is `node node_modules/prettier/bin/prettier.cjs --check .`, written that way because `npx prettier` is not the same command on both systems of the CI matrix. A rule that matched a command STARTING with `prettier`, or that split on whitespace and read the first token, would have failed the repository that ships the rule — the third time this project would have been caught demanding a spelling instead of a practice, after `NOMES_TYPECHECK` and the shadcn `tailwind-merge`. The `pass` side is that script; the `fail` side is the same invocation through the same path with `--write`, so the two trees differ in one flag and the case can only go green if what is being read is the MODE and not the shape of the call.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "prettier chamado pelo caminho do node_modules",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "mesmo caminho, mas reescrevendo",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "prova-formatter-mesmo-nome",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "format": "prettier --write ."
+  }
+}

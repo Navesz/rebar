@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // fileURLToPath, not .pathname: on Windows the pathname comes as "/C:/Users/...".
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -42,9 +42,58 @@ test('the gate files are in place', () => {
     'README.md',
     'AGENTS.md',
     '.mcp.json',
+    // The remote gate is a PAIR: the record of what the branch protection has to
+    // be, and the script that asks GitHub and compares. Deleting either one is
+    // the cheapest way to make `npm run verificar` stop asking — which is
+    // exactly the silence the pair was written to end.
+    '.rebar/portao-remoto.json',
+    '.rebar/portao-remoto.mjs',
+    '.rebar/check-links.mjs',
   ]) {
     assert.ok(tem(arquivo), `missing: ${arquivo}`)
   }
+})
+
+// ────────────────────────────────────────────────── the remote gate, offline
+//
+// WHY THIS TEST RUNS WITHOUT NETWORK AND WITHOUT `gh`. The branch protection is
+// the one demand of this project that lives on GitHub's servers, so the check
+// that asks about it needs a token and can only WARN when it cannot ask. That
+// leaves a hole nobody would see: delete the record, and the whole subject goes
+// quiet on every machine that has no token — including CI.
+//
+// So the FILE is guarded here, in `npm test`, offline, on both systems. And with
+// it the one fact that cannot be allowed to drift: the check names.
+//
+// The names GitHub matches a required status check by are the workflow's job
+// name with the matrix expanded. They live in the workflow. The record keeps a
+// written-down COPY of them so a human can read it with no network — and this is
+// the gate that keeps the copy honest. Without it, renaming the matrix leaves a
+// ruleset requiring a context no workflow produces: a gate that waits forever
+// for a check nobody runs, with everything else green.
+test('the remote gate record is readable, and its checks match the workflow', async () => {
+  const registro = JSON.parse(ler('.rebar/portao-remoto.json'))
+  assert.equal(typeof registro.esquema, 'number', 'the record has no `esquema`')
+  assert.ok(registro.estado, 'the record has no `estado`')
+  assert.ok(registro.exigido, 'the record has no `exigido` — there is nothing to demand')
+  assert.ok(Array.isArray(registro.exigido.checks), '`exigido.checks` is not a list')
+  assert.ok(registro.exigido.checks.length > 0, '`exigido.checks` is empty — it demands no CI')
+
+  // Imported, not reimplemented: the expansion of a matrix into check names is
+  // the checker's job, and a second implementation here would be a second thing
+  // to get wrong.
+  const { checksDoFluxo } = await import(
+    pathToFileURL(join(RAIZ, '.rebar', 'portao-remoto.mjs')).href
+  )
+  const doFluxo = checksDoFluxo(ler('.github/workflows/verificar.yml'), registro.exigido.job)
+
+  // Compared as SETS: the order of a matrix is not a promise, and a test that
+  // fails on a reordering is a test people learn to ignore.
+  assert.deepEqual(
+    [...registro.exigido.checks].sort(),
+    [...doFluxo].sort(),
+    'the record demands checks the workflow does not produce (or stopped demanding one it does)',
+  )
 })
 
 // ─────────────────────────────────────── this project's MCP, and its freshness
@@ -331,7 +380,20 @@ test('package.json declares what CI invokes', () => {
   // rebar's `ci-gateia` rule demands that CI REACH what the repository has. CI
   // runs one command only, `npm run verificar`; if this script stops chaining the
   // others, CI starts passing without having looked.
-  for (const nome of ['lint', 'typecheck', 'test']) {
+  // `format-check`, `links`, `secret` and `portao-remoto` are in this list for a
+  // measured reason: rebar charges itself for 23 steps and the projects it
+  // generated ran 6. The gravest of the four is `secret` — the hook scans only
+  // what is STAGED and vanishes with `--no-verify`, so until it entered the
+  // chain a credential committed that way reached main with the CI green.
+  for (const nome of [
+    'format-check',
+    'lint',
+    'typecheck',
+    'test',
+    'links',
+    'secret',
+    'portao-remoto',
+  ]) {
     if (!scripts[nome]) continue
     // Inside a template literal, `\b` is the BACKSPACE character, not the word
     // boundary — the regex becomes /<bs>lint<bs>/ and never matches. It cost a

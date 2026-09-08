@@ -10,7 +10,7 @@ The defect it exists so as not to repeat, in the owner's words: *"No Herz e no B
 | --- | --- |
 | `tooling/rebar-check/index.mjs` | **The source.** <!--n rules.total-->23<!--/n--> rules, each with its measured why |
 | `mcp/generate.mjs` | **The generator.** Derives the artifact from the source |
-| `mcp/rules.generated.json` | **The artifact.** <!--n mcp.artefato.tamanho-->114 KB<!--/n-->. Not edited by hand |
+| `mcp/rules.generated.json` | **The artifact.** <!--n mcp.artefato.tamanho-->142 KB<!--/n-->. Not edited by hand |
 | `mcp/src/` | **The server.** Reads the artifact. Never reads `index.mjs` |
 
 What closes the loop is the gate's `mcp` step:
@@ -71,8 +71,33 @@ After editing `.mcp.json`, restart Claude Code and check with `/mcp`.
 | `rebar_regras` | "what is going to fail me here?" | before writing code |
 | `rebar_porque` | "why is this a rule?" — with the measured number and the proofs | when the gate fails you and you feel like working around it |
 | `rebar_decidir` | "has the project already decided about X?" | before proposing a stack, library, format or process |
-| `rebar_portao` | the gate's <!--n mcp.artefato.passos-->23<!--/n--> steps, the command for each one, the exit codes | when the gate fails and the message is not enough |
+| `rebar_portao` | the gate's <!--n mcp.artefato.passos-->25<!--/n--> steps, the command for each one, the exit codes | when the gate fails and the message is not enough |
 | `rebar_verificar` | runs the ruler over a path and returns the scoreboard | after touching things, before saying you are done |
+
+### The subject has to reach the rule that fails it
+
+`rebar_decidir` is the tool that can lie in the direction of permission, and on
+2026-09-07 it did: asked about `csrf` it answered that nothing in the artifact
+decides it and *nobody will fail you over it*, while `disabled-defense` fails the
+commit for exactly that. Two causes, both in the extraction: the rule writes its
+reason in a JSDoc block and the generator read only `//` comments, so the whole
+header was lost and the only paragraph left was the section ruler drawn above it;
+and the table of literals the rule greps for never entered the artifact at all.
+In the same measurement `rate limit` — which nothing in rebar checks — came back
+with the `readme` rule, because the word "limit" appears in a paragraph about
+README size.
+
+The artifact now carries a `termos` field per rule, derived from the pattern
+tables the rule module exports: the literal word runs of each pattern and the
+explanation beside it. And an entry only counts as an answer when the subject is
+in something that IDENTIFIES it — its id, its title, the literal it greps for —
+or when it covers the whole subject. Half of a two-word subject, found in a
+justification paragraph, is a mention, and the empty answer names it as one.
+
+Steps `3b`–`3d` of `prova-cliente.mjs` hold all of it, and the approving side is
+not optional: `rls` and `upload` are real subjects rebar does not govern, and
+they have to go on being answered with "nobody will fail you over it". Without
+them, a change that made every subject match every rule would pass as a fix.
 
 **There is no `rebar_gerar`**, which §7.2 foresaw. rebar's generator (`new/index.mjs`) creates a whole project, runs `shadcn create` and makes the first commit — it is not a component emitter, and a tool that commits contradicts the house rule that the one who commits is the owner. A tool that promises what the repository does not do is the promise nobody checks, exactly what the artifact's `naoDerivado` field exists to record.
 
@@ -87,7 +112,7 @@ It also **does not serve prose**. The previous version of this server returned c
 ## Proving it runs
 
 ```
-node mcp/src/prova-cliente.mjs          # handshake, tools/list, 7 calls, and the server with no artifact
+node mcp/src/prova-cliente.mjs          # handshake, tools/list, every tool, the subject→rule contracts, and the server with no artifact
 node mcp/src/prova-cliente.mjs --curto  # only each step's verdict
 ```
 

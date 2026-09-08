@@ -1,0 +1,11 @@
+{
+  "name": "prova-formatter-so-no-ci",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
+}

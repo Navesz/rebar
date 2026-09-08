@@ -19,6 +19,60 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    # HELD BACK BY AN UPSTREAM CEILING, NOT BY TASTE, and no project generated
+    # from here owns the constraint. Measured on 2026-09-07:
+    #
+    #   npm view typescript-eslint peerDependencies.typescript
+    #   >=4.8.4 <6.1.0
+    #
+    # `eslint-config-next` depends on `typescript-eslint@^8.46.0`, so the copy
+    # that refuses to resolve is the nested
+    # node_modules/eslint-config-next/node_modules/typescript-eslint. A bump to
+    # TypeScript 7 is two majors past that ceiling: `npm ci` cannot build a tree
+    # and the grouped PR is red before one check has run.
+    #
+    # IT HIT THREE PUBLISHED SITES IN THE SAME WEEK — assay, navesz-portfolio and
+    # rebar-site — each with the same PR stuck for the same reason, and each was
+    # about to be fixed in the consumer for the third time. A fix that lives in
+    # the project instead of in the generator is the defect this repository is
+    # about.
+    #
+    # THE RULE IS WRITTEN AGAINST THE MEASURED CEILING, NOT THE SHAPE OF THE
+    # BUMP. `update-types: version-update:semver-major` was the easy line and it
+    # is the wrong one: 6.0.0 is a major and the peer range ACCEPTS it, so that
+    # form would hold back a version nothing objects to. `>=6.1.0` is the exact
+    # complement of the peer's upper bound.
+    #
+    # `ignore` sits above `groups` because that is the order it happens in:
+    # Dependabot filters the ignored dependency out first and groups whatever
+    # survives, so the weekly PR still arrives carrying the rest.
+    #
+    # THE RELEASE CONDITION IS THAT COMMAND, not a date: when
+    # `peerDependencies.typescript` stops ending in `<6.1.0`, this block is
+    # finished. Remove it whole — there is no number here to edit by hand.
+    ignore:
+      - dependency-name: 'typescript'
+        versions: ['>=6.1.0']
+
+      # AND A SECOND CEILING, same shape, different package. With TypeScript
+      # unblocked, the grouped PR started carrying `eslint ^10` and CI died on
+      #
+      #   TypeError: Error while loading rule 'react/display-name':
+      #   contextOrFilename.getFilename is not a function
+      #
+      # Measured on 2026-09-08:
+      #
+      #   npm view eslint-plugin-react peerDependencies
+      #   { eslint: '^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7' }
+      #
+      # ESLint 10 is not in there, and `eslint-config-next` depends on
+      # `eslint-plugin-react@^7.37.0` -- so the incompatibility arrives from the
+      # inside and there is no version to pick here. `>=10` is the exact
+      # complement of that ceiling; 9.x still flows. Release it when the peer
+      # opens.
+      - dependency-name: 'eslint'
+        versions: ['>=10']
+
     # Grouped so it does not open seven PRs a week. A dependency PR nobody reads
     # is noise that teaches people to close dependency PRs without reading.
     #

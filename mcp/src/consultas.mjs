@@ -47,7 +47,14 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
   if (alvoNivel) regras = regras.filter((r) => normalizar(r.nivel) === alvoNivel)
   if (alvoClasse) regras = regras.filter((r) => normalizar(r.classe).startsWith(alvoClasse))
   if (alvoBusca) {
-    regras = regras.filter((r) => normalizar(`${r.id} ${r.titulo}`).includes(alvoBusca))
+    // The literals go in for the same reason they went into `decidir`: the id and
+    // the title of `disabled-defense` say "protection turned off by a literal"
+    // and never say WHICH, so `busca: "csrf"` came back empty over a rule that
+    // fails exactly that. The explanation column does NOT go in — here the match
+    // is a raw substring, and a whole English sentence per rule would make three
+    // letters hit half the catalog.
+    const alvo = (r) => normalizar(`${r.id} ${r.titulo} ${(r.termos?.literais ?? []).join(' ')}`)
+    regras = regras.filter((r) => alvo(r).includes(alvoBusca))
   }
 
   if (!regras.length) {
@@ -174,6 +181,16 @@ function formatarRegra(r, artefato) {
     for (const p of implementacao) linhas.push(`  · ${p.texto}  [${r.fonte.arquivo}:${p.linha}]`)
   }
 
+  // WHAT IT LOOKS FOR, before the proofs. An AI that reads "no framework
+  // protection turned off by a literal" still does not know whether the line it
+  // is about to write is one of them; the list of literals is the only part of
+  // this answer it can compare its own diff against.
+  if (r.termos?.literais?.length) {
+    linhas.push('', 'WHAT IT LOOKS FOR — the literals, out of the table in the source:')
+    linhas.push(`  ${r.termos.literais.join(', ')}`)
+    for (const e of r.termos.explicacoes ?? []) linhas.push(`    · ${e}`)
+  }
+
   if (r.provas?.length) {
     linhas.push('', `WHAT LOCKS THIS RULE — ${r.provas.length} proof case(s):`)
     for (const p of r.provas) {
@@ -182,11 +199,15 @@ function formatarRegra(r, artefato) {
     }
   }
 
-  if (!cabecalho.length && !implementacao.length && !r.provas?.length) {
+  if (!cabecalho.length && !implementacao.length && !r.provas?.length && !r.termos) {
     linhas.push('', 'The artifact brought no written reason for this rule. Read the source above.')
   }
 
-  linhas.push('', `To check it: node tooling/rebar-check/index.mjs --rule=${r.id} .`)
+  // THE MODULE THAT RUNS IT, and not the usual one hard-typed. `rebar-check`
+  // exits 2 on `--rule=disabled-defense` because it does not know that id — the
+  // answer handed an agent a command that cannot work, on the rule about CSRF.
+  // The path is already in the artifact, one field above.
+  linhas.push('', `To check it: node ${r.fonte.arquivo} --rule=${r.id} .`)
   return linhas.join('\n')
 }
 
@@ -215,7 +236,10 @@ function formatarDecisao(d, artefato) {
 }
 
 /**
- * How many of the terms show up in this field, matching by WORD, not by substring.
+ * WHICH of the terms show up in this field, matching by WORD, not by substring.
+ *
+ * It used to return only the COUNT, and the count is not enough to tell an answer
+ * from a mention: see `avaliar` right below.
  *
  * The example words below stay in Portuguese, and so do the `${t}s`/`${t}es` plurals
  * in the code: they are the measurement, and the artifact text being searched is
@@ -235,17 +259,17 @@ function formatarDecisao(d, artefato) {
  *                       pulled "corpo" and "correto", and the top of the list turned
  *                       to noise.
  */
-function casa(texto, termos) {
+function termosQueCasam(texto, termos) {
   const palavras = normalizar(texto)
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
-  let n = 0
+  const achados = []
   for (const t of termos) {
     const bate =
       t.length >= 4 ? (p) => p.startsWith(t) : (p) => p === t || p === `${t}s` || p === `${t}es`
-    if (palavras.some(bate)) n++
+    if (palavras.some(bate)) achados.push(t)
   }
-  return n
+  return achados
 }
 
 /**
@@ -255,12 +279,51 @@ function casa(texto, termos) {
  * justification is context. Without a per-field weight, the long paragraph always
  * beats the short id, because it has more words — and the list comes out sorted by
  * verbosity.
+ *
+ * The weight now decides one more thing, and it is the same distinction written
+ * once: from `PESO_IDENTIDADE` up, the field IDENTIFIES the entry (its id, its
+ * title, the step's name, the literal the rule greps for); below it, the field
+ * merely mentions the subject. `ehResposta` reads this, and nothing else.
  */
-function pontuar(campos, termos) {
+const PESO_IDENTIDADE = 3
+
+function avaliar(campos, termos) {
   let pontos = 0
-  for (const [texto, peso] of campos) pontos += peso * casa(texto ?? '', termos)
-  return pontos
+  const cobertos = new Set()
+  let identidade = false
+  for (const [texto, peso] of campos) {
+    const achados = termosQueCasam(texto ?? '', termos)
+    if (!achados.length) continue
+    pontos += peso * achados.length
+    for (const t of achados) cobertos.add(t)
+    if (peso >= PESO_IDENTIDADE) identidade = true
+  }
+  return { pontos, cobertos: cobertos.size, identidade }
 }
+
+/**
+ * IS THIS AN ANSWER, OR JUST A MENTION? The question the module did not ask.
+ *
+ * Measured on 2026-09-07: `rate limit` came back with the `readme` rule. Nothing
+ * in rebar checks a rate limit; what happened is that the word "limit" appears in
+ * the paragraph explaining why `readme` demands no minimum size. One word of a
+ * two-word subject, in a justification paragraph, scored 1 and won by walkover
+ * because it was the only entry with any score at all.
+ *
+ * An entry stays only if one of two things is true:
+ *
+ *   IT IS IDENTIFIED by the subject — the subject is in its id, its title, the
+ *   step's name or the literal the rule greps for. That is what the weights
+ *   already said; this only reads them.
+ *
+ *   OR IT COVERS THE WHOLE SUBJECT, wherever. "cor" is one term and `raw-hex`
+ *   answers it out of its body — the documented case, and it survives. "rate
+ *   limit" is two, and half a subject is not a subject.
+ *
+ * The cut runs BEFORE the ranking on purpose: sorting noise to the bottom still
+ * prints it, and what prints gets read as an answer.
+ */
+const ehResposta = (a, termos) => a.identidade || a.cobertos === termos.length
 
 // Words that distinguish nothing in Portuguese. THE LIST ITSELF STAYS PORTUGUESE:
 // it is the stopword filter for the subject the caller types, and the artifact it
@@ -301,9 +364,14 @@ export function decidir(artefato, assunto) {
 
   const achados = []
 
+  // Entries that matched a word of the subject without being about it. They are
+  // not printed as answers; they are counted, so the cut is auditable instead of
+  // silent — a filter nobody can see is the next drift.
+  const mencoes = []
+
   for (const d of artefato.decisoesFechadas ?? []) {
     const corpo = (d.porque ?? []).map((p) => (typeof p === 'string' ? p : p.texto)).join(' ')
-    const p = pontuar(
+    const a = avaliar(
       [
         [d.id.replace(/-/g, ' '), 8],
         [d.decisao, 4],
@@ -312,11 +380,13 @@ export function decidir(artefato, assunto) {
       ],
       termos,
     )
-    if (p) {
+    const responde = Boolean(a.pontos) && ehResposta(a, termos)
+    if (a.pontos && !responde) mencoes.push(d.id)
+    if (responde) {
       achados.push({
         // A closed decision is the direct answer to "what was already decided";
         // a rule is the mechanism. On a tie, the decision comes first.
-        p: p + 1,
+        p: a.pontos + 1,
         linha: `[decision] ${d.id} — ${d.decisao}`,
         detalhe: `           proof: ${d.prova.arquivo}:${d.prova.linha} · rebar_porque { id: "${d.id}" }`,
       })
@@ -326,18 +396,29 @@ export function decidir(artefato, assunto) {
   for (const r of artefato.regras) {
     const razoes = (r.porque ?? []).map((x) => x.texto).join(' ')
     const provas = (r.provas ?? []).map((x) => `${x.caso} ${x.porque ?? ''}`).join(' ')
-    const p = pontuar(
+    const a = avaliar(
       [
         [r.id.replace(/-/g, ' '), 8],
         [r.titulo, 4],
+        // WEIGHT 6, between the id and the title, and it is not a guess: this is
+        // the exact string that fails the commit. Asked about `csrf`, the answer
+        // is not a paragraph about CSRF — it is that `@csrf` + `_exempt` is what
+        // `disabled-defense` greps for and refuses.
+        [(r.termos?.literais ?? []).join(' '), 6],
+        // WEIGHT 2, below PESO_IDENTIDADE: the second column of the table is a
+        // sentence ABOUT the danger, and its words ("route", "download",
+        // "process") live in a hundred honest questions that are not this rule.
+        [(r.termos?.explicacoes ?? []).join(' '), 2],
         [razoes, 1],
         [provas, 1],
       ],
       termos,
     )
-    if (p) {
+    const responde = Boolean(a.pontos) && ehResposta(a, termos)
+    if (a.pontos && !responde) mencoes.push(r.id)
+    if (responde) {
       achados.push({
-        p,
+        p: a.pontos,
         linha: `[rule ${r.nivel} ${SIGLA_CLASSE[r.classe] ?? r.classe}] ${r.id} — ${r.titulo}`,
         detalhe: `           rebar_porque { id: "${r.id}" }`,
       })
@@ -345,7 +426,7 @@ export function decidir(artefato, assunto) {
   }
 
   for (const passo of artefato.gate?.passos ?? []) {
-    const p = pontuar(
+    const a = avaliar(
       [
         [passo.nome, 8],
         [(passo.comando ?? []).join(' '), 3],
@@ -353,9 +434,11 @@ export function decidir(artefato, assunto) {
       ],
       termos,
     )
-    if (p) {
+    const responde = Boolean(a.pontos) && ehResposta(a, termos)
+    if (a.pontos && !responde) mencoes.push(passo.nome)
+    if (responde) {
       achados.push({
-        p,
+        p: a.pontos,
         linha: `[gate step ${passo.ordem}] ${passo.nome}`,
         detalhe: `           ${passo.comando ? passo.comando.join(' ') : 'internal function of the verifier'}`,
       })
@@ -363,16 +446,18 @@ export function decidir(artefato, assunto) {
   }
 
   for (const ref of artefato.referencias ?? []) {
-    const p = pontuar(
+    const a = avaliar(
       [
         [ref.assunto.replace(/-/g, ' '), 6],
         [ref.oQueEsta, 2],
       ],
       termos,
     )
-    if (p) {
+    const responde = Boolean(a.pontos) && ehResposta(a, termos)
+    if (a.pontos && !responde) mencoes.push(ref.assunto)
+    if (responde) {
       achados.push({
-        p,
+        p: a.pontos,
         linha: `[prose] ${ref.assunto} — ${ref.oQueEsta}`,
         detalhe: `           ${ref.arquivo}:${ref.linha}  (read it there; I do not copy prose over here)`,
       })
@@ -385,6 +470,17 @@ export function decidir(artefato, assunto) {
       '',
       'That is an answer, not a failure: it means the rebar gate does NOT enforce this',
       'today, so nobody will fail you over it — and nobody guarantees it either.',
+      // Named, and named as what they are. Before this cut, one of these WAS the
+      // answer: "rate limit" came back with the `readme` rule because the word
+      // "limit" is in one of its paragraphs. Printing them under a heading that
+      // says they are not answers costs one line and hides nothing.
+      ...(mencoes.length
+        ? [
+            '',
+            `${mencoes.length} entry(ies) mention a word of it without being about it, and ` +
+              `this is NOT an answer: ${[...new Set(mencoes)].slice(0, 6).join(', ')}.`,
+          ]
+        : []),
       '',
       'What rebar on purpose did NOT derive over here:',
       ...(artefato.naoDerivado ?? []).map((s) => `  · ${s}`),

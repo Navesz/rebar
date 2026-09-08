@@ -18,11 +18,17 @@
 // Zero dependencies: Node built-ins only.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { aplicarPortao, marcarExecutaveis, PASTA_HOOKS } from './gate/aplicar.mjs'
+import {
+  aplicarPortao,
+  marcarExecutaveis,
+  normalizarFormato,
+  PASTA_HOOKS,
+  REGISTRO_REMOTO,
+} from './gate/aplicar.mjs'
 import { ambienteDeIdentidade } from './identidade.mjs'
 
 // fileURLToPath, not .pathname: on Windows the pathname comes out as
@@ -211,6 +217,52 @@ function rodarRegua(destino) {
   return r.status
 }
 
+/**
+ * The remote gate becomes a WARNING, and warnings drop the generator's exit code.
+ *
+ * WHAT THIS REPLACES. Until 2026-09-07 the generator printed a line telling the
+ * human to open Settings › Rules, and that line ADMITTED the hole in its own
+ * words — "without the ruleset, the CI is an optional green badge and the gate
+ * closes nothing" — and then exited 0. Measured the same day on this owner's two
+ * repositories: `Navesz/rebar` had the ruleset, `Navesz/assay` had none, and the
+ * generator had said the same thing to both.
+ *
+ * The state is READ from the record the gate just wrote, never asserted here.
+ * Two sources for "is the branch protected" is how one of them starts lying, and
+ * the record is the one the project's own `npm run verificar` reads afterwards.
+ *
+ * It is a warning and not a failure because the generator CANNOT install it: the
+ * ruleset touches the owner's account and the remote repository does not exist
+ * yet. Accusing the owner of not having done something the tool never let them
+ * do would be the automatic rule that is wrong, which costs more than an absent
+ * rule. A warning is exit 1 with a name on screen — which is the whole point.
+ */
+function avisarPortaoRemoto(destino, avisos) {
+  const caminho = join(destino, ...REGISTRO_REMOTO.split('/'))
+  if (!existsSync(caminho)) {
+    avisos.push(
+      `${REGISTRO_REMOTO} was not written — the project has no record of its branch protection, ` +
+        'and `npm run verificar` cannot check what it cannot compare',
+    )
+    return 'not written'
+  }
+  let registro
+  try {
+    registro = JSON.parse(readFileSync(caminho, 'utf8'))
+  } catch (erro) {
+    avisos.push(`${REGISTRO_REMOTO} came out as invalid JSON (${erro.message})`)
+    return 'unreadable'
+  }
+  if (registro.estado === 'instalado') return registro.estado
+  avisos.push(
+    `the remote gate is "${registro.estado}": nobody has required the \`verificar\` check on ` +
+      'GitHub yet, so a red CI still merges. This is item 2 of the list above, and the project ' +
+      `now says so on every run — \`npm run verificar\` reads ${REGISTRO_REMOTO} and fails while ` +
+      'it stays true',
+  )
+  return registro.estado
+}
+
 // ──────────────────────────────────────────────────────────────────── main
 
 async function main(argv) {
@@ -360,6 +412,14 @@ async function main(argv) {
   eco(`       next.config.ts output:"export" → ${exportEstatico}`)
   eco(`       verificar script → ${elos ? elos.join(' + ') : '(not written)'}`)
 
+  // AFTER every write and BEFORE the first commit. The gate just replaced the
+  // project's `.prettierrc` with the house one, and the files `shadcn create`
+  // brought were written under the other. Without this pass the project is born
+  // failing the `format-check` link the same gate just put in its chain — the
+  // generator approving the debt it manufactured. See `normalizarFormato`.
+  eco(`       prettier --write . → ${normalizarFormato(destino, avisos)}`)
+  eco(`       remote gate → ${avisarPortaoRemoto(destino, avisos)}`)
+
   eco('\n▸ 4/6  git: init, hooks, first commit')
   // `git init` is idempotent and create-next-app already initialized — but it
   // committed nothing, so the first commit is ours. Running init again only
@@ -433,8 +493,14 @@ async function main(argv) {
   eco('')
   eco('  THE GENERATOR DOES NOT DO THESE, ON PURPOSE — they touch your account:')
   eco('   1. create the remote repository (gh repo create, or on the site) and push')
-  eco('   2. Settings › Rules › new ruleset: require the `verificar` check and forbid bypass.')
-  eco('      Without the ruleset, the CI is an optional green badge and the gate closes nothing.')
+  // ONE COMMAND, and it is derived: `--corpo` prints the ruleset body built from
+  // the check names this project's own workflow produces. The old version of
+  // this line sent the owner to a settings page to retype two context strings by
+  // hand, which is how a ruleset ends up requiring a check nobody runs.
+  eco('   2. install the ruleset — the CI is a badge until somebody requires it:')
+  eco(`        node ${REGISTRO_REMOTO.replace('.json', '.mjs')} --corpo \\`)
+  eco('          | gh api --method POST repos/<owner>/<repo>/rulesets --input -')
+  eco(`        node ${REGISTRO_REMOTO.replace('.json', '.mjs')} --gravar    # record the fact`)
   eco('   3. Settings › Pages › Source: GitHub Actions, if this site is going live.')
   eco('   4. check .rebar-coauthors: the git identity of this machine went in.')
   eco('')

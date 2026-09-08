@@ -949,6 +949,8 @@ const PASSOS_ESPERADOS = [
   'proofs',
   'generator-map',
   'site-paths',
+  'remote-gate',
+  'chain',
   'generator-identity',
   'mcp-template',
   'security',
@@ -1032,6 +1034,46 @@ async function comForja(passos) {
 // those exact strings, so translating them here would compare against a value
 // nothing produces. Same for the `nome:` of each forged step.
 const estadoDoPasso = (json, nome) => json.passos.find((p) => p.nome === nome)?.estado
+
+// ── THE VOCABULARY OF THE INVOCATION ──────────────────────────────────────
+//
+// `verify.mjs` carries a comment saying a silently ignored argument is how you
+// ask for one thing and get another with exit 0 — and for a while the two lines
+// under that comment disagreed with each other. The reader took `--step=`; the
+// whitelist took `--passo=`, left over from a rename. So the form the usage
+// line ADVERTISES exited 2, and the stale form passed the check, was never
+// read, and ran all twenty-five steps with exit 0.
+//
+// It is not an invocation detail: `--step=` is what a hint prints when a step
+// falls, so the door out of a red gate was the one that did not open. Both
+// directions get a case, because a rule with only the refusing side would be
+// satisfied by refusing everything.
+
+const invocar = (...args) =>
+  spawnSync(process.execPath, [join(RAIZ, 'tooling', 'verify', 'verify.mjs'), ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 32 * 1024 * 1024,
+  })
+
+test('THE FLAG THE USAGE LINE ADVERTISES IS THE ONE THAT WORKS · --step runs one step', () => {
+  const r = invocar('--step=syntax', '--json')
+  assert.notEqual(r.status, 2, `--step= was refused: ${r.stderr}`)
+  const json = JSON.parse(r.stdout)
+  assert.deepEqual(
+    json.passos.map((p) => p.nome),
+    ['syntax'],
+    'asking for one step and getting the whole suite is the defect, not the fix',
+  )
+})
+
+test('AND EVERY OTHER FORM IS REFUSED · including the stale one that used to pass', () => {
+  for (const argumento of ['--passo=syntax', '--etapa=syntax', 'syntax', '--verbose']) {
+    const r = invocar(argumento)
+    assert.equal(r.status, 2, `${argumento} was accepted — it runs the whole suite in silence`)
+    assert.match(r.stderr, /I do not recognize/)
+  }
+})
 
 test('A MISSING VERDICT IS A BREAK · a function that returns nothing does not pass', async () => {
   const { json } = await comForja([

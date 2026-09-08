@@ -1,0 +1,10 @@
+{
+  "rule": "raw-hex",
+  "why": "A HEX IN A COMMENT PAINTS NOTHING, and until 2026-09-08 the rule charged for one. Measured on `assay`: `✗ raw-hex  1 color(s) defined in both places: #9aa3ad`, and the single occurrence in code was `ferramental/imagens.mjs:531` — inside the comment that says the palette IS read from `app/globals.css` and not retyped, quoting the hex only to name which color it is talking about. The file the rule accused is the file that obeys it. The two SVG under `docs/assets/` that carry the same hex never entered the account: `.svg` is not in `CODIGO`, so the rule never opened them. The `pass` side is that false positive, named: the token in the `.css`, the hex quoted in a comment, and nowhere else. The `fail` side is the `pass` side PLUS one line — the hex written as a literal in code — so no part of the accusation can come from the comment. The two `ajuda`/`fecha` strings split the CSS block delimiters between two string literals ON PURPOSE, the same trap `ci-gates__comment-is-not-execution` sets: whoever swaps `semComentario` for a pair of regex erases everything between them, the literal goes with it, and the `fail` side turns green.",
+  "pass": {
+    "estado": "passou"
+  },
+  "fail": {
+    "estado": "reprovou"
+  }
+}

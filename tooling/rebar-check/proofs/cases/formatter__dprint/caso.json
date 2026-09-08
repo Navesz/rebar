@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "THE THIRD FAMILY, and it is here because a mutation caught its absence: with the dprint branch deleted from the rule, the suite stayed 65 of 65 green — a branch nobody proved is a branch nobody can be sure of. dprint spells the two modes as SUBCOMMANDS and not as flags: `dprint check` reports and comes back non-zero, `dprint fmt` rewrites and comes back zero. So the `fail` side owns the formatter, runs it, and gates on nothing — the dprint spelling of `prettier --write`; the `pass` side adds `dprint check` next to it. It is the same pair as `formatter__biome`, on a tool whose vocabulary shares no word with prettier’s, which is the point of having three.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "portão de formato com dprint check",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "dprint fmt só reescreve",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

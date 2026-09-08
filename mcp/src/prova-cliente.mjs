@@ -29,7 +29,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // The client lives outside this file since the second proof that needs it showed
 // up — the one for the MCP the generator writes, in new/gate/prove-mcp-template.mjs.
@@ -179,6 +179,256 @@ for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
   }
 
   ok(`${nome}${erro ? ' (isError, as the contract demands)' : ''} — ${t.length} characters`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3b · THE SUBJECT REACHES THE RULE THAT FAILS IT — AND NO OTHER.
+//
+// THE WORST CASE OF THE HOUSE, INVERTED, and it was live. Measured on
+// 2026-09-07 against the artifact, asking the five questions an agent asks
+// before writing a route:
+//
+//   rls          "nobody will fail you over it"          true
+//   upload       "nobody will fail you over it"          true
+//   rate limit   answered with the `readme` rule         noise
+//   csrf         "nobody will fail you over it"          FALSE. It fails.
+//   tls          answered with `disabled-defense`        true, by accident
+//
+// `disabled-defense` fails the commit for an exemption written into a route.
+// The MCP said nobody would. An agent that believes it writes the line, and the
+// gate then refuses the commit it was told to make — a ruler that lies in the
+// direction of permission is worse than no ruler at all.
+//
+// THE THREE CONTRACTS HERE, and the third is the one that keeps the other two
+// honest:
+//
+//   1. a subject that HAS a rule reaches that rule. `csrf` and `tls` through the
+//      prose of the header, `curl` through the literals of the pattern table
+//      (that word is in no paragraph of the artifact), `helmet` through the
+//      second column of the table (that word is in no pattern). Four subjects,
+//      three different paths in, so a regression names which one broke.
+//
+//   2. a subject that has NO rule is not answered with a rule. `rate limit` came
+//      back with `readme`, because the word "limit" shows up in the paragraph
+//      about README size. A wrong answer wearing the face of an answer is worse
+//      than "I do not know".
+//
+//   3. THE APPROVING SIDE — and without it this whole block passes by making
+//      everything match everything. `rls` and `upload` are real subjects rebar
+//      does not govern, and the honest answer to them is that nobody will fail
+//      you over it. A change that made every subject find a rule would satisfy
+//      contracts 1 and 2 and would break here.
+titulo('3b · rebar_decidir: the subject reaches the rule that fails it, and no other')
+
+// `exige` — this id has to come out FIRST, and "first" is not decoration: the
+// answer is sorted by strength and cut at eight, so an id that is merely present
+// can be the ninth and never printed. It is also what catches the vocabulary
+// coming untied from the table that feeds it — every rule would then answer
+// every subject the table covers, "present" would go on passing, and the model
+// would be handed eight innocent rules with the guilty one somewhere below.
+//
+// `silencio` — the honest "nothing decides it", with no rule at all. `proibe` —
+// this id must not be among the answers, and it is read off the ANSWER lines
+// only: the empty answer also NAMES what it threw away, and taking that name for
+// an answer would make this contract congratulate the defect it exists to catch.
+const DECIDIR = [
+  [
+    'csrf',
+    { exige: 'disabled-defense' },
+    'the rule fails the exemption; the MCP said nobody would',
+  ],
+  ['tls', { exige: 'disabled-defense' }, 'it used to hit by accident, through a word in a comment'],
+  ['curl', { exige: 'disabled-defense' }, 'only the LITERALS of the pattern table can answer this'],
+  ['helmet', { exige: 'disabled-defense' }, 'only the EXPLANATION column can answer this'],
+  [
+    'rate limit',
+    { silencio: true, proibe: 'readme' },
+    'nothing checks it; it answered with README',
+  ],
+  ['rls', { silencio: true }, 'the approving side: a real subject rebar does not govern'],
+  ['upload', { silencio: true }, 'the approving side, second case'],
+]
+
+// The id of every entry the answer OFFERS AS AN ANSWER. The line shape is the
+// one consultas.mjs prints (`[rule N1 det] id — title`); reword it there and
+// reword it here, or this contract quietly stops being checked.
+const idsRespondidos = (t) =>
+  t
+    .split('\n')
+    .filter((l) => /^\[/.test(l))
+    .map((l) => l.replace(/^\[[^\]]*\]\s*/, '').split(' ')[0])
+
+for (const [assunto, contrato, pergunta] of DECIDIR) {
+  const r = await cliente.pedir('tools/call', {
+    name: 'rebar_decidir',
+    arguments: { assunto },
+  })
+  const t = textoDa(r) ?? ''
+  if (!CURTO) console.log(`\n  ── "${assunto}" — ${pergunta}\n${trecho(t, 500)}`)
+  const respondidos = idsRespondidos(t)
+
+  if (contrato.exige && respondidos[0] !== contrato.exige) {
+    falhou(
+      `rebar_decidir "${assunto}" did not come out strongest as ${contrato.exige} — it answered ` +
+        `${respondidos.length ? respondidos.join(', ') : 'nothing at all'}. ` +
+        'The gate fails this and the MCP says it does not.',
+    )
+    continue
+  }
+  if (contrato.proibe && respondidos.includes(contrato.proibe)) {
+    falhou(
+      `rebar_decidir "${assunto}" answered with ${contrato.proibe}, which decides nothing about it`,
+    )
+    continue
+  }
+  if (contrato.silencio) {
+    // Both patterns are the wording consultas.mjs prints for the empty answer.
+    if (!/^Nothing in the artifact decides/m.test(t)) {
+      falhou(`rebar_decidir "${assunto}" invented an answer: ${trecho(t, 200)}`)
+      continue
+    }
+    if (respondidos.length) {
+      falhou(
+        `rebar_decidir "${assunto}" said nothing decides it AND listed ${respondidos.join(', ')}`,
+      )
+      continue
+    }
+    if (!/nobody will fail you over it/.test(t)) {
+      falhou(`rebar_decidir "${assunto}" said nothing decides it without saying that is safe`)
+      continue
+    }
+  }
+  ok(`"${assunto}" — ${contrato.exige ? contrato.exige : 'nothing decides it, and it says so'}`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3c · THE VOCABULARY IS NOT A COPY OF WHAT THE TABLE HUNTS.
+//
+// The literals of `disabled-defense` enter the artifact so that a question can
+// reach the rule. Written back joined by the character the pattern demands
+// between them, they would BE the flaw — and `rules.generated.json` is a tracked
+// file like any other. It is the invariant tooling/security/prove-table.mjs
+// holds over the rules file and over itself; here it is held over the artifact
+// the generator writes, which is the third place those literals now live.
+titulo('3c · the vocabulary derived from the table is not a copy of what the table hunts')
+{
+  const { DESLIGAM } = await import(
+    pathToFileURL(join(RAIZ, 'tooling', 'security', 'index.mjs')).href
+  )
+  const artefato = JSON.parse(readFileSync(join(RAIZ, 'mcp', 'rules.generated.json'), 'utf8'))
+  const comTermos = artefato.regras.filter((r) => r.termos?.literais?.length)
+
+  // THE VOCABULARY, and not the whole file, and the difference is measured.
+  //
+  // Run over `rules.generated.json` whole, this check goes red on a `porque`
+  // paragraph — the one where the source comment of `disabled-defense` QUOTES
+  // the literal to explain where the printed text comes from. That quote has
+  // been in the artifact since before this vocabulary existed, and the ruler
+  // does not read it: `codigo()` only sees the code extensions, and the artifact
+  // is JSON. A proof stricter than the rule accuses what the rule forgives, and
+  // that is not rigour, it is noise — the same sentence tooling/security/
+  // prove-table.mjs carries about its own first version.
+  //
+  // What IS new here is the vocabulary, and it is the one that could turn the
+  // artifact into a sample of the flaw: joined with the character the pattern
+  // demands between the words instead of a space, every literal would match.
+  const vocabulario = comTermos
+    .map((r) => [...r.termos.literais, ...(r.termos.explicacoes ?? [])].join(' '))
+    .join('\n')
+  const achados = DESLIGAM.filter(([padrao]) => padrao.test(vocabulario))
+  if (achados.length) {
+    falhou(
+      `the derived vocabulary matches ${achados.length} pattern(s) of the ruler: ` +
+        `${achados.map(([x]) => x.source).join(' · ')}. ` +
+        'Every repository that vendors the artifact would start failing over the MCP.',
+    )
+  } else {
+    ok(`${DESLIGAM.length} patterns in the table, and none of them matches the vocabulary`)
+  }
+
+  // The other direction, and without it the check above passes by emptiness: a
+  // generator that stopped deriving the tables would match nothing AND answer
+  // nothing. 3b would go red on `curl` and `helmet`; this says which FIELD went
+  // missing instead of leaving it to be guessed from a query that stopped working.
+  if (!comTermos.length) {
+    falhou('no rule in the artifact carries `termos`: the pattern tables stopped being derived')
+  } else {
+    ok(
+      `${comTermos.length} rule(s) carry the literals they fail over: ` +
+        comTermos.map((r) => r.id).join(', '),
+    )
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3d · THE REASON OF A RULE SURVIVES THE EXTRACTION.
+//
+// Measured on 2026-09-07: `disabled-defense`, `env-committed` and
+// `password-without-kdf` write their reason in a JSDoc block, and the extractor
+// read only `//`. All three reached the artifact with ONE header paragraph, and
+// that paragraph was the section ruler drawn above them — so `rebar_porque`
+// answered the rule about CSRF with a row of box-drawing characters, and
+// `rebar_decidir` had nothing of the header to search.
+//
+// TWO CONTRACTS, one per half of that defect, and they are read off the SOURCE
+// and off the artifact independently of the generator's own parser: a proof that
+// asks the generator whether the generator worked proves nothing.
+titulo('3d · a rule whose source writes a header does not reach the artifact without one')
+{
+  const artefato = JSON.parse(readFileSync(join(RAIZ, 'mcp', 'rules.generated.json'), 'utf8'))
+  const cache = new Map()
+  const fonteDe = (rel) => {
+    if (!cache.has(rel)) {
+      const bruto = readFileSync(join(RAIZ, ...rel.split('/')), 'utf8').replace(/\r\n/g, '\n')
+      cache.set(rel, bruto.split('\n'))
+    }
+    return cache.get(rel)
+  }
+
+  // 1. THE HEADER IS NOT LOST. `fonte.linha` is the `id:` line; from the next one
+  // to the `checar:` key is the header the source wrote. If there is a comment in
+  // there in ANY of its two markers, the artifact has to carry a `cabecalho`
+  // paragraph — whatever marker the author chose.
+  const mudos = []
+  for (const r of artefato.regras) {
+    const linhas = fonteDe(r.fonte.arquivo)
+    const entre = []
+    for (let i = r.fonte.linha; i < linhas.length && !/^ {4}checar:/.test(linhas[i]); i++) {
+      entre.push(linhas[i])
+    }
+    const escreveu = entre.some((l) => /^\s*(\/\/|\/\*|\*)/.test(l))
+    const carrega = (r.porque ?? []).some((p) => p.onde === 'cabecalho')
+    if (escreveu && !carrega) mudos.push(`${r.id} (${r.fonte.arquivo}:${r.fonte.linha})`)
+  }
+  if (mudos.length) {
+    falhou(
+      `${mudos.length} rule(s) with a header in the source and none in the artifact: ` +
+        `${mudos.join(', ')}. The MCP would present them as arbitrary, which is the ` +
+        'one thing the `porque` field exists not to do.',
+    )
+  } else {
+    ok(`${artefato.regras.length} rules, and every written header reached the artifact`)
+  }
+
+  // 2. AND WHAT REACHES IT IS NOT DECORATION. The ruler that used to be the whole
+  // reason of the three security rules is navigation for the human eye; as a
+  // paragraph it taught the model that the rule is about the letter S.
+  const enfeites = []
+  for (const r of artefato.regras) {
+    for (const p of r.porque ?? []) {
+      if (/[─-╿—]{4,}/.test(p.texto) || /^[─-╿—\-=·\s]+$/.test(p.texto)) {
+        enfeites.push(`${r.id}:${p.linha}`)
+      }
+    }
+  }
+  if (enfeites.length) {
+    falhou(
+      `${enfeites.length} paragraph(s) of \`porque\` are a ruler, not a reason: ${enfeites.join(', ')}`,
+    )
+  } else {
+    const total = artefato.regras.reduce((n, r) => n + (r.porque?.length ?? 0), 0)
+    ok(`${total} paragraphs of \`porque\`, and not one of them is a frame line`)
+  }
 }
 
 cliente.fechar()

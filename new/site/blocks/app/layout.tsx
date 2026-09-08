@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { cn } from '@/lib/utils'
-import { site } from '@/conteudo/carregar'
+import { naPasta, site } from '@/conteudo/carregar'
 
 const fontSans = Geist({ subsets: ['latin'], variable: '--font-sans' })
 const fontMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' })
@@ -27,6 +27,30 @@ export const metadata: Metadata = {
   description: site.meta.descricao,
   applicationName: site.identidade.nome,
   alternates: { canonical: '/' },
+  // THE FAVICON, AND IT POINTS AT A FILE THE GENERATOR REALLY WRITES.
+  //
+  // Without this key the tab shows whatever the scaffold left behind, and the
+  // one project that noticed fixed it in its own copy — the template stayed
+  // without it, so every site born after that carried the same hole. That is
+  // the shape of defect this repository exists to close, and the favicon is
+  // named in the plan (§3.3, §6.2) as one of the holes.
+  //
+  // WHY THE 192 AND NOT THE CARD. `aplicar.mjs` writes three images and no
+  // brand drawing: the share card, which is 1200 by 630 and would be a sliver
+  // squeezed into a square tab, and the two icons `og.mjs` draws with one or
+  // two initials — sized that way, in its own words, because of favicon size.
+  // So the tab gets the smaller of the two squares, which is the SAME art
+  // `app/manifest.ts` already declares: one drawing, not a second one to drift
+  // from it. Pointing at a file the generator does not write would be
+  // declaring a 404, which is worse than declaring nothing.
+  //
+  // AND IT GOES THROUGH `naPasta`, for the reason measured in
+  // `conteudo/carregar.ts`: Next does not resolve `icons` against
+  // `metadataBase` the way it resolves the canonical and the og image — this
+  // string reaches the `href` verbatim. Read in the built export of a site
+  // that lives in a folder, a path with no folder in front of it is a 404 with
+  // the build, the types and the lint all green.
+  icons: { icon: { url: naPasta('/icone-192.png'), type: 'image/png' } },
   openGraph: {
     type: 'website',
     // og wants `pt_BR`; the HTML `lang` attribute wants `pt-BR`. Same datum,

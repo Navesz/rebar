@@ -1244,15 +1244,72 @@ export default [
     // and enters the `verificar` chain after `build`.
     nome: 'site-paths',
     comando: node('--test', 'new/site/prove-paths.mjs'),
+    // `exige` LISTS WHAT THE PROOF READS, and every entry earns its place: a
+    // file missing here fails the REPOSITORY (1) instead of breaking the RULER
+    // (127), and the house does not accuse a repository with a ruler that broke.
+    // `layout.tsx` and `aplicar.mjs` joined when the proof started deriving the
+    // generator's image list instead of retyping it.
     exige: [
       'new/site/prove-paths.mjs',
+      'new/site/aplicar.mjs',
+      'new/site/blocks/app/layout.tsx',
       'new/site/blocks/app/manifest.ts',
       'new/site/blocks/app/sitemap.ts',
       'new/site/blocks/conteudo/carregar.ts',
       'new/site/blocks/testes/publicado.mjs',
     ],
-    dica: 'A path in the site blocks stopped going through `naPasta`, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green.',
+    dica: 'A path in the site blocks stopped going through `naPasta`, the favicon left the template, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
+    // ── THE GATE OF THE SERVER, IN THE PROJECT THIS ONE MAKES ──────────────
+    //
+    // N4s is the only level that survives the agent: everything in N0–N5 lives
+    // in a file the agent edits, and `core.hooksPath` it removes with no diff at
+    // all. It was also the level rebar demanded of others and never shipped —
+    // measured on 2026-09-08, `gh api repos/Navesz/assay/rulesets` answered `[]`
+    // for all three published sites, and a direct push to `main` was accepted.
+    //
+    // What this step proves is the TEMPLATE, not this repository's own ruleset:
+    // the record that goes into `.rebar/portao-remoto.json`, the checker beside
+    // it, and — the part that decides whether the whole thing is ornament — that
+    // DELETING THE RECORD FAILS. A gate whose absence is cheaper than its
+    // presence is a gate nobody keeps.
+    nome: 'remote-gate',
+    comando: node('--test', 'new/gate/prove-portao-remoto.mjs'),
+    exige: [
+      'new/gate/prove-portao-remoto.mjs',
+      'new/gate/arquivos/portao-remoto.mjs',
+      'new/gate/arquivos/portao-remoto.json',
+    ],
+    dica: 'The generated project stopped charging for the gate on the server. If it loosened, every project rebar makes is born with `main` open and the CI badge green — which is the state this level exists to make impossible.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    avisar: /^\s*⚠/,
+    tempoLimite: 3 * MINUTO,
+  },
+  {
+    // ── WHAT THE GENERATED `verificar` ACTUALLY REACHES ────────────────────
+    //
+    // rebar charged itself 23 steps and handed out 6. The three that were
+    // missing already bit, and each bite is written into the proofs: `format`
+    // (32 files off-style in the first real project, 15 of them written by the
+    // generator itself), `links` (a README pointing at an image that was never
+    // committed renders broken on GitHub and green in the gate) and `secret`
+    // (the hook is N5 and disappears with `--no-verify`, and nothing in the CI
+    // scanned the tree).
+    //
+    // This step proves the CHAIN, not the tools: that each link enters when its
+    // file arrives and stays out when it does not, and that the order holds —
+    // `publicado` after `build`, because what it reads is the export, and
+    // `portao-remoto` last, because it is the only link whose fix is not an edit
+    // but a `gh auth login`, and a chain that cannot run is a chain that gets
+    // deleted.
+    nome: 'chain',
+    comando: node('--test', 'new/gate/prove-elos.mjs'),
+    exige: ['new/gate/prove-elos.mjs', 'new/gate/aplicar.mjs'],
+    dica: 'A link left the `verificar` of the generated project, or its order changed. What the generated CI runs is exactly this chain — a link that leaves stops being checked everywhere at once.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 2 * MINUTO,
   },
   {
     // THE FIRST COMMIT OF THE GENERATED PROJECT has to come out with the SAME

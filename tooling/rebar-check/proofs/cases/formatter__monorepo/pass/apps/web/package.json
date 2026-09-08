@@ -2,7 +2,8 @@
   "name": "@prova/web",
   "private": true,
   "scripts": {
-    "formatar": "prettier --write ."
+    "formatar": "prettier --write .",
+    "conferir-formato": "prettier --check ."
   },
   "devDependencies": {
     "prettier": "^3.3.0"

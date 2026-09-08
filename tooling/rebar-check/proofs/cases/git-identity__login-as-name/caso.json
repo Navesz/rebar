@@ -1,0 +1,28 @@
+{
+  "rule": "git-identity",
+  "why": "Measured on the rebar repository itself on 2026-09-08. Thirty-six commits carried `Naves <58537948+Navesz@users.noreply.github.com>`; the squash merge of pull request #26 wrote `Navesz` -- the LOGIN -- in the author name, because that is how GitHub attributes a squash. The rule read one e-mail with two names and failed the repository, and the drift is unfixable by design: rewriting it means force-pushing the default branch past a ruleset that exists to block exactly that, and the next squash writes it again. A rule that fails on the merge button of the forge it audits is a rule people switch off. The pass side is that exact shape -- one address, its display name, and its own login, which the address itself proves is one account. The fail side is the SAME address with a second name that is NOT its login, which is the drift the rule exists to catch and which this exemption must not swallow. Without the fail side, an exemption keyed on `p.nome === login` could be widened to `any second name` and nothing would notice.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "cria o leiame",
+        "autor": "Ana Ribeiro <8001+anaribeiro@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "descreve o proposito",
+        "autor": "anaribeiro <8001+anaribeiro@users.noreply.github.com>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "cria o leiame",
+        "autor": "Ana Ribeiro <8001+anaribeiro@users.noreply.github.com>"
+      },
+      {
+        "mensagem": "descreve o proposito",
+        "autor": "Ana R. Souza <8001+anaribeiro@users.noreply.github.com>"
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "rule": "hardcoded-secret",
+  "why": "The variant isolates ONE path, because a side satisfied by several paths at once proves none of them: the sibling case fails through four shapes together, and a rule narrowed to vendor-prefix findings only (`AKIA`, `ghp_`, `sk-`) would keep it red with this shape already invisible. This shape has no vendor prefix at all -- what denounces it is the identifier NAME plus the shape of the value -- and it is the exact one living in the main branch of the public Navesz/Climatic today. The pass side is the same file with the same identifier in the same URL, fixed by reading `process.env`: a rule that decided by the name alone would fail the fix too, and failing the fix is worse than having no rule, because it teaches people to switch checking off."
+}

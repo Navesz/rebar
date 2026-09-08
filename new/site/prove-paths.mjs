@@ -15,12 +15,23 @@
  * canonical on the published site — and they were born in the TEMPLATE, so
  * every project the generator creates carried them.
  *
- * WHAT IS PROVED HERE is the template's shape, not a build: that the three
+ * AND A FOURTH, of the same family, found on 07/09 by reading the two files
+ * side by side: `app/layout.tsx` declared no `icons` AT ALL. The project that
+ * hit it wrote the favicon into its own copy and the template never got it
+ * back, so every site the generator made was born with the tab showing
+ * whatever the scaffold happened to leave there. Same disease as the three
+ * above — the fix living in the consumer instead of in the mould — and the
+ * favicon is named in the plan (§3.3, §6.2) as one of the holes rebar came to
+ * fill.
+ *
+ * WHAT IS PROVED HERE is the template's shape, not a build: that the four
  * files pass their paths through `naPasta`, that `naPasta` is exported by
- * `conteudo/carregar.ts`, and that the gate that reads `out/` goes along in the
- * blocks and is wired into `verificar`. And, in the other direction, that a
- * mutation in each of them REPROVES — because a checker that never fails is a
- * comment claiming to be a door.
+ * `conteudo/carregar.ts`, that the icon the layout declares is a file the
+ * GENERATOR ACTUALLY WRITES — the list derived from `aplicar.mjs`, never
+ * retyped — and that the gate that reads `out/` goes along in the blocks and
+ * is wired into `verificar`. And, in the other direction, that a mutation in
+ * each of them REPROVES — because a checker that never fails is a comment
+ * claiming to be a door.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -64,6 +75,46 @@ export function caminhosCrus(fonteBruta) {
   return crus
 }
 
+/**
+ * The `icons:` value of a metadata object, as SOURCE TEXT — from the key to
+ * the brace that closes it, counted rather than guessed at with a regex.
+ *
+ * Counting is what lets the same helper serve both sides: it returns the slice
+ * when the key is there, and `null` when it is not, which IS the defect being
+ * chased — a template with no favicon at all. A regex for the whole value
+ * would have to know how deep the object nests, and `icons` nests one level in
+ * the shape Next takes.
+ */
+export function trechoDeIcones(fonteBruta) {
+  const fonte = semComentario(fonteBruta)
+  const chave = fonte.match(/\bicons:\s*\{/)
+  if (!chave) return null
+  let profundidade = 0
+  for (let i = chave.index + chave[0].length - 1; i < fonte.length; i++) {
+    if (fonte[i] === '{') profundidade += 1
+    else if (fonte[i] === '}') {
+      profundidade -= 1
+      if (profundidade === 0) return fonte.slice(chave.index, i + 1)
+    }
+  }
+  return null
+}
+
+/**
+ * The images the generator WRITES into `public/`, read out of the generator.
+ *
+ * Derived, never retyped: the day step 3 of `aplicar.mjs` renames a file or
+ * stops writing one, this list changes with it and the layout gets accused,
+ * instead of a copy kept here agreeing with a template that now points at
+ * nothing. Declaring an icon that does not exist is worse than declaring none
+ * — the browser asks and takes a 404.
+ */
+function imagensDoGerador() {
+  const fonte = semComentario(readFileSync(new URL('./aplicar.mjs', import.meta.url), 'utf8'))
+  const escritas = [...fonte.matchAll(/gravar\('public\/([A-Za-z0-9._-]+)'/g)]
+  return escritas.map(([, arquivo]) => `/${arquivo}`)
+}
+
 test('naPasta is exported by the content loader', () => {
   const carregar = ler('conteudo', 'carregar.ts')
   assert.match(carregar, /export const naPasta = \(caminho: string\)/)
@@ -93,6 +144,56 @@ test('the mutated manifest is caught — the rule is a door, not a comment', () 
   assert.deepEqual(caminhosCrus(mutante), ['/', '/icone-192.png'])
 })
 
+test('the layout declares the favicon, through naPasta, on a file the generator writes', () => {
+  const fonte = ler('app', 'layout.tsx')
+  const trecho = trechoDeIcones(fonte)
+  assert.ok(trecho, 'the template declares no icons: every site it makes is born with no favicon')
+  assert.deepEqual(caminhosCrus(trecho), [], 'raw path in the favicon')
+
+  const passados = [...trecho.matchAll(/naPasta\(\s*'(\/[A-Za-z0-9._/-]+)'\s*\)/g)]
+  assert.equal(passados.length, 1, `expected one icon path through naPasta, got: ${trecho}`)
+
+  // The file has to be one the GENERATOR writes. `og.png` is in this list and
+  // passes — the rule is membership, not shape, because the reason the icon is
+  // a square and not the 1200-by-630 card is a judgement written next to the
+  // declaration, and a rule that tried to enforce it would be guessing.
+  const escritas = imagensDoGerador()
+  assert.ok(escritas.length > 0, 'the derivation of the images out of aplicar.mjs came out empty')
+  assert.ok(
+    escritas.includes(passados[0][1]),
+    `${passados[0][1]} is not written by the generator, which writes ${escritas.join(', ')}`,
+  )
+
+  // And the import, because `naPasta` in the metadata of a block that does not
+  // import it is a red typecheck — but this proof reads source, not types, so
+  // it is the assertion that stands in for the compiler here.
+  assert.match(fonte, /import \{ naPasta, site \} from '@\/conteudo\/carregar'/)
+})
+
+test('the mutated layout is caught — the favicon gone, and the favicon raw', () => {
+  const fonte = ler('app', 'layout.tsx')
+  const trecho = trechoDeIcones(fonte)
+  // The mutations are TEXTUAL, over the source, so the slice the detector
+  // handed back has to be literally in it — it is, because the declaration
+  // carries no comment inside. If that ever stops holding, this line says so,
+  // instead of a `replace` that edits nothing and a mutant identical to the
+  // original passing as though it had been caught.
+  assert.ok(fonte.includes(trecho), 'the icons declaration is no longer a literal slice')
+
+  // (a) THE STATE THE TEMPLATE WAS IN until 07/09: the key simply absent. What
+  //     is left behind is a dangling comma, and that is fine — nothing
+  //     compiles this text, the detector reads it.
+  assert.equal(trechoDeIcones(fonte.replace(trecho, '')), null, 'a template with no favicon passed')
+
+  // (b) THE SHAPE THAT BUILDS, TYPES AND LINTS GREEN and 404s once published:
+  //     the right file, without the site's folder in front of it. The expected
+  //     path is taken from the template itself so the two do not have to be
+  //     kept in step by hand.
+  const [, caminho] = trecho.match(/naPasta\(\s*'(\/[A-Za-z0-9._/-]+)'\s*\)/)
+  const cru = fonte.replace(trecho, trecho.replace(/naPasta\(\s*('[^']+')\s*\)/, '$1'))
+  assert.deepEqual(caminhosCrus(trechoDeIcones(cru)), [caminho], 'a raw favicon was not caught')
+})
+
 test('the sitemap announces the canonical form, with the trailing slash', () => {
   const fonte = ler('app', 'sitemap.ts')
   assert.match(fonte, /url: `\$\{site\.meta\.urlBase\.replace\(\/\\\/\$\/, ''\)\}\/`/)
@@ -119,9 +220,21 @@ test('the gate chains `publicado` after `build`, and the site preset writes it',
   const elos = portao.match(/const elos = \[([^\]]*)\]/)
   assert.ok(elos, 'the chain of links was not found in the gate')
   const nomes = [...elos[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
-  assert.deepEqual(nomes, ['lint', 'typecheck', 'test', 'build', 'publicado'])
+
+  // TWO FACTS AND NOT THE WHOLE LIST, and the difference was measured on
+  // 2026-09-08: this assertion used to pin the chain exactly, and it failed the
+  // moment the chain legitimately GREW — `format-check`, `links`, `secret` and
+  // `portao-remoto` joined, closing three holes that had already bitten. A test
+  // that fails on a correct change is a test that gets deleted, and it was
+  // asserting somebody else's subject: what the whole chain is belongs to
+  // `new/gate/prove-elos.mjs`, which owns it. What belongs HERE is the one
+  // ordering this file exists for.
+  assert.ok(nomes.includes('publicado'), `the published-paths link left the chain: ${nomes}`)
   // AFTER `build`, and it is the whole point: what it reads is `out/`.
-  assert.ok(nomes.indexOf('publicado') > nomes.indexOf('build'))
+  assert.ok(
+    nomes.indexOf('publicado') > nomes.indexOf('build'),
+    `\`publicado\` reads the export, so it cannot run before \`build\`: ${nomes}`,
+  )
 
   const site = readFileSync(new URL('./aplicar.mjs', import.meta.url), 'utf8')
   assert.match(site, /pkg\.scripts\.publicado =\s*'node testes\/publicado\.mjs --provar/)
