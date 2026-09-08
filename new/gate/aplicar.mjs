@@ -727,10 +727,40 @@ function garantirScripts(destino, avisos) {
   // Node built-in, zero new dependencies.
   if (!pkg.scripts.test) pkg.scripts.test = 'node --test "testes/**/*.test.mjs"'
 
-  const elos = ['lint', 'typecheck', 'test', 'build'].filter((n) => pkg.scripts[n])
+  // `publicado` is LAST, and after `build` on purpose: what it reads is the
+  // export's output. It only enters the chain if the preset wrote it — the site
+  // preset does, and it is the step that catches an absolute path emitted
+  // without the site's folder, which is a 404 with everything else green.
+  const elos = ['lint', 'typecheck', 'test', 'build', 'publicado'].filter((n) => pkg.scripts[n])
   // `npm test` and not `npm run test`: it is the canonical name, and the
   // `ci-gateia` rule looks for the word `test`, which is in both.
   pkg.scripts.verificar = elos.map((n) => (n === 'test' ? 'npm test' : `npm run ${n}`)).join(' && ')
+
+  // THE PLATFORM OPTIONALS, PINNED. Without this the project is born with a
+  // lockfile the runner's `npm ci` REFUSES, and CI fails on the first push:
+  //
+  //   npm error `npm ci` can only install packages when your package.json and
+  //   package-lock.json are in sync.
+  //   npm error Missing: @emnapi/runtime@1.11.3 from lock file
+  //
+  // The cause is not the project, it is the tool: the npm on the generating
+  // machine writes a tree the runner's npm does not accept, because those
+  // dependencies are OPTIONAL and resolved per platform. `npm install
+  // --package-lock-only` and incremental installs write LESS, not more. Pinning
+  // the version forces npm to record them.
+  //
+  // And the worst part: a LOCAL `npm ci` accepts the tree the runner refuses, so
+  // checking on your own machine gives a FALSE GREEN. Only CI catches it.
+  //
+  // THREE PROJECTS IN A ROW hit this — rebar-site, navesz-portfolio and assay —
+  // and all three times the fix stayed in the consumer. This line is the third
+  // time becoming the last.
+  pkg.overrides = {
+    ...(pkg.overrides ?? {}),
+    '@emnapi/core': '1.11.3',
+    '@emnapi/runtime': '1.11.3',
+    '@emnapi/wasi-threads': '1.2.3',
+  }
 
   escrever(destino, 'package.json', `${JSON.stringify(pkg, null, 2)}\n`)
   return elos

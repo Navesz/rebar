@@ -239,6 +239,12 @@ export function aplicarSite({ destino, nome, dominio, agora, silencioso = false 
     // `npm test`, which the gate puts in the `npm run verificar` chain, which
     // CI runs.
     'testes/conteudo.test.mjs',
+    // The published-paths gate. It goes ALONG for the same reason: what it
+    // checks — every absolute path in `out/` starting with the site's folder —
+    // is a property of THIS project's export, and the defect it catches (a
+    // `next/image` src or a manifest `start_url` without the `basePath`) is a
+    // 404 with the build green. rebar has no `out/` to check.
+    'testes/publicado.mjs',
   ]) {
     escritos.push(relativo)
   }
@@ -264,7 +270,24 @@ export function aplicarSite({ destino, nome, dominio, agora, silencioso = false 
     escritos.push('.gitignore')
   }
 
-  // 5. The debt, in your face. Last on purpose: the owner reads what is missing
+  // 5. The `publicado` script, so `verificar` picks it up.
+  //
+  //    THE ORDER IS WHAT MAKES THIS WORK, and it is worth saying out loud: this
+  //    layer runs BEFORE the gate's `aplicarPortao`, and the gate builds
+  //    `verificar` by FILTERING the scripts that exist. Writing the script here
+  //    is enough for it to become the last link in the chain — after `build`,
+  //    which is the only place it can run, because what it reads is `out/`.
+  const caminhoPkg = join(destino, 'package.json')
+  const pkg = JSON.parse(readFileSync(caminhoPkg, 'utf8'))
+  pkg.scripts = pkg.scripts ?? {}
+  // The two cases in one script: the proof of the rule and the rule. The proof
+  // runs first, and it needs no build — a broken detector fails before spending
+  // a minute compiling.
+  pkg.scripts.publicado = 'node testes/publicado.mjs --provar && node testes/publicado.mjs'
+  writeFileSync(caminhoPkg, `${JSON.stringify(pkg, null, 2)}\n`)
+  escritos.push('package.json')
+
+  // 6. The debt, in your face. Last on purpose: the owner reads what is missing
   //    after seeing that everything was written, not in the middle of the file
   //    list.
   if (!silencioso) anunciarPendencias(pendencias(conteudo))

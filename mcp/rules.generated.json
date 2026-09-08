@@ -5,7 +5,7 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "90620c2e5f3c19ffb1f7d0d5a6a40402fc62aa3bb717e2e592992456f508209a",
+      "sha256": "e27f6c2261f2630642bc8c29c0354d0e383680b024679474675141627f28996e",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "7472d15a7bf19cbe8d800e7ca9fc62296c785cfce5f4e104e292cfca0b4094aa",
+      "sha256": "ff62eda6be530f49e330e27d2319cfef8b1292b74a4dc60314c4a9ce5c995a97",
       "daqui": "the gate steps, in order"
     },
     {
@@ -25,17 +25,17 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "6943444062b909cfc103c8663c08ff6c551adadb97543bd7b7920c643f2b3a3c",
-      "daqui": "the why of each of the 63 proof cases"
+      "sha256": "cc5387319c4c49d9e268860aa0ec8dbe7f88904dcb09ccfef38fc7f420a19fe6",
+      "daqui": "the why of each of the 64 proof cases"
     },
     {
       "arquivo": "new/index.mjs",
-      "sha256": "c2786a5d556b3fb23d3e1ef4266b24efaf5ed424b40e5729dbbb1e2cda024746",
+      "sha256": "61fc25b3c3c233651006c0cc7c2b274b598196764c4e0840c48b05fdba1a724f",
       "daqui": "the stack of the `site` preset, extracted from the header"
     },
     {
       "arquivo": "new/site/blocks/next.config.ts",
-      "sha256": "1162c644302784ca6c600a44946a267eeb5a2919fb97fbe73678548e6eab7eba",
+      "sha256": "6af38cf567187d662d916441834e35d103eac4f0b962af322800cca07ef4c37f",
       "daqui": "the static-export decision of the preset"
     },
     {
@@ -979,10 +979,26 @@
         {
           "onde": "implementacao",
           "linha": 2397,
-          "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused ducado of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root."
+          "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused ducado of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root. O MISTURADOR DE CLASSES, e nao uma implementacao dele."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2413,
+          "texto": "Cravar `tailwind-merge` reprovava o projeto que o PROPRIO gerador deste repositorio emite: ele instala `cn`, que se declara no npm \"drop-in replacement for clsx + tailwind-merge\" e faz o mesmo trabalho compilado. Duas partes do mesmo projeto discordando, e a regra estava do lado errado."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2419,
+          "texto": "E a MESMA licao que a linha da primitiva, tres linhas acima, ja tinha aprendido: la a regra aceita `@radix-ui/*`, `radix-ui` E `@base-ui/react`, porque cravar uma so reprovava o unico repositorio dos seis que tinha acertado. O que a regra pergunta e se existe um misturador, nao qual."
         }
       ],
       "provas": [
+        {
+          "caso": "shadcn-complete__cn-merger",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A regra exigia `tailwind-merge` cravado e com isso REPROVAVA o projeto que o proprio gerador deste repositorio emite: ele instala `cn`, que se declara no npm como \"drop-in replacement for clsx + tailwind-merge\" e faz o mesmo trabalho, compilado. Duas partes do mesmo projeto discordando -- e o defeito apareceu porque o rebar foi USADO para gerar um projeto, nao porque alguem auditou a regra. E a mesma licao que a linha da primitiva, tres linhas acima, ja tinha aprendido: la a regra aceita `@radix-ui/*`, `radix-ui` E `@base-ui/react`, porque cravar uma so reprovava o unico dos seis repositorios medidos que tinha acertado. O que a regra pergunta e se existe um misturador de classes, nao qual. O lado aprovar usa `cn`; o lado reprovar tem components.json, primitiva e cva e NENHUM misturador, que e o `components/ui/` imitando a convencao sem a garantia. Quem voltar a cravar `tailwind-merge` faz o lado aprovar ficar vermelho."
+        },
         {
           "caso": "shadcn-complete__does-not-use-shadcn",
           "aprovar": "passou",
@@ -999,37 +1015,37 @@
       "nivel": "N2",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2417
+        "linha": 2432
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 2419,
+          "linha": 2434,
           "texto": "WHY IT STAYS A HEURISTIC, with the number in hand."
         },
         {
           "onde": "cabecalho",
-          "linha": 2421,
+          "linha": 2436,
           "texto": "After the two fixes below the rule went from 12 accused files in 7 repositories to 6 files in 5, and the 6 are literally true — none is a false positive. Even so it does NOT get promoted to deterministic, and the reason is its own name: 4 of the 6 are the address of a THIRD PARTY's PUBLIC API (`viacep.com.br`, `api.bcb.gov.br`, `api.deepinfra.com`, `api.replicate.com`) and only 2 are the production origin of the site itself (`decima-edicoes/scripts/verify-static.mjs`, `navesz.github.io/scripts/fetch-data.mjs`). Pinning the address of a public API is normal engineering, not a defect; the defect is pinning WHERE THIS site ships to. Separating the two requires knowing the deploy origin, and the checker does not know it. Blocking merges at 2-of-6 precision on the defect the rule names is punishing correct behavior — and a rule that punishes correct behavior teaches people to turn the whole output off."
         },
         {
           "onde": "implementacao",
-          "linha": 2438,
+          "linha": 2453,
           "texto": "FIX 1 — the env-fallback pattern, which is the RIGHT pattern."
         },
         {
           "onde": "implementacao",
-          "linha": 2440,
+          "linha": 2455,
           "texto": "`process.env.X ?? 'https://…'` is exactly what you want a person to write: an environment variable with a sensible default. Measured: `decima-edicoes/app/lib/site.ts:5` accused over `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, and `hug-brasil-propostas` accused TWICE over the same shape (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three of the twelve accusations were the ruler hitting whoever got it right."
         },
         {
           "onde": "implementacao",
-          "linha": 2448,
+          "linha": 2463,
           "texto": "The fallback is erased from the text BEFORE the search, and not the whole file: a file can have the right pattern on one line and the raw address on another, and absolving the file because of the good line would trade this false positive for a false negative. FIX 2 — an address only counts when it is used AS an address."
         },
         {
           "onde": "implementacao",
-          "linha": 2457,
+          "linha": 2472,
           "texto": "The literal has to OPEN a string and come right after a request call or an address name. Measured, three accusations fell and none of the three held up once the file was opened: openkartline/apps/web/src/App.tsx:521 — `href=\"https://github.com/…\"`, a footer link to the repository itself. A link is a link. prumo/…/migrations/20260825_0003_credentials.ts — twenty `doc: 'https://docs.fal.ai'` fields, a documentation catalog seeded into a table. It is DATA, and a table is the right place for data. prumo/…/collectors/index.ts:76 — the address inside the `User-Agent` string. It opens no string, so it never even gets tested. Portuguese in the list for the same reason as `NOMES_TYPECHECK` and `NOME_TESTE`, and it must NOT be translated: a ruler that only recognizes English variable names is blind to the repository it exists to measure. `origem`, `endereco` and `servidor` are what a project from here writes where `decima-edicoes` wrote `origin`. 60 characters are enough for the roomiest `const LONG_NAME =` and keep a neighboring line from lending its verdict to the next one."
         }
       ],
@@ -1056,12 +1072,12 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2497
+        "linha": 2512
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2502,
+          "linha": 2517,
           "texto": "Only accuses hex that ALREADY EXISTS as a token in the CSS. A loose hex has too many legitimate contexts — three.js material, overlay veil — and the naive version of this rule gave 100% false positives when measured."
         }
       ],
@@ -1082,27 +1098,27 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2525
+        "linha": 2540
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2530,
+          "linha": 2545,
           "texto": "The Portuguese stopwords below are the DETECTOR, not prose. Translating them makes the rule stop detecting Portuguese, which is the one thing it exists to do. Leave both lists exactly as they are. `soComentario` AND NOT A REGEX OF ITS OWN. Until 2026-09-07 this rule pulled the comments out with the same naive pair that `semComentario` stopped being — and it had the same defect, measured here: a block-opener inside a string literal in `new/gate/aplicar.mjs` opened a bogus comment and dragged `destino: 'preservado', porque:` into the text about to be judged. Two extractions of one concept are two sources to diverge, and these did."
         },
         {
           "onde": "implementacao",
-          "linha": 2546,
+          "linha": 2561,
           "texto": "A span between backticks is CODE QUOTED, not prose, and leaves before the language test. An identifier in English inside a Portuguese comment is not a language switch, it is the name of the thing — nobody translates `User-Agent`, `<input type=\"file\">` or `cat-file --batch`."
         },
         {
           "onde": "implementacao",
-          "linha": 2551,
+          "linha": 2566,
           "texto": "Measured on 2026-08-31 on the rebar mirror with `new/` tracked: the `en` count fell from 3 to 0, and those 3 were exactly these three files, all with Portuguese prose — `index.mjs`, `scan-secret.mjs` and `new/index.mjs`. With min(pt,en) >= 3 as the floor, those three carried the whole accusation."
         },
         {
           "onde": "implementacao",
-          "linha": 2557,
+          "linha": 2572,
           "texto": "A span between QUOTES leaves for the same reason, and the reason is stronger: quoted speech is not the writer's prose, and translating what somebody said is rewriting it, not translating. This repository is full of the owner's words kept verbatim with the English in brackets after them, and of sample strings measured in Brazilian repositories — the measurement IS the Portuguese. Measured on 2026-09-07, after the translation: 9 of the 11 files the rule was accusing were quotation only. Without this the rule fails on the very repository it is the reference for, which is how the naive colour rule died."
         }
       ],
@@ -1383,6 +1399,17 @@
       },
       {
         "ordem": 17,
+        "nome": "site-paths",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "new/site/prove-paths.mjs"
+        ],
+        "dica": "A path in the site blocks stopped going through `naPasta`, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green."
+      },
+      {
+        "ordem": 18,
         "nome": "generator-identity",
         "tipo": "comando",
         "comando": [
@@ -1393,7 +1420,7 @@
         "dica": "The identity of the first commit of the generated project stopped matching the one that goes into the NOTICE and the allowlist. The project is born with the list saying one person and the history having another, and that only shows up months later."
       },
       {
-        "ordem": 18,
+        "ordem": 19,
         "nome": "mcp-template",
         "tipo": "comando",
         "comando": [
@@ -1404,7 +1431,7 @@
         "dica": "The MCP the generator writes stopped answering, or started lying about the state of the gate. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole JSON-RPC exchange."
       },
       {
-        "ordem": 19,
+        "ordem": 20,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -1416,7 +1443,7 @@
         "dica": "A rule of rebar-security stopped failing what it should, or started accusing what is correct. The pass/ side of each case carries the named false positives: if it went red, the rule loosened too much."
       },
       {
-        "ordem": 20,
+        "ordem": 21,
         "nome": "security-table",
         "tipo": "comando",
         "comando": [
@@ -1427,7 +1454,7 @@
         "dica": "Um padrao da tabela de `disabled-defense` voltou a carregar o proprio literal em texto puro. A regra passa a se encontrar, e a acusar todo repositorio que contenha uma copia dela."
       },
       {
-        "ordem": 21,
+        "ordem": 22,
         "nome": "security-self",
         "tipo": "comando",
         "comando": [
@@ -1438,7 +1465,7 @@
         "dica": "O rebar reprovou na propria regua de seguranca. Se o achado for a tabela de deteccao se encontrando, o conserto e tirar o literal da mensagem -- nao excluir o arquivo, que so adia."
       },
       {
-        "ordem": 22,
+        "ordem": 23,
         "nome": "self",
         "tipo": "comando",
         "comando": [
@@ -1456,7 +1483,7 @@
       "decisao": "The scaffold is delegated to `shadcn create`; rebar applies the `site` preset on top and runs the ruler on the result.",
       "prova": {
         "arquivo": "new/index.mjs",
-        "linha": 132,
+        "linha": 148,
         "trecho": "shadcn@latest create"
       },
       "porque": [
@@ -1473,11 +1500,11 @@
       "decisao": "The `site` preset is pure SSG: `output: \"export\"` and `images.unoptimized`. No server, and that is why the og:image exists for whoever does not execute JavaScript.",
       "prova": {
         "arquivo": "new/site/blocks/next.config.ts",
-        "linha": 8,
+        "linha": 10,
         "trecho": "output: 'export' · images.unoptimized: true"
       },
       "porque": [
-        "Pure SSG. It is what makes og:image exist: WhatsApp, LinkedIn, Slack and Discord do not execute JavaScript, so a meta tag painted on the client does not exist for them. Measured in the 31/08 spike — every route \"prerendered as static content\", out/index.html at 12 KB and the absolute meta inside it. NOT OPTIONAL, and not a preference. Next's image optimizer is a service that runs on a server; `output: \"export\"` brings up no server at all. Without this line the build fails the moment it meets an <Image>."
+        "Pure SSG. It is what makes og:image exist: WhatsApp, LinkedIn, Slack and Discord do not execute JavaScript, so a meta tag painted on the client does not exist for them. Measured in the 31/08 spike — every route \"prerendered as static content\", out/index.html at 12 KB and the absolute meta inside it. DERIVED FROM `urlBase`, and derived on purpose: a GitHub Pages PROJECT site lives at `user.github.io/repo`, and without `basePath` the published page asks for the stylesheet at `/_next/...` instead of `/repo/_next/...`. The HTML is right, the sheet 404s, and the site comes out with no styling at all — while the build passes. There is no second place saying which folder the site lives in, so there is nothing to diverge: for a site at the root of a domain the pathname is empty and this line is a no-op. `/docs` and `/docs/` have to be the same page. Without this the export emits `docs.html` and only one of the two forms answers — measured on the rebar site, where `/docs/` returned 404 while `/docs` worked. NOT OPTIONAL, and not a preference. Next's image optimizer is a service that runs on a server; `output: \"export\"` brings up no server at all. Without this line the build fails the moment it meets an <Image>."
       ],
       "regraQueImpoe": null
     },

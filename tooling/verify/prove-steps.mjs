@@ -948,6 +948,7 @@ const PASSOS_ESPERADOS = [
   'strip',
   'proofs',
   'generator-map',
+  'site-paths',
   'generator-identity',
   'mcp-template',
   'security',

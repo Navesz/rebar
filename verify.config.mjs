@@ -1227,6 +1227,34 @@ export default [
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {
+    // ── THE SITE THAT LIVES IN A FOLDER ───────────────────────────────────
+    //
+    // A GitHub Pages project site is served from `user.github.io/repo`, and the
+    // blocks derive `basePath` from `urlBase`. Three places did not get the
+    // prefix, and all three were found by READING A BUILT `out/` — never by the
+    // build, the types or the lint, which stayed green:
+    //
+    //   · `next/image` with `images.unoptimized` writes the `src` raw;
+    //   · `app/manifest.ts` emitted `start_url: "/"` and icons at the root;
+    //   · the sitemap announced `/repo` while the canonical said `/repo/`.
+    //
+    // They were defects of the TEMPLATE, so every generated project was born
+    // with them. This step is what keeps them from coming back — and the same
+    // proof checks that the gate which reads `out/` goes along in the blocks
+    // and enters the `verificar` chain after `build`.
+    nome: 'site-paths',
+    comando: node('--test', 'new/site/prove-paths.mjs'),
+    exige: [
+      'new/site/prove-paths.mjs',
+      'new/site/blocks/app/manifest.ts',
+      'new/site/blocks/app/sitemap.ts',
+      'new/site/blocks/conteudo/carregar.ts',
+      'new/site/blocks/testes/publicado.mjs',
+    ],
+    dica: 'A path in the site blocks stopped going through `naPasta`, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+  },
+  {
     // THE FIRST COMMIT OF THE GENERATED PROJECT has to come out with the SAME
     // identity that was written into the NOTICE and the allowlist. The generator
     // used `-c user.*` thinking that pinned the author; in git the environment

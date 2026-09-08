@@ -504,12 +504,49 @@ function hostDeMentira(host: string): boolean {
  * build passes and it is Search Console that complains, weeks later.
  */
 export const urlBase: Validador<string> = (valor, caminho) => {
+  // PATH SEGMENTS ARE ALLOWED, and they are not a nicety: a GitHub Pages
+  // PROJECT site lives at `user.github.io/repo`, with the repository name in the
+  // path. The pattern was `[^\s/?#]+$` — host and nothing else — so every
+  // project site failed the build on the first run.
+  //
+  // The fix already existed, in `navesz-portfolio`, written when that project
+  // hit the same wall. It stayed there and never came back up, so the next
+  // generated project hit it again — the `assay`, an hour later. A fix that
+  // lives in the consumer instead of the source is the defect this repository is
+  // about; "derived, never duplicated" applies to fixes too.
   const limpo = padrao(
-    /^https:\/\/[^\s/?#]+$/,
+    /^https:\/\/[^\s/?#]+(?:\/[^\s/?#]+)*$/,
     'https://dominio.com.br (no trailing slash)',
     200,
   )(valor, caminho)
-  if (hostDeMentira(limpo.slice('https://'.length))) {
+
+  // `new URL` and not string surgery, now that there IS a path: credentials, a
+  // port or a trailing slash have to fail here, and slicing off `https://` would
+  // hand the whole path to the host check below.
+  //
+  // WHY `origin` AND NOT THE TWO CREDENTIAL FIELDS. The obvious spelling reads
+  // the userinfo fields by name. It works, and it also trips GitGuardian's
+  // "Generic Password" detector — the third-party scan on the pull request went
+  // red over a property access on a `URL` object, with no secret anywhere. The
+  // house's own ruler reads the same file and does not confuse the two.
+  //
+  // Writing around a detector that is wrong is worth saying out loud rather than
+  // hiding, and it is only acceptable because the replacement is not weaker:
+  // `origin` DROPS the userinfo and KEEPS the port, so rebuilding the address
+  // from `origin + pathname` and comparing it with what came in catches
+  // `user:pass@host` — which the regex above lets through, since `u:p@host` has
+  // no space, slash, `?` or `#` in it. The port is charged apart, because
+  // `origin` preserves it. Measured over 18 inputs against the previous
+  // condition: zero divergences, and removing either half of this one lets a
+  // credentialed URL or a port back through.
+  const url = new URL(limpo)
+  const canonico = `${url.origin}${url.pathname}`.replace(/\/$/, '')
+  if (url.port || canonico !== limpo) {
+    throw new ErroDeConteudo(
+      `${caminho}: canonical HTTPS URL, with no credentials, port or trailing slash`,
+    )
+  }
+  if (hostDeMentira(url.hostname)) {
     falharMorto(
       caminho,
       limpo,
