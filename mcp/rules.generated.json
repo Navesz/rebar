@@ -5,7 +5,7 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "38cf8dcf9ee28a21f16137ad5b88da985a1e1b09ddea89a995a4d0a8b4f758c5",
+      "sha256": "f9d49922d2eb74a04437dd7a5eb6b8ed64fbfe3eb4177a30d639b47e5a344b6a",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
@@ -25,8 +25,8 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "11ceefcba268d9dc9bcd1eb2bfdf17309be33aba2c9b0815b66ec7c1012d35cc",
-      "daqui": "the why of each of the 74 proof cases"
+      "sha256": "4b36e1cc53786d25a4fbfca2c3d65ce177276f30345175b124c76ce22c633cc3",
+      "daqui": "the why of each of the 75 proof cases"
     },
     {
       "arquivo": "new/index.mjs",
@@ -1163,10 +1163,31 @@
         {
           "onde": "implementacao",
           "linha": 2729,
-          "texto": "Only accuses hex that ALREADY EXISTS as a token in the CSS. A loose hex has too many legitimate contexts — three.js material, overlay veil — and the naive version of this rule gave 100% false positives when measured."
+          "texto": "Only accuses hex that ALREADY EXISTS as a token in the CSS. A loose hex has too many legitimate contexts — three.js material, overlay veil — and the naive version of this rule gave 100% false positives when measured. COMMENTS OUT of the code side, for the same reason as in `phone` and in the `.env.example` sweep: A HEX IN A COMMENT PAINTS NOTHING. What the rule is after is the color the program EMITS from two places, because that is the one that will diverge; a comment that names a color is a note ABOUT the color, and a note does not drift from the token — it does not render."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2747,
+          "texto": "Measured on 2026-09-08 on `assay`: `✗ raw-hex 1 color(s) defined in both places: #9aa3ad`, and the only occurrence in code was `ferramental/imagens.mjs:531`, inside the comment that says the palette IS read from `app/globals.css` and not retyped, quoting the hex to name WHICH color it is talking about. The rule was charging a file for the note that documents this rule's own earlier finding. Not new either: the `env-example__only-in-comment` case already writes the number down"
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2754,
+          "texto": "— of the seven occurrences the literal-color rule turned up in herz, FIVE were comments about the rule."
+        },
+        {
+          "onde": "implementacao",
+          "linha": 2757,
+          "texto": "The CSS side goes on being read RAW, and that is deliberate: a hex in a CSS comment only makes the token table bigger, and the table on its own accuses nobody — it takes an occurrence in code for an accusation to exist. Running `semComentario` over CSS would buy nothing and would bring in a risk of its own, because there `//` is not a comment: it is the middle of a `url(//cdn…)`, and erasing the rest of that line would take a real token out of the table."
         }
       ],
       "provas": [
+        {
+          "caso": "raw-hex__comment-is-not-paint",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A HEX IN A COMMENT PAINTS NOTHING, and until 2026-09-08 the rule charged for one. Measured on `assay`: `✗ raw-hex  1 color(s) defined in both places: #9aa3ad`, and the single occurrence in code was `ferramental/imagens.mjs:531` — inside the comment that says the palette IS read from `app/globals.css` and not retyped, quoting the hex only to name which color it is talking about. The file the rule accused is the file that obeys it. The two SVG under `docs/assets/` that carry the same hex never entered the account: `.svg` is not in `CODIGO`, so the rule never opened them. The `pass` side is that false positive, named: the token in the `.css`, the hex quoted in a comment, and nowhere else. The `fail` side is the `pass` side PLUS one line — the hex written as a literal in code — so no part of the accusation can come from the comment. The two `ajuda`/`fecha` strings split the CSS block delimiters between two string literals ON PURPOSE, the same trap `ci-gates__comment-is-not-execution` sets: whoever swaps `semComentario` for a pair of regex erases everything between them, the literal goes with it, and the `fail` side turns green."
+        },
         {
           "caso": "raw-hex__not-applicable",
           "aprovar": "passou",
@@ -1183,27 +1204,27 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/rebar-check/index.mjs",
-        "linha": 2752
+        "linha": 2776
       },
       "porque": [
         {
           "onde": "implementacao",
-          "linha": 2757,
+          "linha": 2781,
           "texto": "The Portuguese stopwords below are the DETECTOR, not prose. Translating them makes the rule stop detecting Portuguese, which is the one thing it exists to do. Leave both lists exactly as they are. `soComentario` AND NOT A REGEX OF ITS OWN. Until 2026-09-07 this rule pulled the comments out with the same naive pair that `semComentario` stopped being — and it had the same defect, measured here: a block-opener inside a string literal in `new/gate/aplicar.mjs` opened a bogus comment and dragged `destino: 'preservado', porque:` into the text about to be judged. Two extractions of one concept are two sources to diverge, and these did."
         },
         {
           "onde": "implementacao",
-          "linha": 2773,
+          "linha": 2797,
           "texto": "A span between backticks is CODE QUOTED, not prose, and leaves before the language test. An identifier in English inside a Portuguese comment is not a language switch, it is the name of the thing — nobody translates `User-Agent`, `<input type=\"file\">` or `cat-file --batch`."
         },
         {
           "onde": "implementacao",
-          "linha": 2778,
+          "linha": 2802,
           "texto": "Measured on 2026-08-31 on the rebar mirror with `new/` tracked: the `en` count fell from 3 to 0, and those 3 were exactly these three files, all with Portuguese prose — `index.mjs`, `scan-secret.mjs` and `new/index.mjs`. With min(pt,en) >= 3 as the floor, those three carried the whole accusation."
         },
         {
           "onde": "implementacao",
-          "linha": 2784,
+          "linha": 2808,
           "texto": "A span between QUOTES leaves for the same reason, and the reason is stronger: quoted speech is not the writer's prose, and translating what somebody said is rewriting it, not translating. This repository is full of the owner's words kept verbatim with the English in brackets after them, and of sample strings measured in Brazilian repositories — the measurement IS the Portuguese. Measured on 2026-09-07, after the translation: 9 of the 11 files the rule was accusing were quotation only. Without this the rule fails on the very repository it is the reference for, which is how the naive colour rule died."
         }
       ],
