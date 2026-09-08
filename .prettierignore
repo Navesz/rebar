@@ -10,6 +10,13 @@ NOTICE
 # prova passaria a testar a saída do prettier em vez do que ela foi escrita
 # para testar.
 tooling/rebar-check/proofs/cases/
+# The security cases were left out of this list when they were created, and the
+# argument above applies to them harder, not less: the `pass` side of
+# `hardcoded-secret` carries a `// rebar-segredo-ok:` escape that only works on
+# the finding's own line. Reflow the file and the escape moves off its line —
+# the case that PROVES the rule tolerates a declared false positive would start
+# proving the opposite, with nothing red.
+tooling/security/proofs/cases/
 
 node_modules/
 

@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "THE DEFECT THIS RULE WAS TIGHTENED FOR, copied from what was measured on 2026-09-07. The `fail` side carries the manifest of `assay`: prettier declared, one formatting script, and the script is `prettier --write \"**/*.{ts,tsx}\"`. The old rule read dependencies only and printed `formatter · has a formatter` on a repository where `prettier --check .` accused 32 files — `navesz-portfolio` 10, `rebar-site` 12. `--write` cannot fail: it rewrites the file and comes back zero, so nothing gates on it, and the glob does not even reach the `.mjs` and `.json` where most of those files were. It is the same shape the project already wrote down about openparts: a script that chained everything and that nothing ever ran. The second script of the `fail` side, `prettier --write --list-different .`, is not decoration: with `--write` on, `--list-different` prints the files prettier REWROTE and still exits zero, so a rule that hunted for the checking flag anywhere in the line would take a writer for a gate. It is what makes the writing modes load-bearing and not a comment. The `pass` side carries the NAMED FALSE POSITIVE: the same repository plus `prettier --list-different .` on its own, prettier's other checking flag — it prints the paths and comes back non-zero, exactly like `--check`. A rule that hardcoded the string `--check` would fail a repository that is doing the right thing by another spelling, and the `prettier-plugin-tailwindcss` sitting in both sides is the smaller trap: it carries the word `prettier` and is not the CLI. Both sides keep the write script, because owning one is normal and must never be what accuses you.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "confere formato com --list-different",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "formatar sob demanda, sem portão",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

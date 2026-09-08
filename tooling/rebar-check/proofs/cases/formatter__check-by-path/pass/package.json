@@ -1,0 +1,11 @@
+{
+  "name": "prova-formatter-caminho-confere",
+  "private": true,
+  "scripts": {
+    "format-check": "node node_modules/prettier/bin/prettier.cjs --check .",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write ."
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
+  }
+}

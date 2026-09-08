@@ -1,4 +1,4 @@
 {
   "rule": "formatter",
-  "why": "An npm project that has a linter and no formatter: each machine reindents the file its own way and the review diff becomes whitespace noise instead of a change of behavior."
+  "why": "An npm project that has a linter and no formatter at all: each machine reindents the file its own way and the review diff becomes whitespace noise instead of a change of behavior. The `pass` side declares prettier AND a script that checks with it — since 2026-09-07 the rule wants an invocation that can fail, and a side that only rewrote would certify the very hole `formatter__write-is-not-check` names. The write script stays next to the check on purpose: having both is the normal shape and the rule must not punish it."
 }

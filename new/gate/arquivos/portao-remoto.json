@@ -1,0 +1,18 @@
+{
+  "esquema": 1,
+  "estado": "ausente",
+  "exigido": {
+    "ramo": "main",
+    "job": "verificar",
+    "checks": ["verificar (windows-latest)", "verificar (ubuntu-latest)"],
+    "pullRequest": true,
+    "forcePushBloqueado": true,
+    "delecaoBloqueada": true,
+    "semBypass": true,
+    "enforcement": "active"
+  },
+  "observado": null,
+  "verificadoEm": null,
+  "verificadoPor": "rebar new — it never asked GitHub, and it never created the remote",
+  "porque": "An open gate has to be a CHECKED FACT, not an omission. The generator does not create the repository on GitHub and does not install the ruleset: both touch the owner's account. So it writes this record with estado \"ausente\", which is the honest default — the branch is unprotected until somebody proves the opposite — and `.rebar/portao-remoto.mjs` fails the verify while it stays true. JSON has no comments, so this field is where the reason lives. The `checks` above are a WRITTEN-DOWN COPY of the last derivation: the checker never reads them to decide, it derives the names from .github/workflows/verificar.yml on every run, and testes/portao.test.mjs compares this copy against that workflow with no network, so a renamed matrix goes red here instead of leaving a ruleset that requires a check nobody runs."
+}

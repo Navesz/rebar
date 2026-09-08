@@ -48,8 +48,16 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { REGRAS } from '../tooling/rebar-check/index.mjs'
-import { REGRAS as REGRAS_SEGURANCA } from '../tooling/security/index.mjs'
+// NAMESPACE, and not named imports: `tabelasDePadrao` walks EVERYTHING the rule
+// module exports looking for pattern tables. Naming `DESLIGAM` here would be the
+// copy §7.2 forbids — the day a second table is born, the generator would have to
+// learn its name, and until somebody remembered, the MCP would answer that
+// nothing in the artifact governs what that table fails.
+import * as MODULO_CHECK from '../tooling/rebar-check/index.mjs'
+import * as MODULO_SEGURANCA from '../tooling/security/index.mjs'
+
+const { REGRAS, semComentarioNemImport } = MODULO_CHECK
+const { REGRAS: REGRAS_SEGURANCA } = MODULO_SEGURANCA
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..')
@@ -141,16 +149,33 @@ function linhaDoPadrao(texto, padrao, rel) {
 // by id, and exits 2. A rule vanishing from the artifact is the defect this
 // module exists not to commit; it vanishes LOUD or it does not vanish.
 
-/** Strips the `//` and the space, and returns `null` for a decorative ruler (`── … ──`). */
+/**
+ * Strips the comment marker and returns `''` for a line that is only decoration.
+ *
+ * TWO MARKERS, and only one of them was here. `//` and the ` * ` of a JSDoc
+ * block. Measured 2026-09-07: the three rules of tooling/security/index.mjs
+ * write their reason in JSDoc, and all three reached the artifact with the whole
+ * header gone. `disabled-defense` — the rule that fails a commit for turning
+ * CSRF off — arrived with ONE paragraph, and the paragraph was the section
+ * ruler above it.
+ *
+ * A RULER IS DECORATION WHATEVER LABEL RIDES ON IT. The old test demanded the
+ * line END in box-drawing characters, and the three in the source end in a
+ * section tag (`S1`, `S2`, `S3`). So the run itself is the signal now, and the
+ * cut is measured: of the 58 paragraphs in the artifact, exactly 3 carried a run
+ * of four or more, and those 3 were the tags. No prose line carries four in a
+ * row.
+ */
 function limparComentario(linha) {
-  const m = /^\s*\/\/ ?(.*)$/.exec(linha)
+  const m = /^\s*(?:\/\/|\/\*\*|\*\/|\*)\s?(.*?)\s*$/.exec(linha)
   if (!m) return undefined
-  const texto = m[1].replace(/\s+$/, '')
-  // A section ruler (`── determinísticas ─────`, kept in Portuguese because it
-  // is a literal sample of what index.mjs actually contains) and a frame box
-  // are not the reason for anything: they are navigation for the human eye.
-  if (!texto || /^[─—\-=·\s]+$/.test(texto)) return ''
-  if (/^[─—]{2,}.*[─—]{2,}$/.test(texto)) return ''
+  // ` * a paragraph that closes its own block */` — the closer is not text.
+  const texto = m[1].replace(/\s*\*\/$/, '').replace(/\s+$/, '')
+  // The box-drawing block and the em dash go in as \u escapes and not as the
+  // glyphs: a character RANGE written with the characters themselves is
+  // unreadable in a diff and one keystroke away from an empty class.
+  if (!texto || /^[\u2500-\u257f\u2014\-=\u00b7\s]+$/.test(texto)) return ''
+  if (/[\u2500-\u257f\u2014]{4,}/.test(texto)) return ''
   return texto
 }
 
@@ -223,6 +248,12 @@ function regrasNoTexto(fonte, rel) {
     achadas.push({
       id: mId[1],
       linha: i + 2, // the `id:` line, which is where a human will look
+      // The body of `checar`, WITHOUT comments, for `tabelasDaRegra` to see
+      // which pattern table this rule consults. Without comments because that is
+      // what a rule reads (invariant I7 of tooling/security/index.mjs): a table
+      // named inside a comment of a NEIGHBOURING rule would hand that rule
+      // somebody else's vocabulary, and the MCP would answer the wrong id.
+      corpo: semComentarioNemImport(dentro.slice(iChecar).join('\n')),
       porque: [
         // `i + 1 - acima.length` is the (1-based) line of the first `//` of the
         // block above the `{`; `i + 3` is the line of the key right after `id:`.
@@ -234,6 +265,107 @@ function regrasNoTexto(fonte, rel) {
     i = fim
   }
   return achadas
+}
+
+// ──────────────────────────────────── pattern table → what the rule looks for
+//
+// THE DEFECT THIS SECTION CLOSES, measured on 2026-09-07 by asking the server
+// the five questions a real agent asks before writing a route:
+//
+//   rls          "nobody will fail you over it"          true
+//   upload       "nobody will fail you over it"          true
+//   rate limit   answered with the `readme` rule         NOISE
+//   csrf         "nobody will fail you over it"          FALSE. It fails.
+//   tls          answered with `disabled-defense`        true, BY ACCIDENT
+//
+// `disabled-defense` fails a commit that turns CSRF off — the pattern is in the
+// table of tooling/security/index.mjs, and the whole table stayed OUT of the
+// artifact. So the MCP told the model it could write the exemption and the gate
+// then failed the commit: the house's worst case, inverted. `tls` only answered
+// because the word had survived inside a prose comment; nothing indexed it.
+//
+// WHAT BECOMES A TERM, and why not more than this:
+//
+//   the SECOND COLUMN, whole. It is already an English sentence written to be
+//   read by a human ("route with no CSRF protection"), the table's own shape
+//   guarantees it is there, and it costs no interpretation.
+//
+//   the LITERAL WORD RUNS OF THE PATTERN. A regular expression is not text, and
+//   there is no honest general way to turn one back into the string it matches:
+//   a bracket class is a choice, a quantifier is a quantity, an alternation is
+//   two different strings. What CAN be read out with no guessing is the run of
+//   characters that are only themselves — and that is where `csrf` lives, and
+//   `tls`, and `verify`. A pattern made only of metacharacters yields none, and
+//   then the explanation is the whole of what it gives; the check in `montar`
+//   makes that case loud instead of silent.
+//
+// NOTHING IS TYPED HERE. The table is walked out of the module's own exports and
+// the rule that owns it is found by the identifier its `checar` names, so a
+// second table born tomorrow enters with no edit to this file.
+
+/**
+ * Every export of a rule module that IS a pattern table: a non-empty array of
+ * `[RegExp, explanation]` pairs. The shape is the declaration — a module has to
+ * announce nothing, and a table that is renamed goes on being found.
+ */
+function tabelasDePadrao(modulo) {
+  const tabelas = new Map()
+  for (const [nome, valor] of Object.entries(modulo)) {
+    if (!Array.isArray(valor) || !valor.length) continue
+    const ehTabela = valor.every(
+      (e) =>
+        Array.isArray(e) && e.length >= 2 && e[0] instanceof RegExp && typeof e[1] === 'string',
+    )
+    if (ehTabela) tabelas.set(nome, valor)
+  }
+  return tabelas
+}
+
+/**
+ * The literal word runs of a pattern, in the order they appear in it.
+ *
+ * A backslash-letter escape and a bracket class are not text: they become a
+ * SEPARATOR, so the words around them do not glue into a word that exists in no
+ * file. An escaped literal keeps its character. Runs of a single character are
+ * dropped — the zero of a comparison and the letter of a command-line flag are
+ * not a subject anybody asks about.
+ *
+ * THE SEPARATOR MATTERS, and a space is the whole point: joined with the
+ * character the pattern actually demands between them, these terms would be a
+ * COPY of what the table hunts and the artifact would turn into a sample of the
+ * flaw. Same discipline as the split literal in tooling/secret/prove-scan.mjs;
+ * tooling/security/prove-table.mjs is what locks it on the other side.
+ */
+function literaisDoPadrao(re) {
+  const semSintaxe = re.source
+    .replace(/\\[a-zA-Z]/g, ' ')
+    .replace(/\\(.)/g, '$1')
+    .replace(/\[[^\]]*\]/g, ' ')
+  return [...new Set(semSintaxe.split(/[^A-Za-z0-9_]+/).filter((w) => w.length >= 2))]
+}
+
+/** Whether the CODE of a rule names this identifier — split into words, never a substring. */
+const menciona = (corpo, nome) => corpo.split(/[^A-Za-z0-9_$]+/).includes(nome)
+
+/**
+ * The searchable vocabulary of one rule: `{ literais, explicacoes }`.
+ *
+ * The two are kept apart because they do not weigh the same at answer time. A
+ * literal is the exact string that fails the commit — asked about `csrf`, that
+ * IS the answer. An explanation is a sentence about the danger, and its words
+ * ("route", "process", "download") also live in a hundred honest questions.
+ */
+function vocabularioDaRegra(corpo, tabelas) {
+  const literais = []
+  const explicacoes = []
+  for (const [nome, tabela] of tabelas) {
+    if (!menciona(corpo, nome)) continue
+    for (const [padrao, explicacao] of tabela) {
+      literais.push(...literaisDoPadrao(padrao))
+      explicacoes.push(explicacao)
+    }
+  }
+  return { literais: [...new Set(literais)], explicacoes: [...new Set(explicacoes)] }
 }
 
 // ─────────────────────────────────────────────────────────────────── proofs
@@ -651,11 +783,18 @@ async function montar() {
   // Each module carries the path to its OWN proofs. Pinning the folder would
   // make the second one's rules enter the artifact with no proof, silently.
   const MODULOS = [
-    { modulo: 'rebar-check', rel: relCheck, REGRAS, provas: 'tooling/rebar-check/proofs/cases' },
+    {
+      modulo: 'rebar-check',
+      rel: relCheck,
+      REGRAS,
+      exporta: MODULO_CHECK,
+      provas: 'tooling/rebar-check/proofs/cases',
+    },
     {
       modulo: 'rebar-security',
       rel: 'tooling/security/index.mjs',
       REGRAS: REGRAS_SEGURANCA,
+      exporta: MODULO_SEGURANCA,
       provas: 'tooling/security/proofs/cases',
     },
   ]
@@ -688,6 +827,8 @@ async function montar() {
         )
     if (provas) provasPorModulo.push(provas)
 
+    const tabelas = tabelasDePadrao(m.exporta)
+
     for (const [i, regra] of m.REGRAS.entries()) {
       const t = noTexto[i]
       exigir(
@@ -697,6 +838,17 @@ async function montar() {
       exigir(
         !niveis || niveis.linhas.some((n) => n.nivel === regra.nivel),
         `rule ${regra.id}: level "${regra.nivel}" does not exist in the N0–N7 table`,
+      )
+      const consultaTabela = [...tabelas.keys()].some((nome) => menciona(t.corpo, nome))
+      const vocabulario = vocabularioDaRegra(t.corpo, tabelas)
+      // A RULE THAT CONSULTS A TABLE AND INDEXES NOTHING IS THE csrf DEFECT BACK:
+      // it fails a commit over words, and no question can reach it, so the MCP
+      // answers that nobody will fail you over them. Breaking generation here is
+      // louder than serving that, and 2 is the code for a crooked generator — not 1.
+      exigir(
+        !consultaTabela || vocabulario.literais.length + vocabulario.explicacoes.length > 0,
+        `rule ${regra.id}: consults a pattern table and yields no searchable term. ` +
+          'The MCP would answer that nothing in the artifact governs what this rule fails.',
       )
       regras.push({
         id: regra.id,
@@ -711,6 +863,14 @@ async function montar() {
         nivel: regra.nivel,
         fonte: { arquivo: m.rel, linha: t.linha },
         porque: t.porque,
+        // WHAT THE RULE LITERALLY LOOKS FOR. Absent, the model asks "csrf",
+        // hears that nothing in the artifact decides it, writes the exemption
+        // and the gate fails the commit. The field is omitted — not emitted
+        // empty — for the rules that consult no table, because an empty object
+        // on 25 of 26 rules is 25 lines saying nothing.
+        ...(vocabulario.literais.length || vocabulario.explicacoes.length
+          ? { termos: vocabulario }
+          : {}),
         ...(provas ? { provas: provas.porRegra.get(regra.id) } : {}),
       })
     }

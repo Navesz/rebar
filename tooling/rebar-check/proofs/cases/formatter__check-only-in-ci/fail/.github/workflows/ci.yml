@@ -1,0 +1,13 @@
+name: ci
+
+on: [push]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm ci
+      - run: |
+          # npx prettier --check .
+          npm test

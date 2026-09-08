@@ -680,17 +680,34 @@ function dependenciasDeTodos(r) {
   return d
 }
 
-/** Script names declared in any manifest of the repository. */
+/**
+ * Every `scripts` entry of every readable manifest, as `[name, body]` pairs.
+ *
+ * PAIRS, and not a `Map` keyed by name, for a reason `formatter` measured: two
+ * packages of the same workspace may declare the SAME name with different
+ * bodies — `format` rewriting at the root and checking inside the package — and
+ * a map keyed by name would keep only the last one read. `typecheck` judges the
+ * NAME and `formatter` judges the BODY; losing a body is losing the evidence.
+ *
+ * A body that is not a string becomes `''` on purpose: the name still counts
+ * (it is what `typecheck` asks about) and no rule that reads the body has to
+ * guard the type again.
+ */
 function scriptsDeTodos(r) {
-  const nomes = new Set()
+  const pares = []
   for (const m of r.manifestos) {
     if (m.estado !== 'ok') continue
     const s = m.valor.scripts
     if (!s || typeof s !== 'object' || Array.isArray(s)) continue
-    for (const n of Object.keys(s)) nomes.add(n)
+    for (const [nome, corpo] of Object.entries(s)) {
+      pares.push([nome, typeof corpo === 'string' ? corpo : ''])
+    }
   }
-  return nomes
+  return pares
 }
+
+/** The names alone, for the rules that only ask whether a target exists. */
+const nomesDeScripts = (r) => new Set(scriptsDeTodos(r).map(([nome]) => nome))
 
 /**
  * The folder and every directory above it, up to the root: 'apps/web/src/'
@@ -1004,6 +1021,143 @@ function coautoresDoHistorico(r) {
  * rule's proof describes, "the only contact with the compiler is the build".
  */
 const NOMES_TYPECHECK = ['typecheck', 'type-check', 'check-types', 'tipos', 'tsc']
+
+// ───────────────────────────── a writer is not a checker (the `formatter` rule)
+//
+// MEASURED ON 2026-09-07, and it is the reason this whole section exists. The
+// rule used to read DEPENDENCIES only: prettier declared, rule green. `assay`
+// scored `formatter · has a formatter` while `prettier --check .` accused 32
+// files in it, `navesz-portfolio` 10 and `rebar-site` 12. All three declare one
+// script and it is `format: prettier --write "**/*.{ts,tsx}"` — a command that
+// REWRITES on demand, never fails, and does not even reach the `.mjs` and
+// `.json` where most of those files are. The presence of the tool was being
+// taken as proof that the formatting is enforced, and nothing enforced it.
+//
+// It is the same defect this project already wrote down about `openparts`: a
+// chained script that nobody ever ran. The rule now asks for an invocation that
+// can FAIL — one that returns non-zero when a file is out of shape.
+//
+// WHAT IT MUST NOT BECOME: a rule that hardcodes one tool. That mistake has
+// been paid for twice here — the shadcn rule that demanded `tailwind-merge` by
+// name failed the project the generator itself emits, and the one that demanded
+// `@radix-ui` failed the only one of six repositories that had got it right.
+// Hence four families below, each with its own writing mode to reject, and
+// hence the shape of the invocation is not fixed either: rebar's own script is
+// `node node_modules/prettier/bin/prettier.cjs --check .`, which a rule
+// matching a command that starts with `prettier` would have failed on its author.
+
+/** npm names that put a formatter in the repository. */
+const FERRAMENTAS_DE_FORMATO = ['prettier', '@biomejs/biome', 'dprint']
+
+/**
+ * Plugins that make `eslint` itself judge FORMATTING, and not only defects.
+ *
+ * Plain eslint says nothing about layout, and `eslint-config-next` — which the
+ * three audited sites have — turns no formatting rule on. These do: `@stylistic`
+ * is where the layout rules went when eslint dropped them from core, and
+ * `eslint-plugin-prettier` runs prettier as a lint rule. Prefix and not exact
+ * name because `@stylistic` ships as `@stylistic/eslint-plugin` and as the split
+ * `-js` / `-ts` / `-jsx` packages, and charging for the exact spelling is
+ * charging for vocabulary — the mistake `NOMES_TYPECHECK` above documents.
+ */
+const PREFIXOS_ESTILO_ESLINT = [
+  '@stylistic/eslint-plugin',
+  'eslint-plugin-prettier',
+  'eslint-plugin-format',
+]
+
+const temEstiloNoEslint = (d) =>
+  Object.keys(d).some((n) => PREFIXOS_ESTILO_ESLINT.some((p) => n.startsWith(p)))
+
+/**
+ * One shell line broken into the commands it actually runs.
+ *
+ * `format: prettier --write . && prettier --check .` is two commands, and only
+ * the second one gates. Judging the whole string would let a writer borrow the
+ * flag of the checker standing next to it.
+ */
+const partirComandos = (texto) => texto.split(/&&|\|\||[;|\n]/)
+
+/**
+ * Whether a command invokes a given CLI, however it was spelled.
+ *
+ * The four spellings measured in this tree and in the audited ones: bare
+ * (`prettier`), through the runner (`npx prettier`), through the bin folder
+ * (`./node_modules/.bin/prettier`) and through the file (`node
+ * node_modules/prettier/bin/prettier.cjs`, which is rebar's own).
+ *
+ * What the closing group buys, and it is not decoration: `prettier-plugin-
+ * tailwindcss` is a DEPENDENCY, not the CLI, and it appears in the same
+ * manifests. Requiring the name to end at the token keeps it out.
+ */
+const invocaCli = (comando, nome) =>
+  new RegExp(`(^|[\\s"'/\\\\])${nome}(\\.[cm]?js)?($|[\\s"'])`).test(comando)
+
+const temFlag = (comando, ...flags) =>
+  new RegExp(`(^|\\s)(${flags.join('|')})(\\s|=|$)`).test(comando)
+
+const temSubcomando = (comando, ...nomes) =>
+  new RegExp(`(^|\\s)(${nomes.join('|')})(\\s|$)`).test(comando)
+
+/**
+ * Does this shell text contain a command that CHECKS the formatting — that is,
+ * one that comes back non-zero when a file is out of shape?
+ *
+ * Per family, because each one spells its two modes differently:
+ *
+ *   prettier   `--check` / `-c` / `--list-different` / `-l` check;
+ *              `--write` / `-w` rewrites.
+ *   biome      `ci` is read-only by contract; `check` and `format` are read-only
+ *              UNTIL a writing flag appears, and then they stop gating. `lint`
+ *              is deliberately out: it judges defects, not layout.
+ *   dprint     `check` checks, `fmt` rewrites.
+ *   eslint     only counts with one of the plugins above declared, and only
+ *              without `--fix` — with it, the layout is silently rewritten and
+ *              the command comes back green.
+ *
+ * A false negative here (a legitimate check this does not recognize) costs an
+ * accusation on someone who is doing it right, which is the expensive error.
+ * A false positive costs an accusation not made. That is why the acceptance
+ * side is wide and the writing modes are named one by one.
+ */
+function confereFormato(texto, dependencias) {
+  return partirComandos(texto).some((cmd) => {
+    if (invocaCli(cmd, 'prettier')) {
+      if (temFlag(cmd, '--write', '-w')) return false
+      return temFlag(cmd, '--check', '-c', '--list-different', '-l')
+    }
+    if (invocaCli(cmd, 'biome')) {
+      if (temFlag(cmd, '--write', '--apply', '--apply-unsafe', '--fix')) return false
+      return temSubcomando(cmd, 'ci', 'check', 'format')
+    }
+    if (invocaCli(cmd, 'dprint')) return temSubcomando(cmd, 'check')
+    if (invocaCli(cmd, 'eslint')) {
+      if (temFlag(cmd, '--fix')) return false
+      return temEstiloNoEslint(dependencias)
+    }
+    return false
+  })
+}
+
+/** Whether a command calls a dedicated formatter at all, checking or not. */
+const invocaFormatador = (texto) =>
+  partirComandos(texto).some((cmd) =>
+    ['prettier', 'biome', 'dprint'].some((n) => invocaCli(cmd, n)),
+  )
+
+/**
+ * The commands of the CI, with the shell comments taken out.
+ *
+ * `comandosDoCi` already drops YAML comments, because it reads only the value
+ * of `run:`. What it cannot drop is a `#` INSIDE a block scalar, and that is
+ * the whole lesson of the `ci-gates__comment-is-not-execution` case: a step
+ * that mentions the command in a comment runs nothing. The `#` is required to
+ * open at the start of a token so that a color literal in quotes survives.
+ */
+const comandosEfetivosDoCi = (r) =>
+  r.workflows
+    .map((w) => comandosDoCi(ler(r.dir, w) || '').replace(/(^|\s)#[^\n]*/g, '$1'))
+    .join('\n')
 
 // ───────────────────────────────── what is, and what is NOT, a content literal
 //
@@ -1790,7 +1944,7 @@ export const REGRAS = [
       if (ilegivel) return ilegivel
       if (!r.manifestos.length) return na('not an npm project')
       if (!r.arquivos.some((a) => /\.(ts|tsx)$/i.test(a))) return na('no TypeScript')
-      const nomes = scriptsDeTodos(r)
+      const nomes = nomesDeScripts(r)
       return NOMES_TYPECHECK.some((n) => nomes.has(n))
         ? null
         : `no tracked package.json has script ${NOMES_TYPECHECK.join(', ')}`
@@ -1801,13 +1955,35 @@ export const REGRAS = [
     id: 'formatter',
     classe: 'determinística',
     nivel: 'N1',
-    titulo: 'has a formatter',
+    // The title says CHECKED and not "has", because "has" was the defect. See
+    // the section next to `NOMES_TYPECHECK` for the measurement that moved it.
+    titulo: 'the formatting is checked, not only rewritten',
     checar: (r) => {
       const ilegivel = manifestoIlegivel(r)
       if (ilegivel) return ilegivel
       if (!r.manifestos.length) return na('not an npm project')
       const d = dependenciasDeTodos(r)
-      return d.prettier || d['@biomejs/biome'] || d.dprint ? null : 'no prettier, biome or dprint'
+      const scripts = scriptsDeTodos(r)
+
+      // The CI enters as a source alongside the scripts, and not instead of
+      // them: a repository may gate the formatting with a bare
+      // `- run: npx prettier --check .` and declare no script at all. Reading
+      // only package.json would accuse that repository of what it is doing
+      // right — the "defense looked for where the defect was found" family.
+      const fontes = [...scripts.map(([, corpo]) => corpo), comandosEfetivosDoCi(r)]
+      if (fontes.some((t) => confereFormato(t, d))) return null
+
+      // The dependency is checked ONLY on the failing path, and this order is
+      // the point: the check is what the rule wants, the declaration is only
+      // how it tells the two accusations apart. A repository that checks
+      // through `npx` without declaring the package is already past, above.
+      if (!FERRAMENTAS_DE_FORMATO.some((f) => d[f]) && !temEstiloNoEslint(d))
+        return 'no prettier, biome or dprint'
+
+      const escritores = scripts.filter(([, corpo]) => invocaFormatador(corpo)).map(([n]) => n)
+      return escritores.length
+        ? `script ${escritores.slice(0, 3).join(', ')} only rewrites — nothing fails when a file is out of format (prettier --check, biome ci, dprint check)`
+        : 'formatter declared and never invoked: no script and no CI step runs it'
     },
   },
 
@@ -2039,10 +2215,39 @@ export const REGRAS = [
         }
       })
 
+      /**
+       * The GitHub login written INSIDE the address, or null.
+       *
+       * `<id>+<login>@users.noreply.github.com` is issued by the platform for
+       * one account, so the login in it is not a nickname somebody chose to
+       * type — it is the account's own identifier, in the address itself.
+       */
+      const loginNoEmail = (email) =>
+        /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/.exec(email)?.[1].toLowerCase() ?? null
+
       const agrupar = (chave, valor) => {
         const mapa = new Map()
         for (const p of partes) {
           if (!p[chave] || !p[valor]) continue
+          // ONE ADDRESS, ITS DISPLAY NAME AND ITS OWN LOGIN, IS ONE PERSON — and
+          // this was measured on this repository on 2026-09-08, caused by
+          // GitHub's own squash button. Thirty-six commits say `Naves
+          // <58537948+Navesz@users.noreply.github.com>`; the squash merge of a
+          // pull request wrote `Navesz` in the name, because the platform
+          // attributes a squash with the LOGIN and not with the display name.
+          //
+          // The old branch read that as one e-mail with two names and failed the
+          // repository. It is not a drift anybody can fix: rewriting it means
+          // force-pushing the default branch past a ruleset that blocks exactly
+          // that, and the next squash writes it again. A rule that fails on the
+          // merge button of the forge it audits is a rule people switch off —
+          // and the reasoning that clears it is already in this file, three
+          // paragraphs down: the login proves the account.
+          //
+          // What it does NOT clear: the same address with two names that are not
+          // its login, which stays a failure. And it can never clear a personal
+          // address, because only the noreply form carries a login at all.
+          if (chave === 'email' && valor === 'nome' && p.nome === loginNoEmail(p.email)) continue
           if (!mapa.has(p[chave])) mapa.set(p[chave], new Set())
           mapa.get(p[chave]).add(p[valor])
         }
@@ -2093,12 +2298,19 @@ export const REGRAS = [
       }
       const mesmaPessoa = []
       for (const p of partes) {
-        if (
-          logins.has(p.email.replace(/@.*$/, '')) &&
-          logins.get(p.email.replace(/@.*$/, '')) !== p
-        )
-          mesmaPessoa.push(p)
-        else if (logins.has(p.nome) && logins.get(p.nome) !== p) mesmaPessoa.push(p)
+        const dono = logins.get(p.email.replace(/@.*$/, '')) ?? logins.get(p.nome)
+        if (!dono || dono === p) continue
+        // THE HARM IS THE SECOND ADDRESS, NOT THE SECOND NAME. What this branch
+        // exists to catch is one person appearing under two ADDRESSES, one of
+        // them personal, so the private e-mail lands in the public history and
+        // `git shortlog` counts two people. When both identities carry the SAME
+        // noreply address, none of that happened: nothing leaked, and the login
+        // showing up as a display name is what GitHub's squash button writes.
+        // Failing it here would be the same false positive the collision branch
+        // above just stopped producing, arriving one branch later — and the
+        // message would assert a personal e-mail that is demonstrably not there.
+        if (dono.email === p.email) continue
+        mesmaPessoa.push(p)
       }
       if (mesmaPessoa.length) {
         return (

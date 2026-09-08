@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "THE CHECK DOES NOT HAVE TO BE A SCRIPT. A repository may gate the formatting with a bare `- run: npx prettier --check .` in the workflow and declare in package.json only the `format` that rewrites — and it IS gating: the pull request goes red. Reading package.json alone would accuse it, which is the \"defense looked for where the defect was found\" family that already produced five false findings in this ruler. The `fail` side is the same repository with the same line COMMENTED OUT inside the block scalar, and it is there because of `ci-gates__comment-is-not-execution`: a comment mentions a command and runs nothing, and a rule that grep'd the raw YAML would take the mention for the practice. The two workflows differ in one `#`.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "portão de formato no workflow",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "a linha do portão virou comentário",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

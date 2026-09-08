@@ -109,7 +109,15 @@ class ErroDeIntegridade extends Error {}
 
 // A positional argument silently ignored is how you ask for one thing and get
 // another with exit 0. Here anything outside the vocabulary exits 2.
-const desconhecidos = args.filter((a) => !/^--(json|passo=|config=)/.test(a))
+//
+// `step=` AND NOT `passo=`, AND THE MISMATCH WAS THE DEFECT THIS COMMENT EXISTS
+// TO PREVENT, sitting three lines above itself. The reader above takes
+// `--step=`; this list took `--passo=`, left over from the rename. So
+// `--step=self` — the form the usage line below ADVERTISES — exited 2, while
+// `--passo=self` passed the gate, was never read, and ran the whole suite in
+// silence with exit 0. Asking for one step and getting twenty-three of them is
+// cheap; the expensive version is the same thing in the other direction.
+const desconhecidos = args.filter((a) => !/^--(json|step=|config=)/.test(a))
 if (desconhecidos.length) {
   console.error(`\n${c.vermelho('VERIFY — WRONG INVOCATION')}\n`)
   console.error(`  I do not recognize: ${desconhecidos.join(', ')}`)

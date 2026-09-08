@@ -1,0 +1,11 @@
+{
+  "name": "prova-formatter-eslint-confere",
+  "private": true,
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.6.0",
+    "eslint": "^9.0.0"
+  }
+}

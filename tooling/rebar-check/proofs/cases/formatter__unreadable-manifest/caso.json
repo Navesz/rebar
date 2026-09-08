@@ -1,9 +1,12 @@
 {
   "rule": "formatter",
-  "why": "A file that EXISTS and cannot be read can never become N/A, because N/A leaves the denominator and the score GOES UP. The old `lerJson` merged \"does not exist\" with \"exists and is broken\" into a `catch { return null }`, and `pkg === null` became `na('not an npm project')`. Measured in the attack: a repository at 9 of 10 (90%) with a syntactically broken package.json became 6 of 6 (100%) — dependabot, ci-gateia, typecheck and formatter vanished from the score and it started taking maximum marks. Breaking the file improved the score. The `fail` side HAS prettier, declared in apps/web/package.json, and even so it has to fail: what could not be read is not certified. It is that presence that makes the proof bite. Without it, the first version of this case stayed green under the mutation that gave the leniency back — the union of dependencies came out empty and the rule failed for the wrong reason, proving nothing. With it, both the old behavior (N/A, exit 0) and the half fix (skip the unreadable one and pass on the rest, exit 0) make this side diverge. The two trees are identical except for the trailing comma and the brace that does not close at the root.",
+  "why": "A file that EXISTS and cannot be read can never become N/A, because N/A leaves the denominator and the score GOES UP. The old `lerJson` merged \"does not exist\" with \"exists and is broken\" into a `catch { return null }`, and `pkg === null` became `na('not an npm project')`. Measured in the attack: a repository at 9 of 10 (90%) with a syntactically broken package.json became 6 of 6 (100%) — dependabot, ci-gateia, typecheck and formatter vanished from the score and it started taking maximum marks. Breaking the file improved the score. The `fail` side HAS prettier AND a script that checks with it, declared in apps/web/package.json, and even so it has to fail: what could not be read is not certified. It is that presence that makes the proof bite, and it is why the check script was added to the fail side when the rule was tightened on 2026-09-07 — without it that side would start failing for want of a checker, the unreadable-manifest guard could be deleted whole and this case would stay green, proving nothing. The two trees are identical except for the trailing comma and the brace that does not close at the root.",
   "pass": {
     "commits": [
-      { "mensagem": "todos os manifestos legíveis", "autor": "Prova <prova@rebar.local>" }
+      {
+        "mensagem": "todos os manifestos legíveis",
+        "autor": "Prova <prova@rebar.local>"
+      }
     ]
   },
   "fail": {

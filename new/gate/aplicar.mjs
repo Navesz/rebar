@@ -16,7 +16,7 @@
 // just wrote is the classic layered-generator defect; here every write is either
 // the first one or a declared no-op.
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import {
   chmodSync,
   copyFileSync,
@@ -78,6 +78,29 @@ const PASTA_REBAR = '.rebar'
 // the two in different commits is how a pointer breaks silently.
 const MCP_LANCADOR = `${PASTA_REBAR}/mcp.mjs`
 
+// THE REMOTE GATE — the pair of files that turns "I hope the branch is
+// protected" into a checked fact. They go to `.rebar/` for the same reason as
+// the MCP server: they are repository tooling, they are not hooks, and git must
+// not trip over them on a commit event.
+//
+// The pair is a pair on purpose. The `.json` is the RECORD — what the branch
+// protection has to be, and what was last observed — and the `.mjs` is what asks
+// GitHub and compares. Ship only the script and there is nothing to compare
+// against; ship only the record and nobody reads it. The generator writes the
+// record with `estado: "ausente"` because that is the truth at that instant: it
+// does not create the repository and it does not install the ruleset, and an
+// open gate has to be a checked fact instead of an omission.
+const PORTAO_REMOTO = `${PASTA_REBAR}/portao-remoto.mjs`
+const REGISTRO_REMOTO = `${PASTA_REBAR}/portao-remoto.json`
+
+// The link checker. rebar has had `tooling/links/check-links.mjs` since PR #24
+// — "o README tinha dois badges saindo como texto, e eu nunca olhei a página" —
+// and it never came down into the generated projects. This is not a copy of it:
+// the version that ships checks IMAGES too and demands that the target be
+// TRACKED BY GIT, because GitHub renders the README from the repository and a
+// screenshot that only exists on the disk is a broken image for everybody else.
+const CHECK_LINKS = `${PASTA_REBAR}/check-links.mjs`
+
 export const ESTATICOS = [
   ['editorconfig', '.editorconfig'],
   ['gitattributes', '.gitattributes'],
@@ -95,6 +118,9 @@ export const ESTATICOS = [
   // MECHANICS, and mechanics do not change when a rule changes.
   ['mcp.json', '.mcp.json'],
   ['mcp-rebar.mjs', MCP_LANCADOR],
+  ['portao-remoto.mjs', PORTAO_REMOTO],
+  ['portao-remoto.json', REGISTRO_REMOTO],
+  ['check-links.mjs', CHECK_LINKS],
 ]
 
 // `arquivos/agentes.md` LIVES NEXT TO THESE AND IS NOT ON THE LIST, on purpose.
@@ -190,11 +216,12 @@ const DESTINO_DO_SCAFFOLD = {
       'it is going to export',
   },
   '.prettierrc': {
-    destino: 'preservado',
+    destino: 'complementado',
     porque:
-      '`endOfLine: "lf"` already matches our .gitattributes, and `prettier-plugin-tailwindcss` ' +
-      'and `tailwindStylesheet` are configuration of the theme that came with it — rewriting ' +
-      'is picking a fight with the formatter of the scaffold itself',
+      'the STYLE keys come from rebar, which is the formatter every template in this generator ' +
+      'was written under; the THEME keys the scaffold brought (`plugins`, `tailwindStylesheet`, ' +
+      '`tailwindFunctions`) survive untouched. See `garantirPrettier` for the measurement that ' +
+      'undid the old `preservado`',
   },
   'eslint.config.mjs': {
     destino: 'preservado',
@@ -693,6 +720,90 @@ function conferirPonteiroMcp(destino, avisos) {
   return 'matches'
 }
 
+// The scaffold's prettier keys that are THEME and not style. They configure the
+// Tailwind class sorter — which stylesheet holds the tokens, which helpers wrap
+// class strings — and rewriting them means taking over the maintenance of the
+// shadcn theme, which is the one thing this whole file refuses to do.
+const CHAVES_DE_TEMA = [
+  'plugins',
+  'tailwindStylesheet',
+  'tailwindConfig',
+  'tailwindFunctions',
+  'tailwindAttributes',
+  'tailwindPreserveWhitespace',
+  'tailwindPreserveDuplicates',
+]
+
+/**
+ * The project's `.prettierrc`, and why it stopped being `preservado`.
+ *
+ * THE MEASUREMENT THAT UNDID THE OLD DECISION (2026-09-07, on `assay`, a project
+ * born from this generator):
+ *
+ *   npx prettier --check .                          → 32 files misformatted
+ *   the same tree, under rebar's .prettierrc         → 16
+ *
+ * And the 16 that disappeared are the ones THIS GENERATOR WROTE: the two hooks,
+ * the workflow, dependabot.yml, the MCP server, testes/portao.test.mjs, and the
+ * blocks of the `site` preset. The cause is not a bad template — it is two
+ * formatters that disagree by construction. Every template in `new/` is authored
+ * under rebar's prettier (printWidth 100, singleQuote, trailingComma all) and
+ * the project was keeping shadcn's (printWidth 80, double quotes, es5). The old
+ * `preservado` was right about `endOfLine` and about the Tailwind plugin, and
+ * silent about the three keys where the disagreement actually lives.
+ *
+ * WHY THE HOUSE CONFIG WINS, and not the other way around. Making the templates
+ * follow the scaffold's style sounds symmetric and is not: `.githooks/scan-secret.mjs`
+ * and `.githooks/check-message.mjs` are COPIES of rebar's own source
+ * (COPIADOS_DO_REBAR), the same bytes checked by rebar's prettier over there and
+ * by the project's prettier here. Two configs cannot both be satisfied by one
+ * file, so that road ends with the copies in `.prettierignore` — a project that
+ * declares it does not format its own gate.
+ *
+ * The style keys are READ FROM REBAR, never retyped here: one source, and when
+ * the house changes its mind the next generated project already knows.
+ *
+ * @returns {string} what was written, for the generator's output line
+ */
+function garantirPrettier(destino, raizRebar, avisos) {
+  const daCasa = join(raizRebar, '.prettierrc')
+  if (!existsSync(daCasa)) {
+    avisos.push(
+      'rebar has no .prettierrc to derive from — the project kept the scaffold formatter, and ' +
+        'every file the generator just wrote is misformatted for it',
+    )
+    return 'not written'
+  }
+  let casa
+  try {
+    casa = JSON.parse(readFileSync(daCasa, 'utf8'))
+  } catch (erro) {
+    avisos.push(`rebar's .prettierrc is not valid JSON (${erro.message}) — nothing was derived`)
+    return 'unreadable'
+  }
+
+  const bruto = lerSe(destino, '.prettierrc')
+  let doScaffold = {}
+  if (bruto !== null) {
+    try {
+      doScaffold = JSON.parse(bruto)
+    } catch (erro) {
+      // Loud: losing the Tailwind sorter silently means every class list in the
+      // project starts drifting, and nothing on screen says why.
+      avisos.push(
+        `the scaffold's .prettierrc is not valid JSON (${erro.message}) — the Tailwind plugin ` +
+          'configuration was NOT carried over',
+      )
+    }
+  }
+
+  const tema = {}
+  for (const chave of CHAVES_DE_TEMA) if (chave in doScaffold) tema[chave] = doScaffold[chave]
+  escrever(destino, '.prettierrc', `${JSON.stringify({ ...casa, ...tema }, null, 2)}\n`)
+  const chaves = Object.keys(tema)
+  return chaves.length ? `rebar + ${chaves.join(', ')}` : 'rebar'
+}
+
 /**
  * The scripts the gate demands from package.json.
  *
@@ -706,7 +817,7 @@ function conferirPonteiroMcp(destino, avisos) {
  * It only chains what EXISTS. Calling `npm run lint` in a project without
  * `lint` is a CI that breaks because of the generator, not because of the code.
  */
-function garantirScripts(destino, avisos) {
+export function garantirScripts(destino, avisos) {
   const bruto = lerSe(destino, 'package.json')
   if (bruto === null) {
     avisos.push('package.json does not exist — no script was adjusted')
@@ -727,11 +838,66 @@ function garantirScripts(destino, avisos) {
   // Node built-in, zero new dependencies.
   if (!pkg.scripts.test) pkg.scripts.test = 'node --test "testes/**/*.test.mjs"'
 
-  // `publicado` is LAST, and after `build` on purpose: what it reads is the
-  // export's output. It only enters the chain if the preset wrote it — the site
-  // preset does, and it is the step that catches an absolute path emitted
-  // without the site's folder, which is a 404 with everything else green.
-  const elos = ['lint', 'typecheck', 'test', 'build', 'publicado'].filter((n) => pkg.scripts[n])
+  // ── THE THREE LINKS THAT REBAR CHARGES ITSELF FOR AND WAS NOT DELIVERING ──
+  //
+  // Measured on 2026-09-07: rebar's own gate runs 23 steps and the projects it
+  // generates ran 6. The three below are the ones that already BITE today, and
+  // each one is added here and nowhere else, so `npm run verificar` and CI reach
+  // the same thing without a second list to keep in sync.
+  //
+  // `format` WRITES and `format-check` CHECKS, and the pair is not redundancy. A
+  // chain link that rewrites files can never fail — it fixes and passes, CI
+  // commits nothing, and the drift shows up in the next diff instead of in the
+  // gate. The scaffold shipped only the writer, and scoped to `**/*.{ts,tsx}`,
+  // so it could not even repair what a full check flags: the .mjs, the .json and
+  // the .yml this gate itself writes. A writer that cannot fix what the checker
+  // rejects is a trap, so it is replaced by one that covers the tree.
+  pkg.scripts.format = 'prettier --write .'
+  pkg.scripts['format-check'] = 'prettier --check .'
+
+  // The secret scan of the WHOLE TREE, and it is the gravest of the three. The
+  // hook runs `scan-secret.mjs --staged`, which is N5 and disappears with
+  // `--no-verify`; until this line existed, the generated CI scanned for no
+  // secret at all, so a credential committed with `--no-verify` reached main
+  // with the badge green. Same file the hook calls, without `--staged`: it reads
+  // everything git tracks.
+  //
+  // Only if the file arrived. `COPIADOS_DO_REBAR` already warns when it did not,
+  // and a script pointing at a missing file would turn that warning into a
+  // chain that breaks for a reason nobody can read.
+  if (existsSync(join(destino, ...`${PASTA_HOOKS}/scan-secret.mjs`.split('/')))) {
+    pkg.scripts.secret = `node ${PASTA_HOOKS}/scan-secret.mjs`
+  }
+  if (existsSync(join(destino, ...CHECK_LINKS.split('/')))) {
+    pkg.scripts.links = `node ${CHECK_LINKS}`
+  }
+  if (existsSync(join(destino, ...PORTAO_REMOTO.split('/')))) {
+    pkg.scripts['portao-remoto'] = `node ${PORTAO_REMOTO}`
+  }
+
+  // THE ORDER, and every position in it is a decision.
+  //
+  // Cheapest and most local first, so the message that matters does not sit
+  // behind a build. `publicado` reads the export's output, so it cannot move
+  // above `build`.
+  //
+  // `portao-remoto` is LAST, after everything, and that is deliberate. It is the
+  // only link whose subject is not in this repository and whose fix is not a
+  // code edit — it is `gh auth login` and one API call. Putting it in front of
+  // `build` would make the whole chain unrunnable while the owner sorts out a
+  // token, and a chain people cannot run is a chain they delete. It still fails
+  // the chain; it just fails after everything local is known good.
+  const elos = [
+    'format-check',
+    'lint',
+    'typecheck',
+    'test',
+    'links',
+    'secret',
+    'build',
+    'publicado',
+    'portao-remoto',
+  ].filter((n) => pkg.scripts[n])
   // `npm test` and not `npm run test`: it is the canonical name, and the
   // `ci-gateia` rule looks for the word `test`, which is in both.
   pkg.scripts.verificar = elos.map((n) => (n === 'test' ? 'npm test' : `npm run ${n}`)).join(' && ')
@@ -877,13 +1043,27 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
     const nota =
       '# Prosa e texto legal ficam fora. O prettier reflui markdown e a licença,\n' +
       '# e um diff de milhares de linhas esconde a mudança real.\n'
+    // `/out` and `package-lock.json`, and os dois entram junto com o elo
+    // `format-check`. Sem eles o `prettier --check .` varre a saída do
+    // `next build` — milhares de arquivos gerados — e reescreve um lockfile que
+    // o `DESTINO_DO_SCAFFOLD` declara preservado justamente porque ele
+    // corresponde a uma instalação que aconteceu.
+    const gerados =
+      '\n# Saída do export e lockfile: nenhum dos dois é escrito à mão, e o\n' +
+      '# `format-check` da cadeia varreria os dois.\n/out\npackage-lock.json\n'
     escrever(
       destino,
       '.prettierignore',
-      `${ignore.replace(/\s*$/, '')}\n\n${nota}*.md\nLICENSE\nNOTICE\n`,
+      `${ignore.replace(/\s*$/, '')}\n\n${nota}*.md\nLICENSE\nNOTICE\n${gerados}`,
     )
     escritos.push('.prettierignore')
   }
+
+  // BEFORE `garantirScripts`, because that is what puts `format-check` in the
+  // chain: writing the checker's config after the checker is in the chain would
+  // leave one generation formatted against a config that no longer applies.
+  const prettier = garantirPrettier(destino, raizRebar, avisos)
+  escritos.push(`.prettierrc (${prettier})`)
 
   const exportEstatico = garantirExportEstatico(destino, avisos)
   const elos = garantirScripts(destino, avisos)
@@ -900,7 +1080,67 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
   // function, and after it `git ls-files` would start listing ours too.
   const scaffold = conferirScaffold(destino, avisos)
 
-  return { escritos, avisos, elos, exportEstatico, agents, scaffold, mcp }
+  return { escritos, avisos, elos, exportEstatico, agents, scaffold, mcp, prettier }
+}
+
+/**
+ * One `prettier --write .` over the project, and then a `--check` to prove it.
+ *
+ * IT EXISTS BECAUSE `garantirPrettier` MOVED THE GOALPOST. The style keys now
+ * come from rebar, and the files the scaffold brought — `app/globals.css`,
+ * `components/ui/button.tsx`, `lib/utils.ts`, `eslint.config.mjs`,
+ * `postcss.config.mjs`, `tsconfig.json` — were written under the other one.
+ * Measured on assay: 7 of them. Without this pass the project is born failing
+ * the `format-check` link this same commit put into its chain, which would be
+ * the generator shipping the debt it just manufactured.
+ *
+ * It runs BEFORE the first commit, so history starts clean, and it is a whole-
+ * tree whitespace pass — not a per-file decision, so it does not contradict the
+ * `preservado` entries of DESTINO_DO_SCAFFOLD, which are about CONTENT.
+ *
+ * Called through the .cjs directly and not through `npx prettier` nor the .bin:
+ * on Windows `.bin/prettier` is a `.cmd` that CreateProcess does not execute
+ * without a shell — the same defect that killed the project before this one.
+ *
+ * Check, do not trust: `--write` exiting 0 says prettier ran, not that the tree
+ * is clean. The `--check` afterwards is the claim the chain will make.
+ */
+export function normalizarFormato(destino, avisos) {
+  const prettier = join(destino, 'node_modules', 'prettier', 'bin', 'prettier.cjs')
+  if (!existsSync(prettier)) {
+    avisos.push(
+      'prettier is not installed in the project — the format pass did NOT run, and the ' +
+        '`format-check` link of `npm run verificar` is born red. Run `npm ci` and `npm run format`',
+    )
+    return 'prettier missing'
+  }
+  const escrita = execArquivo(destino, prettier, ['--write', '.'])
+  if (escrita.status !== 0) {
+    avisos.push(`prettier --write exited ${escrita.status}: ${primeiraLinha(escrita)}`)
+    return 'failed'
+  }
+  const conferencia = execArquivo(destino, prettier, ['--check', '.'])
+  if (conferencia.status !== 0) {
+    avisos.push(
+      'after `prettier --write .` the project STILL fails `prettier --check .` — the config and ' +
+        `the formatter disagree, and the chain is born red: ${primeiraLinha(conferencia)}`,
+    )
+    return 'still dirty'
+  }
+  return 'clean'
+}
+
+function execArquivo(destino, script, args) {
+  return spawnSync(process.execPath, [script, ...args], {
+    cwd: destino,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 5 * 60 * 1000,
+  })
+}
+
+function primeiraLinha(resultado) {
+  return `${resultado.stderr ?? ''}${resultado.stdout ?? ''}`.trim().split('\n')[0] || '(no output)'
 }
 
 export {
@@ -915,4 +1155,10 @@ export {
   DESTINO_DO_SCAFFOLD,
   MARCADOR_AGENTES,
   MCP_LANCADOR,
+  // The three paths the remote gate and the link checker land on. Exported for
+  // the same reason as MCP_LANCADOR: the path is decided here, once, and
+  // whoever tests it must not retype it.
+  PORTAO_REMOTO,
+  REGISTRO_REMOTO,
+  CHECK_LINKS,
 }

@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "FORMATTING CHECKED BY THE LINTER, with no dedicated formatter in the repository. `@stylistic/eslint-plugin` is where eslint's layout rules went when core dropped them, so `eslint .` here comes back non-zero on a badly formatted file — the practice the rule wants, by a fourth road. A rule that demanded prettier, biome or dprint by name would accuse this repository of having no formatter while it fails the build on formatting, which is the exact error the `@radix-ui` rule made against the only one of six repositories that had got it right. The `fail` side is the same repository with `eslint . --fix`: the plugin is still declared, but `--fix` rewrites the layout and comes back green, so nothing gates — the eslint spelling of `prettier --write`. It also locks the guard against the cheap version of this branch: accepting any `eslint` invocation would pass `assay`, which has eslint and eslint-config-next and no formatting rule turned on at all.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "eslint com regras de estilo, sem --fix",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "eslint --fix reescreve e passa",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

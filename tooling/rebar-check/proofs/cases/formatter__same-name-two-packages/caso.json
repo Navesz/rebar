@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "TWO PACKAGES, ONE SCRIPT NAME, DIFFERENT BODIES — the shape that decides how `scriptsDeTodos` may return its answer. The root of the workspace declares `format` rewriting everything; `apps/web` declares `format` checking. Collecting the scripts into a map keyed by NAME loses one of the two bodies, and it loses the one read first: git lists `apps/web/package.json` before `package.json`, so the root’s writer overwrites the package’s checker and the rule accuses a repository that gates. That is why the helper returns PAIRS. The `fail` side is the same two packages with both `format` scripts rewriting — the collision is still there, and now nothing checks, so it must fail. Between them, the pair pins that the rule reads EVERY body and not one per name.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "raiz reescreve, pacote confere",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "os dois pacotes só reescrevem",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

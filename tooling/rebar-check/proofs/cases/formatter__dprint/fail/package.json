@@ -1,0 +1,10 @@
+{
+  "name": "prova-formatter-dprint-formata",
+  "private": true,
+  "scripts": {
+    "format": "dprint fmt"
+  },
+  "devDependencies": {
+    "dprint": "^0.50.0"
+  }
+}

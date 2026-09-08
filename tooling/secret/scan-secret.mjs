@@ -759,7 +759,7 @@ function varrerConteudo(caminho, dados, relatorio) {
 // does not show up here.
 
 const caminhos = caminhosParaVarrer()
-const relatorio = { truncados: [], ilegiveis: [], binarios: [], varridos: 0 }
+const relatorio = { truncados: [], ilegiveis: [], binarios: [], provas: [], varridos: 0 }
 const achados = []
 
 const doIndice = soStaged ? conteudosDoIndice(caminhos) : null
@@ -769,10 +769,19 @@ const doIndice = soStaged ? conteudosDoIndice(caminhos) : null
  * directory -- the same one rebar-check's `semFixtures` uses, and not a
  * hand-written list of folders, which would age on its own.
  */
+/**
+ * A file under a proof-case directory, marked by a `caso.json` in an ancestor.
+ *
+ * RESOLVED AGAINST `RAIZ`, NOT THE WORKING DIRECTORY. It used to be relative,
+ * and the effect was silent: run the scanner from inside a subdirectory and the
+ * marker stopped being found, so the `.env` of the `env-committed` case became a
+ * finding again. A guard that only holds when you happen to stand in the right
+ * folder is a guard that fails on the machine that is not yours.
+ */
 function ehMaterialDeProva(caminho) {
   const partes = caminho.split('/')
   for (let i = partes.length - 1; i > 0; i--) {
-    if (existsSync(join(partes.slice(0, i).join('/'), 'caso.json'))) return true
+    if (existsSync(join(RAIZ, partes.slice(0, i).join('/'), 'caso.json'))) return true
   }
   return false
 }
@@ -836,7 +845,25 @@ for (const caminho of caminhos) {
   }
 
   relatorio.varridos += 1
-  achados.push(...varrerConteudo(caminho, dados, relatorio))
+  // PROOF MATERIAL, BY THE SAME MARKER THE `.env` RULE ABOVE ALREADY HONOURS.
+  //
+  // A `fail/` tree exists to PROVE that a rule detects a credential; its
+  // fixtures are credential-SHAPED on purpose. Letting them block the commit of
+  // the proof itself is the scanner refusing the only thing that keeps it
+  // honest — and it is not hypothetical: the `hardcoded-secret` rule shipped
+  // with two such cases and this scanner went red on them the moment they were
+  // staged.
+  //
+  // The file is still READ and still COUNTED, so the summary does not shrink,
+  // and what was dropped is PRINTED. Silence here would be worse than a false
+  // positive: a scanner that quietly skips a directory is one that can be
+  // turned off by adding a `caso.json`.
+  const doArquivo = varrerConteudo(caminho, dados, relatorio)
+  if (doArquivo.length && ehMaterialDeProva(caminho)) {
+    relatorio.provas.push(`${caminho} (${doArquivo.length})`)
+  } else {
+    achados.push(...doArquivo)
+  }
 }
 
 // Under `--staged`, a file that could not be scanned is a file entering the
@@ -878,7 +905,8 @@ if (comoJson) {
   const resumo =
     `[secret] ${relatorio.varridos} file(s) scanned in ${soStaged ? 'stage' : 'tracked files'}` +
     ` · ${relatorio.binarios.length} binary file(s) · ${relatorio.truncados.length} truncated` +
-    ` · ${relatorio.ilegiveis.length} not scanned`
+    ` · ${relatorio.ilegiveis.length} not scanned` +
+    (relatorio.provas.length ? ` · ${relatorio.provas.length} proof fixture(s) not charged` : '')
 
   // ─── The ⚠, and why it exists (finding of 02/09) ───────────────────────────
   //

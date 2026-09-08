@@ -58,9 +58,10 @@
 // vocabulary list below carries both languages, and that is by measurement, not
 // by symmetry.
 
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { lerRepo, semComentarioNemImport } from '../rebar-check/index.mjs'
 
 /** "Not applicable" — the third state. Out of the denominator, not the scoreboard. */
@@ -111,6 +112,99 @@ const codigo = (r) =>
 const corpo = (dir, rel) => {
   const t = ler(dir, rel)
   return t === null ? null : semComentarioNemImport(t)
+}
+
+// ───────────────────────────────────── the existing scanner, run and not copied
+//
+// `tooling/secret/scan-secret.mjs` is 900 lines of detection that was rewritten
+// after an adversarial audit closed seven measured holes in it. None of that is
+// re-typed here. The reuse is a SUBPROCESS, and the shape was not a choice:
+// that file exports nothing and runs on import — it calls git at the top level
+// and ends in `process.exit`, so `import` would scan on load and kill this
+// process. Reading its `--json` is the closest thing to a single source that
+// exists without touching it.
+//
+// The property that buys is worth more than the elegance it costs: this rule
+// cannot invent a finding the hook would not have made, nor miss one the hook
+// makes. Every placeholder list, every vendor prefix, the `rebar-segredo-ok:`
+// escape and the seven closed holes arrive here for free and stay in one place.
+//
+// DEBT, written down because paying it is not this module's to pay: with the
+// rules table and the line scan EXPORTED from that file, this becomes an
+// `import` and one process less per evaluation. See the report.
+const VARREDOR = fileURLToPath(new URL('../secret/scan-secret.mjs', import.meta.url))
+
+/** One git call, with the target as cwd, or an exception. */
+function gitAqui(dir, argumentos) {
+  const r = spawnSync('git', argumentos, {
+    cwd: dir,
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  if (r.error) throw new Error(`git ${argumentos.join(' ')}: ${r.error.message}`)
+  if (r.status !== 0) {
+    throw new Error(`git ${argumentos.join(' ')} exited ${r.status}`)
+  }
+  return r.stdout
+}
+
+/**
+ * Runs the scanner over `dir` and gives back its `--json`.
+ *
+ * It THROWS on anything that is not a clean verdict, and throwing is the whole
+ * point: the executor turns an exception into `quebrou`, which is exit 127, and
+ * 127 dominates 1 — you do not accuse a repository with a ruler that broke. The
+ * two states that ARE verdicts are exit 0 (nothing found) and exit 1 (found);
+ * exit 2 is the scanner refusing the target, and that is not a fact about the
+ * repository being audited.
+ *
+ * `stdout` and `stderr` are captured and never inherited. The proofs runner
+ * reads any byte on this process's stderr as "the checker died" — inheriting the
+ * scanner's summary would turn every case into `quebrou` without one line saying
+ * why.
+ */
+function varrerSegredos(dir) {
+  const r = spawnSync(process.execPath, [VARREDOR, '--json'], {
+    cwd: dir,
+    encoding: 'utf8',
+    // The scanner caps a FILE at 8 MiB, but not the finding list: a committed
+    // key file yields one finding per line. 64 MiB is room for a repository
+    // that is beyond saving anyway, and an overflow here would come back as a
+    // truncated JSON, which the parse below turns into `quebrou` and not into
+    // a quiet "passed".
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, NO_COLOR: '1' },
+    windowsHide: true,
+  })
+  const primeiraDeErro = () =>
+    String(r.stderr || '')
+      .trim()
+      .split('\n')
+      .find((l) => l.trim()) || `exit ${r.status}`
+
+  if (r.error) throw new Error(`could not run the secret scanner: ${r.error.message}`)
+  if (r.status !== 0 && r.status !== 1) {
+    throw new Error(`the secret scanner did not run here: ${primeiraDeErro()}`)
+  }
+  // MEASURED: a node that DIES also exits 1, exactly like a scan that FOUND
+  // something, so the exit code alone cannot tell a verdict from a corpse —
+  // pointing the path at a file that does not exist gave exit 1 with the module
+  // error on stderr. What separates them is the JSON: a scanner that ran printed
+  // one, a scanner that died printed nothing. So the parse failure carries the
+  // stderr line with it, or the diagnosis is a syntax error about an empty
+  // string and the reader has to go find the real cause by hand.
+  let dados
+  try {
+    dados = JSON.parse(r.stdout)
+  } catch (e) {
+    throw new Error(
+      `the secret scanner printed no readable JSON (${primeiraDeErro()}): ${e.message}`,
+    )
+  }
+  if (!dados || !Array.isArray(dados.achados) || typeof dados.varridos !== 'number') {
+    throw new Error('the secret scanner JSON changed shape — this rule reads it wrong now')
+  }
+  return dados
 }
 
 // ══════════════════════════════════════════════════════════════════════ rules
@@ -324,6 +418,126 @@ export const REGRAS = [
       return `${achados.length} occurrence(s): ${achados.join(' · ')}`
     },
   },
+
+  // ──────────────────────────────────────────────────────────────────── S4
+  {
+    id: 'hardcoded-secret',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'no credential written into a file git tracks',
+    /**
+     * THE MEASUREMENT THAT OPENED THIS RULE. A repository was built with four
+     * credentials of real shape — an AWS access key, a GitHub token, an LLM API
+     * key, and the assignment of a literal to an `apiKey` constant, which is
+     * the exact shape of the live one sitting in the public `Navesz/Climatic`
+     * today. Both rulers were run against it:
+     *
+     *   rebar-security .   2 of 2, 1 not applicable, EXIT 0   — saw nothing
+     *   rebar .            none of the 23 rules mentions a credential
+     *
+     * The detector that catches all four already existed and worked:
+     * `tooling/secret/scan-secret.mjs` exited 1 with 4 findings on the same
+     * tree. It was simply not a rule of either ruler — it ran only as an
+     * internal step of rebar's own gate, and as the pre-commit hook of the
+     * generated project.
+     *
+     * WHY THAT GAP IS THE WHOLE POINT, AND WHY THE LEVEL IS N4. The hook is
+     * N5, and N5 is the level `docs/PLANO.md` describes as the one the agent
+     * removes WITH NO DIFF AT ALL: `git commit --no-verify` and the scan never
+     * happened. What the generated project's CI runs is `npm run verificar`,
+     * `npx rebar .` and `npx rebar-security .` — and until this rule none of
+     * the three read a single byte looking for a credential. So a secret
+     * committed with `--no-verify` reached main with CI green. The mother rule
+     * of the taxonomy says a rule that can go down a level must go down: N4
+     * blocks the merge and survives the flag, and this rule is the same scan
+     * standing there.
+     *
+     * IT DETECTS NOTHING OF ITS OWN. Every pattern, every placeholder list and
+     * the `rebar-segredo-ok:` escape come from the scanner, run as a
+     * subprocess — see the note above `VARREDOR`. Derived, never duplicated: a
+     * second copy of those patterns would drift from the hook's, and then the
+     * commit and the merge would disagree about what a credential is.
+     */
+    checar: (r) => {
+      const varredura = varrerSegredos(r.dir)
+      const naoLidos =
+        (varredura.pulos?.truncados?.length || 0) + (varredura.pulos?.ilegiveis?.length || 0)
+
+      // ABSENCE OF A TARGET IS `na`; ABSENCE OF INFORMATION IS NOT. A repository
+      // where git tracks nothing has no credential to hide, and the class leaves
+      // the denominator (I4). A repository where the scanner READ NOTHING it
+      // tried to read is a different thing entirely — the measurement failed,
+      // and laundering that into `na` is exactly the move that once took a
+      // repository from 9 of 10 to 6 of 6. It goes out as a broken ruler.
+      if (varredura.varridos === 0) {
+        if (naoLidos > 0) {
+          throw new Error(`read none of the ${naoLidos} tracked file(s) it tried to scan`)
+        }
+        return na('git tracks no file here')
+      }
+
+      // The scanner reports paths relative to the GIT ROOT it discovers from its
+      // cwd; `lerRepo` reports them relative to the TARGET. The two coincide
+      // only when the target is the root, which is the usual call and not the
+      // only one. `--show-prefix` is the translation between the two, and
+      // without it a target one folder down would be judged by findings from
+      // outside itself, with paths that do not exist in it.
+      const prefixo = gitAqui(r.dir, ['rev-parse', '--show-prefix']).trim()
+      const noAlvo = varredura.achados
+        .filter((a) => a.caminho.startsWith(prefixo))
+        .map((a) => ({ ...a, caminho: a.caminho.slice(prefixo.length) }))
+
+      // PROOF MATERIAL, BY THE MARKER THE TOOLKIT ALREADY USES — and this is the
+      // false positive that decides whether the rule is usable at all. This
+      // repository tracks 345 case files stuffed with credentials that are fake
+      // on purpose, including the two `fail/` trees that exist to prove THIS
+      // rule fails what it should. Without this filter the rule accuses the
+      // proofs that keep it honest, which is the same problem `scan-secret.mjs`
+      // already solved for a tracked `.env` and solved this same way.
+      //
+      // `r.ignorados.raizesDeProva` is not a second mechanism: it is the list of
+      // `caso.json` roots `semFixtures` already VALIDATED — only under a literal
+      // proof root and only with the schema —, which is strictly harder to forge
+      // than "some ancestor has a caso.json". A `mkdir` plus an empty object
+      // does not hide a key here.
+      //
+      // `.rebarignore` is deliberately NOT honoured. It is a declared bypass for
+      // vendor and generated material, and style debt is not a credential: one
+      // committed under an ignored prefix leaks in the clone exactly like any
+      // other. The scanner refuses folder exclusions for the same reason.
+      const provas = r.ignorados?.raizesDeProva || []
+      const achados = noAlvo.filter((a) => !provas.some((p) => a.caminho.startsWith(p)))
+
+      // Location and rule NAME, never the matched text. The scanner already
+      // redacts what it prints because its output goes to a CI log; this one
+      // goes to a CI log too, and into `--json`, and the position is enough to
+      // find the line without carrying the credential one hop further.
+      const onde = achados
+        .slice(0, 12)
+        .map((a) => `${a.caminho}:${a.linha}:${a.coluna} (${a.regra})`)
+      const resto = achados.length > onde.length ? ` …and ${achados.length - onde.length} more` : ''
+      const cobertura = naoLidos
+        ? ` · this verdict does not cover ${naoLidos} file(s) the scanner could not read whole`
+        : ''
+
+      if (!achados.length) {
+        // Passed, with a hole named. There is no fourth state and there should
+        // not be one, but "I scanned everything" and "I did not read these N"
+        // are two different claims and the rule was only able to make the first.
+        return naoLidos
+          ? {
+              nota:
+                `${naoLidos} file(s) scanned only in part or not at all — ` +
+                'the verdict does not cover them',
+            }
+          : null
+      }
+      return (
+        `${achados.length} credential(s) in tracked files: ${onde.join(' · ')}${resto}${cobertura}` +
+        ' — deleting the line is not enough, what is in history has to be ROTATED'
+      )
+    },
+  },
 ]
 
 // ═══════════════════════════════════════════════════════════════ the executor
@@ -350,6 +564,14 @@ function avaliar(dir, filtro) {
     }
     if (saida === null || saida === undefined) return { ...base, estado: 'passou' }
     if (typeof saida === 'object' && saida.na) return { ...base, estado: 'na', motivo: saida.na }
+    // PASSED, WITH A HOLE NAMED. Still three states — `nota` does not change the
+    // verdict, the score or the exit code; it is the only channel a rule has to
+    // say "what I did read is clean, and I did not read all of it". It prints as
+    // `⚠`, which is the marker `verify.config.mjs` already declares as `avisar`
+    // for the `security-self` step, so the gate shows it instead of discarding
+    // the stdout of a step that passed.
+    if (typeof saida === 'object' && saida.nota)
+      return { ...base, estado: 'passou', nota: String(saida.nota) }
     return { ...base, estado: 'reprovou', motivo: String(saida) }
   })
   return { dir, nome: r.nome, resultados }
@@ -378,6 +600,8 @@ function imprimir(a) {
     const motivo =
       x.estado === 'passou' ? '' : `  ${x.estado === 'na' ? fraco(x.motivo) : x.motivo}`
     console.log(`  ${marca} ${x.id.padEnd(largura)}  ${x.titulo}${motivo}`)
+    // The `⚠` opens the line because that is what the gate matches on.
+    if (x.nota) console.log(`  ⚠ ${' '.repeat(largura)}  ${x.nota}`)
   }
   const aplicaveis = a.resultados.filter((x) => x.estado === 'passou' || x.estado === 'reprovou')
   const passaram = aplicaveis.filter((x) => x.estado === 'passou').length

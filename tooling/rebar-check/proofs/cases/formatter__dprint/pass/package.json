@@ -1,0 +1,11 @@
+{
+  "name": "prova-formatter-dprint-confere",
+  "private": true,
+  "scripts": {
+    "format": "dprint fmt",
+    "format:check": "dprint check"
+  },
+  "devDependencies": {
+    "dprint": "^0.50.0"
+  }
+}

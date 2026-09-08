@@ -1,0 +1,20 @@
+{
+  "rule": "formatter",
+  "why": "NO TOOL IS HARDCODED, and this repository has no prettier at all. `biome ci` is read-only by contract — the mode biome documents for the gate — and a repository that adopted biome instead of prettier is not less formatted for it. The `fail` side is the same repository with `biome check --write .` alone, and the flag is the whole point: `biome check` on its own DOES gate, and `--write` is what turns the very same subcommand into a writer that comes back green. Reading the subcommand and ignoring the flag would certify it. It is the biome spelling of the `assay` defect, and it locks the second half of the rule — each family is judged by ITS OWN writing mode, not by a list of flags borrowed from prettier. Both sides keep the write script for the same reason as `formatter__write-is-not-check`: having a way to reformat is normal.",
+  "pass": {
+    "commits": [
+      {
+        "mensagem": "portão de formato com biome ci",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "commits": [
+      {
+        "mensagem": "biome só reescreve",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

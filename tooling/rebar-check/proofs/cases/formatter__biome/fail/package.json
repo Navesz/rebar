@@ -1,0 +1,10 @@
+{
+  "name": "prova-formatter-biome-escreve",
+  "private": true,
+  "scripts": {
+    "format": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0"
+  }
+}
