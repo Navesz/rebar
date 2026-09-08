@@ -9,7 +9,7 @@
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
 [![Rules](https://img.shields.io/badge/rules-26-blue)](#what-it-checks)
-[![Gate](https://img.shields.io/badge/gate-22%20steps-blue)](#the-gate)
+[![Gate](https://img.shields.io/badge/gate-23%20steps-blue)](#the-gate)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](ESTADO.md)
 
 [Leia em português](README.pt-BR.md) · [Léelo en español](README.es.md) ·
@@ -153,9 +153,9 @@ The checker is one layer, not the only one.
 | **N4s** | ruleset with a required check | **the server** |
 
 `npm run verify` **is not a new layer**: it is the sequence CI runs and that you run before
-it, today with <!--n verify.passos-->22<!--/n--> steps.
+it, today with <!--n verify.passos-->23<!--/n--> steps.
 
-In order: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
+In order: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
 
 N4s exists because everything below it lives in a file the agent edits: it deletes the
 workflow, it removes `core.hooksPath` without leaving a diff. Only the ruleset resists — and
@@ -185,7 +185,7 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->26<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->22<!--/n--> gate steps and <!--n mcp.artefato.provas-->64<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->26<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->23<!--/n--> gate steps and <!--n mcp.artefato.provas-->64<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 

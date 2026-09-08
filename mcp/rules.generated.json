@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "7472d15a7bf19cbe8d800e7ca9fc62296c785cfce5f4e104e292cfca0b4094aa",
+      "sha256": "ff62eda6be530f49e330e27d2319cfef8b1292b74a4dc60314c4a9ce5c995a97",
       "daqui": "the gate steps, in order"
     },
     {
@@ -1399,6 +1399,17 @@
       },
       {
         "ordem": 17,
+        "nome": "site-paths",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "--test",
+          "new/site/prove-paths.mjs"
+        ],
+        "dica": "A path in the site blocks stopped going through `naPasta`, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green."
+      },
+      {
+        "ordem": 18,
         "nome": "generator-identity",
         "tipo": "comando",
         "comando": [
@@ -1409,7 +1420,7 @@
         "dica": "The identity of the first commit of the generated project stopped matching the one that goes into the NOTICE and the allowlist. The project is born with the list saying one person and the history having another, and that only shows up months later."
       },
       {
-        "ordem": 18,
+        "ordem": 19,
         "nome": "mcp-template",
         "tipo": "comando",
         "comando": [
@@ -1420,7 +1431,7 @@
         "dica": "The MCP the generator writes stopped answering, or started lying about the state of the gate. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole JSON-RPC exchange."
       },
       {
-        "ordem": 19,
+        "ordem": 20,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -1432,7 +1443,7 @@
         "dica": "A rule of rebar-security stopped failing what it should, or started accusing what is correct. The pass/ side of each case carries the named false positives: if it went red, the rule loosened too much."
       },
       {
-        "ordem": 20,
+        "ordem": 21,
         "nome": "security-table",
         "tipo": "comando",
         "comando": [
@@ -1443,7 +1454,7 @@
         "dica": "Um padrao da tabela de `disabled-defense` voltou a carregar o proprio literal em texto puro. A regra passa a se encontrar, e a acusar todo repositorio que contenha uma copia dela."
       },
       {
-        "ordem": 21,
+        "ordem": 22,
         "nome": "security-self",
         "tipo": "comando",
         "comando": [
@@ -1454,7 +1465,7 @@
         "dica": "O rebar reprovou na propria regua de seguranca. Se o achado for a tabela de deteccao se encontrando, o conserto e tirar o literal da mensagem -- nao excluir o arquivo, que so adia."
       },
       {
-        "ordem": 22,
+        "ordem": 23,
         "nome": "self",
         "tipo": "comando",
         "comando": [

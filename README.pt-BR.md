@@ -9,7 +9,7 @@
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licença](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
 [![Regras](https://img.shields.io/badge/regras-26-blue)](#o-que-ele-checa)
-[![Portão](https://img.shields.io/badge/port%C3%A3o-22%20passos-blue)](#o-portão)
+[![Portão](https://img.shields.io/badge/port%C3%A3o-23%20passos-blue)](#o-portão)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
 [Read in English](README.md) · [Léelo en español](README.es.md) ·
@@ -153,9 +153,9 @@ O checker é uma das camadas, não a única.
 | **N4s** | ruleset com check obrigatório | **o servidor** |
 
 `npm run verify` **não é uma camada nova**: é a sequência que o N4 executa e que você roda
-antes dele, hoje com <!--n verify.passos-->22<!--/n--> passos.
+antes dele, hoje com <!--n verify.passos-->23<!--/n--> passos.
 
-Na ordem: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
+Na ordem: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
 
 O N4s existe porque tudo abaixo dele mora em arquivo que o agente edita: o workflow ele apaga,
 o `core.hooksPath` ele remove sem deixar diff. Só o ruleset resiste — e aqui ele está com
@@ -184,7 +184,7 @@ avisada antes de escrever, e não depois.
 O artefato é **derivado, nunca duplicado**: o `npm run verify` o regenera em memória e reprova
 se o disco divergir. É impossível mudar uma regra e esquecer o MCP.
 
-Ele carrega <!--n mcp.artefato.regras-->26<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->22<!--/n--> passos de portão e <!--n mcp.artefato.provas-->64<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
+Ele carrega <!--n mcp.artefato.regras-->26<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->23<!--/n--> passos de portão e <!--n mcp.artefato.provas-->64<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
 
 ## Mapa do repositório
 
