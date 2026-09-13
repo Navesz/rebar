@@ -1,0 +1,32 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "StepSecurity's write-up of the Nx postinstall shows the real code: the binary and the approval switch sit in separate string literals of a map, so a matcher that only looks inside one shell command misses it. Both sides track the same scripts/t.js, which names the Gemini binary on one line and passes its ambiguous approval switch two lines below. On the fail side the postinstall runs it with node, so the file is read with the 3-line code window and fails. On the pass side only the lint script runs it, and the same file is a warning (passed with a note). Whoever stops following node <file> from a lifecycle script, or drops the window, turns the fail side green; whoever fails every code file with a flag turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibm9kZSBzY3JpcHRzL3NldHVwLmpzIiwKICAgICJsaW50IjogIm5vZGUgc2NyaXB0cy90LmpzIgogIH0KfQo="
+      },
+      {
+        "caminho": "scripts/setup.js",
+        "base64": "Y29uc29sZS5sb2coJ25vdGhpbmcgdG8gc2V0IHVwJykK"
+      },
+      {
+        "caminho": "scripts/t.js",
+        "base64": "Y29uc3QgeyBzcGF3blN5bmMgfSA9IHJlcXVpcmUoJ25vZGU6Y2hpbGRfcHJvY2VzcycpCmNvbnN0IGJpbiA9ICdnZW1pbmknCmNvbnN0IHByb21wdCA9IHByb2Nlc3MuYXJndlsyXSB8fCAnJwpzcGF3blN5bmMoYmluLCBbJy0teW9sbycsICctcCcsIHByb21wdF0sIHsgc3RkaW86ICdpbmhlcml0JyB9KQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibm9kZSBzY3JpcHRzL3QuanMiCiAgfQp9Cg=="
+      },
+      {
+        "caminho": "scripts/t.js",
+        "base64": "Y29uc3QgeyBzcGF3blN5bmMgfSA9IHJlcXVpcmUoJ25vZGU6Y2hpbGRfcHJvY2VzcycpCmNvbnN0IGJpbiA9ICdnZW1pbmknCmNvbnN0IHByb21wdCA9IHByb2Nlc3MuYXJndlsyXSB8fCAnJwpzcGF3blN5bmMoYmluLCBbJy0teW9sbycsICctcCcsIHByb21wdF0sIHsgc3RkaW86ICdpbmhlcml0JyB9KQo="
+      }
+    ]
+  }
+}

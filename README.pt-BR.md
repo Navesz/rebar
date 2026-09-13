@@ -8,8 +8,8 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licença](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Regras](https://img.shields.io/badge/regras-27-blue)](#o-que-ele-checa)
-[![Portão](https://img.shields.io/badge/port%C3%A3o-25%20passos-blue)](#o-portão)
+[![Regras](https://img.shields.io/badge/regras-33-blue)](#o-que-ele-checa)
+[![Portão](https://img.shields.io/badge/port%C3%A3o-26%20passos-blue)](#o-portão)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
 [Read in English](README.md) · [Léelo en español](README.es.md) ·
@@ -131,7 +131,7 @@ das 20 regras eram improváveis por construção** — medido em 30/08/2026, qua
 | Comando | O que responde | O que não faz |
 |---|---|---|
 | `npx github:Navesz/rebar .` | O repositório está no formato certo? | Não olha segurança, não roda a aplicação |
-| `npx -p github:Navesz/rebar rebar-security .` | Ele tem falha de segurança? | Não checa Broken Access Control — o nº 1 do OWASP |
+| `npx -p github:Navesz/rebar rebar-security .` | Ele tem falha de segurança, ou assinatura conhecida de prompt injection nos arquivos versionados? | Não checa Broken Access Control — o nº 1 do OWASP. Passar não é garantia contra injeção |
 | `npx github:Navesz/rebar new <nome>` | Começar um projeto já com portão | Um preset só: `site` |
 
 O `-p` da segunda não é detalhe. Sem ele o `npx` roda o bin padrão do pacote — o checker de
@@ -140,6 +140,13 @@ formato — e o passo da "régua de segurança" repete o de cima sem ninguém no
 **O `rebar-security` é honesto sobre o buraco dele.** IDOR e autorização por objeto ficaram de
 fora porque a defesa quase sempre mora em middleware, policy ou RLS: duas árvores idênticas no
 disco têm veredito oposto. Dizer isso é mais útil que fingir que checa.
+
+Ele também procura **assinaturas conhecidas de prompt injection nos arquivos versionados**:
+Unicode invisível, caracteres de controle de terminal, configuração de agente que roda comando,
+lançamento de servidor MCP e CLI de agente iniciada com a aprovação desligada. Passar ali quer
+dizer nenhuma assinatura _conhecida_, nunca um repositório livre de injeção: a lista é pública, e
+o atacante joga depois. O que ele não pega está escrito em
+[tooling/security/README.md](tooling/security/README.md).
 
 ## O portão
 
@@ -153,9 +160,9 @@ O checker é uma das camadas, não a única.
 | **N4s** | ruleset com check obrigatório | **o servidor** |
 
 `npm run verify` **não é uma camada nova**: é a sequência que o N4 executa e que você roda
-antes dele, hoje com <!--n verify.passos-->25<!--/n--> passos.
+antes dele, hoje com <!--n verify.passos-->26<!--/n--> passos.
 
-Na ordem: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
+Na ordem: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
 
 O N4s existe porque tudo abaixo dele mora em arquivo que o agente edita: o workflow ele apaga,
 o `core.hooksPath` ele remove sem deixar diff. Só o ruleset resiste — e aqui ele está com
@@ -184,7 +191,7 @@ avisada antes de escrever, e não depois.
 O artefato é **derivado, nunca duplicado**: o `npm run verify` o regenera em memória e reprova
 se o disco divergir. É impossível mudar uma regra e esquecer o MCP.
 
-Ele carrega <!--n mcp.artefato.regras-->27<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->25<!--/n--> passos de portão e <!--n mcp.artefato.provas-->75<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
+Ele carrega <!--n mcp.artefato.regras-->33<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->26<!--/n--> passos de portão e <!--n mcp.artefato.provas-->124<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
 
 ## Mapa do repositório
 

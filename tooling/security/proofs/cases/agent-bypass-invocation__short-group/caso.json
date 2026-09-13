@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "The Gemini CLI parses its arguments with yargs, which expands a group of short options into each of them: the sandbox and approval short switches written as one single-dash word turn approval off exactly as the two words do (measured with yargs-parser 21.1.1 and the option shape of the CLI). Before the fix the rule matched only the exact one-letter word, so the grouped spelling in a postinstall passed with no note. The fail side is that postinstall. The pass side runs the CLI in the same postinstall with a group of debug and prompt switches, which holds no approval letter, and keeps the approval group in an ordinary lint script, which warns. Whoever matches only the exact word turns the fail side green; whoever fails any single-dash group next to the binary turns the pass side red. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiZ2VtaW5pIC1kcCBcInN1bW1hcml6ZVwiIiwKICAgICJsaW50IjogImdlbWluaSAtc3kgLXAgXCJzdW1tYXJpemVcIiIKICB9Cn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiZ2VtaW5pIC1zeSAtcCBcInN1bW1hcml6ZVwiIgogIH0KfQo="
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "rule": "agent-config-exec",
+  "why": "A .env stored in Git LFS has a pointer in the index and its real content only in a smudged checkout, which is what the client loads. A .env is not an agent file, so the reader names no reading problem for it, and the pointer text holds no variable: the rule passed with nothing to say. The fail side tracks .gitattributes routing .env through LFS and a pointer in place of .env. The pass side tracks the same .gitattributes and a plain .env with a harmless port. Read the pointer as an ordinary .env and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".gitattributes",
+        "texto": ".env filter=lfs diff=lfs merge=lfs -text\n"
+      },
+      {
+        "caminho": ".env",
+        "texto": "APP_PORT=3000\n"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".gitattributes",
+        "texto": ".env filter=lfs diff=lfs merge=lfs -text\n"
+      },
+      {
+        "caminho": ".env",
+        "texto": "version https://git-lfs.github.com/spec/v1\noid sha256:0000000000000000000000000000000000000000000000000000000000000000\nsize 20\n"
+      }
+    ]
+  }
+}

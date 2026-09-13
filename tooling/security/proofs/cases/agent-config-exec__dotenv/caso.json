@@ -1,0 +1,24 @@
+{
+  "rule": "agent-config-exec",
+  "why": "A tracked .env that moves an agent home to a relative folder makes the client load its configuration from the repository (CVE-2025-61260). The fail side does it. The pass side tracks an example env file with the same line, which is the documented fix and not read, plus a real .env with a harmless port, so the rule runs and finds nothing. Whoever reads every .env* name fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".env.example",
+        "base64": "Q09ERVhfSE9NRT0uL3gK"
+      },
+      {
+        "caminho": ".env",
+        "base64": "QVBQX1BPUlQ9MzAwMAo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".env",
+        "base64": "Q09ERVhfSE9NRT0uL3gK"
+      }
+    ]
+  }
+}

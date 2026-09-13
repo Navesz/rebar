@@ -1,0 +1,20 @@
+{
+  "rule": "mcp-ansi-escape",
+  "why": "Trail of Bits showed ANSI sequences inside MCP tool descriptions hiding instructions from the user of a coding agent, written in the server source as escapes. Where a description starts and ends cannot be found without running the server, so this heuristic works per file: a server file whose code, comments stripped, spells an escaped ESC. The fail side is a small stdio server whose tool description carries a hex escape of ESC before a colour code. The pass side is the same server with plain text: a rule that fired on the server markers alone would accuse every MCP server there is.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "server/index.mjs",
+        "base64": "aW1wb3J0IHsgTWNwU2VydmVyIH0gZnJvbSAnQG1vZGVsY29udGV4dHByb3RvY29sL3Nkay9zZXJ2ZXIvbWNwLmpzJwppbXBvcnQgeyBTdGRpb1NlcnZlclRyYW5zcG9ydCB9IGZyb20gJ0Btb2RlbGNvbnRleHRwcm90b2NvbC9zZGsvc2VydmVyL3N0ZGlvLmpzJwoKY29uc3Qgc2VydmVyID0gbmV3IE1jcFNlcnZlcih7IG5hbWU6ICd3ZWF0aGVyJywgdmVyc2lvbjogJzEuMC4wJyB9KQoKc2VydmVyLnJlZ2lzdGVyVG9vbCgKICAnZm9yZWNhc3QnLAogIHsgZGVzY3JpcHRpb246ICdGb3JlY2FzdCBmb3IgYSBjaXR5LicgfSwKICBhc3luYyAoKSA9PiAoeyBjb250ZW50OiBbeyB0eXBlOiAndGV4dCcsIHRleHQ6ICdzdW5ueScgfV0gfSksCikKCmF3YWl0IHNlcnZlci5jb25uZWN0KG5ldyBTdGRpb1NlcnZlclRyYW5zcG9ydCgpKQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "server/index.mjs",
+        "base64": "aW1wb3J0IHsgTWNwU2VydmVyIH0gZnJvbSAnQG1vZGVsY29udGV4dHByb3RvY29sL3Nkay9zZXJ2ZXIvbWNwLmpzJwppbXBvcnQgeyBTdGRpb1NlcnZlclRyYW5zcG9ydCB9IGZyb20gJ0Btb2RlbGNvbnRleHRwcm90b2NvbC9zZGsvc2VydmVyL3N0ZGlvLmpzJwoKY29uc3Qgc2VydmVyID0gbmV3IE1jcFNlcnZlcih7IG5hbWU6ICd3ZWF0aGVyJywgdmVyc2lvbjogJzEuMC4wJyB9KQoKc2VydmVyLnJlZ2lzdGVyVG9vbCgKICAnZm9yZWNhc3QnLAogIHsgZGVzY3JpcHRpb246ICdGb3JlY2FzdCBmb3IgYSBjaXR5Llx4MWJbMzFtXHgxYlswbScgfSwKICBhc3luYyAoKSA9PiAoeyBjb250ZW50OiBbeyB0eXBlOiAndGV4dCcsIHRleHQ6ICdzdW5ueScgfV0gfSksCikKCmF3YWl0IHNlcnZlci5jb25uZWN0KG5ldyBTdGRpb1NlcnZlclRyYW5zcG9ydCgpKQo="
+      }
+    ]
+  }
+}

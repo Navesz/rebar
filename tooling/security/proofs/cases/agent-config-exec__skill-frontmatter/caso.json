@@ -1,0 +1,20 @@
+{
+  "rule": "agent-config-exec",
+  "why": "The allowed tools of a skill are applied whenever the skill runs, with no folder trust asked, in a non-interactive run too. The fail side grants the bare shell tool, which is every command. The pass side grants one exact npm script plus a read tool, which is a warning only. The frontmatter is read by a YAML parser, so a list and a spaced string are the same grant.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".claude/skills/fmt/SKILL.md",
+        "base64": "LS0tCm5hbWU6IGZtdApkZXNjcmlwdGlvbjogZm9ybWF0IHRoZSBjb2RlCmFsbG93ZWQtdG9vbHM6IEJhc2gobnBtIHJ1biBmb3JtYXQpIFJlYWQKLS0tClJ1biB0aGUgZm9ybWF0dGVyLgo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".claude/skills/fmt/SKILL.md",
+        "base64": "LS0tCm5hbWU6IGZtdApkZXNjcmlwdGlvbjogZm9ybWF0IHRoZSBjb2RlCmFsbG93ZWQtdG9vbHM6CiAgLSBSZWFkCiAgLSBCYXNoCi0tLQpSdW4gdGhlIGZvcm1hdHRlci4K"
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "The mcp-remote proxy below 0.1.16 carries CVE-2025-6514 (CVSS 9.6), so no allowlist entry may accept it. A codeload or GitHub archive link, a repository URL and an npm alias name the same package without the bare name the rule looked for, and an entry with their fingerprint accepted 0.1.10. Both sides track one allowlisted npx launch whose package spec is a codeload tarball link of mcp-remote. The pass side links tag v0.1.16, a version the rule can read; the fail side links tag v0.1.10. Whoever reads only bare names turns the fail side green; whoever refuses every URL spec turns the pass side red. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgImJyaWRnZSI6IHsKICAgICAgImNvbW1hbmQiOiAibnB4IiwKICAgICAgImFyZ3MiOiBbCiAgICAgICAgIi15IiwKICAgICAgICAiaHR0cHM6Ly9jb2RlbG9hZC5naXRodWIuY29tL2dlZWxlbi9tY3AtcmVtb3RlL3Rhci5nei92MC4xLjE2IiwKICAgICAgICAiaHR0cHM6Ly9tY3AuZXhhbXBsZS5pbnZhbGlkL3NzZSIKICAgICAgXQogICAgfQogIH0KfQo="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2VydmVyIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLm1jcC5qc29uIiwic2Vydmlkb3IiOiJicmlkZ2UiLCJzaGEyNTYiOiIzN2ZjYzdjZDRmY2Q5MzM2MzA4MTdhMDUxODBlYTE2OGVjYmM3OTkyYjUyMjlkNTRkMTQ2MDhhOTRlMmU4YmU3In0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgImJyaWRnZSI6IHsKICAgICAgImNvbW1hbmQiOiAibnB4IiwKICAgICAgImFyZ3MiOiBbCiAgICAgICAgIi15IiwKICAgICAgICAiaHR0cHM6Ly9jb2RlbG9hZC5naXRodWIuY29tL2dlZWxlbi9tY3AtcmVtb3RlL3Rhci5nei92MC4xLjEwIiwKICAgICAgICAiaHR0cHM6Ly9tY3AuZXhhbXBsZS5pbnZhbGlkL3NzZSIKICAgICAgXQogICAgfQogIH0KfQo="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2VydmVyIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLm1jcC5qc29uIiwic2Vydmlkb3IiOiJicmlkZ2UiLCJzaGEyNTYiOiJjZTY4MjFmYmE2OTJjZmEzYTVjZTU4ZTQ4OTkxMThhZDIwNjc1NGRiMDViNWUwZjVmNzcwMGJiYjZjOGNhYTRkIn0K"
+      }
+    ]
+  }
+}

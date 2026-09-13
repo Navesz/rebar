@@ -1,0 +1,32 @@
+{
+  "rule": "hidden-unicode",
+  "why": "Agent instruction files and file names are judged in strict mode, and strict mode had dropped the two exemptions Persian and Arabic are written with: a zero-width non-joiner inside a Persian word, and a right-to-left mark that keeps a number in place on an Arabic line. A Persian CLAUDE.md, an Arabic AGENTS.md and a Persian file name all failed on their own words. Strict mode now keeps one joiner with a letter of the same joining script on each side, and one bidi mark on a line that has right-to-left script, and nothing else. The pass side tracks exactly those three. The fail side tracks the same CLAUDE.md with a zero-width space in place of the joiner and the same AGENTS.md with a right-to-left override in place of the mark. Whoever drops the strict exemptions turns the pass side red; whoever applies the prose exemptions to agent files turns the fail side green. Content and the name are base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "CLAUDE.md",
+        "base64": "IyDZhduM4oCM2K7ZiNin2YfZhQoK2YXbjOKAjNiu2YjYp9mH2YUg2YbYp9mF2YfigIzZh9inCg=="
+      },
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyDYp9mE2KXYtdiv2KfYsSDigI8yCg=="
+      },
+      {
+        "caminhoBase64": "ZG9jcy/Zhtin2YXZh+KAjNmH2KcubWQ=",
+        "base64": "IyBub3Rlcwo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "CLAUDE.md",
+        "base64": "IyDZhduM4oCL2K7ZiNin2YfZhQo="
+      },
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyDYp9mE2KXYtdiv2KfYsSDigK4yCg=="
+      }
+    ]
+  }
+}

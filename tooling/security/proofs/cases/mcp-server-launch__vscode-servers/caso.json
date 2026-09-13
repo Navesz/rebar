@@ -1,0 +1,24 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "VS Code keeps its servers under \"servers\", not \"mcpServers\", and reads .vscode/mcp.json with comments and trailing commas. A reader that only knows mcpServers misses every VS Code server, and a strict JSON reader calls the file unparseable. The fail side is such a file with one unaccepted local server; the pass side is the same file plus its exact fingerprint in .rebar-injection-allowlist. Whoever reads only mcpServers turns the fail side into not-applicable; whoever parses it as strict JSON turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".vscode/mcp.json",
+        "base64": "ewogIC8vIFNlcnZlcnMgVlMgQ29kZSBzdGFydHMgZm9yIHRoaXMgd29ya3NwYWNlLgogICJzZXJ2ZXJzIjogewogICAgImxvY2FsIjogewogICAgICAidHlwZSI6ICJzdGRpbyIsCiAgICAgICJjb21tYW5kIjogIm5vZGUiLAogICAgICAiYXJncyI6IFsidG9vbHMvc2VydmVyLm1qcyJdLAogICAgfSwKICB9LAp9Cg=="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoid29ya3NwYWNlIHNlcnZlciByZXZpZXdlZCBpbiBhIHByb29mIiwiYXJxdWl2byI6Ii52c2NvZGUvbWNwLmpzb24iLCJzZXJ2aWRvciI6ImxvY2FsIiwic2hhMjU2IjoiOWE0ZTA4MGFkODJjNmEwMTUxZDRiYWViNWVhMWQ5MmYzODJmMDE0NDg4YWZlYTRhNjk4Yjg4MGVmM2EzYmU3NiJ9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".vscode/mcp.json",
+        "base64": "ewogIC8vIFNlcnZlcnMgVlMgQ29kZSBzdGFydHMgZm9yIHRoaXMgd29ya3NwYWNlLgogICJzZXJ2ZXJzIjogewogICAgImxvY2FsIjogewogICAgICAidHlwZSI6ICJzdGRpbyIsCiAgICAgICJjb21tYW5kIjogIm5vZGUiLAogICAgICAiYXJncyI6IFsidG9vbHMvc2VydmVyLm1qcyJdLAogICAgfSwKICB9LAp9Cg=="
+      }
+    ]
+  }
+}

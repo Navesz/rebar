@@ -8,8 +8,8 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licencia](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Reglas](https://img.shields.io/badge/reglas-27-blue)](#qué-verifica)
-[![Compuerta](https://img.shields.io/badge/compuerta-25%20pasos-blue)](#la-compuerta)
+[![Reglas](https://img.shields.io/badge/reglas-33-blue)](#qué-verifica)
+[![Compuerta](https://img.shields.io/badge/compuerta-26%20pasos-blue)](#la-compuerta)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
 [Read in English](README.md) · [Leia em português](README.pt-BR.md) ·
@@ -132,7 +132,7 @@ reglas eran 20. Hoy, restaurar a mano cualquiera de esas 13 ramas hace fallar la
 | Comando | Qué responde | Qué no hace |
 |---|---|---|
 | `npx github:Navesz/rebar .` | ¿El repositorio tiene la forma correcta? | No mira seguridad, no ejecuta la aplicación |
-| `npx -p github:Navesz/rebar rebar-security .` | ¿Tiene una falla de seguridad? | No verifica Broken Access Control — el nº 1 de OWASP |
+| `npx -p github:Navesz/rebar rebar-security .` | ¿Tiene una falla de seguridad, o una firma conocida de prompt injection en sus archivos versionados? | No verifica Broken Access Control — el nº 1 de OWASP. Pasar no es garantía contra la inyección |
 | `npx github:Navesz/rebar new <nombre>` | Empezar un proyecto ya con compuerta | Un solo preset: `site` |
 
 El `-p` del segundo no es un detalle. Sin él `npx` ejecuta el bin por defecto del paquete — el
@@ -143,6 +143,13 @@ lo note.
 porque la defensa casi siempre vive en un middleware, una policy o RLS: dos árboles idénticos
 byte a byte en disco pueden tener veredictos opuestos. Decirlo es más útil que fingir que
 verifica.
+
+También busca **firmas conocidas de prompt injection en los archivos versionados**: Unicode
+invisible, caracteres de control de terminal, configuración de agente que ejecuta comandos,
+lanzamientos de servidores MCP y CLIs de agente iniciadas con la aprobación desactivada. Pasar ahí
+significa ninguna firma _conocida_, nunca un repositorio libre de inyección: la lista es pública,
+y el atacante juega después. Lo que no detecta está escrito en
+[tooling/security/README.md](tooling/security/README.md).
 
 ## La compuerta
 
@@ -156,9 +163,9 @@ El verificador es una de las capas, no la única.
 | **N4s** | ruleset con check obligatorio | **el servidor** |
 
 `npm run verify` **no es una capa nueva**: es la secuencia que ejecuta el N4 y que se ejecuta
-antes que él, hoy con <!--n verify.passos-->25<!--/n--> pasos.
+antes que él, hoy con <!--n verify.passos-->26<!--/n--> pasos.
 
-En orden: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
+En orden: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
 
 El N4s existe porque todo lo que está debajo vive en un archivo que el agente edita: el
 workflow lo borra, el `core.hooksPath` lo quita sin dejar diff. Solo el ruleset resiste — y
@@ -187,7 +194,7 @@ sea avisada antes de escribir, y no después.
 El artefacto es **derivado, nunca duplicado**: `npm run verify` lo regenera en memoria y falla
 si el disco diverge. Es imposible cambiar una regla y olvidar el MCP.
 
-Lleva <!--n mcp.artefato.regras-->27<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->25<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->75<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
+Lleva <!--n mcp.artefato.regras-->33<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->26<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->124<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
 
 ## Mapa del repositorio
 

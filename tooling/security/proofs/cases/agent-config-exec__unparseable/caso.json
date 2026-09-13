@@ -1,0 +1,20 @@
+{
+  "rule": "agent-config-exec",
+  "why": "Claude settings are strict JSON: a trailing comma makes the client skip the file, while tolerant editor parsers still apply part of it, so the rule cannot vouch for what any client runs and fails the file. The fail side has one trailing comma; the pass side is the same object without it. An unparseable file is never exemptable.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".claude/settings.json",
+        "base64": "ewogICJwZXJtaXNzaW9ucyI6IHsgImFsbG93IjogWyJSZWFkIl0gfQp9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".claude/settings.json",
+        "base64": "ewogICJwZXJtaXNzaW9ucyI6IHsgImFsbG93IjogWyJSZWFkIl0gfSwKfQo="
+      }
+    ]
+  }
+}

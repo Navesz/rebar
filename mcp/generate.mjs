@@ -411,6 +411,11 @@ function lerProvas(idsValidos, relBase) {
       porRegra.has(caso.rule),
       `${rel}: declares rule "${caso.rule}", which does not exist in REGRAS`,
     )
+    // A side exists the way prove.mjs decides it: its folder, OR a `gerados`
+    // list in its block, empty included. A case whose target lives only in the
+    // git index has no folder, and reading the folder alone would publish that
+    // side as absent.
+    const temLado = (lado) => existsSync(join(dir, lado)) || Array.isArray(caso[lado]?.gerados)
     porRegra.get(caso.rule).push({
       caso: nome,
       // Expected state of each side. Omitted, prove.mjs assumes
@@ -419,8 +424,15 @@ function lerProvas(idsValidos, relBase) {
       // branch is half the value. The literals 'passou' and 'reprovou' stay in
       // Portuguese: they are the state VALUES prove.mjs and the caso.json files
       // carry, not prose — translating them breaks the match with prove.mjs.
-      aprovar: existsSync(join(dir, 'pass')) ? caso.aprovar?.estado || 'passou' : null,
-      reprovar: existsSync(join(dir, 'fail')) ? caso.reprovar?.estado || 'reprovou' : null,
+      //
+      // The state is read from `pass` and `fail`, the blocks caso.json has. This
+      // read `caso.aprovar` and `caso.reprovar`, keys no case carries, so every
+      // declared state fell back to the default: measured, 18 cases whose
+      // caso.json declares a non-default state, `ci-gates__not-applicable` among
+      // them, were published as passou/reprovou when they lock na/na. The output
+      // keys stay `aprovar`/`reprovar`, which is the artifact's contract.
+      aprovar: temLado('pass') ? caso.pass?.estado || 'passou' : null,
+      reprovar: temLado('fail') ? caso.fail?.estado || 'reprovou' : null,
       porque: caso.why || null,
     })
   }
@@ -828,6 +840,21 @@ async function montar() {
     if (provas) provasPorModulo.push(provas)
 
     const tabelas = tabelasDePadrao(m.exporta)
+
+    // THE OTHER DIRECTION of the check further down. That one breaks when a rule
+    // consults a table and indexes nothing; this one breaks when a table is
+    // exported and NO rule names it. With the injection families, the tables
+    // live in tooling/security/injection/*.mjs and index.mjs re-exports each one
+    // by name, so a table can be re-exported and never passed to
+    // its `checar`. The artifact would then index none of its vocabulary, and
+    // the engine would run with that table missing, while the export still
+    // looks like coverage.
+    for (const nome of tabelas.keys()) {
+      exigir(
+        noTexto.some((t) => menciona(t.corpo, nome)),
+        `${m.rel}: table ${nome} is exported and no rule consults it`,
+      )
+    }
 
     for (const [i, regra] of m.REGRAS.entries()) {
       const t = noTexto[i]

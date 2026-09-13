@@ -1,0 +1,24 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "A server started through a shell with an inline command string runs anything the string says, and the string is where an attacker edits. The fail side launches a POSIX shell with an inline command and no acceptance, so it fails with the shell label. The pass side is the same launch with its exact fingerprint in .rebar-injection-allowlist: a shell launch is reviewed and accepted, it is not one of the findings no entry can exempt. Whoever skips commands that are not package runners turns the fail side green; whoever makes the shell label unexemptable turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInByb29mIjogewogICAgICAiY29tbWFuZCI6ICJiYXNoIiwKICAgICAgImFyZ3MiOiBbCiAgICAgICAgIi1jIiwKICAgICAgICAiZWNobyBwcm9vZiIKICAgICAgXQogICAgfQogIH0KfQo="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2hlbGwgbGF1bmNoIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLm1jcC5qc29uIiwic2Vydmlkb3IiOiJwcm9vZiIsInNoYTI1NiI6IjRlMTkxMzI2NWI3MGQwYWMyNWZkZGMxNGFiNzM4NWU5MTBjYTQyYTI4ZTIwOTRlNjkzNDAyNmFiMmE4YjBhMjMifQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInByb29mIjogewogICAgICAiY29tbWFuZCI6ICJiYXNoIiwKICAgICAgImFyZ3MiOiBbCiAgICAgICAgIi1jIiwKICAgICAgICAiZWNobyBwcm9vZiIKICAgICAgXQogICAgfQogIH0KfQo="
+      }
+    ]
+  }
+}

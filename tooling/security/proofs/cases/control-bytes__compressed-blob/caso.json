@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "git calls a blob binary when its first 8000 bytes hold a NUL, and a small compressed or encrypted blob often holds none: 243 random bytes miss one about 39% of the time. Read as text, every stray C0 byte in it was a finding, and an honest repository of extracted firmware failed with 25,972 of them. The pass side is assets/radio.dat, 243 fixed high-entropy bytes behind a zlib header with no 0x00: the window is not UTF-8 and most of it decodes to replacement characters or C0, so it is binary. The fail side is the same bytes under a .txt name, which must be text whatever it holds, so its controls still fail. Drop the entropy test and the pass side goes red; apply it to must-be-text names and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "assets/radio.dat",
+        "base64": "eJw6q6wmryMacWyRXTEYPrzS71EinXJP29lvOW6uK8giLwzj7Yxoe6KJmdY5p5/yVf6RFbggqnqUiqBNwJ3+SUzcjuC5BrIwKUpgHN88t2LPQgUZDEuz3+F8RftQUWdweMkE+EMMtEhzy8YF2J9Y8G3X5Tis7u/t/O+X/hY3vAPnqrBlOENJ11k74H9/4qPJ1q4qZ2btq7VNc/+WiiMyC5fvHH26QZZ4+dJpPLNvy9tCdOGBXyLXGyWnzvbLgKEeqq3fHbDoItFeBCogcGMfiLqtg2qSW9vbx++H+xXspbiWnxVJY4CcyYYzzQUsPUJrs/xJ"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "assets/radio.txt",
+        "base64": "eJw6q6wmryMacWyRXTEYPrzS71EinXJP29lvOW6uK8giLwzj7Yxoe6KJmdY5p5/yVf6RFbggqnqUiqBNwJ3+SUzcjuC5BrIwKUpgHN88t2LPQgUZDEuz3+F8RftQUWdweMkE+EMMtEhzy8YF2J9Y8G3X5Tis7u/t/O+X/hY3vAPnqrBlOENJ11k74H9/4qPJ1q4qZ2btq7VNc/+WiiMyC5fvHH26QZZ4+dJpPLNvy9tCdOGBXyLXGyWnzvbLgKEeqq3fHbDoItFeBCogcGMfiLqtg2qSW9vbx++H+xXspbiWnxVJY4CcyYYzzQUsPUJrs/xJ"
+      }
+    ]
+  }
+}

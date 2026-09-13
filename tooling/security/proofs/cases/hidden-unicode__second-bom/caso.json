@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "A byte order mark is legitimate once, at byte 0, and nowhere else. Measured: TextDecoder with its default ignoreBOM:false silently removes a second one, so a decoder that strips \"the BOM\" twice hides a U+FEFF from the rule. The fail side is docs/notes.md starting with two UTF-8 BOMs; the pass side starts with one. Let the decoder eat the second mark and the fail side goes green; treat the first one as a finding and the pass side goes red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "docs/notes.md",
+        "base64": "77u/IyBOb3Rlcwo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "docs/notes.md",
+        "base64": "77u/77u/IyBOb3Rlcwo="
+      }
+    ]
+  }
+}

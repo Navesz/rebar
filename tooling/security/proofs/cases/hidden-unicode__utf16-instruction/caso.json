@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "git treats a UTF-16 file as binary (numstat prints a dash, git grep misses it), so a UTF-16 CLAUDE.md is invisible to diff review while the agent decodes it fine. Measured: a naive UTF-8 read of such a file finds 0 of 12 hidden code points and a BOM decode finds all 12. Both sides are CLAUDE.md in UTF-16LE with a byte order mark; the fail side has U+200B inside a word. Decode without the BOM, or skip what git calls binary, and the fail side goes green; read the bytes as UTF-8, find the NUL half of every code unit and call the agent file unreadable, and the pass side goes red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "CLAUDE.md",
+        "base64": "//4jACAAUAByAG8AagBlAGMAdAAKAAoAUgB1AG4AIAB0AGgAZQAgAHQAZQBzAHQAIABzAGMAcgBpAHAAdAAuAAoA"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "CLAUDE.md",
+        "base64": "//4jACAAUAByAG8AagBlAGMAdAAKAAoAUgB1AG4AIAB0AGgAZQAgAHQAZQALIHMAdAAgAHMAYwByAGkAcAB0AC4ACgA="
+      }
+    ]
+  }
+}

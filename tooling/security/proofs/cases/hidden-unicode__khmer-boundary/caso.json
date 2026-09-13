@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "Khmer writes no spaces between words and marks a word boundary with U+200B, the script's normal practice: date-fns' km locale carries 12 of them. The pass side is docs/km.md with one U+200B between two Khmer words. The fail side is the same line in AGENTS.md, where no script exemption applies because an agent obeys the file. Remove the Khmer boundary exemption and the pass side goes red; extend it to agent files and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "docs/km.md",
+        "base64": "4Z6X4Z624Z6f4Z624oCL4Z6B4Z+S4Z6Y4Z+C4Z6aCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "4Z6X4Z624Z6f4Z624oCL4Z6B4Z+S4Z6Y4Z+C4Z6aCg=="
+      }
+    ]
+  }
+}

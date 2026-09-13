@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "In JSON the raw byte is not the vector, because JSON.parse refuses it. The vector is the format escape: a unicode escape of ESC inside a string is clean text on disk and a real ESC after parsing, in whatever the client prints. The fail side is config.json with that escape in a description. The pass side has the same characters preceded by an escaped backslash, which decodes to a literal backslash and the text after it, not to a control: a rule that ignored backslash parity would fail every regex pattern and Windows path stored in JSON.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "config.json",
+        "base64": "ewogICJwYXR0ZXJuIjogIlxcdTAwMUJbMzFtIgp9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "config.json",
+        "base64": "ewogICJkZXNjcmlwdGlvbiI6ICJmb3JlY2FzdCBcdTAwMUJbMzFtcmVkXHUwMDFCWzBtIgp9Cg=="
+      }
+    ]
+  }
+}

@@ -27,9 +27,21 @@
 //   "commits"  list of { mensagem, autor }. Omitted, one default commit.
 //              An EMPTY LIST means "no commit at all", which is the only way to
 //              reach the N/A branches of `ai-coauthorship` and `git-identity`.
+//              `mensagemBase64` replaces `mensagem` (exactly one of the two) when
+//              the message has to carry bytes a JSON string should not: those
+//              bytes go to `git commit -F -` on stdin, kept verbatim.
+//   "modos"    { "<path>": "100755" }, the index mode of a STATIC file.
+//   "gerados"  list of 0 to 200 entries that exist ONLY in the side's git
+//              index, never on disk — see lerGerados. Each one is
+//              { caminho | caminhoBase64, texto | base64 | symlink, modo? }.
+//
+// A side is present when its folder exists OR its block declares `gerados` (an
+// empty list counts): a case whose whole target lives in the index needs no
+// folder.
 //
 // The Portuguese still above is not prose, it is data this file reads or writes:
-// `estado`, `commits`, `mensagem` and `autor` are keys of caso.json, and
+// `estado`, `commits`, `mensagem`, `mensagemBase64`, `autor`, `modos`, `gerados`,
+// `caminho`, `caminhoBase64`, `texto` and `modo` are keys of caso.json, and
 // `passou` · `reprovou` · `na` are the states index.mjs prints in its `--json`.
 // Renaming one of them is another job, with another risk, and it is not this one.
 //
@@ -120,6 +132,18 @@ import { cp, mkdtemp, rm } from 'node:fs/promises'
 import { availableParallelism, cpus, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// The one sanitizer of the house. A `gerados` path is built to
+// carry invisible and control code points, and the runner echoes it in its
+// errors: printed raw, the gate log would hand those code points to whoever, or
+// whichever agent, reads it.
+import { escaparSaida } from '../../security/texto-seguro.mjs'
+
+// The cap an echoed git error or path gets: the same 4000 code points
+// tooling/security/index.mjs gives a `motivo`. The default 200 of escaparSaida
+// is for names, and a git error line naming a long commit message would lose the
+// part that says what went wrong.
+const LIMITE_DE_ECO = 4000
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 
@@ -223,6 +247,24 @@ const EPOCA_FIXA = 1767225600
 const SEM_CONFIG = join(tmpdir(), 'rebar-provas-gitconfig-inexistente')
 
 /**
+ * The global IGNORE file, which SEM_CONFIG does not reach.
+ *
+ * With no core.excludesFile in any config, git still reads
+ * `$XDG_CONFIG_HOME/git/ignore` (or `~/.config/git/ignore`) as its default.
+ * Measured with GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM already neutralized: a
+ * developer whose global ignore lists `.claude/` got a fixture whose
+ * `.claude/settings.json` was silently left out of `git add -A`, and the rule
+ * under proof saw another repository. Setting the key through the environment
+ * is the one layer above that default; git reads GIT_CONFIG_COUNT since 2.31.
+ * The value points at the same missing file, which git reads as empty.
+ */
+const SEM_IGNORE_GLOBAL = {
+  GIT_CONFIG_COUNT: '1',
+  GIT_CONFIG_KEY_0: 'core.excludesFile',
+  GIT_CONFIG_VALUE_0: SEM_CONFIG,
+}
+
+/**
  * The committer identity comes by ENVIRONMENT, not by local `git config`.
  *
  * It used to be two `git config` per side — 188 processes, 7.0 s of the 64.4 s
@@ -245,6 +287,7 @@ function ambienteGit(iCommit) {
     GIT_AUTHOR_DATE: carimbo,
     GIT_COMMITTER_DATE: carimbo,
     GIT_TERMINAL_PROMPT: '0',
+    ...SEM_IGNORE_GLOBAL,
   }
 }
 
@@ -266,26 +309,42 @@ const filhos = new Set()
  *
  * No shell. `git` and `process.execPath` are real executables on both systems;
  * what the house forbids is `npx` without a shell, and npx does not show up here.
+ *
+ * `entrada` (a Buffer) goes to the child's stdin, and `bruto` hands stdout back as
+ * a Buffer. Both exist for `gerados`: a blob and a path are BYTES, and a round
+ * trip through a JS string would turn an invalid UTF-8 sequence into U+FFFD
+ * before git ever saw it, and the check that git kept the path would compare
+ * two already damaged copies.
  */
-function rodar(cmd, args, opcoes) {
+function rodar(cmd, args, { entrada, bruto, ...opcoes } = {}) {
   return new Promise((resolve) => {
     let filho
     try {
-      filho = spawn(cmd, args, { ...opcoes, stdio: ['ignore', 'pipe', 'pipe'] })
+      filho = spawn(cmd, args, {
+        ...opcoes,
+        stdio: [entrada === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+      })
     } catch (e) {
-      resolve({ erro: e, codigo: null, stdout: '', stderr: '' })
+      resolve({ erro: e, codigo: null, stdout: bruto ? Buffer.alloc(0) : '', stderr: '' })
       return
     }
     // Registered so the signal handler can KILL the children before trying to
     // delete the folders — see the signal handler.
     filhos.add(filho)
-    let saida = ''
+    const pedacos = []
     let erroSaida = ''
     let erro = null
-    filho.stdout.setEncoding('utf8')
+    if (entrada !== undefined) {
+      // A child that exits before reading all of stdin makes the write fail with
+      // EPIPE. That is not a second error: the exit code already tells it, and an
+      // unhandled 'error' on the stream would kill this whole run instead.
+      filho.stdin.on('error', () => {})
+      filho.stdin.end(entrada)
+    }
+    if (!bruto) filho.stdout.setEncoding('utf8')
     filho.stderr.setEncoding('utf8')
     filho.stdout.on('data', (d) => {
-      saida += d
+      pedacos.push(d)
     })
     filho.stderr.on('data', (d) => {
       erroSaida += d
@@ -297,19 +356,25 @@ function rodar(cmd, args, opcoes) {
     })
     filho.on('close', (codigo) => {
       filhos.delete(filho)
-      resolve({ erro, codigo, stdout: saida, stderr: erroSaida })
+      const stdout = bruto ? Buffer.concat(pedacos) : pedacos.join('')
+      resolve({ erro, codigo, stdout, stderr: erroSaida })
     })
   })
 }
 
-async function git(dir, args, iCommit = 0) {
-  const r = await rodar('git', args, { cwd: dir, env: ambienteGit(iCommit) })
+async function git(dir, args, iCommit = 0, { entrada, bruto } = {}) {
+  const r = await rodar('git', args, { cwd: dir, env: ambienteGit(iCommit), entrada, bruto })
   if (r.erro) throw new Error(`git ${args[0]}: ${r.erro.message}`)
   if (r.codigo !== 0) {
-    const detalhe = `${r.stderr || ''}\n${r.stdout || ''}`.trim().split('\n')[0]
-    throw new Error(`git ${args.join(' ')} exited ${r.codigo}: ${detalhe}`)
+    // escaparSaida because git echoes the path it refused, and a `gerados` path
+    // is made of exactly the code points a log must not print raw.
+    const primeira = `${r.stderr || ''}\n${r.stdout || ''}`.trim().split('\n')[0]
+    const detalhe = escaparSaida(primeira, { limite: LIMITE_DE_ECO })
+    throw new Error(
+      `git ${escaparSaida(args.join(' '), { limite: LIMITE_DE_ECO })} exited ${r.codigo}: ${detalhe}`,
+    )
   }
-  return (r.stdout || '').trim()
+  return bruto ? r.stdout : (r.stdout || '').trim()
 }
 
 /**
@@ -447,8 +512,21 @@ function lerCommits(bloco, lado, erros) {
       erros.push(`${onde} is not an object`)
       return
     }
-    if (typeof cm.mensagem !== 'string' || !cm.mensagem.length)
+    // `mensagemBase64` is the message as BYTES, for what a readable caso.json
+    // should not carry: an invisible or control code point written
+    // as a JSON escape is decoded back by the escape pass the injection rules run
+    // over every tracked .json, and rebar would fail its own gate on its proofs.
+    let bytes = null
+    if (cm.mensagem !== undefined && cm.mensagemBase64 !== undefined) {
+      erros.push(`${onde} has both "mensagem" and "mensagemBase64" — exactly one`)
+    } else if (cm.mensagemBase64 !== undefined) {
+      bytes = deBase64(cm.mensagemBase64)
+      if (!bytes) erros.push(`${onde}.mensagemBase64 is not base64 that round-trips`)
+      // git refuses an empty message, and saying it here names the case.
+      else if (!bytes.length) erros.push(`${onde}.mensagemBase64 decodes to an empty message`)
+    } else if (typeof cm.mensagem !== 'string' || !cm.mensagem.length) {
       erros.push(`${onde} without "mensagem"`)
+    }
     const autor = typeof cm.autor === 'string' ? cm.autor.trim() : ''
     // git refuses the whole commit if the --author comes in bent. Failing the
     // proof here gives a better message than seeing "fatal: malformed --author"
@@ -456,7 +534,7 @@ function lerCommits(bloco, lado, erros) {
     if (!/^[^<>]+<[^<>]*>$/.test(autor)) {
       erros.push(`${onde} author outside the format "Name <email>": ${JSON.stringify(cm.autor)}`)
     }
-    saida.push({ mensagem: typeof cm.mensagem === 'string' ? cm.mensagem : '', autor })
+    saida.push({ mensagem: typeof cm.mensagem === 'string' ? cm.mensagem : '', bytes, autor })
   })
   return saida.length ? saida : [COMMIT_PADRAO]
 }
@@ -483,6 +561,209 @@ function lerModos(bloco, lado, erros) {
     }
   }
   return m
+}
+
+/**
+ * Base64 accepted only when it is canonical. Buffer skips characters it does not
+ * know without a word, so a typo in a case would hash other bytes and the proof
+ * would go on "matching" about a target nobody declared; re-encoding and
+ * comparing is the one check that catches it.
+ */
+function deBase64(valor) {
+  if (typeof valor !== 'string') return null
+  const bytes = Buffer.from(valor, 'base64')
+  return bytes.toString('base64') === valor ? bytes : null
+}
+
+/**
+ * `"gerados": [{ "caminho": "docs/a.md", "base64": "…" }]` — entries written ONLY
+ * to the index of the side's repository, never to its working tree.
+ *
+ * WHY THE INDEX, AND NOT A FILE IN THE SIDE FOLDER. The injection
+ * rules need fixtures that a tracked folder of this repository cannot hold, and
+ * that git cannot always hold on disk either:
+ *
+ *   - a raw invisible or control code point in a tracked fixture makes rebar
+ *     fail its own hidden-unicode and control-bytes rules, and those rules read
+ *     every blob with no exemption for proof roots;
+ *   - a JSON escape in caso.json is no way out: the escape pass of those rules
+ *     decodes it back in every tracked .json;
+ *   - a name with a C0 control cannot come from a folder: measured on git
+ *     2.55.0.windows.2 with its default core.protectNTFS, `git add` drops it
+ *     with "Ignoring path" and exit 0;
+ *   - two names that differ only in case are one file on a case-insensitive
+ *     disk, so a folder can hold only one of them.
+ *
+ * `hash-object -w --stdin` plus ONE `update-index --index-info` reaches all of
+ * them, and the index is the layer the rules read. Content comes as `texto`
+ * (printable ASCII, LF and TAB, for the readable majority) or `base64`, which is
+ * opaque to every rule, so the proof needs no exemption from the rules it proves.
+ *
+ * WHY 200 AT MOST: one `git hash-object` per entry, measured at 46.8 ms each on
+ * this Windows machine, so a full side costs about 9 s inside the pool. A case
+ * that needs more is probably proving more than one thing.
+ *
+ * Each violation stacks into `erros`, which makes the case malformed (exit 2)
+ * before any fixture is built.
+ */
+const MAX_GERADOS = 200
+// PATH_MAX on Linux. A longer path is not a proof target, it is a different bug.
+const MAX_BYTES_DO_CAMINHO = 4096
+const CHAVES_DE_GERADO = new Set(['caminho', 'caminhoBase64', 'texto', 'base64', 'symlink', 'modo'])
+const ASCII_VISIVEL = /^[ -~]*$/
+const TEXTO_SIMPLES = /^[ -~\n\t]*$/
+
+// Keys in latin1: one character per byte, so two keys are equal exactly when the
+// two paths are equal byte for byte, valid UTF-8 or not.
+const chaveDe = (bytes) => bytes.toString('latin1')
+
+/** 'a/b/c' → ['a', 'a/b']: the folders a path needs. UTF-8 never puts 0x2F inside a character. */
+const pastasDe = (chave) => {
+  const partes = chave.split('/')
+  return partes.slice(1).map((_, i) => partes.slice(0, i + 1).join('/'))
+}
+
+/** What is wrong with a decoded path, or null. */
+function defeitoDoCaminho(bytes) {
+  if (!bytes.length) return 'is empty'
+  if (bytes.length > MAX_BYTES_DO_CAMINHO)
+    return `has ${bytes.length} bytes — at most ${MAX_BYTES_DO_CAMINHO}`
+  if (bytes.includes(0)) return 'has a NUL byte, which ends a path in the index format'
+  const partes = chaveDe(bytes).split('/')
+  if (partes.some((p) => p === ''))
+    return 'is not relative with single "/" separators (empty segment)'
+  if (partes.some((p) => p === '.' || p === '..')) return 'has a "." or ".." segment'
+  // Any case: on a case-insensitive disk `.GIT` is the repository itself, and
+  // git 2.55.0.windows.2 dropped `.GIT/config` from the index even with
+  // core.protectNTFS off (measured).
+  if (partes.some((p) => p.toLowerCase() === '.git')) return 'has a ".git" segment'
+  return null
+}
+
+/** The files of a static side tree, as `/`-joined paths relative to the side. */
+function arquivosEstaticos(dirLado) {
+  const saida = []
+  const andar = (abs, rel) => {
+    for (const d of readdirSync(abs, { withFileTypes: true })) {
+      const r = rel ? `${rel}/${d.name}` : d.name
+      if (d.isDirectory()) andar(join(abs, d.name), r)
+      else saida.push(r)
+    }
+  }
+  if (dirLado) andar(dirLado, '')
+  return saida
+}
+
+function lerGerados(bloco, lado, dirLado, erros) {
+  if (!bloco || typeof bloco !== 'object' || Array.isArray(bloco)) return []
+  if (bloco.gerados === undefined) return []
+  const lista = bloco.gerados
+  if (!Array.isArray(lista)) {
+    erros.push(`"${lado}.gerados" has to be a list of entries`)
+    return []
+  }
+  if (lista.length > MAX_GERADOS) {
+    erros.push(`"${lado}.gerados" has ${lista.length} entries — at most ${MAX_GERADOS}`)
+    return []
+  }
+
+  const estaticos = arquivosEstaticos(dirLado).map((r) => chaveDe(Buffer.from(r, 'utf8')))
+  const arquivos = new Set(estaticos)
+  const pastas = new Set(estaticos.flatMap(pastasDe))
+  const vistos = new Map()
+  const saida = []
+
+  lista.forEach((g, i) => {
+    const onde = `${lado}.gerados[${i}]`
+    if (!g || typeof g !== 'object' || Array.isArray(g)) {
+      erros.push(`${onde} is not an object`)
+      return
+    }
+    // An unknown key is a typo, not an extension: `mode` for `modo` would build a
+    // 100644 file where the case meant an executable one, and match anyway.
+    const estranhas = Object.keys(g).filter((k) => !CHAVES_DE_GERADO.has(k))
+    if (estranhas.length) {
+      const nomes = estranhas.map((k) => `"${escaparSaida(k, { limite: 40 })}"`).join(', ')
+      erros.push(`${onde} has unknown key(s) ${nomes}`)
+    }
+
+    let caminho = null
+    const quantosCaminhos = ['caminho', 'caminhoBase64'].filter((k) => g[k] !== undefined).length
+    if (quantosCaminhos !== 1) {
+      erros.push(`${onde} needs exactly one of "caminho" or "caminhoBase64"`)
+    } else if (g.caminho !== undefined) {
+      if (typeof g.caminho !== 'string' || !ASCII_VISIVEL.test(g.caminho))
+        erros.push(`${onde}.caminho takes printable ASCII only — use caminhoBase64`)
+      else caminho = Buffer.from(g.caminho, 'latin1')
+    } else {
+      caminho = deBase64(g.caminhoBase64)
+      if (!caminho) erros.push(`${onde}.caminhoBase64 is not base64 that round-trips`)
+    }
+    const legivel = caminho
+      ? escaparSaida(caminho.toString('utf8'), { limite: LIMITE_DE_ECO })
+      : null
+    if (caminho) {
+      const defeito = defeitoDoCaminho(caminho)
+      if (defeito) {
+        erros.push(`${onde} (${legivel}) ${defeito}`)
+        caminho = null
+      }
+    }
+
+    let bytes = null
+    let modo = '100644'
+    const quantosConteudos = ['texto', 'base64', 'symlink'].filter((k) => g[k] !== undefined).length
+    if (quantosConteudos !== 1) {
+      erros.push(`${onde} needs exactly one of "texto", "base64" or "symlink"`)
+    } else if (g.texto !== undefined) {
+      if (typeof g.texto !== 'string' || !TEXTO_SIMPLES.test(g.texto))
+        erros.push(`${onde}.texto takes printable ASCII, LF and TAB only — use base64`)
+      else bytes = Buffer.from(g.texto, 'latin1')
+    } else if (g.base64 !== undefined) {
+      bytes = deBase64(g.base64)
+      if (!bytes) erros.push(`${onde}.base64 is not base64 that round-trips`)
+    } else if (typeof g.symlink !== 'string' || !ASCII_VISIVEL.test(g.symlink)) {
+      erros.push(`${onde}.symlink takes a printable ASCII target only`)
+    } else {
+      // A symlink in the index is a blob holding the target path, mode 120000.
+      // Nothing is linked on disk, so the target never has to exist.
+      bytes = Buffer.from(g.symlink, 'latin1')
+      modo = '120000'
+    }
+    if (g.modo !== undefined) {
+      if (g.symlink !== undefined) {
+        erros.push(`${onde}.modo is not allowed with symlink — a link is always 120000`)
+      } else if (g.modo !== '100644' && g.modo !== '100755') {
+        const pedido = escaparSaida(JSON.stringify(g.modo), { limite: 40 })
+        erros.push(`${onde}.modo only takes "100644" or "100755", got ${pedido}`)
+      } else {
+        modo = g.modo
+      }
+    }
+
+    if (caminho) {
+      const chave = chaveDe(caminho)
+      if (vistos.has(chave)) {
+        erros.push(`${onde} (${legivel}) repeats the path of ${vistos.get(chave)}`)
+      } else if (arquivos.has(chave)) {
+        erros.push(`${onde} (${legivel}) is also a static file of ${lado}/`)
+      } else if (pastas.has(chave) || pastasDe(chave).some((p) => arquivos.has(p))) {
+        // git would hold a file and a folder of the same name only by dropping
+        // one of them, which is the silent change of target this list refuses.
+        erros.push(`${onde} (${legivel}) is a file where ${lado}/ has a folder, or the reverse`)
+      } else {
+        vistos.set(chave, onde)
+      }
+    }
+    if (caminho && bytes) saida.push({ caminho, bytes, modo })
+  })
+
+  // The same file-or-folder clash, between two generated entries.
+  for (const [chave, onde] of vistos) {
+    const pasta = pastasDe(chave).find((p) => vistos.has(p))
+    if (pasta !== undefined) erros.push(`${onde} sits under ${vistos.get(pasta)}, which is a file`)
+  }
+  return saida
 }
 
 function lerCaso(id) {
@@ -521,15 +802,21 @@ function lerCaso(id) {
   const lados = {}
   for (const lado of LADOS) {
     const dir = join(base, lado)
-    if (!existsSync(dir)) {
+    const bloco = bruto[lado]
+    // A side whose whole target lives in `gerados` has nothing to put in a
+    // folder, and an empty folder is not tracked by git: demanding one would
+    // make the case exist on this disk and be malformed in every clone.
+    const declaraGerados =
+      bloco && typeof bloco === 'object' && !Array.isArray(bloco) && bloco.gerados !== undefined
+    const temPasta = existsSync(dir)
+    if (!temPasta && !declaraGerados) {
       erros.push(`the folder ${lado}/ is missing`)
       continue
     }
-    if (!statSync(dir).isDirectory()) {
+    if (temPasta && !statSync(dir).isDirectory()) {
       erros.push(`${lado}/ exists and is not a folder`)
       continue
     }
-    const bloco = bruto[lado]
     // The field is optional: without it the default holds, and the folders are
     // called `pass`/`fail` because that is what the overwhelming majority of
     // cases declares. A case that declares `na` on both sides uses the two
@@ -548,10 +835,11 @@ function lerCaso(id) {
       }
     }
     lados[lado] = {
-      dir,
+      dir: temPasta ? dir : null,
       estado,
       commits: lerCommits(bloco, lado, erros),
       modos: lerModos(bloco, lado, erros),
+      gerados: lerGerados(bloco, lado, temPasta ? dir : null, erros),
     }
   }
 
@@ -580,10 +868,69 @@ async function prepararMolde() {
   MOLDE_GIT = { raiz: dir, git: join(dir, '.git') }
 }
 
-async function montarLado(origem, commits, modos) {
+/**
+ * Writes the `gerados` of one side into its index, and checks git kept them.
+ *
+ * ONE `update-index` for the whole list, fed `<modo> <oid>\t<path>\0` on stdin
+ * with -z, so a path is bytes end to end and never an argv string.
+ * core.protectNTFS=false because git turns it on by default, and measured here
+ * it drops exactly the names these fixtures exist for: with it on, a name with
+ * BEL, a trailing dot and a trailing space were all refused.
+ *
+ * THE CHECK AFTERWARDS IS NOT OPTIONAL. git reports a refused path with a
+ * warning and exit 0: measured on git 2.55.0.windows.2, with core.protectNTFS
+ * off, `a:b` and `.GIT/config` were still left out with "Ignoring path" and
+ * exit 0. A proof built on that would run the rule on a repository without the
+ * entry it declares and report whatever the rule says about the rest. So the
+ * index is read back, and every declared entry has to be there with its mode
+ * and blob, or the side is malformed.
+ */
+async function gravarGerados(dir, gerados) {
+  const esperados = []
+  for (const g of gerados) {
+    // --no-filters is already implied by --stdin without --path; it is spelled
+    // out so that nobody adds --path one day and gets autocrlf applied to a
+    // fixture made of line endings.
+    const oid = await git(dir, ['hash-object', '-w', '--no-filters', '--stdin'], 0, {
+      entrada: g.bytes,
+    })
+    esperados.push({ caminho: g.caminho, modo: g.modo, oid, registro: `${g.modo} ${oid} 0` })
+  }
+  const registros = esperados.map((g) =>
+    Buffer.concat([Buffer.from(`${g.modo} ${g.oid}\t`), g.caminho, Buffer.from([0])]),
+  )
+  await git(
+    dir,
+    ['-c', 'core.protectNTFS=false', 'update-index', '-z', '--add', '--index-info'],
+    0,
+    { entrada: Buffer.concat(registros) },
+  )
+
+  // `ls-files -s -z`: "<mode> <oid> <stage>\t<path>\0", read as bytes.
+  const indice = await git(dir, ['ls-files', '-s', '-z'], 0, { bruto: true })
+  const noIndice = new Map()
+  for (let inicio = 0; inicio < indice.length;) {
+    let fim = indice.indexOf(0, inicio)
+    if (fim === -1) fim = indice.length
+    const linha = indice.subarray(inicio, fim)
+    const tab = linha.indexOf(9)
+    if (tab !== -1) noIndice.set(chaveDe(linha.subarray(tab + 1)), chaveDe(linha.subarray(0, tab)))
+    inicio = fim + 1
+  }
+  for (const g of esperados) {
+    const achado = noIndice.get(chaveDe(g.caminho))
+    const legivel = escaparSaida(g.caminho.toString('utf8'), { limite: LIMITE_DE_ECO })
+    if (achado === undefined) throw new Error(`gerados: git dropped ${legivel}`)
+    if (achado !== g.registro)
+      throw new Error(`gerados: git stored ${legivel} as "${achado}", expected "${g.registro}"`)
+  }
+}
+
+async function montarLado(origem, commits, modos, gerados) {
   const tmp = await mkdtemp(join(tmpdir(), PREFIXO_TMP))
   try {
-    await cp(origem, tmp, { recursive: true })
+    // No folder is a legitimate side when everything it holds is `gerados`.
+    if (origem) await cp(origem, tmp, { recursive: true })
     // The `.git` goes in AFTER the tree, in the same order the `git init` used
     // to: if one day a fixture brings a `.git` of its own, the template still
     // wins, the way the init won.
@@ -604,7 +951,17 @@ async function montarLado(origem, commits, modos) {
     for (const [caminho, modo] of Object.entries(modos || {})) {
       await git(tmp, ['update-index', `--chmod=${modo === '100755' ? '+x' : '-x'}`, caminho])
     }
+    // AFTER the add and the modes. These paths never exist on disk, and a
+    // `git add -A` run after them would record that absence as a deletion and
+    // take them back out of the index. Nothing here writes to the working tree.
+    if (gerados?.length) await gravarGerados(tmp, gerados)
     for (const [i, commit] of commits.entries()) {
+      // `mensagemBase64` goes by stdin with --cleanup=verbatim: the case declared
+      // bytes, and those are the bytes the commit object gets. `-m` goes through
+      // argv, which cannot carry invalid UTF-8 at all, and that U+200B and
+      // U+E0041 survive argv intact was verified on Windows only; stdin carries
+      // the same bytes on every OS.
+      const mensagem = commit.bytes ? ['--cleanup=verbatim', '-F', '-'] : ['-m', commit.mensagem]
       // --allow-empty because a legitimate side may have no file at all (the
       // empty tree is the natural `fail` of `license`) and because the 2nd
       // declared commit usually does not change the tree — the `ai-coauthorship`
@@ -620,10 +977,10 @@ async function montarLado(origem, commits, modos) {
           '--allow-empty',
           '--author',
           commit.autor,
-          '-m',
-          commit.mensagem,
+          ...mensagem,
         ],
         i,
+        commit.bytes ? { entrada: commit.bytes } : {},
       )
     }
     return tmp
@@ -651,11 +1008,16 @@ async function rodarRegra(id, dir) {
   // 17 after the read guards went in. `stdout` and `stderr` come SEPARATE —
   // joining them, as this function used to, destroyed the only cheap evidence
   // that the checker died: anything in stderr dirties the JSON.
+  //
+  // SEM_IGNORE_GLOBAL here too: the checker runs its own git, and a rule that
+  // asks git what is ignored would otherwise answer with the developer's global
+  // ignore file instead of the fixture's.
   const r = await rodar(process.execPath, [INDEX, `--rule=${id}`, '--heuristics', '--json', dir], {
     env: {
       ...process.env,
       GIT_CONFIG_GLOBAL: SEM_CONFIG,
       GIT_CONFIG_SYSTEM: SEM_CONFIG,
+      ...SEM_IGNORE_GLOBAL,
       NO_COLOR: '1',
     },
   })
@@ -723,7 +1085,7 @@ function observar(exec) {
 async function provarLado(id, lado, spec) {
   let tmp = null
   try {
-    tmp = await montarLado(spec.dir, spec.commits, spec.modos)
+    tmp = await montarLado(spec.dir, spec.commits, spec.modos, spec.gerados)
     const obs = observar(await rodarRegra(id, tmp))
     const veredito =
       obs.estado === spec.estado

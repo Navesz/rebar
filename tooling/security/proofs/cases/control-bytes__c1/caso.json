@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "The one-byte CSI, U+009B, opens a control sequence exactly like ESC plus a bracket, and VTE-based terminals, Kitty and WezTerm accept C1 controls inside UTF-8. A rule looking only at C0 misses it. The fail side is docs/a.md with U+009B encoded as UTF-8 before a colour code. The pass side is the character a cp1252 reader would have meant by that byte, the single right-pointing angle quotation mark, encoded properly: the check is on decoded code points, so the visible character passes and only the control fails.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "docs/a.md",
+        "base64": "TmV4dCDigLogc3RlcAo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "docs/a.md",
+        "base64": "TmV4dCDCmzMxbSBzdGVwCg=="
+      }
+    ]
+  }
+}

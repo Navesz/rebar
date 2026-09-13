@@ -1,0 +1,32 @@
+{
+  "rule": "control-bytes",
+  "why": "In a double-quoted PowerShell string a backtick is the escape character, so a commit message typed as -m \"use `actions/checkout`\" stores BEL where the Markdown code span began; a real history carries three of them, and a published commit cannot be reworded. A bell, vertical tab or form feed rings or moves the cursor and hides no text, so in a commit message it is a note. A backspace overwrites what the terminal printed, so it still fails. The pass side has one commit with the PowerShell shape (BEL before the letters of two code spans); the fail side has one commit with a backspace. Whoever fails every C0 control in a message turns the pass side red; whoever lets every control in a message through turns the fail side green. Messages are base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "texto": "# Project\n"
+      }
+    ],
+    "commits": [
+      {
+        "mensagemBase64": "Y2k6IHBpbiAHY3Rpb25zL2NoZWNrb3V0CgpVc2UgB2N0aW9ucy91cGxvYWQtYXJ0aWZhY3QHIGZvciB0aGUgbG9ncy4K",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "texto": "# Project\n"
+      }
+    ],
+    "commits": [
+      {
+        "mensagemBase64": "Y2k6IHBpbiBjaGVja291dAgICAgICAgIcmVsZWFzZQo=",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

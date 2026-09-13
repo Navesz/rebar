@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "The shell ends a word at a redirection or background operator and hands the word on unchanged, so a skip switch glued to `>` still reaches the CLI. Measured before the fix: a postinstall that started Claude Code with its strong skip switch written right before `>/dev/null` passed with no note, while the same line with a space before the operator failed. The fail side is that postinstall. The pass side glues the same operator to a print-mode call with no switch in the postinstall, and keeps the glued switch only in an ordinary lint script, which warns. Whoever drops the operators from the token edges turns the fail side green; whoever reads the operator itself as a switch turns the pass side red. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiY2xhdWRlIC1wIGhpPi9kZXYvbnVsbCIsCiAgICAibGludCI6ICJjbGF1ZGUgLXAgaGkgLS1kYW5nZXJvdXNseS1za2lwLXBlcm1pc3Npb25zPi9kZXYvbnVsbCIKICB9Cn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiY2xhdWRlIC1wIGhpIC0tZGFuZ2Vyb3VzbHktc2tpcC1wZXJtaXNzaW9ucz4vZGV2L251bGwiCiAgfQp9Cg=="
+      }
+    ]
+  }
+}

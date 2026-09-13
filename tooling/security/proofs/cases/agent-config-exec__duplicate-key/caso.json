@@ -1,0 +1,20 @@
+{
+  "rule": "agent-config-exec",
+  "why": "JSON.parse keeps the last of two equal keys, and other parsers keep the first, so a duplicated key is where two clients read two different settings. The fail side defines the same permission default twice, both times with the harmless default value, and still fails: the disagreement is the defect, whatever the values are today. The pass side defines it once. A duplicate is never exemptable.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".claude/settings.json",
+        "base64": "ewogICJwZXJtaXNzaW9ucyI6IHsKICAgICJkZWZhdWx0TW9kZSI6ICJkZWZhdWx0IgogIH0KfQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".claude/settings.json",
+        "base64": "ewogICJwZXJtaXNzaW9ucyI6IHsKICAgICJkZWZhdWx0TW9kZSI6ICJkZWZhdWx0IiwKICAgICJkZWZhdWx0TW9kZSI6ICJkZWZhdWx0IgogIH0KfQo="
+      }
+    ]
+  }
+}

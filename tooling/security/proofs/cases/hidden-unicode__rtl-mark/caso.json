@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "U+200F RIGHT-TO-LEFT MARK is ordinary punctuation inside Arabic or Hebrew text, where it fixes the order of numbers and Latin runs, and a hidden carrier anywhere else. Both sides are docs/ar.md with one RLM before a year; on the pass side the line is Arabic, on the fail side the same line has no right-to-left letter. Remove the line-context exception and the pass side goes red; exempt the mark everywhere and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "docs/ar.md",
+        "base64": "2YXYsdit2KjYpyDigI8yMDI2Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "docs/ar.md",
+        "base64": "UmVsZWFzZSDigI8yMDI2Cg=="
+      }
+    ]
+  }
+}

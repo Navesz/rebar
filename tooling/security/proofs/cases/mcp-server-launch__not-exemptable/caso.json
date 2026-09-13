@@ -1,0 +1,28 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "Gemini settings with trust set to true skip every tool confirmation for that server, which no review of the launch text can make safe. Both sides track a .rebar-injection-allowlist line carrying the exact fingerprint of their own server, so the entry matches on both. The fail side sets trust to true and must still fail; the pass side sets it to false and passes through its entry. Whoever lets an allowlist entry exempt trust turns the fail side green; whoever fails every Gemini server regardless of trust turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".gemini/settings.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInByb29mIjogewogICAgICAiY29tbWFuZCI6ICJub2RlIiwKICAgICAgImFyZ3MiOiBbCiAgICAgICAgInRvb2xzL3NlcnZlci5tanMiCiAgICAgIF0sCiAgICAgICJ0cnVzdCI6IGZhbHNlCiAgICB9CiAgfQp9Cg=="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2VydmVyIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLmdlbWluaS9zZXR0aW5ncy5qc29uIiwic2Vydmlkb3IiOiJwcm9vZiIsInNoYTI1NiI6ImQxNzM3ZDgwODk1ODAyMWI3YzNlMWI2NTA0MDBjZjlhZDVmNmYwZjZjYmM3YTEwNWQ4NzVlODIzOTdmMzJkMDUifQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".gemini/settings.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInByb29mIjogewogICAgICAiY29tbWFuZCI6ICJub2RlIiwKICAgICAgImFyZ3MiOiBbCiAgICAgICAgInRvb2xzL3NlcnZlci5tanMiCiAgICAgIF0sCiAgICAgICJ0cnVzdCI6IHRydWUKICAgIH0KICB9Cn0K"
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2VydmVyIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLmdlbWluaS9zZXR0aW5ncy5qc29uIiwic2Vydmlkb3IiOiJwcm9vZiIsInNoYTI1NiI6IjVmMDYyZGJjNmIyNzZmMzIyZmUzNDIxNTQ5MWIwMjk3MWRmNTlmYmRhYmIzYTc0NTI5Y2M5OWI1YWI3NDc5NjgifQo="
+      }
+    ]
+  }
+}

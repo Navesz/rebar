@@ -1,0 +1,28 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "An ambiguous switch in code counts only with its binary within 3 lines, the distance the Nx map needed between its cmd and args keys; further than that, a generic switch and an unrelated name are two different things. Both sides run src/a.mjs from a postinstall, so any finding would fail. On the fail side the Codex binary and its ambiguous approval switch are exactly 3 lines apart; on the pass side they are 5 lines apart and nothing is found. Whoever widens the window without measuring turns the pass side red; whoever narrows it below the Nx shape turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibm9kZSBzcmMvYS5tanMiCiAgfQp9Cg=="
+      },
+      {
+        "caminho": "src/a.mjs",
+        "base64": "aW1wb3J0IHsgc3Bhd24gfSBmcm9tICdub2RlOmNoaWxkX3Byb2Nlc3MnCmNvbnN0IHRvb2wgPSB7CiAgY21kOiAnY29kZXgnLAogIGN3ZDogJy4nLAogIGVudjoge30sCiAgc2hlbGw6IGZhbHNlLAogIHRpbWVvdXQ6IDAsCiAgYXJnczogWyctLXlvbG8nLCAnZXhlYycsICdmaXggdGhlIGJ1aWxkJ10sCn0Kc3Bhd24odG9vbC5jbWQsIHRvb2wuYXJncywgeyBzdGRpbzogJ2luaGVyaXQnIH0pCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibm9kZSBzcmMvYS5tanMiCiAgfQp9Cg=="
+      },
+      {
+        "caminho": "src/a.mjs",
+        "base64": "aW1wb3J0IHsgc3Bhd24gfSBmcm9tICdub2RlOmNoaWxkX3Byb2Nlc3MnCmNvbnN0IHRvb2wgPSB7CiAgY21kOiAnY29kZXgnLAogIGN3ZDogJy4nLAogIGVudjoge30sCiAgYXJnczogWyctLXlvbG8nLCAnZXhlYycsICdmaXggdGhlIGJ1aWxkJ10sCn0Kc3Bhd24odG9vbC5jbWQsIHRvb2wuYXJncywgeyBzdGRpbzogJ2luaGVyaXQnIH0pCg=="
+      }
+    ]
+  }
+}

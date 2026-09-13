@@ -1,0 +1,20 @@
+{
+  "rule": "agent-config-exec",
+  "why": "A VS Code task set to start by itself when the folder opens runs a repository command with no one asking for it; forks that ship workspace trust off run it at once. The fail side declares that run option; the pass side declares the same task without it. The key sits under the run options object, not at the top of the task, which is the path the plan first got wrong.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".vscode/tasks.json",
+        "base64": "ewogICJ2ZXJzaW9uIjogIjIuMC4wIiwKICAidGFza3MiOiBbCiAgICB7CiAgICAgICJsYWJlbCI6ICJ3IiwKICAgICAgInR5cGUiOiAic2hlbGwiLAogICAgICAiY29tbWFuZCI6ICJlY2hvIHdhdGNoIgogICAgfQogIF0KfQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".vscode/tasks.json",
+        "base64": "ewogICJ2ZXJzaW9uIjogIjIuMC4wIiwKICAidGFza3MiOiBbCiAgICB7CiAgICAgICJsYWJlbCI6ICJ3IiwKICAgICAgInR5cGUiOiAic2hlbGwiLAogICAgICAiY29tbWFuZCI6ICJlY2hvIHdhdGNoIiwKICAgICAgInJ1bk9wdGlvbnMiOiB7CiAgICAgICAgInJ1bk9uIjogImZvbGRlck9wZW4iCiAgICAgIH0KICAgIH0KICBdCn0K"
+      }
+    ]
+  }
+}

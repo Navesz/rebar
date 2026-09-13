@@ -8,8 +8,8 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Rules](https://img.shields.io/badge/rules-27-blue)](#what-it-checks)
-[![Gate](https://img.shields.io/badge/gate-25%20steps-blue)](#the-gate)
+[![Rules](https://img.shields.io/badge/rules-33-blue)](#what-it-checks)
+[![Gate](https://img.shields.io/badge/gate-26%20steps-blue)](#the-gate)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](ESTADO.md)
 
 [Leia em português](README.pt-BR.md) · [Léelo en español](README.es.md) ·
@@ -131,7 +131,7 @@ fail.
 | Command | What it answers | What it does not |
 |---|---|---|
 | `npx github:Navesz/rebar .` | Is the repository in the right shape? | Does not look at security, does not run the app |
-| `npx -p github:Navesz/rebar rebar-security .` | Does it have a security flaw? | Does not check Broken Access Control — OWASP #1 |
+| `npx -p github:Navesz/rebar rebar-security .` | Does it have a security flaw, or a known prompt-injection signature in its versioned files? | Does not check Broken Access Control — OWASP #1. A pass is not a guarantee against injection |
 | `npx github:Navesz/rebar new <name>` | Start a project already gated | One preset only: `site` |
 
 The `-p` on the second one is not a detail. Without it `npx` runs the package's default bin —
@@ -140,6 +140,12 @@ the format checker — and the "security ruler" step silently repeats the one ab
 **`rebar-security` is honest about its hole.** IDOR and object-level authorization stayed out
 because the defense usually lives in middleware, a policy, or RLS: two byte-identical trees on
 disk can have opposite verdicts. Saying so is more useful than pretending to check.
+
+It also looks for **known prompt-injection signatures in versioned files**: invisible Unicode,
+terminal control characters, agent settings that run commands, MCP server launches, and agent
+CLIs started with their approval turned off. A pass there means no _known_ signature, never a
+repository free of injection: the list is public, and the attacker moves second. What it does
+not catch is written down in [tooling/security/README.md](tooling/security/README.md).
 
 ## The gate
 
@@ -153,9 +159,9 @@ The checker is one layer, not the only one.
 | **N4s** | ruleset with a required check | **the server** |
 
 `npm run verify` **is not a new layer**: it is the sequence CI runs and that you run before
-it, today with <!--n verify.passos-->25<!--/n--> steps.
+it, today with <!--n verify.passos-->26<!--/n--> steps.
 
-In order: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-self` · `self`<!--/n-->
+In order: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
 
 N4s exists because everything below it lives in a file the agent edits: it deletes the
 workflow, it removes `core.hooksPath` without leaving a diff. Only the ruleset resists — and
@@ -185,7 +191,7 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->27<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->25<!--/n--> gate steps and <!--n mcp.artefato.provas-->75<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->124<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 

@@ -1,0 +1,20 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "A versioned .mcp.json is a program the client starts: Claude Code loads project servers without asking in headless, Agent SDK and cloud sessions.The pass side is new/gate/arquivos/mcp.json byte for byte, the launch rebar-site, assay and navesz-portfolio track today, and it needs no allowlist entry because the running rebar ships it. The fail side adds one server that connects to a remote URL. Whoever drops the implicit template acceptance turns the pass side red (and three live CIs with it); whoever judges only stdio commands, or only known-bad hosts, lets the fail side through.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInJlYmFyIjogewogICAgICAidHlwZSI6ICJzdGRpbyIsCiAgICAgICJjb21tYW5kIjogIm5vZGUiLAogICAgICAiYXJncyI6IFsiLnJlYmFyL21jcC5tanMiXQogICAgfQogIH0KfQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInJlYmFyIjogewogICAgICAidHlwZSI6ICJzdGRpbyIsCiAgICAgICJjb21tYW5kIjogIm5vZGUiLAogICAgICAiYXJncyI6IFsKICAgICAgICAiLnJlYmFyL21jcC5tanMiCiAgICAgIF0KICAgIH0sCiAgICAiZG9jcyI6IHsKICAgICAgInR5cGUiOiAiaHR0cCIsCiAgICAgICJ1cmwiOiAiaHR0cHM6Ly9tY3AuZXhhbXBsZS5pbnZhbGlkL21jcCIKICAgIH0KICB9Cn0K"
+      }
+    ]
+  }
+}

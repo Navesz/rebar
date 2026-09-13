@@ -62,7 +62,52 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { lerRepo, semComentarioNemImport } from '../rebar-check/index.mjs'
+import { styleText } from 'node:util'
+import { lerRepo, nota, semComentarioNemImport } from '../rebar-check/index.mjs'
+import {
+  CHAVES_QUE_EXECUTAM,
+  VARIAVEIS_PERIGOSAS,
+  checarAgentConfig,
+} from './injection/agent-config.mjs'
+import {
+  BINARIOS_DE_AGENTE,
+  FLAGS_AMBIGUAS,
+  FLAGS_FORTES,
+  PARES_DE_FLAG,
+  checarBypass,
+} from './injection/bypass.mjs'
+import {
+  ESCAPES_DE_CONTROLE,
+  MARCADORES_DE_SERVIDOR,
+  checarControlBytes,
+  checarMcpAnsiEscape,
+} from './injection/control.mjs'
+import { EXECUTORES_REMOTOS, SINAIS_DE_SHELL, checarMcpLaunch } from './injection/mcp-launch.mjs'
+import { checarHiddenUnicode } from './injection/unicode.mjs'
+import { escaparSaida } from './texto-seguro.mjs'
+
+// ─────────────────────────────────────── the prompt-injection signature tables
+//
+// The six injection rules keep their engines AND their pattern tables in
+// `./injection/*.mjs`, one file per family, and this file only re-exports each
+// table by name. Two readers depend on that
+// shape: `mcp/generate.mjs` walks this module's exports for `[RegExp, string]`
+// tables and hands each one to the rule whose `checar` NAMES it, so a table
+// passed any other way would leave the MCP artifact without its vocabulary; and
+// `tooling/security/prove-table.mjs` holds the six text tables exported here
+// against this file, the family sources, the READMEs and the artifact, so none
+// of them turns into a sample of what the tables hunt; the four tables that
+// match parsed config keys and launch commands whole are held to that anchored
+// shape, since no raw file can match them.
+export { CHAVES_QUE_EXECUTAM, VARIAVEIS_PERIGOSAS } from './injection/agent-config.mjs'
+export {
+  BINARIOS_DE_AGENTE,
+  FLAGS_AMBIGUAS,
+  FLAGS_FORTES,
+  PARES_DE_FLAG,
+} from './injection/bypass.mjs'
+export { ESCAPES_DE_CONTROLE, MARCADORES_DE_SERVIDOR } from './injection/control.mjs'
+export { EXECUTORES_REMOTOS, SINAIS_DE_SHELL } from './injection/mcp-launch.mjs'
 
 /** "Not applicable" — the third state. Out of the denominator, not the scoreboard. */
 const na = (motivo) => ({ na: motivo })
@@ -235,13 +280,14 @@ export const DESLIGAM = [
   [/NODE_TLS_REJECT_UNAUTHORIZED\s*[=:]\s*['"`]?0/, 'turns TLS off for the whole process'],
   [/\bverify\s*=\s*False\b/, 'requests without verifying the certificate'],
   [/InsecureSkipVerify\s*:\s*true/, 'TLS without verifying the certificate'],
-  // MONTADO, e nao literal: este e o unico padrao da tabela sem `\s` no
-  // meio, entao a fonte dele carregaria o proprio texto que ele procura e a
-  // regra acusaria este arquivo para sempre. Nos outros a fonte tem `\s*`
-  // onde o codigo real tem espaco, e por isso nao se auto-casam.
+  // ASSEMBLED, not literal: this is the only pattern of the table with no `\s`
+  // in the middle, so its source would carry the very text it looks for and
+  // the rule would accuse this file forever. In the others the source has
+  // `\s*` where real code has a space, and that is why they do not match
+  // themselves.
   //
-  // Mesmo idioma que `'ghp_' + 'A1b2...'` em tooling/secret/prove-scan.mjs.
-  // A prova `nenhum padrao casa a propria fonte` trava isto.
+  // Same idiom as `'ghp_' + 'A1b2...'` in tooling/secret/prove-scan.mjs.
+  // tooling/security/prove-table.mjs locks it.
   [new RegExp('@csrf' + '_exempt\\b'), 'route with no CSRF protection'],
   [/skip_before_action\s+:verify_authenticity_token/, 'CSRF turned off'],
   [/contentSecurityPolicy\s*:\s*false/, 'helmet without a CSP'],
@@ -330,10 +376,10 @@ export const REGRAS = [
       const achados = []
       for (const [rel, t] of alvos) {
         for (const [padrao, motivo] of DESLIGAM) {
-          // O TEXTO CASADO, e nao uma copia dele digitada na tabela. A saida sai
-          // igual a de antes -- `rejectUnauthorized: false — TLS without ...` --
-          // com a diferenca de que o literal agora e o que ESTA no arquivo
-          // auditado, com o espacamento que ele tem de verdade.
+          // THE MATCHED TEXT, and not a copy of it typed into the table. The
+          // output reads as before -- `rejectUnauthorized: false — TLS without ...`
+          // -- except that the literal is now what IS in the audited file, with
+          // the spacing it really has.
           const casou = padrao.exec(t)
           if (casou) achados.push(`${rel}: ${casou[0].trim()} — ${motivo}`)
         }
@@ -538,6 +584,183 @@ export const REGRAS = [
       )
     },
   },
+
+  // ──────────────────────────────────────────────────────────────────── S5
+  {
+    id: 'hidden-unicode',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'no known hidden-Unicode signature in tracked text, file names or commit messages',
+    /**
+     * A model reads code points and a pull request shows glyphs. The
+     * Default_Ignorable_Code_Point set (4174 code points in UCD 17.0.0) is the
+     * part of Unicode a renderer may draw as nothing, so a line of an agent
+     * instruction file can carry a sentence no reviewer sees: tag characters
+     * spell ASCII one for one, bidi overrides reorder what the reviewer reads
+     * (Trojan Source, CVE-2021-42574), a Hangul filler is a valid identifier
+     * that looks empty, and the GlassWorm loader hid in runs of variation
+     * selectors.
+     *
+     * It reads what git will hand out, not the disk: stage-0 index blobs decoded
+     * by their byte order mark, every tracked path and symlink target as a name,
+     * every commit message reachable from HEAD, and a second pass over the
+     * escapes JSON, YAML and TOML decode by themselves. No proof root, template
+     * root or `.rebarignore` hides anything from it.
+     *
+     * The exemptions exist because a measurement demanded each one: RGI emoji
+     * sequences (rebar's own docs carry 25 warning signs with a presentation
+     * selector), script joiners in the scripts that write words with them,
+     * right-to-left marks on lines that are already right-to-left. Agent files
+     * and names keep only the joiner between two letters of one script and the
+     * lone mark on a right-to-left line, which Persian and Arabic need. What is
+     * left in a repository goes into
+     * `.rebar-injection-allowlist` by blob id or commit id.
+     *
+     * N4 for the reason hardcoded-secret gives: a hook is removed with no diff,
+     * and CI on the merge is the level that survives it. A pass means no known
+     * signature matched, never that the repository is free of prompt injection.
+     */
+    checar: (r) => checarHiddenUnicode(r),
+  },
+
+  {
+    id: 'control-bytes',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'no known terminal-control signature in tracked text',
+    /**
+     * A C0 or C1 control in a tracked text file acts on the terminal that prints
+     * it: a colour sequence conceals what follows, a backspace or a bare carriage
+     * return overwrites what came before, and `git diff` pages through a pager
+     * that passes colour sequences raw. The reviewer reads less than the model
+     * that reads the blob.
+     *
+     * Measured before the rule existed, over the 744 files tracked by rebar,
+     * rebar-site and bookkeep: the only raw control was rebar's own colour
+     * helper, 2 bytes on one line. Code keeps a narrower set, because honest
+     * sources carry sentinels (a YAML plugin, a PNG magic), and a file whose line
+     * endings are all bare carriage returns is a warning, not a finding.
+     *
+     * JSON and YAML parsers refuse a raw control, so the attack reaches them as
+     * the format's own escape. Those escapes go through the same decoder
+     * hidden-unicode uses, and fail the same way. Tracked names and commit
+     * messages are read too, because `git log` and `ls-files` print them raw.
+     */
+    checar: (r) => checarControlBytes(r),
+  },
+
+  {
+    id: 'agent-config-exec',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'no known agent setting that runs a command or widens approval',
+    /**
+     * A cloned repository can carry the settings an AI client obeys before
+     * anyone types a command: a helper that runs in a non-interactive session,
+     * an environment block that sends the client's API traffic and credential to
+     * another host, a task that starts when the folder opens, a rule that
+     * approves every shell command. Each shipped as an advisory: CVE-2025-53773
+     * (a workspace auto-approve key), CVE-2026-21852 (a project environment
+     * block redirecting the API endpoint), CVE-2025-61260 (a dotenv file moving
+     * an agent home into the repository), CVE-2026-41613 (a loader variable in
+     * an MCP server environment). In a diff they all look like configuration.
+     *
+     * The files are PARSED, not grepped: a key with one letter written as a
+     * unicode escape, behind a comment and a trailing comma, is invisible to a
+     * text pattern and real to the editor. A duplicate key fails on its own,
+     * because clients disagree about which copy wins. Command text, URLs and
+     * header values are printed only as a sha256 prefix and a length.
+     *
+     * Settings that wait for folder trust, or that a team uses on purpose, pass
+     * with a warning instead: hooks, plugin marketplaces, the preview launch
+     * file. An accepted setting is pinned in `.rebar-injection-allowlist` by
+     * file, pointer and the hash of its value.
+     */
+    checar: (r) => checarAgentConfig(r, { CHAVES_QUE_EXECUTAM, VARIAVEIS_PERIGOSAS }),
+  },
+
+  {
+    id: 'mcp-server-launch',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'every MCP server launch in versioned config is the template or allowlisted',
+    /**
+     * A versioned MCP configuration is a program the client starts on the
+     * developer's machine, and headless and cloud sessions load project servers
+     * without asking. An allowlist by server NAME was measured against real
+     * history and lost both ways: it fired on 149 of 150 routine version bumps,
+     * and a server renamed in the same commit as its new command walked past it.
+     *
+     * So a launch is judged by a sha256 fingerprint of every field that decides
+     * what runs. The one launch accepted with no entry is the template this
+     * rebar ships, read from the running package and never from the target:
+     * rebar-site, assay and navesz-portfolio track it byte for byte. Any other
+     * launch needs its fingerprint in `.rebar-injection-allowlist`.
+     *
+     * Some findings no entry can accept, because they change what runs without
+     * changing the text: an unparseable file or a duplicate key, a command read
+     * from the environment, a server marked trusted, the mcp-remote proxy below
+     * 0.1.16 (CVE-2025-6514, CVSS 9.6), and a package runner next to a tracked
+     * registry override.
+     */
+    checar: (r) => checarMcpLaunch(r, { EXECUTORES_REMOTOS, SINAIS_DE_SHELL }),
+  },
+
+  {
+    id: 'agent-bypass-invocation',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'no agent CLI started with its approval switch turned off',
+    /**
+     * Two supply-chain incidents used exactly this shape. The Nx s1ngularity
+     * release (August 2025) shipped an install script that looked for agent
+     * CLIs on the machine and started each one with its permission prompts
+     * skipped, asking it to search the disk for wallets and keys. The Amazon Q
+     * Developer extension 1.84.0 (CVE-2025-8217) carried a line that started
+     * the vendor's chat CLI with every tool trusted and a prompt that wiped files
+     * and cloud resources. The switch was the whole difference between an agent
+     * that asks and an agent that acts.
+     *
+     * The place decides the verdict, not the switch alone: 25 of 39 sampled
+     * GitHub Agentic Workflows lock files carry such switches inside a firewall
+     * container, on purpose. It fails where nothing asks a person first: package
+     * lifecycle scripts and the files they start, git hooks, editor tasks that
+     * run on folder open, agent hooks, agent instruction files, and workflows
+     * that are not generated lock files (a workflow that only runs on push or on
+     * a schedule included). Elsewhere it is a warning.
+     *
+     * Most switches are one letter or a generic word, so they count only with
+     * their binary in the same command, or within 3 lines in code. The output
+     * names the CLI and the effect, never the switch.
+     */
+    checar: (r) =>
+      checarBypass(r, { FLAGS_FORTES, FLAGS_AMBIGUAS, PARES_DE_FLAG, BINARIOS_DE_AGENTE }),
+  },
+
+  {
+    id: 'mcp-ansi-escape',
+    classe: 'heurística',
+    nivel: 'N1',
+    titulo: 'no escaped terminal control in an MCP server file',
+    /**
+     * Trail of Bits showed terminal control sequences inside MCP tool
+     * descriptions, hidden from the person using a coding agent and read in full
+     * by the model, written in the server source as ESCAPES rather than raw
+     * bytes, which control-bytes cannot see.
+     *
+     * Where a description string begins and ends cannot be found without running
+     * the server: descriptions are built by concatenation, joins, interpolation
+     * and schema helpers. So this works per file. A candidate is a code file
+     * that uses an MCP server SDK, or a tracked file a versioned MCP config
+     * launches; the finding is an escaped ESC or CSI in its code, comments
+     * stripped.
+     *
+     * A heuristic at N1 because an honest server may colour a console line:
+     * measured, 2 of 48 unique server files in node_modules did. It informs, and
+     * fails only under `--heuristics`.
+     */
+    checar: (r) => checarMcpAnsiEscape(r, { MARCADORES_DE_SERVIDOR, ESCAPES_DE_CONTROLE }),
+  },
 ]
 
 // ═══════════════════════════════════════════════════════════════ the executor
@@ -578,10 +801,53 @@ function avaliar(dir, filtro) {
 }
 
 const c = process.stdout.isTTY && !process.env.NO_COLOR
-const cor = (n, s) => (c ? `[${n}m${s}[0m` : s)
-const verde = (s) => cor(32, s)
-const vermelho = (s) => cor(31, s)
-const fraco = (s) => cor(90, s)
+// Colour from `node:util`, with no control character in this file at all.
+// Until 2026-09-12 this line held two raw U+001B bytes, the only raw control
+// character among the 493 files rebar tracks, so control-bytes failed rebar on
+// its own colour helper. The next fix spelled the escape as text, and then
+// tooling/security/prove-table.mjs, which holds every injection table against
+// the RAW text of this file, comments included, matched it: one of the escaped forms
+// mcp-ansi-escape looks for. That rule would not fire here (this file is no
+// server), but a ruler that ships a sample of what its own table hunts is the
+// defect the table proof exists to stop. `validateStream: false` keeps the
+// decision where it was, in `c`; Node versions before 22.13 ignore the option
+// and always colour, which is the same thing.
+const cor = (formato, s) => (c ? styleText(formato, s, { validateStream: false }) : s)
+const verde = (s) => cor('green', s)
+const vermelho = (s) => cor('red', s)
+const fraco = (s) => cor('gray', s)
+
+// Room for a motivo that lists 12 findings with their paths, which is what the
+// rules print at most, and short enough that one hostile path cannot flood a
+// CI log or an MCP answer.
+const LIMITE_DE_TEXTO = 4000
+
+/**
+ * The evaluation as it may be SHOWN: every string that came from the target
+ * passes through `escaparSaida`, the same in the scoreboard and in `--json`.
+ *
+ * The rules report file names, commit messages and config keys of a repository
+ * that may be hostile. Printed raw, a name with a line break forges a `✓` or `⚠`
+ * line in output read line by line, and a U+200B or a tag sequence reaches the
+ * agent that reads the MCP answer as text nobody sees. Escaping at the output
+ * covers every rule, including the ones not written yet.
+ *
+ * `id`, `titulo`, `classe`, `nivel` and `estado` are this file's own constants,
+ * and `estado` is compared literally by prove.mjs, so they go out untouched.
+ * `dir` is the caller's own argument and goes out as given.
+ */
+function paraSaida(a) {
+  const curto = (s) => escaparSaida(s, { limite: 200 })
+  const longo = (s) => escaparSaida(s, { limite: LIMITE_DE_TEXTO })
+  const nome = curto(a.nome)
+  if (a.erro) return { ...a, nome, erro: longo(a.erro) }
+  const resultados = a.resultados.map((x) => ({
+    ...x,
+    ...(x.motivo !== undefined && { motivo: longo(x.motivo) }),
+    ...(x.nota !== undefined && { nota: longo(x.nota) }),
+  }))
+  return { ...a, nome, resultados }
+}
 
 function imprimir(a) {
   console.log(`\nrebar-security · ${a.nome}`)
@@ -617,12 +883,18 @@ function principal(argv) {
 
   const desconhecida = argv.find((a) => a.startsWith('--') && !/^--(json|heuristics|rule=)/.test(a))
   if (desconhecida) {
-    console.error(`rebar-security: unknown option: ${desconhecida}`)
+    console.error(`rebar-security: unknown option: ${escaparSaida(desconhecida)}`)
     process.exit(2)
   }
   if (filtro && !REGRAS.some((x) => x.id === filtro)) {
-    console.error(`rebar-security: unknown rule: ${filtro}`)
-    console.error(`  known: ${REGRAS.map((x) => x.id).join(', ')}`)
+    console.error(`rebar-security: unknown rule: ${escaparSaida(filtro)}`)
+    // `disponíveis:` stays in Portuguese and at column 0: it is the line prefix
+    // tooling/rebar-check/proofs/prove.mjs reads back with startsWith() to learn
+    // the rule ids without importing this CLI. This line used to print
+    // `  known:`, and the discovery returned null in silence: no up-front check
+    // of the case ids, and no `N of M rules with a proof` line for this module.
+    // prove.mjs carries the mirror of this note, and so does rebar-check.
+    console.error(`disponíveis: ${REGRAS.map((x) => x.id).join(', ')}`)
     process.exit(2)
   }
 
@@ -630,8 +902,13 @@ function principal(argv) {
   if (!alvos.length) alvos.push('.')
 
   const avaliacoes = alvos.map((d) => avaliar(d, filtro))
-  if (json) console.log(JSON.stringify(avaliacoes, null, 2))
-  else avaliacoes.forEach(imprimir)
+  // `nota` is the same object rebar-check's `--json` carries, from the same
+  // function, so a client reads the score of either ruler the same way. The MCP
+  // server reads `a.nota.ok` from rebar-check's output, and this output had no
+  // `nota` to read. The score is counted before escaping, which touches only text.
+  const exibidas = avaliacoes.map((a) => paraSaida(a.erro ? a : { ...a, nota: nota(a.resultados) }))
+  if (json) console.log(JSON.stringify(exibidas, null, 2))
+  else exibidas.forEach(imprimir)
 
   if (avaliacoes.some((a) => a.erro)) return 2
   const todos = avaliacoes.flatMap((a) => a.resultados)

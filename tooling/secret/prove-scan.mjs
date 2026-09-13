@@ -83,13 +83,13 @@ describe('the secret scanner · encoding', { concurrency: 4 }, () => {
   // a scanned binary. If `decodificar()` disappears, this test goes back to red
   // and says exactly what started passing again.
   test('FINDS · the SAME token in UTF-16LE with BOM', async () => {
-    const r = await comArquivos({ 'config.ps1': Buffer.from('﻿' + LINHA, 'utf16le') })
+    const r = await comArquivos({ 'config.ps1': Buffer.from('\uFEFF' + LINHA, 'utf16le') })
     assert.notEqual(r.codigo, 0, `token in UTF-16LE passed clean — the P1 is back:\n${r.saida}`)
     assert.match(r.saida, /github-token/)
   })
 
   test('FINDS · the SAME token in UTF-16BE with BOM', async () => {
-    const bruto = Buffer.from('﻿' + LINHA, 'utf16le')
+    const bruto = Buffer.from('\uFEFF' + LINHA, 'utf16le')
     bruto.swap16()
     const r = await comArquivos({ 'config.ps1': bruto })
     assert.notEqual(r.codigo, 0, `token in UTF-16BE passed clean:\n${r.saida}`)
@@ -97,7 +97,7 @@ describe('the secret scanner · encoding', { concurrency: 4 }, () => {
   })
 
   test('FINDS · token in UTF-8 with BOM, and the column does not shift', async () => {
-    const r = await comArquivos({ 'config.ts': Buffer.from('﻿' + LINHA, 'utf8') })
+    const r = await comArquivos({ 'config.ts': Buffer.from('\uFEFF' + LINHA, 'utf8') })
     assert.notEqual(r.codigo, 0, `token in UTF-8 with BOM passed clean:\n${r.saida}`)
     // The column is the same as in the file without a BOM: the BOM is consumed,
     // not counted.
@@ -108,7 +108,7 @@ describe('the secret scanner · encoding', { concurrency: 4 }, () => {
     const limpo = '$Url = "https://api.github.com"\n$Retries = 3\n'
     const r = await comArquivos({
       'a.ps1': Buffer.from(limpo, 'utf8'),
-      'b.ps1': Buffer.from('﻿' + limpo, 'utf16le'),
+      'b.ps1': Buffer.from('\uFEFF' + limpo, 'utf16le'),
     })
     assert.equal(r.codigo, 0, `a file with no secret was accused:\n${r.saida}`)
   })

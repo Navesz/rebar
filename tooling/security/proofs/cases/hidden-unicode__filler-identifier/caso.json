@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "U+3164 HANGUL FILLER is a valid JavaScript identifier character that renders as blank, so two identifiers that look identical in review are different bindings. The fail side is src/a.mjs whose identifier carries one U+3164 in the middle; the pass side is the same line without it. Code files get the single-character-literal concession, and this case pins that the concession stops at literals: widen it to any code context and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "src/a.mjs",
+        "texto": "const nome = 1\nexport default nome\n"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "src/a.mjs",
+        "base64": "Y29uc3Qgbm/jhaRtZSA9IDEKZXhwb3J0IGRlZmF1bHQgbm9tZQo="
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "A raw 0x9B byte is not UTF-8: it decodes to a replacement character, not to CSI. Failing raw bytes 0x80-0x9F would fail Brazilian docs saved in cp1252, which is why the rule judges decoded code points and a lenient decode is only a nota outside agent files. The pass side is docs/a.md with that raw byte. The fail side is the same bytes in AGENTS.md: an instruction file that is not valid UTF-8 may be read one way by the client and another way by the reviewer, so there it is a reading problem and it fails.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "docs/a.md",
+        "base64": "TmV4dCCbIHN0ZXAK"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "TmV4dCCbIHN0ZXAK"
+      }
+    ]
+  }
+}

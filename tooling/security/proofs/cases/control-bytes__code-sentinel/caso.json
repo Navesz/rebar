@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "Code gets a smaller character set, and this case locks both edges of it. Measured in node_modules, honest source carries C0 sentinels (a YAML plugin uses U+0002, U+0018 and U+001F; a PNG magic uses U+001A), and failing them would put every vendored parser in the allowlist. So the pass side is src/a.mjs with U+0002 inside a string. The fail side is the same line with ESC instead, which a code file never needs raw: the escape can always be written as source text, which is how rebar fixed its own colour helper.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "src/a.mjs",
+        "base64": "ZXhwb3J0IGNvbnN0IFNFUEFSQURPUiA9ICcCJwo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "src/a.mjs",
+        "base64": "ZXhwb3J0IGNvbnN0IFNFUEFSQURPUiA9ICcbJwo="
+      }
+    ]
+  }
+}

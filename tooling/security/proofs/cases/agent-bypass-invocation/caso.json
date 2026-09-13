@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "The Nx s1ngularity release (August 2025) shipped a postinstall that started every agent CLI it found with the switch that skips permission prompts, and handed it a prompt that searched the disk for wallets and keys. npm runs a postinstall on every install with no dialog. The fail side is that shape: a package.json whose postinstall starts Claude Code with the strong skip switch. The pass side keeps the same postinstall slot busy with the two measured look-alikes that are not a bypass: a package runner told not to prompt, and Claude Code in print mode with no approval switch, plus grep and ls short switches in an ordinary script. Whoever makes a short switch accuse without its binary turns the pass side red; whoever stops reading lifecycle scripts, or demands the binary next to a strong flag, turns the fail side green. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibnB4IC15IGh1c2t5ICYmIGNsYXVkZSAtcCBcInN1bW1hcml6ZSB0aGUgY2hhbmdlc1wiIiwKICAgICJ0ZXN0IjogImdyZXAgLXEgb2sgb3V0LnR4dCAmJiBscyAtYSIKICB9Cn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiY2xhdWRlIC0tZGFuZ2Vyb3VzbHktc2tpcC1wZXJtaXNzaW9ucyAtcCBcInN1bW1hcml6ZSB0aGUgY2hhbmdlc1wiIgogIH0KfQo="
+      }
+    ]
+  }
+}

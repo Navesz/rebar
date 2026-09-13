@@ -10,7 +10,7 @@ The defect it exists so as not to repeat, in the owner's words: *"No Herz e no B
 | --- | --- |
 | `tooling/rebar-check/index.mjs` | **The source.** <!--n rules.total-->23<!--/n--> rules, each with its measured why |
 | `mcp/generate.mjs` | **The generator.** Derives the artifact from the source |
-| `mcp/rules.generated.json` | **The artifact.** <!--n mcp.artefato.tamanho-->142 KB<!--/n-->. Not edited by hand |
+| `mcp/rules.generated.json` | **The artifact.** <!--n mcp.artefato.tamanho-->204 KB<!--/n-->. Not edited by hand |
 | `mcp/src/` | **The server.** Reads the artifact. Never reads `index.mjs` |
 
 What closes the loop is the gate's `mcp` step:
@@ -71,8 +71,27 @@ After editing `.mcp.json`, restart Claude Code and check with `/mcp`.
 | `rebar_regras` | "what is going to fail me here?" | before writing code |
 | `rebar_porque` | "why is this a rule?" — with the measured number and the proofs | when the gate fails you and you feel like working around it |
 | `rebar_decidir` | "has the project already decided about X?" | before proposing a stack, library, format or process |
-| `rebar_portao` | the gate's <!--n mcp.artefato.passos-->25<!--/n--> steps, the command for each one, the exit codes | when the gate fails and the message is not enough |
-| `rebar_verificar` | runs the ruler over a path and returns the scoreboard | after touching things, before saying you are done |
+| `rebar_portao` | the gate's <!--n mcp.artefato.passos-->26<!--/n--> steps, the command for each one, the exit codes | when the gate fails and the message is not enough |
+| `rebar_verificar` | runs the rulers (`rebar-check` and `rebar-security`) over a path and returns the scoreboard | after touching things, before saying you are done |
+
+### Which ruler `rebar_verificar` runs
+
+`rebar_verificar` used to run `rebar-check` alone. Asked for a security rule such as `disabled-defense`, it sent the id to `rebar-check`, which exited 2 with "unknown rule" (measured). The rules that look for prompt-injection signatures live in `rebar-security`, so they were out of reach of the one call an agent makes before saying it is done.
+
+It now takes a parameter, `regua`, instead of a sixth tool. A new tool would be one more description for the model to skip. A parameter keeps the count at five and keeps a bare `rebar_verificar {}` valid.
+
+- **No `regra`:** `regua` is `rebar-check`, `rebar-security` or `ambas`. `ambas` means both and is the default. When both run, they run in parallel and are printed in that order. Measured on rebar before the injection rules existed, `rebar-check` took 0.66 s and `rebar-security` 1.3 s.
+- **With `regra`:** the artifact records which module every rule belongs to, so the id alone picks the binary. `regua` can be left out, or it can name that same ruler. A ruler that does not own the rule is an error that names the owner.
+
+Each ruler's block opens with `ruler:` and `command:`, the exact `node tooling/…/index.mjs --json` line it ran. Rules that passed but still name a hole they could not read are listed under `PASSED WITH A WARNING`, one `⚠` line each. The answer ends with `overall exit=`: 127 outranks 2, 2 outranks 1, and 1 outranks 0.
+
+When `rebar-security` fails nothing, the answer says what that means: no known signature matched. It does not say the repository is free of prompt injection. The ruler does not judge visible prose, and it does not read issues, pull requests, or the tool descriptions a server sends at runtime.
+
+The answer is `isError` when a ruler's scoreboard cannot be read. That covers three cases: the ruler did not run, its output is not JSON, or its `--json` changed shape. Every evaluation must carry `resultados` and a `nota` of four numbers. A scoreboard with a missing half reads as a pass, so a partial answer is never returned as a normal one.
+
+**Text from the audited repository reaches the model escaped.** Before this change, a commit trailer carrying a zero-width space, tag characters and a terminal escape reached the answer raw through a rule's reason (measured). An agent reads an MCP answer as text, so an invisible character in it is an instruction nobody sees. File and folder names, reasons, warnings, stderr excerpts and exception messages therefore go through `escaparSaida`. That function turns every control character, every default-ignorable code point, and the private-use, surrogate and line-separator code points into `<U+XXXX>`, then cuts the text to a fixed length. `<U+XXXX>` is decoded by no parser, so pasting it into code does not bring the raw character back.
+
+The sanitizer lives in `mcp/src/texto-seguro.mjs`, a byte copy of `tooling/security/texto-seguro.mjs`, which the security ruler uses for its own output. It is a copy, not an import, because the gate's mirrors of `mcp/` do not include `tooling/security`. `prova-cliente.mjs` compares the two files by sha256, so the copy cannot drift on its own.
 
 ### The subject has to reach the rule that fails it
 
@@ -112,10 +131,12 @@ It also **does not serve prose**. The previous version of this server returned c
 ## Proving it runs
 
 ```
-node mcp/src/prova-cliente.mjs          # handshake, tools/list, every tool, the subject→rule contracts, and the server with no artifact
+node mcp/src/prova-cliente.mjs          # handshake, tools/list, every tool, both rulers, the subject→rule contracts, the escaped answer, and the server with no artifact
 node mcp/src/prova-cliente.mjs --curto  # only each step's verdict
 ```
 
 The client is **zero dependency** — only `node:child_process` and JSON — on purpose: proving the server with the same SDK it uses would let an SDK defect cancel itself out on both sides. It speaks JSON-RPC 2.0 in NDJSON over stdio, which is MCP's transport (one message per line; `Content-Length` framing is LSP, not MCP).
+
+Step `3f` builds a repository at runtime whose tracked file name carries a zero-width space and whose commit trailer carries tag characters. The name exists only in the git index, so no such file is ever written to disk. It then asks both rulers about that repository and checks two things: no raw invisible or control character is left in either answer, and each character came back as its `<U+XXXX>` label.
 
 Its last step assembles a copy of the server in a folder with no artifact and checks that the process **dies with exit 1** saying how to generate it — instead of coming up and answering "no rule found", which would teach the model that the project has no rules.

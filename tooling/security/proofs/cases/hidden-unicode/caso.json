@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "The shape the rule exists for: tag characters spell ASCII one for one and render as nothing, so a line of an agent file carries text no reviewer sees. The fail side is AGENTS.md with a run of 12 tag code points after a visible sentence (meaningless letters, no payload). The pass side is the same file with every emoji construct that also uses invisible code points legitimately: a family ZWJ sequence, the Scotland subdivision flag (the only tag sequences Unicode ships), a warning sign with its emoji selector, and keycap one. Loosen the flag exception to \"black flag, any tags, cancel tag\" and nothing changes here, but drop it or drop the ZWJ or selector exceptions and the pass side goes red; stop reading tags as hidden and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyBBZ2VudHMKCkZhbWlseTog8J+RqOKAjfCfkanigI3wn5Gn4oCN8J+RpgpTY290bGFuZDog8J+PtPOggafzoIGi86CBs/OggaPzoIG086CBvwpXYXJuaW5nOiDimqDvuI8KS2V5Y2FwOiAx77iP4oOjCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyBBZ2VudHMKCkZvbGxvdyB0aGUgc3R5bGUgZ3VpZGUu86CBsfOggbrzoIG486CBtvOggbHzoIG686CBuPOggbbzoIGx86CBuvOggbjzoIG2Cg=="
+      }
+    ]
+  }
+}
