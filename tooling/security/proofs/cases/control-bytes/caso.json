@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "The signature the rule exists for, measured in the wild: an SGR sequence in a tracked text file. A terminal acts on it, and `git diff` goes through `less -R`, which passes it through raw, so the line after the sequence is concealed from whoever reviews the diff while a model reading the blob gets all of it. The fail side is notes.txt with ESC followed by the conceal code before an ordinary sentence. The pass side is the same kind of file with the two controls every honest text file carries, TAB and CRLF line endings: a rule that failed every C0 code point, or treated CR as a control even before LF, would turn every Windows checkout red and teach people to switch it off.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "notes.txt",
+        "base64": "U2hvcHBpbmcgbGlzdA0KCW1pbGsNCgllZ2dzDQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "notes.txt",
+        "base64": "U2hvcHBpbmcgbGlzdAobWzhtdGhpcyBzZW50ZW5jZSBpcyBjb25jZWFsZWQgb24gYSB0ZXJtaW5hbBtbMG0K"
+      }
+    ]
+  }
+}

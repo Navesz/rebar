@@ -1,0 +1,32 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "Node loads the module named by its preload option (-r, --require, --import, --loader) before the entry, so the file behind it runs exactly as an entry does. The rule skipped that value as an option value, and a postinstall that preloads a tracked file whose code starts the Claude Code CLI with its permission prompts skipped passed with a note. Both sides track the same scripts/t.js. On the fail side the postinstall preloads it and names no entry; on the pass side only the lint script preloads it, which a person starts on purpose, and the file is a warning. Whoever skips the preload value turns the fail side green; whoever fails every code file with the switch turns the pass side red. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibm9kZSBzY3JpcHRzL3NldHVwLmpzIiwKICAgICJsaW50IjogIm5vZGUgLXIgLi9zY3JpcHRzL3QuanMiCiAgfQp9Cg=="
+      },
+      {
+        "caminho": "scripts/setup.js",
+        "base64": "Y29uc29sZS5sb2coJ25vdGhpbmcgdG8gc2V0IHVwJykK"
+      },
+      {
+        "caminho": "scripts/t.js",
+        "base64": "Y29uc3QgeyBzcGF3blN5bmMgfSA9IHJlcXVpcmUoJ25vZGU6Y2hpbGRfcHJvY2VzcycpCnNwYXduU3luYygnY2xhdWRlJywgWyctLWRhbmdlcm91c2x5LXNraXAtcGVybWlzc2lvbnMnLCAnLXAnLCAnc2V0IHVwJ10sIHsgc3RkaW86ICdpbmhlcml0JyB9KQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImRlbW8iLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAicHJpdmF0ZSI6IHRydWUsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAibm9kZSAtciAuL3NjcmlwdHMvdC5qcyIKICB9Cn0K"
+      },
+      {
+        "caminho": "scripts/t.js",
+        "base64": "Y29uc3QgeyBzcGF3blN5bmMgfSA9IHJlcXVpcmUoJ25vZGU6Y2hpbGRfcHJvY2VzcycpCnNwYXduU3luYygnY2xhdWRlJywgWyctLWRhbmdlcm91c2x5LXNraXAtcGVybWlzc2lvbnMnLCAnLXAnLCAnc2V0IHVwJ10sIHsgc3RkaW86ICdpbmhlcml0JyB9KQo="
+      }
+    ]
+  }
+}

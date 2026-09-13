@@ -1,0 +1,24 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "Codex reads MCP servers from [mcp_servers.<name>] tables in .codex/config.toml, a format no JSON reader sees. The fail side declares one server that downloads a Python package and starts it, with no acceptance; the pass side is the same file plus its exact fingerprint in .rebar-injection-allowlist. Whoever leaves TOML out turns the fail side into not-applicable; whoever fingerprints a TOML server differently from the same launch in JSON turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".codex/config.toml",
+        "base64": "IyBDb2RleCBNQ1Agc2VydmVycwpbbWNwX3NlcnZlcnMuZmV0Y2hdCmNvbW1hbmQgPSAidXZ4IgphcmdzID0gWyJtY3Atc2VydmVyLWZldGNoIl0K"
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoicHl0aG9uIHNlcnZlciByZXZpZXdlZCBpbiBhIHByb29mIiwiYXJxdWl2byI6Ii5jb2RleC9jb25maWcudG9tbCIsInNlcnZpZG9yIjoiZmV0Y2giLCJzaGEyNTYiOiJmMjMzMGFkMWIzMDQ2ZDc0NDhjZDcwMjk2MWRkZmRmZTQ3N2ExZGE0MmYxM2VjMDgyZTgxZDRhYzU0NGQ3YTcwIn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".codex/config.toml",
+        "base64": "IyBDb2RleCBNQ1Agc2VydmVycwpbbWNwX3NlcnZlcnMuZmV0Y2hdCmNvbW1hbmQgPSAidXZ4IgphcmdzID0gWyJtY3Atc2VydmVyLWZldGNoIl0K"
+      }
+    ]
+  }
+}

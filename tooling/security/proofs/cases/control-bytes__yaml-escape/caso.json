@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "YAML decodes escapes only inside double-quoted scalars, and its short escape for ESC is two characters that look like nothing on disk. The fail side is config/a.yml with that escape in a double-quoted value, which js-yaml turns into ESC (measured). The pass side is the same value single-quoted, where YAML keeps the backslash as text: a rule that matched the characters anywhere would fail every shell colour in a workflow run block, which is literal there too.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "config/a.yml",
+        "base64": "Y29sb3I6ICdcZVszMW0nCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "config/a.yml",
+        "base64": "Y29sb3I6ICJcZVszMW0iCg=="
+      }
+    ]
+  }
+}

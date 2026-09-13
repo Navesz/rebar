@@ -16,7 +16,8 @@
 //   node mcp/src/prova-cliente.mjs           runs everything and prints the real traffic
 //   node mcp/src/prova-cliente.mjs --curto   only the verdict of each step
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   copyFileSync,
   mkdirSync,
@@ -34,6 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // The client lives outside this file since the second proof that needs it showed
 // up — the one for the MCP the generator writes, in new/gate/prove-mcp-template.mjs.
 import { Cliente, PROTOCOLO, textoDa, trecho } from './cliente-jsonrpc.mjs'
+import { CONTROLES, IGNORAVEIS, naFaixa } from './texto-seguro.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const SERVIDOR = join(AQUI, 'index.mjs')
@@ -89,6 +91,30 @@ if (ferramentas.length) {
   falhou('tools/list came back empty')
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2b · THE SANITIZER THE SERVER IMPORTS IS THE CANONICAL ONE.
+//
+// mcp/src/texto-seguro.mjs is a byte copy of tooling/security/texto-seguro.mjs, and
+// a copy, not an import, only because the gate's mirrors of mcp/ carry no
+// tooling/security. A copy nobody compares is a second table that ages on its own:
+// a code point added to the canonical table would be escaped by the CLI and handed
+// raw to the model by this server. sha256 of the bytes, so a line ending counts too.
+titulo('2b · the sanitizer copy in mcp/src is byte-identical to tooling/security')
+{
+  const sha = (caminho) => createHash('sha256').update(readFileSync(caminho)).digest('hex')
+  const copia = sha(join(AQUI, 'texto-seguro.mjs'))
+  const canonico = sha(join(RAIZ, 'tooling', 'security', 'texto-seguro.mjs'))
+  if (copia === canonico) {
+    ok(`sha256 ${copia.slice(0, 12)}… on both sides`)
+  } else {
+    falhou(
+      `mcp/src/texto-seguro.mjs (sha256 ${copia.slice(0, 12)}…) diverged from ` +
+        `tooling/security/texto-seguro.mjs (sha256 ${canonico.slice(0, 12)}…). ` +
+        'Copy the canonical file over the copy, byte for byte.',
+    )
+  }
+}
+
 // Every call below is a question a real AI asks in this repository, and the
 // FOURTH field is the contract: must this call return `isError`, yes or no?
 //
@@ -100,13 +126,63 @@ if (ferramentas.length) {
 //
 // The `assunto` values stay in Portuguese: they are queries run against the
 // artifact's own text, which is Portuguese. "color" would find nothing.
+//
+// The FIFTH field is what the text itself must carry, beyond isError: `vizinho`
+// for a failing rebar_porque (the neighbour it must offer, or null for none),
+// `contem` and `semContem` for lines the answer must and must not have. A
+// scoreboard can come back without isError and still be the wrong scoreboard.
 const chamadas = [
   ['rebar_regras', { nivel: 'N1' }, 'what fails me when I touch the CSS/lint', false],
   ['rebar_porque', { id: 'raw-hex' }, 'hex-cru failed; why is that a rule', false],
   ['rebar_decidir', { assunto: 'cor' }, 'can I write #fff in the component?', false],
   ['rebar_decidir', { assunto: 'mongodb' }, 'a subject rebar does NOT govern', false],
   ['rebar_portao', { passo: 'mcp' }, 'the gate step that guards this module', false],
-  ['rebar_verificar', {}, 'the ruler on rebar itself', false],
+  // `{}` runs BOTH rulers. It ran rebar-check alone, and the security rules, the
+  // prompt-injection ones among them, were out of reach of the one call an agent
+  // makes before saying it is done.
+  [
+    'rebar_verificar',
+    {},
+    'the rulers on rebar itself',
+    false,
+    { contem: [/^ruler: rebar-check$/m, /^ruler: rebar-security$/m, /^overall exit=/m] },
+  ],
+  [
+    'rebar_verificar',
+    { regua: 'rebar-security' },
+    'the security ruler alone',
+    false,
+    {
+      contem: [/^ruler: rebar-security$/m, /^command: node tooling\/security\/index\.mjs --json /m],
+      semContem: [/^ruler: rebar-check$/m],
+    },
+  ],
+  // A security rule id went to rebar-check, which answered exit 2 "unknown rule"
+  // (measured with disabled-defense). The artifact records the module of every
+  // rule, and the id alone now picks the binary. disabled-defense proves the
+  // routing on a rule that exists today; hidden-unicode is the rule this routing
+  // was built for.
+  [
+    'rebar_verificar',
+    { regra: 'disabled-defense' },
+    'a security rule runs on the ruler that owns it',
+    false,
+    { contem: [/^command: node tooling\/security\/index\.mjs --json --rule=disabled-defense /m] },
+  ],
+  [
+    'rebar_verificar',
+    { regra: 'hidden-unicode' },
+    'the hidden-Unicode rule runs on rebar-security',
+    false,
+    { contem: [/^command: node tooling\/security\/index\.mjs --json --rule=hidden-unicode /m] },
+  ],
+  [
+    'rebar_verificar',
+    { regra: 'hidden-unicode', regua: 'rebar-check' },
+    'a rule and a ruler that does not own it: fails naming the owner',
+    true,
+    { contem: [/is a rebar-security rule/] },
+  ],
   // The two that must fail, one for each side of the `sugestao.length ? ... : ''`
   // in consultas.mjs — the branch that suggests and the one with nothing to suggest.
   //
@@ -120,18 +196,24 @@ const chamadas = [
     { id: 'raw-hexx' },
     'typo of a real id: fails suggesting the right one',
     true,
-    'raw-hex',
+    { vizinho: 'raw-hex' },
   ],
   [
     'rebar_porque',
     { id: 'mongodb-driver' },
     'an id from another world: fails without inventing a neighbour',
     true,
-    null,
+    { vizinho: null },
   ],
 ]
 
-for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
+for (const [
+  nome,
+  args,
+  pergunta,
+  erroEsperado,
+  { vizinho, contem = [], semContem = [] } = {},
+] of chamadas) {
   titulo(`3 · tools/call ${nome} ${JSON.stringify(args)}   — "${pergunta}"`)
   const r = await cliente.pedir('tools/call', { name: nome, arguments: args })
   const t = textoDa(r)
@@ -148,8 +230,8 @@ for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
   if (erro !== erroEsperado) {
     falhou(
       erroEsperado
-        ? `${nome} should have returned isError and did not — the nonexistent-id contract loosened`
-        : `${nome} returned isError and should not have:\n${trecho(t, 400)}`,
+        ? `${nome} ${JSON.stringify(args)} should have returned isError and did not — the contract loosened`
+        : `${nome} ${JSON.stringify(args)} returned isError and should not have:\n${trecho(t, 400)}`,
     )
     continue
   }
@@ -159,7 +241,25 @@ for (const [nome, args, pergunta, erroEsperado, vizinho] of chamadas) {
   // none is the right answer. Both directions matter: suggesting nothing when there
   // was a similar id leaves the agent with no way out, and inventing a neighbour for
   // an id from another subject is worse than the dry error.
-  if (erroEsperado) {
+  // The lines the text must and must not carry. They are the wording index.mjs
+  // prints (`ruler:`, `command:`, `overall exit=`, `is a <ruler> rule`); reword it
+  // there and reword it here, or these contracts quietly stop being checked.
+  const faltou = contem.find((re) => !re.test(t))
+  if (faltou) {
+    falhou(`${nome} ${JSON.stringify(args)} did not carry ${faltou}:\n${trecho(t, 600)}`)
+    continue
+  }
+  const sobrou = semContem.find((re) => re.test(t))
+  if (sobrou) {
+    falhou(
+      `${nome} ${JSON.stringify(args)} carried ${sobrou}, which it must not:\n${trecho(t, 600)}`,
+    )
+    continue
+  }
+
+  // The neighbour contract belongs to rebar_porque: the other failing calls say
+  // what is wrong through `contem` above.
+  if (erroEsperado && nome === 'rebar_porque') {
     // This pattern is the message consultas.mjs prints. Reword it there and reword
     // it here, or this contract quietly stops being checked.
     const sugeriu = /^Close to that: (.+)$/m.exec(t)
@@ -312,8 +412,25 @@ for (const [assunto, contrato, pergunta] of DECIDIR) {
 // the generator writes, which is the third place those literals now live.
 titulo('3c · the vocabulary derived from the table is not a copy of what the table hunts')
 {
-  const { DESLIGAM } = await import(
-    pathToFileURL(join(RAIZ, 'tooling', 'security', 'index.mjs')).href
+  // EVERY TABLE, not only DESLIGAM. The prompt-injection rules bring tables of
+  // their own (flags, keys, escaped forms), and each of them is exported and
+  // derived into the artifact the same way. A check that names one table goes
+  // green over the tables nobody named. The shape is the one mcp/generate.mjs
+  // `tabelasDePadrao` derives from: a non-empty array whose every row starts with
+  // a RegExp and its explanation; a third column (the date a row was verified)
+  // does not change what it is.
+  const modulo = await import(pathToFileURL(join(RAIZ, 'tooling', 'security', 'index.mjs')).href)
+  const tabelas = Object.entries(modulo).filter(
+    ([, valor]) =>
+      Array.isArray(valor) &&
+      valor.length > 0 &&
+      valor.every(
+        (e) =>
+          Array.isArray(e) && e.length >= 2 && e[0] instanceof RegExp && typeof e[1] === 'string',
+      ),
+  )
+  const padroes = tabelas.flatMap(([nomeDaTabela, linhas]) =>
+    linhas.map(([padrao]) => [nomeDaTabela, padrao]),
   )
   const artefato = JSON.parse(readFileSync(join(RAIZ, 'mcp', 'rules.generated.json'), 'utf8'))
   const comTermos = artefato.regras.filter((r) => r.termos?.literais?.length)
@@ -335,15 +452,28 @@ titulo('3c · the vocabulary derived from the table is not a copy of what the ta
   const vocabulario = comTermos
     .map((r) => [...r.termos.literais, ...(r.termos.explicacoes ?? [])].join(' '))
     .join('\n')
-  const achados = DESLIGAM.filter(([padrao]) => padrao.test(vocabulario))
-  if (achados.length) {
+  const achados = padroes.filter(([, padrao]) => {
+    // A `g` or `y` pattern keeps `lastIndex` between calls, and a second test
+    // would start mid-text and miss.
+    padrao.lastIndex = 0
+    return padrao.test(vocabulario)
+  })
+  if (!tabelas.length) {
+    falhou(
+      'tooling/security/index.mjs exports no [RegExp, explanation] table: the check below ' +
+        'would pass by emptiness',
+    )
+  } else if (achados.length) {
     falhou(
       `the derived vocabulary matches ${achados.length} pattern(s) of the ruler: ` +
-        `${achados.map(([x]) => x.source).join(' · ')}. ` +
+        `${achados.map(([t, x]) => `${t} ${x.source}`).join(' · ')}. ` +
         'Every repository that vendors the artifact would start failing over the MCP.',
     )
   } else {
-    ok(`${DESLIGAM.length} patterns in the table, and none of them matches the vocabulary`)
+    ok(
+      `${padroes.length} patterns in ${tabelas.length} table(s) (${tabelas.map(([t]) => t).join(', ')}), ` +
+        'and none of them matches the vocabulary',
+    )
   }
 
   // The other direction, and without it the check above passes by emptiness: a
@@ -431,6 +561,283 @@ titulo('3d · a rule whose source writes a header does not reach the artifact wi
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 3e · EVERY SECURITY RULE REACHES THE ARTIFACT WITH A PROOF.
+//
+// mcp/generate.mjs finds proofs only through `caso.json` folders. A rule proved
+// only by a test that builds its input at runtime reaches the artifact with
+// `provas: []`, and rebar_porque then prints no "what locks this rule" for it: the
+// model is told the reason and never shown that anything holds it. The
+// prompt-injection rules are the ones most tempted to live without a case folder,
+// because their inputs are invisible characters nobody wants on disk.
+titulo('3e · every rebar-security rule in the artifact carries at least one proof')
+{
+  const artefato = JSON.parse(readFileSync(join(RAIZ, 'mcp', 'rules.generated.json'), 'utf8'))
+  const seguranca = artefato.regras.filter((r) => r.modulo === 'rebar-security')
+  const semProva = seguranca.filter((r) => !(r.provas?.length >= 1)).map((r) => r.id)
+  if (!seguranca.length) {
+    falhou('the artifact has no rule with modulo rebar-security: the module fell out of MODULOS')
+  } else if (semProva.length) {
+    falhou(
+      `${semProva.length} rebar-security rule(s) with no proof in the artifact: ` +
+        `${semProva.join(', ')}. Give each one a caso.json folder under tooling/security/proofs/cases.`,
+    )
+  } else {
+    ok(`${seguranca.length} rebar-security rules, each with at least one proof`)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3f · REPOSITORY TEXT REACHES THE MODEL ESCAPED.
+//
+// Measured before the sanitizer existed: a commit trailer carrying U+200B, U+E0041
+// and U+001B reached `content[].text` raw through the ai-coauthorship motivo. An MCP
+// answer is read by an agent as text, so an invisible character that crosses this
+// boundary is an instruction nobody sees.
+//
+// The repository is built here, at runtime, and the name with the invisible
+// character lives only in the git index: the blobs go in through `hash-object
+// --stdin`, the tree through `update-index --index-info`, and the commit message
+// through `commit-tree`'s stdin. So no file with an invisible character is ever
+// written to a disk, no argv and no logged request carries one (argv encoding on
+// Linux was not verified, and the gate prints this proof's traffic), and the only
+// code points in this source are the hex numbers below.
+//
+// Two answers, and over both text the same guard: no code point of IGNORAVEIS or
+// CONTROLES is left in it, except LF.
+//   - regua rebar-security must report the tracked name as `<U+200B>`. That needs
+//     the hidden-unicode rule; before it exists no rule reads file names, and this
+//     assertion fails on purpose.
+//   - regua rebar-check must carry the trailer as `<U+E0041>`. rebar-check prints
+//     its motivos as the repository wrote them, so this one is escaped by this
+//     server alone, and it holds today.
+titulo('3f · a name and a commit message with invisible characters reach the answer escaped')
+{
+  const cp = (n) => String.fromCodePoint(n)
+  const rotulo = (n) => `U+${n.toString(16).toUpperCase().padStart(4, '0')}`
+  const base = mkdtempSync(join(tmpdir(), 'rebar-mcp-escape-'))
+  try {
+    // An empty global config and no system config: a user's hooks path, template
+    // directory or signing setting must not decide what this proof builds.
+    const vazio = join(base, 'vazio.gitconfig')
+    writeFileSync(vazio, '')
+    const ambiente = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: vazio,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 'prova',
+      GIT_AUTHOR_EMAIL: 'prova@example.invalid',
+      GIT_COMMITTER_NAME: 'prova',
+      GIT_COMMITTER_EMAIL: 'prova@example.invalid',
+    }
+    const repo = join(base, 'alvo')
+    mkdirSync(repo)
+    const git = (args, entrada) => {
+      const r = spawnSync('git', args, {
+        cwd: repo,
+        env: ambiente,
+        input: entrada,
+        encoding: 'utf8',
+        windowsHide: true,
+      })
+      if (r.status !== 0) {
+        throw new Error(`git ${args.join(' ')} exited ${r.status}: ${(r.stderr ?? '').trim()}`)
+      }
+      return r.stdout
+    }
+
+    const nomeRastreado = `docs/no${cp(0x200b)}tas.md`
+    git(['-c', 'init.defaultBranch=main', 'init', '-q'])
+    const blob = git(['hash-object', '-w', '--stdin'], Buffer.from('notas\n', 'utf8')).trim()
+    // One plain file ALSO on disk, with the same bytes. hardcoded-secret reads the
+    // working tree, and a repository whose every tracked file exists only in the
+    // index makes it throw "read none of the 1 tracked file(s)" (measured): the
+    // answer came back exit 127, a broken ruler over a case that has nothing to do
+    // with secrets. The name with U+200B stays index-only.
+    writeFileSync(join(repo, 'README.md'), 'notas\n')
+    git(
+      ['update-index', '-z', '--add', '--index-info'],
+      Buffer.from(
+        ['README.md', nomeRastreado].map((caminho) => `100644 ${blob}\t${caminho}\0`).join(''),
+        'utf8',
+      ),
+    )
+    const arvore = git(['write-tree']).trim()
+    // The trailer names a known agent, so ai-coauthorship fails and prints it. The
+    // tags ride on it; U+200B stays out of the message, so a `<U+200B>` in the
+    // security answer can only come from the file name.
+    const mensagem =
+      'inicial\n\n' +
+      `Co-authored-by: Copilot${cp(0xe0041)}${cp(0xe0042)} <copilot@example.invalid>\n`
+    const commit = git(['commit-tree', arvore], Buffer.from(mensagem, 'utf8')).trim()
+    git(['update-ref', 'HEAD', commit])
+
+    // git may drop a path it refuses and exit 0 while doing it (measured with a C0
+    // control on Windows). The name has to be in the index byte for byte, or the
+    // assertions below would test a repository without the case.
+    if (!git(['ls-files', '-z']).split('\0').includes(nomeRastreado)) {
+      throw new Error('git did not keep the name with U+200B in the index')
+    }
+
+    const perguntar = async (regua) => {
+      const r = await cliente.pedir('tools/call', {
+        name: 'rebar_verificar',
+        arguments: { caminho: repo, regua },
+      })
+      const t = textoDa(r) ?? ''
+      if (!CURTO) console.log(`\n  ── regua ${regua}\n${trecho(t, 1600)}\n`)
+      const crus = new Set()
+      for (const ch of t) {
+        const n = ch.codePointAt(0)
+        if (n !== 0x0a && (naFaixa(n, IGNORAVEIS) || naFaixa(n, CONTROLES))) crus.add(rotulo(n))
+      }
+      if (r.result?.isError === true) {
+        falhou(`regua ${regua} on the built repository returned isError:\n${trecho(t, 600)}`)
+      } else if (crus.size) {
+        falhou(`regua ${regua}: raw code point(s) reached the answer: ${[...crus].join(', ')}`)
+      } else {
+        ok(`regua ${regua}: no code point of IGNORAVEIS or CONTROLES other than LF`)
+      }
+      return t
+    }
+
+    const seguranca = await perguntar('rebar-security')
+    if (seguranca.includes('<U+200B>')) {
+      ok('regua rebar-security reported the tracked name, escaped as <U+200B>')
+    } else {
+      falhou(
+        'regua rebar-security did not report the tracked name as <U+200B>: no rule reads ' +
+          `file names yet, or its finding lost the escape:\n${trecho(seguranca, 600)}`,
+      )
+    }
+
+    const check = await perguntar('rebar-check')
+    if (check.includes('<U+E0041>')) {
+      ok('regua rebar-check carried the commit trailer, escaped as <U+E0041>')
+    } else {
+      falhou(
+        'regua rebar-check did not carry the trailer as <U+E0041>: ai-coauthorship stopped ' +
+          `printing it, or this server stopped escaping it:\n${trecho(check, 600)}`,
+      )
+    }
+  } catch (e) {
+    falhou(`could not build the repository with invisible characters: ${e.message}`)
+  } finally {
+    rmSync(base, { recursive: true, force: true, maxRetries: 10 })
+  }
+}
+
+// The caller's words come back in a no-match answer. The search text was escaped
+// and the level and class were not: a class carrying a line break put a forged
+// line into the answer, and an invisible or ESC reached content[].text raw.
+titulo('3g · the caller words a rebar_regras answer repeats are escaped, every filter')
+{
+  const pontos = (...n) => String.fromCodePoint(...n)
+  const rotulo = (n) => `U+${n.toString(16).toUpperCase().padStart(4, '0')}`
+  const r = await cliente.pedir('tools/call', {
+    name: 'rebar_regras',
+    arguments: {
+      nivel: `N9${pontos(0x200b, 0x1b)}[2J`,
+      classe: `z${pontos(0xe0041, 0x0a)}FAILED:`,
+    },
+  })
+  const t = textoDa(r) ?? ''
+  const crus = new Set()
+  for (const ch of t) {
+    const n = ch.codePointAt(0)
+    if (n !== 0x0a && (naFaixa(n, IGNORAVEIS) || naFaixa(n, CONTROLES))) crus.add(rotulo(n))
+  }
+  if (crus.size) {
+    falhou(`rebar_regras echoed raw code point(s): ${[...crus].join(', ')}:\n${trecho(t, 400)}`)
+  } else if (/^FAILED:/m.test(t)) {
+    falhou(`rebar_regras let a line break from the class forge a line:\n${trecho(t, 400)}`)
+  } else if (!['<U+200B>', '<U+001B>', '<U+E0041>', '<U+000A>'].every((x) => t.includes(x))) {
+    falhou(`rebar_regras did not escape the level and the class as <U+XXXX>:\n${trecho(t, 400)}`)
+  } else {
+    ok('level and class come back as <U+200B>, <U+001B>, <U+E0041> and <U+000A>, forging no line')
+  }
+}
+
+// An invalid regua is refused by the SDK's schema check, whose isError text is
+// zod's issue message, and zod quotes the value it received raw. So the caller's
+// own invisible, ESC, tag and line break came back in content[].text, and the LF
+// put a `FAILED:` line of the caller's into the answer.
+titulo('3g2 · an invalid regua is refused without repeating it')
+{
+  const pontos = (...n) => String.fromCodePoint(...n)
+  const rotulo = (n) => `U+${n.toString(16).toUpperCase().padStart(4, '0')}`
+  for (const regua of [`x${pontos(0x200b, 0x1b, 0xe0041, 0x0a)}FAILED: forged`, 42]) {
+    const r = await cliente.pedir('tools/call', { name: 'rebar_verificar', arguments: { regua } })
+    const t = textoDa(r) ?? ''
+    const crus = new Set()
+    for (const ch of t) {
+      const n = ch.codePointAt(0)
+      if (n !== 0x0a && (naFaixa(n, IGNORAVEIS) || naFaixa(n, CONTROLES))) crus.add(rotulo(n))
+    }
+    const erro = r.result?.isError === true || Boolean(r.error)
+    if (!erro) {
+      falhou(`rebar_verificar accepted regua ${JSON.stringify(typeof regua)}:\n${trecho(t, 400)}`)
+    } else if (crus.size) {
+      falhou(
+        `rebar_verificar echoed raw code point(s) of regua: ${[...crus].join(', ')}:\n${trecho(t, 400)}`,
+      )
+    } else if (/^FAILED:/m.test(t) || t.includes('forged')) {
+      falhou(`rebar_verificar repeated the regua it refused:\n${trecho(t, 400)}`)
+    } else if (!/regua must be one of rebar-check, rebar-security, ambas/.test(t)) {
+      falhou(`rebar_verificar refused regua without naming the choices:\n${trecho(t, 400)}`)
+    } else {
+      ok(`an invalid regua (${typeof regua}) is refused, naming the choices and never the input`)
+    }
+  }
+}
+
+// A tool name that is not registered never reaches a handler: the SDK answers
+// `Tool <name> not found` through createToolError, with the requested name as it
+// came. Measured on SDK 1.30.0: U+200B, ESC and a tag character came back raw,
+// and the LF in the name put a `FAILED:` line of the caller's into the answer.
+titulo('3g3 · an unknown tool name is refused without repeating it raw')
+{
+  const pontos = (...n) => String.fromCodePoint(...n)
+  const rotulo = (n) => `U+${n.toString(16).toUpperCase().padStart(4, '0')}`
+  const nome = `rebar_x${pontos(0x200b, 0x0a)}FAILED: forged${pontos(0x1b)}[2J${pontos(0xe0041)}`
+  const r = await cliente.pedir('tools/call', { name: nome, arguments: {} })
+  const t = textoDa(r) ?? JSON.stringify(r.error ?? '')
+  const crus = new Set()
+  for (const ch of t) {
+    const n = ch.codePointAt(0)
+    if (n !== 0x0a && (naFaixa(n, IGNORAVEIS) || naFaixa(n, CONTROLES))) crus.add(rotulo(n))
+  }
+  const erro = r.result?.isError === true || Boolean(r.error)
+  if (!erro) {
+    falhou(`an unknown tool name was not refused:\n${trecho(t, 400)}`)
+  } else if (crus.size) {
+    falhou(`the unknown tool name came back with raw code point(s): ${[...crus].join(', ')}`)
+  } else if (/^FAILED:/m.test(t)) {
+    falhou(`a line break in the unknown tool name forged a line:\n${trecho(t, 400)}`)
+  } else {
+    ok('an unknown tool name comes back escaped, with no raw code point and no forged line')
+  }
+}
+
+// `caminho` is a folder. Handed to the ruler as it came, a value that starts with
+// `--` was read as an option: the ruler audited its own cwd (rebar) under a rule
+// filter or with heuristics on, and answered green for a tree nobody named.
+titulo('3h · a caminho that looks like an option is a folder, never an option')
+{
+  const r = await cliente.pedir('tools/call', {
+    name: 'rebar_verificar',
+    arguments: { caminho: '--heuristics', regua: 'rebar-security' },
+  })
+  const t = textoDa(r) ?? ''
+  if (/^command: node \S+ --json --heuristics(?:\s|$)/m.test(t)) {
+    falhou(`caminho reached the ruler as an option:\n${trecho(t, 600)}`)
+  } else if (/exit=0\b/.test(t)) {
+    falhou(`an option-looking caminho came back green:\n${trecho(t, 600)}`)
+  } else {
+    ok('caminho --heuristics is resolved as a folder under the root, and nothing passes over it')
+  }
+}
+
 cliente.fechar()
 
 /**
@@ -453,7 +860,10 @@ function montarCopia(
   const base = mkdtempSync(join(tmpdir(), prefixo))
   const src = join(base, 'mcp', 'src')
   mkdirSync(src, { recursive: true })
-  for (const f of ['index.mjs', 'artefato.mjs', 'consultas.mjs']) {
+  // texto-seguro.mjs came in with the output sanitizer. Without it the copy dies
+  // with ERR_MODULE_NOT_FOUND at the import, and step 4 would read that crash as
+  // "the server died without an artifact", the right exit for the wrong reason.
+  for (const f of ['index.mjs', 'artefato.mjs', 'consultas.mjs', 'texto-seguro.mjs']) {
     copyFileSync(join(AQUI, f), join(src, f))
   }
   symlinkSync(join(AQUI, '..', 'node_modules'), join(base, 'mcp', 'node_modules'), 'junction')

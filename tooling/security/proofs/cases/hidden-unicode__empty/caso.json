@@ -1,0 +1,14 @@
+{
+  "rule": "hidden-unicode",
+  "why": "The not-applicable branch: a repository whose index is empty and whose history has no commit has nothing this rule could read, and silence by absence must not become passed (invariant I4). Both sides are that repository, with no generated entry and no commit, and both must say na; the rule has one such branch, so the two sides pin it twice rather than proving two branches. Return null instead of na there and both sides diverge.",
+  "pass": {
+    "estado": "na",
+    "gerados": [],
+    "commits": []
+  },
+  "fail": {
+    "estado": "na",
+    "gerados": [],
+    "commits": []
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "A carriage return that is not followed by a line feed sends the terminal back to column 0, and what follows overwrites what came before: the reviewer reads the second half of the line, the model reads both. The class the plan started from allowed CR outright, which is exactly this hole (evasao-adversarial measured it). The fail side is README.md with one bare CR in the middle of a line. The pass side is the same README with CRLF endings: a CR that ends a line is not a control trick, and failing it would fail every file saved on Windows.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBOb3Rlcw0KbGluZSBvbmU6IGRyYWZ0DQpsaW5lIHR3bw0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBOb3RlcwpsaW5lIG9uZTogZHJhZnQNbGluZSBvbmU6IGZpbmFsCmxpbmUgdHdvCg=="
+      }
+    ]
+  }
+}

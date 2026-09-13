@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "A path is attacker text too: an agent opens docs/notes.md and gets a different file whose name holds U+200B, and every tool that prints the name prints the invisible along with it. The fail side tracks docs/no<U+200B>tes.md, written only to the index; the pass side tracks docs/notacoes.md spelled with c-cedilla and o-tilde, which proves the name scan is about ignorable code points and not about non-ASCII. Stop scanning names and the fail side goes green; flag any non-ASCII name and the pass side goes red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminhoBase64": "ZG9jcy9ub3Rhw6fDtWVzLm1k",
+        "texto": "# Notes\n"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminhoBase64": "ZG9jcy9ub+KAi3Rlcy5tZA==",
+        "texto": "# Notes\n"
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "A package runner next to a registry override cannot be accepted by fingerprint, because the override changes which package the same text starts. Only an override that changes where THIS launch resolves its package counts. Both sides track the same allowlisted npx launch of a scoped package. The pass side also tracks a root .npmrc that names the public default registry and routes an unrelated company scope elsewhere, and a nested package .npmrc with a private registry that a launch from the root never reads: measured before, each of those made the launch unexemptable. The fail side tracks a root .npmrc that routes the launched package scope to another registry. Whoever counts every registry line anywhere turns the pass side red; whoever ignores scoped overrides turns the fail side green. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInBsYXl3cmlnaHQiOiB7CiAgICAgICJjb21tYW5kIjogIm5weCIsCiAgICAgICJhcmdzIjogWwogICAgICAgICIteSIsCiAgICAgICAgIkBwbGF5d3JpZ2h0L21jcEAwLjAuNDAiCiAgICAgIF0KICAgIH0KICB9Cn0K"
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2VydmVyIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLm1jcC5qc29uIiwic2Vydmlkb3IiOiJwbGF5d3JpZ2h0Iiwic2hhMjU2IjoiNmY5ZWYyZjg2NDhhOWIzZTdhY2EyNDkyNmQxNDNlN2Y3ZjM0OTVkNTdmMTYyNWNlMjc5MDFlMDA4NmM4NzIxZCJ9Cg=="
+      },
+      {
+        "caminho": ".npmrc",
+        "base64": "cmVnaXN0cnk9aHR0cHM6Ly9yZWdpc3RyeS5ucG1qcy5vcmcvCkBhY21lOnJlZ2lzdHJ5PWh0dHBzOi8vbnBtLnBrZy5naXRodWIuY29tCg=="
+      },
+      {
+        "caminho": "packages/ui/.npmrc",
+        "base64": "cmVnaXN0cnk9aHR0cHM6Ly9yZWdpc3RyeS5leGFtcGxlLmludmFsaWQvCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInBsYXl3cmlnaHQiOiB7CiAgICAgICJjb21tYW5kIjogIm5weCIsCiAgICAgICJhcmdzIjogWwogICAgICAgICIteSIsCiAgICAgICAgIkBwbGF5d3JpZ2h0L21jcEAwLjAuNDAiCiAgICAgIF0KICAgIH0KICB9Cn0K"
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoic2VydmVyIHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLm1jcC5qc29uIiwic2Vydmlkb3IiOiJwbGF5d3JpZ2h0Iiwic2hhMjU2IjoiNmY5ZWYyZjg2NDhhOWIzZTdhY2EyNDkyNmQxNDNlN2Y3ZjM0OTVkNTdmMTYyNWNlMjc5MDFlMDA4NmM4NzIxZCJ9Cg=="
+      },
+      {
+        "caminho": ".npmrc",
+        "base64": "QHBsYXl3cmlnaHQ6cmVnaXN0cnk9aHR0cHM6Ly9yZWdpc3RyeS5leGFtcGxlLmludmFsaWQvCg=="
+      }
+    ]
+  }
+}

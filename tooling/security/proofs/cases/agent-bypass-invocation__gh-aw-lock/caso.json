@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "GitHub Agentic Workflows compiles every workflow into a lock file that starts the agent with its approval switch off inside a firewall container: 10 of 10 sampled Codex locks and 15 of 15 Copilot locks carry it. Failing those would fail every gh-aw adopter, so a workflow whose first 10 lines carry the gh-aw generated header is only a warning (passed with a note). The header can be forged, which is why it lowers the verdict to a warning and never to silence. The fail side is the same file without the header, which is an ordinary workflow and fails. Whoever skips lock files silently, or fails them, turns one side the wrong colour.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.lock.yml",
+        "base64": "IyBUaGlzIGZpbGUgd2FzIGF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IGdoLWF3LiBETyBOT1QgRURJVC4KIwpuYW1lOiB0cmlhZ2UKb246CiAgd29ya2Zsb3dfZGlzcGF0Y2g6CnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgYWdlbnQ6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBuYW1lOiBSdW4gdGhlIGFnZW50CiAgICAgICAgcnVuOiBjb2RleCBleGVjIC0tZGFuZ2Vyb3VzbHktYnlwYXNzLWFwcHJvdmFscy1hbmQtc2FuZGJveCAidHJpYWdlIHRoZSBiYWNrbG9nIgo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.lock.yml",
+        "base64": "bmFtZTogdHJpYWdlCm9uOgogIHdvcmtmbG93X2Rpc3BhdGNoOgpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIGFnZW50OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gbmFtZTogUnVuIHRoZSBhZ2VudAogICAgICAgIHJ1bjogY29kZXggZXhlYyAtLWRhbmdlcm91c2x5LWJ5cGFzcy1hcHByb3ZhbHMtYW5kLXNhbmRib3ggInRyaWFnZSB0aGUgYmFja2xvZyIK"
+      }
+    ]
+  }
+}

@@ -955,6 +955,7 @@ const PASSOS_ESPERADOS = [
   'mcp-template',
   'security',
   'security-table',
+  'security-injection',
   'security-self',
   'self',
 ]

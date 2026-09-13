@@ -12,6 +12,17 @@
 // to be ignored. Here the longest answer is the whole catalog, 22 rules in ~35
 // lines, and each one points at the id to ask for the rest on demand.
 
+import { escaparSaida } from './texto-seguro.mjs'
+
+/**
+ * The caller's own words, as they may be echoed back. They are the agent's input
+ * and not repository text, but an answer that repeats a raw line break or an
+ * invisible code point is one the next reader cannot trust line by line, and the
+ * rest of this server's output already goes through the same sanitizer. 256 is
+ * the limit index.mjs uses for the other short echoes.
+ */
+const eco = (s) => escaparSaida(s, { limite: 256 })
+
 /** Unaccented and lowercase: "hex-crú" and "HEX CRU" have to match `hex-cru`. */
 export function normalizar(s) {
   return String(s)
@@ -58,7 +69,11 @@ export function catalogo(artefato, { nivel, classe, busca } = {}) {
   }
 
   if (!regras.length) {
-    const filtros = [nivel && `level ${nivel}`, classe && `class ${classe}`, busca && `"${busca}"`]
+    const filtros = [
+      nivel && `level ${eco(nivel)}`,
+      classe && `class ${eco(classe)}`,
+      busca && `"${eco(busca)}"`,
+    ]
       .filter(Boolean)
       .join(' + ')
     return [
@@ -146,7 +161,7 @@ export function porque(artefato, id) {
     return {
       ok: false,
       texto: [
-        `"${id}" is not a rule id nor a closed-decision id.`,
+        `"${eco(id)}" is not a rule id nor a closed-decision id.`,
         // prova-cliente.mjs matches this line by regex to check that the wrong id
         // gets a neighbour and the id from another world gets none. Change the
         // wording here and change it there, or the contract stops being checked.
@@ -466,7 +481,7 @@ export function decidir(artefato, assunto) {
 
   if (!achados.length) {
     return [
-      `Nothing in the artifact decides "${assunto}".`,
+      `Nothing in the artifact decides "${eco(assunto)}".`,
       '',
       'That is an answer, not a failure: it means the rebar gate does NOT enforce this',
       'today, so nobody will fail you over it — and nobody guarantees it either.',
@@ -494,7 +509,7 @@ export function decidir(artefato, assunto) {
   achados.sort((a, b) => b.p - a.p)
   const topo = achados.slice(0, 8)
   return [
-    `${achados.length} artifact entry(ies) talk about "${assunto}"${achados.length > topo.length ? `; the ${topo.length} strongest` : ''}:`,
+    `${achados.length} artifact entry(ies) talk about "${eco(assunto)}"${achados.length > topo.length ? `; the ${topo.length} strongest` : ''}:`,
     '',
     ...topo.flatMap((a) => [a.linha, a.detalhe]),
   ].join('\n')
@@ -514,7 +529,7 @@ export function portao(artefato, passoPedido) {
     const alvo = normalizar(passoPedido)
     const p = passos.find((x) => normalizar(x.nome) === alvo || String(x.ordem) === alvo)
     if (!p) {
-      return `Step "${passoPedido}" does not exist. The ${passos.length}: ${passos.map((x) => x.nome).join(', ')}.`
+      return `Step "${eco(passoPedido)}" does not exist. The ${passos.length}: ${passos.map((x) => x.nome).join(', ')}.`
     }
     return [
       `Step ${p.ordem} of ${passos.length}: ${p.nome}`,

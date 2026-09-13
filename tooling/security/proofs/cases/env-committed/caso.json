@@ -1,4 +1,12 @@
 {
   "rule": "env-committed",
-  "why": "A versioned secret is the most common class in the inventory: 7 of the 16 videos. This is the cheapest slice of it, one `git ls-files`. The fail side has a tracked `.env`; the pass side has `.env.example` AND `.env.sample` tracked, which are the FIX for the failure and not the failure -- documenting the variables without the values is exactly what is asked for. Whoever removes the example exclusion makes the pass side go red; whoever swaps the check for \"a .env exists on disk\" makes the fail side go green, because a `.env` ignored by git is no finding at all."
+  "why": "A versioned secret is the most common class in the inventory: 7 of the 16 videos. This is the cheapest slice of it, one `git ls-files`. The fail side has a tracked `.env`; the pass side has `.env.example` AND `.env.sample` tracked, which are the FIX for the failure and not the failure -- documenting the variables without the values is exactly what is asked for. Whoever removes the example exclusion makes the pass side go red; whoever swaps the check for \"a .env exists on disk\" makes the fail side go green, because a `.env` ignored by git is no finding at all. The fail `.env` is written only to the index of the assembled repository (`gerados`), never as a file under this folder: a `.env` is also a file agent-config-exec reads, and a tracked one here would put a real agent config file inside rebar's own tree.",
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".env",
+        "texto": "DATABASE_URL=postgres://app:trocar@localhost:5432/app\nPORT=3000\n"
+      }
+    ]
+  }
 }

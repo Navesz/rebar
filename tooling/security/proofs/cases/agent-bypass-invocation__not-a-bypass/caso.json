@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "The plan listed the Codex full-auto switch as a bypass. It is not: it means on-request approvals inside the workspace-write sandbox, and codex exec dropped its handling on 2026-07-30 (openai/codex commit 1c5f336c4). A workflow that runs Codex that way passes. The fail side is the same step with the Codex alias that turns off both approvals and the sandbox, next to its binary. Whoever adds full-auto back to the table turns the pass side red; whoever stops reading workflows turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/fix.yml",
+        "base64": "bmFtZTogZml4Cm9uOgogIHdvcmtmbG93X2Rpc3BhdGNoOgpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIGFnZW50OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYWN0aW9ucy9jaGVja291dEB2NAogICAgICAtIHJ1bjogY29kZXggZXhlYyAtLWZ1bGwtYXV0byAiZml4IHRoZSBmYWlsaW5nIHRlc3QiCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/fix.yml",
+        "base64": "bmFtZTogZml4Cm9uOgogIHdvcmtmbG93X2Rpc3BhdGNoOgpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIGFnZW50OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYWN0aW9ucy9jaGVja291dEB2NAogICAgICAtIHJ1bjogY29kZXggZXhlYyAtLXlvbG8gImZpeCB0aGUgZmFpbGluZyB0ZXN0Igo="
+      }
+    ]
+  }
+}

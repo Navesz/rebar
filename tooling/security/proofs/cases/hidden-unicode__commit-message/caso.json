@@ -1,0 +1,36 @@
+{
+  "rule": "hidden-unicode",
+  "why": "Commit messages reach agents through git log and PR tooling, and rebar-check trims them (a trailing U+FEFF was measured gone), so this rule reads history raw. The fail side has one commit whose message carries U+200B inside a word, committed verbatim from bytes. The pass side has the same tree and two honest messages that carry invisibles by accident: one opens with the UTF-8 byte-order mark Windows PowerShell 5.1 writes and `git commit -F` keeps, which is consumed like a file's BOM; the other is a Dependabot body where GitHub put U+200B between '@' and a login so nobody gets pinged. Stop reading commits, or read them through a trimming helper, and the fail side goes green; drop either exemption and the pass side goes red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "texto": "# Project\n"
+      }
+    ],
+    "commits": [
+      {
+        "mensagemBase64": "77u/ZG9jczogdXBkYXRlIFJFQURNRQo=",
+        "autor": "Prova <prova@rebar.local>"
+      },
+      {
+        "mensagemBase64": "QnVtcCBhY3Rpb25zL2NoZWNrb3V0IGZyb20gNCB0byA1CgpCdW1wcyBbYWN0aW9ucy9jaGVja291dF0oaHR0cHM6Ly9naXRodWIuY29tL2FjdGlvbnMvY2hlY2tvdXQpIGZyb20gNCB0byA1LgoKWW91IGNhbiB0cmlnZ2VyIGEgcmViYXNlIG9mIHRoaXMgUFIgYnkgY29tbWVudGluZyBA4oCLZGVwZW5kYWJvdCByZWJhc2UuCg==",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "texto": "# Project\n"
+      }
+    ],
+    "commits": [
+      {
+        "mensagemBase64": "QWRkIHJlYWTigIttZQo=",
+        "autor": "Prova <prova@rebar.local>"
+      }
+    ]
+  }
+}

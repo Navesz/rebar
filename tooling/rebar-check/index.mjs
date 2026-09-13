@@ -2947,7 +2947,7 @@ const MARCA = {
   quebrou: () => c.amarelo('⚠'),
 }
 
-function nota(resultados) {
+export function nota(resultados) {
   const det = resultados.filter((x) => x.classe === 'determinística')
   const aplicaveis = det.filter((x) => x.estado === 'passou' || x.estado === 'reprovou')
   return {

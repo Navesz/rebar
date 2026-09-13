@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "git decides binary by a NUL in the first 8000 bytes, prints \"Binary files differ\" and hides the change from review. If the rule skipped such files the same way, one NUL at the top of AGENTS.md would take the whole instruction file out of every scan. So a NUL in an agent file or in a must-be-text extension fails, and that is the fail side. The pass side is a file of unknown type with a NUL early and a DEL after it: that is binary content, skipped and not judged, which is what keeps images and executables from failing.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "assets/blob.bin",
+        "base64": "f0VMRgIBAQAAABt/"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyBBZ2VudHMKAApSdW4gdGhlIHRlc3RzIGJlZm9yZSBhIGNvbW1pdC4K"
+      }
+    ]
+  }
+}

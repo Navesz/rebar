@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-unicode",
+  "why": "A JSON file can be pure ASCII on disk and hold an invisible after parsing: a unicode escape decodes to the real code point, which is what every client reading the value gets. The fail side is config/x.json whose string value ends in an escaped U+200B; the pass side escapes a visible e-acute the same way, so the case pins that the escape pass judges the decoded code point and not the mere presence of an escape. Scan only raw text and the fail side goes green; flag every escape and the pass side goes red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "config/x.json",
+        "base64": "eyJsYWJlbCI6ICJjYWZcdTAwZTkifQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "config/x.json",
+        "base64": "eyJsYWJlbCI6ICJva1x1MjAwYiJ9Cg=="
+      }
+    ]
+  }
+}

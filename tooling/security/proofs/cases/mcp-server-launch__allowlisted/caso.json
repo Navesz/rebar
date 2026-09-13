@@ -1,0 +1,28 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "An allowlist that accepts a server by NAME accepts whatever that name launches next: measured on real history, a name-based check fired on 149 of 150 routine bumps and missed a server renamed together with its new command. Both sides track the same .rebar-injection-allowlist line, which carries the sha256 fingerprint of one exact launch of a remote npm package. The pass side launches exactly that; the fail side keeps the server name and changes only the package version. Whoever matches entries by arquivo and servidor alone turns the fail side green; whoever breaks the canonical fingerprint turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgImZldGNoIjogewogICAgICAiY29tbWFuZCI6ICJucHgiLAogICAgICAiYXJncyI6IFsKICAgICAgICAiLS15ZXMiLAogICAgICAgICJAZXhhbXBsZS1wcm9vZi9tY3Atc2VydmVyQDEuMi4zIgogICAgICBdCiAgICB9CiAgfQp9Cg=="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoicGFja2FnZSBzZXJ2ZXIgcmV2aWV3ZWQgaW4gYSBwcm9vZiIsImFycXVpdm8iOiIubWNwLmpzb24iLCJzZXJ2aWRvciI6ImZldGNoIiwic2hhMjU2IjoiNzU0MzBiNGFmNjIxZjBhZWNlZmE5OWMzNGY1Y2JlOGQ1OTA0ODM0ZmE0OTg0NjU0ZmU2MGZhNDBiNDIwOTVhNyJ9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgImZldGNoIjogewogICAgICAiY29tbWFuZCI6ICJucHgiLAogICAgICAiYXJncyI6IFsKICAgICAgICAiLS15ZXMiLAogICAgICAgICJAZXhhbXBsZS1wcm9vZi9tY3Atc2VydmVyQDEuMi40IgogICAgICBdCiAgICB9CiAgfQp9Cg=="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoicGFja2FnZSBzZXJ2ZXIgcmV2aWV3ZWQgaW4gYSBwcm9vZiIsImFycXVpdm8iOiIubWNwLmpzb24iLCJzZXJ2aWRvciI6ImZldGNoIiwic2hhMjU2IjoiNzU0MzBiNGFmNjIxZjBhZWNlZmE5OWMzNGY1Y2JlOGQ1OTA0ODM0ZmE0OTg0NjU0ZmU2MGZhNDBiNDIwOTVhNyJ9Cg=="
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "A shell hands a quoted prompt to the program as one argument. Read as plain text, a dashed word of the prompt (a list switch of ls, a recursive-force switch of rm, a type switch of find) matched the one-letter approval group of the CLI in front of it, and honest workflows failed; and a separator inside a quoted URL cut the CLI from the approval switch that follows the URL, so that workflow passed with no note. The pass side is a workflow whose agent steps quote prompts holding those dashed words, and a URL with an ampersand and no switch. The fail side is a workflow whose step quotes a URL with an ampersand and then passes the long approval switch, unquoted, in the same command. Whoever reads quotes as plain text turns both sides wrong: the pass side red and the fail side green. Content is base64 because rebar reads its own caso.json raw.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/agent.yml",
+        "base64": "bmFtZTogYWdlbnQKb246IHB1c2gKam9iczoKICBhOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gcnVuOiBxIGNoYXQgLS1uby1pbnRlcmFjdGl2ZSAicnVuIGxzIC1sYSBhbmQgc3VtbWFyaXplIgogICAgICAtIHJ1bjogY3Vyc29yLWFnZW50IC1wICJuZXZlciBydW4gcm0gLXJmIiAtLW91dHB1dC1mb3JtYXQgdGV4dAogICAgICAtIHJ1bjogZ2VtaW5pIC1wICJ3aHkgZG9lcyBmaW5kIC10eXBlIGQgbWlzcyBsaW5rcyIKICAgICAgLSBydW46IGNvZGV4IGV4ZWMgInN1bW1hcml6ZSBodHRwczovL2V4YW1wbGUuY29tLz9hPTEmYj0yIgo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/agent.yml",
+        "base64": "bmFtZTogYWdlbnQKb246IHB1c2gKam9iczoKICBhOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gcnVuOiBjb2RleCBleGVjICJzdW1tYXJpemUgaHR0cHM6Ly9leGFtcGxlLmNvbS8/YT0xJmI9MiIgLS15b2xvCg=="
+      }
+    ]
+  }
+}

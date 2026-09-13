@@ -904,6 +904,45 @@ export async function checarBlocos({ raiz }) {
 // verify.
 const node = (...args) => [process.execPath, ...args]
 
+// What rebar-security loads before it can judge anything: the checker, the
+// sanitizer it prints through, and every engine of the prompt-injection rules,
+// which index.mjs imports statically. Every step that starts the checker lists
+// all of them, from this one constant, so a missing engine is missing tooling
+// (DID NOT RUN, 127) and never a repository that failed (1) with a hint about a
+// finding that does not exist. Four hand-kept lists had already diverged: only
+// `security-injection` named the engines. prove-injection.mjs holds this list
+// against the checker's real import graph.
+const RUNTIME_DO_REBAR_SECURITY = [
+  'tooling/security/index.mjs',
+  'tooling/security/texto-seguro.mjs',
+  'tooling/security/injection/reader.mjs',
+  'tooling/security/injection/formats.mjs',
+  'tooling/security/injection/unicode.mjs',
+  'tooling/security/injection/unicode-tabelas.mjs',
+  'tooling/security/injection/emoji-17.mjs',
+  'tooling/security/injection/control.mjs',
+  'tooling/security/injection/agent-config.mjs',
+  'tooling/security/injection/mcp-launch.mjs',
+  'tooling/security/injection/bypass.mjs',
+]
+
+// The node:test files of the prompt-injection rules: one per family, the proof
+// runner's `gerados`, and prove-injection.mjs for the tests that judge the six
+// rules together. The `security-injection` step hands them to ONE `node --test`
+// call, which runs each file in its own process, all of them at once.
+const PROVAS_DE_INJECAO = [
+  'tooling/security/injection/prove-texto-seguro.mjs',
+  'tooling/security/injection/prove-formats.mjs',
+  'tooling/security/injection/prove-reader.mjs',
+  'tooling/security/injection/prove-unicode.mjs',
+  'tooling/security/injection/prove-control.mjs',
+  'tooling/security/injection/prove-agent-config.mjs',
+  'tooling/security/injection/prove-mcp-launch.mjs',
+  'tooling/security/injection/prove-bypass.mjs',
+  'tooling/rebar-check/proofs/prove-gerados.mjs',
+  'tooling/security/prove-injection.mjs',
+]
+
 export default [
   {
     nome: 'hygiene',
@@ -1190,7 +1229,9 @@ export default [
   {
     nome: 'proofs',
     comando: node('tooling/rebar-check/proofs/prove.mjs'),
-    exige: ['tooling/rebar-check/proofs/prove.mjs'],
+    // The runner escapes every path git refuses through the one sanitizer
+    // rebar-security prints with, so it cannot start without it.
+    exige: ['tooling/rebar-check/proofs/prove.mjs', 'tooling/security/texto-seguro.mjs'],
     dica: 'A rule of rebar-check stopped failing what it should, or started failing what is correct.',
     extrair: /^\s*(✗|✘|erro|esperado)/i,
     // HOLE 4 again, in the second house where it was open. The suite has two
@@ -1362,36 +1403,126 @@ export default [
       '--checker=tooling/security/index.mjs',
       '--cases=tooling/security/proofs/cases',
     ),
-    exige: ['tooling/security/index.mjs', 'tooling/security/proofs/cases'],
+    // Every case spawns the checker, so the step needs what the checker loads
+    // (RUNTIME_DO_REBAR_SECURITY: `texto-seguro.mjs`, which the runner imports
+    // too, and the injection engines index.mjs imports).
+    exige: [...RUNTIME_DO_REBAR_SECURITY, 'tooling/security/proofs/cases'],
     dica: 'A rule of rebar-security stopped failing what it should, or started accusing what is correct. The pass/ side of each case carries the named false positives: if it went red, the rule loosened too much.',
     extrair: /^\s*(✗|✘|erro|esperado)/i,
+    // The runner prints `⚠ N of M rules with a proof` when a rule has no case,
+    // and it prints it on a run that PASSES. This step had no `avisar`, so the
+    // line was thrown away with the rest of a green stdout, and it could not
+    // print anyway: the checker answered `  known:` where the runner looks for
+    // `disponíveis:`. Measured: 6 of 6 cases matched and no coverage line at all.
+    avisar: /^\s*⚠/,
   },
   {
-    // A TABELA DA REGRA, provada sozinha.
+    // THE RULE TABLES, proved on their own.
     //
-    // `disabled-defense` guardava o literal DUAS vezes por entrada: na expressao
-    // regular e, em texto puro, na mensagem legivel ao lado -- e a mensagem
-    // casava. A regra acusava a propria tabela, oito vezes.
+    // `disabled-defense` kept each literal TWICE per entry: in the regular
+    // expression and, in plain text, in the readable message beside it -- and
+    // the message matched. The rule accused its own table, eight times.
+    //
+    // Since the prompt-injection rules there are eleven exported tables. Six of
+    // them are text patterns run over tracked blobs, read raw with no exclusion,
+    // and the proof holds each against what its own rule reads of rebar: the
+    // family sources, the READMEs and mcp/rules.generated.json, whose
+    // JSDoc-derived text would otherwise ship a sample of the attack. Four match
+    // parsed config keys and launch commands whole, so a raw file can never match
+    // them; the proof holds their anchored shape instead.
     nome: 'security-table',
     comando: node('--test', 'tooling/security/prove-table.mjs'),
-    exige: ['tooling/security/prove-table.mjs', 'tooling/security/index.mjs'],
-    dica: 'Um padrao da tabela de `disabled-defense` voltou a carregar o proprio literal em texto puro. A regra passa a se encontrar, e a acusar todo repositorio que contenha uma copia dela.',
+    exige: [
+      'tooling/security/prove-table.mjs',
+      ...RUNTIME_DO_REBAR_SECURITY,
+      'tooling/security/README.md',
+      'mcp/rules.generated.json',
+    ],
+    dica: 'A pattern table of rebar-security matches text rebar itself tracks: an explanation repeats its literal, or a source, README or the MCP artifact spells what a table hunts. Assemble the word from pieces in code and describe it by effect in prose; excluding the file only ships the sample in every copy of rebar.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {
-    // A REGUA DE SEGURANCA SOBRE O PROPRIO REPOSITORIO, e ela faltava.
+    // THE PROMPT-INJECTION RULES, as one step.
     //
-    // O passo `security` acima roda as PROVAS do modulo -- "as regras ainda
-    // reprovam o que devem?" --, que e outra pergunta. Esta e "e este
-    // repositorio, passa?". A resposta era NAO havia semanas, com exit 1 e nove
-    // achados, e o portao ficava 20 de 20 verde porque ninguem perguntava.
+    // Six rules of rebar-security look for known prompt-injection signatures in
+    // what git tracks: hidden Unicode, terminal controls, agent settings that
+    // run commands, MCP server launches, agent CLIs with approval switched off,
+    // and escaped controls in MCP server source. Each family has a node:test
+    // file of its own, and `gerados` in the proof runner has one too;
+    // prove-injection.mjs adds the proofs no family can own: what `rebar new`
+    // generates passes every injection rule (its CI runs rebar-security
+    // unpinned, so a failure there turns every generated project red on merge),
+    // no proof case tracks a real agent file, rebar passes its own injection
+    // rules with heuristics on and no warning, and this step and its `exige`
+    // still name every proof file and every engine.
     //
-    // E o espelho do passo `self`, que existe pelo mesmo motivo para o
-    // rebar-check. A regua de seguranca nao tinha o dela.
+    // Its own step, and not more cases under `security`, because unit tests of
+    // a byte decoder cannot be caso.json folders, and because the hint has to say
+    // which of the two fell.
+    //
+    // THE FILES ARE PASSED ONE BY ONE, and prove-injection.mjs imports none of
+    // them. When it imported the other nine, `node --test` saw ONE file and ran
+    // all ~500 tests in series in one process, each building temp git
+    // repositories: measured 198 s alone on 2026-09-13 (Windows, 20 threads,
+    // Node 24), 66% of the limit. Given every file, `node --test` starts one
+    // process per file and runs them side by side.
+    //
+    // HOW MANY SIDE BY SIDE IS WRITTEN HERE, because the default is
+    // availableParallelism() - 1, which follows the CPUs the process may use:
+    // on the same machine pinned to 4 logical CPUs the step took 152 s (51%),
+    // and pinned to 2 it ran ONE file at a time and was killed at the limit
+    // twice, slower than all 533 tests in one process (275 s). Almost all of the
+    // time is git processes (a spawn costs about 50 ms on Windows), which wait
+    // on the OS as much as on a CPU, so every file runs at once. Measured on
+    // 2026-09-13 on a mirror, 535 tests: pinned to 4 CPUs, 114 s with the
+    // default (3 at once), 100 s with 4 and 90 s with all 10 (30%); pinned to 2
+    // CPUs, 158 s with 4 and 160 s with 10 (53%), where the default was killed.
+    // The number is a constant, not computed on the machine, because
+    // mcp/generate.mjs publishes this command as written. prove-bypass.mjs, the
+    // slowest file, also went from 72 s to 41 s on its own once its temp
+    // repositories stopped spawning git for the init, for each blob and for a
+    // lerRepo the rule never reads.
+    //
+    // The CI's windows-latest has 4 vCPUs (rebar is public) and ran the gate
+    // about 1.47x slower than this machine (68.0 s against 46.1 s for the same
+    // commit), which projects the 90 s to about 133 s there, 44% of the limit.
+    // That is a projection: the first Windows CI run of this step is the
+    // measurement to hold it against.
+    nome: 'security-injection',
+    comando: node('--test', `--test-concurrency=${PROVAS_DE_INJECAO.length}`, ...PROVAS_DE_INJECAO),
+    // `exige` lists what the step loads: every proof file, the checker they
+    // spawn and every engine it imports, the runner `gerados` proves, and the two
+    // generator templates test (d) renders. A missing one is missing tooling
+    // (127), not a repository that failed (1).
+    exige: [
+      ...PROVAS_DE_INJECAO,
+      ...RUNTIME_DO_REBAR_SECURITY,
+      'tooling/rebar-check/proofs/prove.mjs',
+      'new/gate/aplicar.mjs',
+      'new/gate/arquivos/mcp.json',
+    ],
+    dica: 'An injection rule changed behaviour, the index reader or a format decoder changed what it reads, what `rebar new` generates stopped passing the injection rules, a proof case started tracking an agent file, or rebar itself carries a signature. These rules read the git INDEX: a fix only in the working tree counts once it is staged.',
+    extrair: /^\s*(✖|not ok|AssertionError)/i,
+    tempoLimite: 5 * MINUTO,
+  },
+  {
+    // THE SECURITY RULER OVER ITS OWN REPOSITORY, and it was missing.
+    //
+    // The `security` step above runs the module's PROOFS -- "do the rules still
+    // fail what they should?" --, which is another question. This one is "and
+    // does this repository pass?". The answer had been NO for weeks, with exit 1
+    // and nine findings, and the gate stayed 20 of 20 green because nobody asked.
+    //
+    // It is the mirror of the `self` step, which exists for the same reason for
+    // rebar-check. The security ruler did not have its own.
+    //
+    // Since the prompt-injection rules it also reads the git INDEX for six of its
+    // rules, so locally a fix counts once it is staged; in CI the index is the
+    // commit.
     nome: 'security-self',
     comando: node('tooling/security/index.mjs', '.'),
-    exige: ['tooling/security/index.mjs'],
-    dica: 'O rebar reprovou na propria regua de seguranca. Se o achado for a tabela de deteccao se encontrando, o conserto e tirar o literal da mensagem -- nao excluir o arquivo, que so adia.',
+    exige: [...RUNTIME_DO_REBAR_SECURITY],
+    dica: 'rebar failed its own security ruler. If the finding is a detection table finding itself, the fix is to take the literal out of the message or assemble it in pieces -- not to exclude the file, which only postpones it. The injection rules read the git index: stage a local fix before judging it.',
     extrair: /^\s*(✗|⚠)/,
     avisar: /^\s*⚠/,
     tempoLimite: 3 * MINUTO,
