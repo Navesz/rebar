@@ -1,0 +1,23 @@
+{
+  "rule": "indirect-exec-change",
+  "why": "The not-applicable branch: a manifest whose repository has no parent commit gives no range to judge, and with no Python file there is no static half either (invariant I4). Both sides track a package.json with a postinstall script and reach it by different routes: the pass side has no commit at all (an unborn branch), the fail side has one root commit. Evaluate the range against an empty parent and both sides report the hook as new.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImFwcCIsCiAgInNjcmlwdHMiOiB7ICJwb3N0aW5zdGFsbCI6ICJub2RlIHNldHVwLm1qcyIgfQp9Cg=="
+      }
+    ],
+    "commits": []
+  },
+  "fail": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImFwcCIsCiAgInNjcmlwdHMiOiB7ICJwb3N0aW5zdGFsbCI6ICJub2RlIHNldHVwLm1qcyIgfQp9Cg=="
+      }
+    ]
+  }
+}

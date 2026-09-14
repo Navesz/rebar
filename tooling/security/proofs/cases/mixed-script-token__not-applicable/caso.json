@@ -1,0 +1,18 @@
+{
+  "rule": "mixed-script-token",
+  "why": "The not-applicable branch: with no URL, no package manifest and no agent config there is no token to judge (invariant I4). Both sides reach it by different trees: the pass side tracks a text note with no address, the fail side tracks nothing and has no commit. Return null there and both sides diverge.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "notes.txt",
+        "base64": "UGxhaW4gbm90ZXMsIG5vIGFkZHJlc3MuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "estado": "na",
+    "gerados": [],
+    "commits": []
+  }
+}

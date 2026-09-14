@@ -1,0 +1,26 @@
+{
+  "rule": "hidden-markdown-directive",
+  "why": "The not-applicable branch: with no tracked Markdown and no agent rule file there is no page to hide anything in, and silence by absence must not become passed (invariant I4). The rule has one such branch, so both sides reach it by different trees: the pass side tracks one source file, the fail side tracks a text note and an agent JSON config, which carry no Markdown region. Return null there and both sides diverge.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "src/index.mjs",
+        "base64": "ZXhwb3J0IGNvbnN0IHggPSAxCg=="
+      }
+    ]
+  },
+  "fail": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "notes.txt",
+        "base64": "UGxhaW4gbm90ZXMuCg=="
+      },
+      {
+        "caminho": ".cursor/mcp.json",
+        "base64": "eyAibWNwU2VydmVycyI6IHt9IH0K"
+      }
+    ]
+  }
+}

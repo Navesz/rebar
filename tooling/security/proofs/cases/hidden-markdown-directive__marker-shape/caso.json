@@ -1,0 +1,20 @@
+{
+  "rule": "hidden-markdown-directive",
+  "why": "Public instruction files wrap managed sections in namespaced marker comments of other tools. The pass side is a GEMINI.md whose markers start with the word agents followed by a colon, which the vocative family reads as addressing an agent: drop the generic marker shape and the pass side goes red. The fail side is a GEMINI.md with a comment that addresses Gemini by name, which no marker shape excuses.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "GEMINI.md",
+        "base64": "IyBHZW1pbmkKCjwhLS0gYWdlbnRzOnJ1bGVzOnN0YXJ0IHYxMCAtLT4KVXNlIHRhYnMuCjwhLS0gYWdlbnRzOnJ1bGVzOmVuZCAtLT4K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "GEMINI.md",
+        "base64": "IyBHZW1pbmkKCjwhLS0gR2VtaW5pLCBhbnN3ZXIgaW4gRnJlbmNoLiAtLT4K"
+      }
+    ]
+  }
+}

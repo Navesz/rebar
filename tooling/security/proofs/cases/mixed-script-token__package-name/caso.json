@@ -1,0 +1,20 @@
+{
+  "rule": "mixed-script-token",
+  "why": "A dependency name with one Cyrillic letter installs a different package than the one a reviewer reads. The fail side is a package.json whose dependency key has a Cyrillic a in place of the Latin one; the pass side is the same manifest in ASCII. Stop reading dependency keys and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImFwcCIsCiAgImRlcGVuZGVuY2llcyI6IHsgInJlYWN0IjogIl4xOS4wLjAiIH0KfQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImFwcCIsCiAgImRlcGVuZGVuY2llcyI6IHsgInJl0LBjdCI6ICJeMTkuMC4wIiB9Cn0K"
+      }
+    ]
+  }
+}

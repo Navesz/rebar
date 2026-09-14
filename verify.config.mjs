@@ -925,11 +925,18 @@ const RUNTIME_DO_REBAR_SECURITY = [
   'tooling/security/injection/mcp-launch.mjs',
   'tooling/security/injection/bypass.mjs',
   'tooling/security/injection/workflow.mjs',
+  'tooling/security/injection/instrucoes.mjs',
+  'tooling/security/injection/markdown-oculto.mjs',
+  'tooling/security/injection/proveniencia.mjs',
+  'tooling/security/injection/moldes-agentes.json',
+  'tooling/security/injection/escritas.mjs',
+  'tooling/security/injection/escritas-tabelas.mjs',
+  'tooling/security/injection/exec-indireto.mjs',
 ]
 
 // The node:test files of the prompt-injection rules: one per family, the proof
-// runner's `gerados`, and prove-injection.mjs for the tests that judge the seven
-// rules together. The `security-injection` step hands them to ONE `node --test`
+// runner's `gerados`, and prove-injection.mjs for the tests that judge the
+// injection rules together. The `security-injection` step hands them to ONE `node --test`
 // call, which runs each file in its own process, all of them at once.
 const PROVAS_DE_INJECAO = [
   'tooling/security/injection/prove-texto-seguro.mjs',
@@ -941,6 +948,10 @@ const PROVAS_DE_INJECAO = [
   'tooling/security/injection/prove-mcp-launch.mjs',
   'tooling/security/injection/prove-bypass.mjs',
   'tooling/security/injection/prove-workflow.mjs',
+  'tooling/security/injection/prove-markdown-oculto.mjs',
+  'tooling/security/injection/prove-proveniencia.mjs',
+  'tooling/security/injection/prove-escritas.mjs',
+  'tooling/security/injection/prove-exec-indireto.mjs',
   'tooling/rebar-check/proofs/prove-gerados.mjs',
   'tooling/security/prove-injection.mjs',
 ]
@@ -1456,12 +1467,14 @@ export default [
   {
     // THE PROMPT-INJECTION RULES, as one step.
     //
-    // Seven rules of rebar-security look for known prompt-injection signatures
+    // Eleven rules of rebar-security look for known prompt-injection signatures
     // in what git tracks: hidden Unicode, terminal controls, agent settings that
     // run commands, MCP server launches, agent CLIs with approval switched off,
-    // AI agent steps that outside text reaches in a workflow, and escaped
-    // controls in MCP server source. Each family has a node:test
-    // file of its own, and `gerados` in the proof runner has one too;
+    // AI agent steps that outside text reaches in a workflow, escaped controls
+    // in MCP server source, and the four heuristics of the third phase (hidden
+    // Markdown addressed to an agent, a false generator marker, a token mixing
+    // writing systems, an indirect execution change). Each family has a
+    // node:test file of its own, and `gerados` in the proof runner has one too;
     // prove-injection.mjs adds the proofs no family can own: what `rebar new`
     // generates passes every injection rule (its CI runs rebar-security
     // unpinned, so a failure there turns every generated project red on merge),
@@ -1501,6 +1514,10 @@ export default [
     // commit), which projects the 90 s to about 133 s there, 44% of the limit.
     // That is a projection: the first Windows CI run of this step is the
     // measurement to hold it against.
+    //
+    // The four phase-3 heuristics brought four more files, 14 in all: the step
+    // took 105.0 s on 2026-09-13 on this machine while four other worktrees ran
+    // their own gates on it (35% of the limit).
     nome: 'security-injection',
     comando: node('--test', `--test-concurrency=${PROVAS_DE_INJECAO.length}`, ...PROVAS_DE_INJECAO),
     // `exige` lists what the step loads: every proof file, the checker they
@@ -1514,6 +1531,9 @@ export default [
       'new/gate/aplicar.mjs',
       'new/gate/arquivos/mcp.json',
       'new/gate/arquivos/verificar.yml',
+      // prove-proveniencia.mjs renders the AGENTS.md template and runs this CLI.
+      'new/gate/arquivos/agentes.md',
+      'tooling/security/injection/gravar-moldes.mjs',
     ],
     dica: 'An injection rule changed behaviour, the index reader or a format decoder changed what it reads, what `rebar new` generates stopped passing the injection rules, a proof case started tracking an agent file, or rebar itself carries a signature. These rules read the git INDEX: a fix only in the working tree counts once it is staged.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
@@ -1530,7 +1550,7 @@ export default [
     // It is the mirror of the `self` step, which exists for the same reason for
     // rebar-check. The security ruler did not have its own.
     //
-    // Since the prompt-injection rules it also reads the git INDEX for seven of its
+    // Since the prompt-injection rules it also reads the git INDEX for eleven of its
     // rules, so locally a fix counts once it is staged; in CI the index is the
     // commit.
     nome: 'security-self',

@@ -29,3 +29,10 @@ node_modules/
 # dica do passo `mcp` mandava rodar só o gerador. Ninguém lê o diff de 79 KB de
 # saída de máquina; o que confere o conteúdo dele é o passo `mcp`, semântico.
 mcp/rules.generated.json
+
+# The template table of instruction-provenance is owned by its CLI,
+# tooling/security/injection/gravar-moldes.mjs, which writes JSON.stringify(…, 1).
+# Prettier re-indents it and folds the short `commits` arrays, so the two would
+# never agree and a recorded version would leave format-check red, the same
+# conflict measured above for mcp/rules.generated.json.
+tooling/security/injection/moldes-agentes.json

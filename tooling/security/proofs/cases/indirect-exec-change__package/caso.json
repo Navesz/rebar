@@ -1,0 +1,24 @@
+{
+  "rule": "indirect-exec-change",
+  "why": "A folder with an __init__.py named like a standard library package shadows that package for a script run from its parent folder. The fail side tracks a logging package at the repository root; the pass side keeps the same package inside an app package, whose parent has an __init__.py. Stop judging package folders and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "app/__init__.py",
+        "base64": ""
+      },
+      {
+        "caminho": "app/logging/__init__.py",
+        "base64": "WCA9IDEK"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "logging/__init__.py",
+        "base64": "WCA9IDEK"
+      }
+    ]
+  }
+}

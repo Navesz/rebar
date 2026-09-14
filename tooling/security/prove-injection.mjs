@@ -1,10 +1,13 @@
 // THE PROMPT-INJECTION RULES, PROVED AS ONE GATE STEP
 //
-// rebar-security gained seven rules that look for known prompt-injection
+// rebar-security gained eleven rules that look for known prompt-injection
 // signatures in what git tracks: hidden Unicode, terminal controls, agent
 // settings that run commands, MCP server launches, agent CLIs started with their
 // approval switch off, AI agent steps that outside text reaches in a GitHub
-// workflow, and escaped controls in MCP server source. Their engines
+// workflow, and escaped controls in MCP server source; and four heuristics of the
+// third phase: hidden Markdown addressed to an agent, an AGENTS.md that falsely
+// claims the rebar generator, a URL or name mixing writing systems, and a change
+// that makes an obedient agent run something new. Their engines
 // live in `./injection/`, one file per family, and each family has its own
 // node:test file. The proof runner learned to build index-only fixtures for them
 // (`gerados` in tooling/rebar-check/proofs/prove.mjs), and that runner has its
@@ -19,7 +22,7 @@
 // which is how the step once took 198 s of its 5 min. Given each file, `node
 // --test` runs one process per file, in parallel.
 //
-// This file keeps a lock on the order of the seven rules in index.mjs, a lock on
+// This file keeps a lock on the order of the eleven rules in index.mjs, a lock on
 // the step itself (it still names every proof file, and every step that starts
 // the checker still requires every engine the checker imports), and the three
 // tests no single family can own, because they judge the rules together:
@@ -36,7 +39,11 @@
 //       warning. The rules honour no exclusion (no proof root, no template
 //       root, no .rebarignore), so this is the only thing keeping rebar's
 //       sources, tables and generated artifact from becoming samples of what the
-//       tables hunt.
+//       tables hunt. It also holds every STATIC fixture elsewhere in rebar: a
+//       rebar-check case that tracks a Python file named like a standard library
+//       module, a package.json that adds an install hook, or a Markdown comment
+//       addressed to an agent turns this red, so such a fixture goes into
+//       `gerados`.
 //
 // It also proves `--sugerir-allowlist`, which reads what six engines record
 // and prints it as allowlist lines: no single family owns that output either.
@@ -65,7 +72,7 @@ const CLI = fileURLToPath(new URL('./index.mjs', import.meta.url))
 const MOLDE_MCP = fileURLToPath(new URL('../../new/gate/arquivos/mcp.json', import.meta.url))
 const MOLDE_CI = fileURLToPath(new URL('../../new/gate/arquivos/verificar.yml', import.meta.url))
 
-/** The seven rule ids this file is about, in the order index.mjs declares them. */
+/** The injection rule ids this file is about, in the order index.mjs declares them. */
 const INJECAO = [
   'hidden-unicode',
   'control-bytes',
@@ -74,6 +81,10 @@ const INJECAO = [
   'agent-bypass-invocation',
   'ai-workflow-untrusted-input',
   'mcp-ansi-escape',
+  'hidden-markdown-directive',
+  'instruction-provenance',
+  'mixed-script-token',
+  'indirect-exec-change',
 ]
 
 const criados = []
@@ -156,8 +167,8 @@ const sujos = (resultados) =>
         `${x.id}: ${x.estado}${x.motivo ? ` · ${x.motivo}` : ''}${x.nota ? ` · ⚠ ${x.nota}` : ''}`,
     )
 
-describe('the seven injection rules, judged together', () => {
-  test('index.mjs declares the seven injection rules, in order, after hardcoded-secret', () => {
+describe('the injection rules, judged together', () => {
+  test('index.mjs declares the injection rules, in order, after hardcoded-secret', () => {
     // Without this, a rule that left REGRAS would make (d) and (f) pass by
     // vacuity: --rule=<id> exits 2 and a missing id has no result to judge.
     const ids = REGRAS.map((r) => r.id)

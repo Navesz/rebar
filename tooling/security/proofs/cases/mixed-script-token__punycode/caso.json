@@ -1,0 +1,20 @@
+{
+  "rule": "mixed-script-token",
+  "why": "A host written in punycode is plain ASCII in the file and a different name once the client decodes it. The fail side links a host whose punycode label decodes to a Latin name with one Cyrillic letter; the pass side links a German host whose label decodes to Latin letters only. Skip punycode decoding and the fail side goes green; judge the encoded label as foreign and the pass side goes red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBMaW5rcwoKaHR0cHM6Ly94bi0tbW5jaGVuLTN5YS5kZS8K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBMaW5rcwoKaHR0cHM6Ly94bi0tcHlwYWwtNHZlLmNvbS8K"
+      }
+    ]
+  }
+}

@@ -83,7 +83,11 @@ import {
   checarControlBytes,
   checarMcpAnsiEscape,
 } from './injection/control.mjs'
+import { checarMixedScript } from './injection/escritas.mjs'
+import { checarIndirectExec } from './injection/exec-indireto.mjs'
+import { checarHiddenMarkdown } from './injection/markdown-oculto.mjs'
 import { EXECUTORES_REMOTOS, SINAIS_DE_SHELL, checarMcpLaunch } from './injection/mcp-launch.mjs'
+import { checarProvenance } from './injection/proveniencia.mjs'
 import {
   FORMAS_DE_CHAVE,
   MOTIVO_A_ESCREVER,
@@ -102,7 +106,7 @@ import { CONTROLES, ESCAPAR_TAMBEM, IGNORAVEIS, escaparSaida, naFaixa } from './
 
 // ─────────────────────────────────────── the prompt-injection signature tables
 //
-// The seven injection rules keep their engines AND their pattern tables in
+// The injection rules keep their engines AND their pattern tables in
 // `./injection/*.mjs`, one file per family, and this file only re-exports each
 // table by name. Two readers depend on that
 // shape: `mcp/generate.mjs` walks this module's exports for `[RegExp, string]`
@@ -852,6 +856,115 @@ export const REGRAS = [
      * fails only under `--heuristics`.
      */
     checar: (r) => checarMcpAnsiEscape(r, { MARCADORES_DE_SERVIDOR, ESCAPES_DE_CONTROLE }),
+  },
+
+  {
+    id: 'hidden-markdown-directive',
+    classe: 'heurística',
+    nivel: 'N1',
+    titulo: 'no hidden Markdown region addressed to an agent',
+    /**
+     * GitHub renders a Markdown file with its HTML comments and unused link
+     * definitions removed, and an agent reads the raw file, so a sentence can
+     * reach the model that no reviewer saw on the page. Claude Code strips only
+     * block-level comments, and only from CLAUDE.md; Codex, Copilot, Cursor and the
+     * rest read instruction files raw. Elements hidden by a style or by the hidden
+     * attribute count too, because an editor preview that renders raw HTML hides
+     * them.
+     *
+     * Hidden prose is common and honest (381 of 690 public instruction files that
+     * carry a comment hide prose in it), so a region counts only when it is
+     * addressed to an agent: a vocative, an override of earlier instructions, a
+     * request to conceal, a condition on being a model, a model that must act, or
+     * an imperative beside an execution token. Measured with the shipped engine:
+     * 0 regions in the local repositories, 0 in rebar, 0 in node_modules, and 2
+     * regions in 2 of 690 public instruction files.
+     *
+     * A heuristic because a signal is vocabulary: a first design that also counted
+     * an imperative next to an addressee fired on 3 honest local files. Its
+     * vocabulary is internal to the engine and not an exported table, a departure
+     * from how the other injection rules publish theirs: exported, its patterns
+     * would match rebar's own prose, and this rule never reads visible prose.
+     */
+    checar: (r) => checarHiddenMarkdown(r),
+  },
+
+  {
+    id: 'instruction-provenance',
+    classe: 'heurística',
+    nivel: 'N1',
+    titulo: 'an AGENTS.md carrying the rebar generator marker matches a template rebar generated',
+    /**
+     * The generator marks the AGENTS.md it writes, then trusts that marker
+     * anywhere in the file and copies a third-party Next.js block into it
+     * unread (new/gate/aplicar.mjs:494-500 and :604). So the marker is a claim, and
+     * a reviewer who sees it skips a file that may not be generated at all.
+     *
+     * The whole root AGENTS.md is matched against every template version the
+     * generator ever rendered (4 so far, kept append-only in
+     * injection/moldes-agentes.json), with the project name and the Next.js block
+     * as slots and any tail allowed. It fails on a false claim: the marker below
+     * the top, repeated, in another instruction file, or no version matching. The
+     * 3 generated repositories match today, with no tail.
+     *
+     * A heuristic for its first release, though an exact match is not a guess:
+     * it is promoted once a release shows it fails no honest project. An unknown
+     * block is a warning only when it is large or carries a URL, fenced code, a
+     * nested comment or an execution token.
+     */
+    checar: (r) => checarProvenance(r),
+  },
+
+  {
+    id: 'mixed-script-token',
+    classe: 'heurística',
+    nivel: 'N1',
+    titulo: 'no URL, host, package name or config identifier mixing writing systems',
+    /**
+     * One letter from another alphabet turns a host or a package name into a
+     * different one that reads the same: Daniel Stenberg showed an AI-written
+     * report for curl on 2025-05-16 whose GitHub link began with an Armenian
+     * letter, and CVE-2021-42694 is the identifier form. A model copies the
+     * address; a reviewer reads the familiar name.
+     *
+     * Judged with the UTS #39 resolved script set at the Highly Restrictive level,
+     * over URL hosts (punycode labels decoded, the host as one token), URL
+     * segments, package manifest names and agent config keys and identifier
+     * values. Measured 0 mixed tokens in about 450,000 of them across the local
+     * repositories and node_modules.
+     *
+     * Never prose or code identifiers: the same test over every word hit 92
+     * honest words in 4 local repositories. A heuristic because an honest
+     * internationalized host under a Latin top-level domain mixes too.
+     */
+    checar: (r) => checarMixedScript(r),
+  },
+
+  {
+    id: 'indirect-exec-change',
+    classe: 'heurística',
+    nivel: 'N1',
+    titulo:
+      'no new install hook, no script that gained a download or shell pipe, no Python file shadowing the standard library',
+    /**
+     * An instruction file says to run the tests and the agent obeys, so the
+     * injection can change what the tests run instead of touching the
+     * instruction file: GitInject measured the configuration-file channel working
+     * where a pull request body did not.
+     *
+     * Three signals. Since the first parent of HEAD, a package script that
+     * changed and gained an execution family (a pipe into a shell, a download, a
+     * URL, eval and the like), or a new script npm runs on install. And any tracked
+     * Python file named like a standard library module where a script run by path
+     * would import it first.
+     *
+     * "A script an instruction file names changed" alone fired on 14 of 212 honest
+     * commits; the refined signal on 0 of 199 changed script values. The Python
+     * signal hit 3 of 20,291 files of an installed site-packages. A heuristic
+     * because an honest change can add a download to a script, and a folder of
+     * scripts can hold a module named like the standard library on purpose.
+     */
+    checar: (r) => checarIndirectExec(r),
   },
 ]
 
