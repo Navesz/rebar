@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { MOLDES, SLOT_BLOCO, SLOT_NOME } from './proveniencia.mjs'
+import { MOLDES, SLOT_BLOCO, SLOT_COMMIT, SLOT_NOME } from './proveniencia.mjs'
 
 const sha256 = (s) => createHash('sha256').update(s, 'utf8').digest('hex')
 
@@ -61,8 +61,8 @@ async function principal(argv) {
   const atual = JSON.parse(readFileSync(caminho, 'utf8'))
   const { moldes, gravou } = gravar(
     atual,
-    moldeAgents(SLOT_NOME, SLOT_BLOCO),
-    moldeAgents(SLOT_NOME, ''),
+    moldeAgents(SLOT_NOME, SLOT_BLOCO, SLOT_COMMIT),
+    moldeAgents(SLOT_NOME, '', SLOT_COMMIT),
   )
   if (!gravou) {
     console.log('nothing to record')

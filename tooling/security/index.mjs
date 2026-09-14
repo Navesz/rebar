@@ -900,15 +900,17 @@ export const REGRAS = [
     nivel: 'N1',
     titulo: 'an AGENTS.md carrying the rebar generator marker matches a template rebar generated',
     /**
-     * The generator marks the AGENTS.md it writes, then trusts that marker
-     * anywhere in the file and copies a third-party Next.js block into it
-     * unread (new/gate/aplicar.mjs:494-500 and :604). So the marker is a claim, and
-     * a reviewer who sees it skips a file that may not be generated at all.
+     * The generator marks the AGENTS.md it writes. Until 2026-09-13 it trusted
+     * that marker anywhere in the file and copied a third-party Next.js block into
+     * it unread; it now keeps a marked file only when it equals the render, and
+     * warns on a block it does not know. To a reviewer the marker is still a
+     * claim, and one who sees it skips a file that may not be generated at all.
      *
      * The whole root AGENTS.md is matched against every template version the
-     * generator ever rendered (4 so far, kept append-only in
-     * injection/moldes-agentes.json), with the project name and the Next.js block
-     * as slots and any tail allowed. It fails on a false claim: the marker below
+     * generator ever rendered (5 so far, kept append-only in
+     * injection/moldes-agentes.json), with the project name, the Next.js block
+     * and, since the template pins it, the rebar commit as slots, and any tail
+     * allowed. It fails on a false claim: the marker below
      * the top, repeated, in another instruction file, or no version matching. The
      * 3 generated repositories match today, with no tail.
      *
@@ -973,6 +975,9 @@ export const REGRAS = [
      * scripts can hold a module named like the standard library on purpose.
      */
     checar: (r) => checarIndirectExec(r),
+  },
+
+  {
     id: 'mcp-integrity',
     classe: 'determinística',
     nivel: 'N4',

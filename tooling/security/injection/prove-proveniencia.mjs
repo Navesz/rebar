@@ -21,13 +21,15 @@ import { join } from 'node:path'
 import test, { after, describe } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { moldeAgents } from '../../../new/gate/aplicar.mjs'
+import { SEM_COMMIT, moldeAgents } from '../../../new/gate/aplicar.mjs'
 import { gravar, serializar } from './gravar-moldes.mjs'
 import {
+  COMMIT_DESCONHECIDO,
   MARCADOR_AGENTES,
   MOLDES,
   RE_BLOCO,
   SLOT_BLOCO,
+  SLOT_COMMIT,
   SLOT_NOME,
   carregarMoldes,
   checarProvenance,
@@ -92,8 +94,8 @@ describe('the template table', () => {
     const ultima = tabela.versoes[tabela.versoes.length - 1]
     const mensagem =
       'the AGENTS.md template changed: record it with node tooling/security/injection/gravar-moldes.mjs'
-    assert.equal(moldeAgents(SLOT_NOME, SLOT_BLOCO), ultima.comBloco, mensagem)
-    assert.equal(moldeAgents(SLOT_NOME, ''), ultima.semBloco, mensagem)
+    assert.equal(moldeAgents(SLOT_NOME, SLOT_BLOCO, SLOT_COMMIT), ultima.comBloco, mensagem)
+    assert.equal(moldeAgents(SLOT_NOME, '', SLOT_COMMIT), ultima.semBloco, mensagem)
   })
 
   test('every stored hash matches its string, and the four bootstrap versions are pinned', () => {
@@ -132,12 +134,28 @@ describe('the template table', () => {
 
   test('the slot render equals the generator for names and blocks that split/join and replace would disagree on', () => {
     const bloco = '<!-- BEGIN:nextjs-agent-rules -->\n$& $1 {{x}}\n<!-- END:nextjs-agent-rules -->'
+    const ultima = tabela.versoes[tabela.versoes.length - 1]
+    const preencher = (render, nome, commit) =>
+      render
+        .split(SLOT_NOME)
+        .join(nome)
+        .split(SLOT_COMMIT)
+        .join(commit ?? SEM_COMMIT)
     for (const nome of ['padaria-do-ze', 'a', 'x.y_z-9']) {
-      const ultima = tabela.versoes[tabela.versoes.length - 1]
-      const esperado = ultima.comBloco.split(SLOT_NOME).join(nome).split(SLOT_BLOCO).join(bloco)
-      assert.equal(moldeAgents(nome, bloco), esperado, nome)
-      assert.equal(moldeAgents(nome, null), ultima.semBloco.split(SLOT_NOME).join(nome), nome)
+      for (const commit of [null, 'a'.repeat(40)]) {
+        const esperado = preencher(ultima.comBloco, nome, commit).split(SLOT_BLOCO).join(bloco)
+        assert.equal(moldeAgents(nome, bloco, commit), esperado, nome)
+        assert.equal(
+          moldeAgents(nome, null, commit),
+          preencher(ultima.semBloco, nome, commit),
+          nome,
+        )
+      }
     }
+  })
+
+  test('the commit placeholder is the generator one, which this module cannot import', () => {
+    assert.equal(COMMIT_DESCONHECIDO, SEM_COMMIT)
   })
 
   test('the block pattern is the generator one, which this module cannot import', () => {
@@ -183,6 +201,42 @@ describe('conferirAgents', () => {
     assert.equal(estado(render.replace(/\n/g, '\r\n')).estado, 'confere')
     assert.equal(estado(render.replace(/\n+$/, '')).estado, 'confere')
     assert.equal(estado(`${render}\n\n`).cauda, '')
+  })
+
+  test('the pinned rebar commit is a slot: a full id or the placeholder, and nothing else', () => {
+    // Since the generator pins the commit its CLI line runs, every generated
+    // AGENTS.md carries a different id there. Recorded with the placeholder
+    // instead, the table matched only projects whose generator could not learn
+    // its commit, and every other generated project failed this rule.
+    const commit = '0123456789abcdef0123456789abcdef01234567'
+    const fixado = estado(moldeAgents('proof', BLOCO, commit))
+    assert.deepEqual(
+      [fixado.estado, fixado.forma, fixado.commit, fixado.cauda],
+      ['confere', 'comBloco', commit, ''],
+    )
+    assert.equal(estado(render).commit, SEM_COMMIT)
+    // An abbreviated id or an upper-case id is not what the generator writes,
+    // and the first differing line is the pinned one.
+    const pinada = moldeAgents('proof', null, commit)
+    const k = pinada.split('\n').findIndex((l) => l.includes(commit))
+    assert.ok(k > 0)
+    for (const outro of [
+      pinada.replace(commit, commit.slice(0, 7)),
+      pinada.replace(commit, commit.toUpperCase()),
+    ]) {
+      const c = estado(outro)
+      assert.deepEqual([c.estado, c.linhaDivergente], ['divergente', k + 1])
+    }
+    // The unpinned spelling is v4, the template rebar generated before the pin:
+    // a true claim, so this rule passes it, and unpinned-remote-exec is the rule
+    // that fails the line.
+    const solta = estado(
+      pinada.replace(
+        `https://codeload.github.com/Navesz/rebar/tar.gz/${commit}`,
+        'github:Navesz/rebar',
+      ),
+    )
+    assert.deepEqual([solta.estado, solta.versao, solta.commit], ['confere', 'v4', null])
   })
 
   test('an older version still matches, and a section appended by the owner is a tail', () => {

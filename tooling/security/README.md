@@ -514,14 +514,17 @@ twice, the marker in any other Markdown instruction file, or a root `AGENTS.md` 
 of the template versions the generator ever rendered. A marker inside code is shown as code and
 counts for nothing. The whole file is matched against
 [`injection/moldes-agentes.json`](injection/moldes-agentes.json), an append-only table of every
-version (4 so far, over 13 generator commits), with the project name and the Next.js agent-rules
-block as slots, trailing newlines free, and any tail allowed. A third-party block whose hash is
+version (5 so far: 4 over 13 generator commits, then the pinned one), with the project name, the
+Next.js agent-rules block and, from version 5, the rebar commit the template pins (40 lowercase hex
+digits, or the generator's `TROQUE-PELO-COMMIT-DO-REBAR` placeholder) as slots, trailing newlines
+free, and any tail allowed. A third-party block whose hash is
 not recorded warns (`⚠`, passes) only when it is over 18 lines or 1,354 bytes, twice the measured
 maximum, or carries a URL, fenced code, a nested comment or an execution token.
 
-**Why.** The generator trusts the marker anywhere in the file and copies the Next.js block in
-unread (`new/gate/aplicar.mjs:494-500` and `:604`), so the marker is a claim nobody holds against
-the text, and a reviewer who sees it skips the file.
+**Why.** Until 2026-09-13 the generator trusted the marker anywhere in the file and copied the
+Next.js block in unread; it now keeps a marked file only when it equals the render and warns on an
+unknown block. To a reviewer the marker is still a claim nobody holds against the text, and one who
+sees it skips the file.
 
 **Why it is a heuristic.** An exact match is no guess, but a first release has to show it fails no
 honest project before it gates: assay and navesz-portfolio match version 4 and rebar-site version
@@ -603,6 +606,7 @@ a shadowing Python module, and a Python 3.12 site-packages carries 4 among 19,92
 `code.py` must keep its name), or `{arquivo, oid}`, which an edit invalidates. Every current script
 is offered to the allowlist whether the range shows it or not, and with no parent commit too, so an
 accepted entry is never reported stale on a root commit or a shallow clone.
+
 ### mcp-integrity
 
 **What it catches.** A tracked MCP configuration (the same files `mcp-server-launch` reads) whose

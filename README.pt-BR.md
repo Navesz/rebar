@@ -8,7 +8,7 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licença](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Regras](https://img.shields.io/badge/regras-38-blue)](#o-que-ele-checa)
+[![Regras](https://img.shields.io/badge/regras-40-blue)](#o-que-ele-checa)
 [![Portão](https://img.shields.io/badge/port%C3%A3o-26%20passos-blue)](#o-portão)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
@@ -191,7 +191,7 @@ avisada antes de escrever, e não depois.
 O artefato é **derivado, nunca duplicado**: o `npm run verify` o regenera em memória e reprova
 se o disco divergir. É impossível mudar uma regra e esquecer o MCP.
 
-Ele carrega <!--n mcp.artefato.regras-->38<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->26<!--/n--> passos de portão e <!--n mcp.artefato.provas-->175<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
+Ele carrega <!--n mcp.artefato.regras-->40<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->26<!--/n--> passos de portão e <!--n mcp.artefato.provas-->187<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
 
 ## Mapa do repositório
 
