@@ -38,7 +38,7 @@
 //       sources, tables and generated artifact from becoming samples of what the
 //       tables hunt.
 //
-// It also proves `--sugerir-allowlist`, which reads what five engines record
+// It also proves `--sugerir-allowlist`, which reads what six engines record
 // and prints it as allowlist lines: no single family owns that output either.
 //
 // Every temp repository is built under os.tmpdir() with INDEX-ONLY entries
@@ -411,6 +411,73 @@ describe('--sugerir-allowlist', () => {
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /^# 4 line\(s\) .* 4 malformed line\(s\)/)
     assert.ok(!r.stdout.includes(primeira.slice(0, 40)), r.stdout)
+  })
+
+  test('a failing workflow step gets one line per file it depends on, and a partial allowlist only the missing one', () => {
+    // ai-workflow-untrusted-input exempts a step only when every file it
+    // depends on has an entry: here the issue workflow and the reusable
+    // workflow it calls. Assembled, like prove-workflow.mjs does.
+    const REGRA = 'ai-workflow-untrusted-input'
+    const chamado = [
+      'name: proof',
+      'on: workflow_call',
+      'jobs:',
+      '  agent:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      `      - uses: google-github-actions/run-${AGENTE}-cli@v0`,
+      '',
+    ].join('\n')
+    const chamador = [
+      'name: proof',
+      'on: issues',
+      'permissions:',
+      '  contents: read',
+      'jobs:',
+      '  call:',
+      '    uses: ./.github/workflows/agent.yml',
+      '',
+    ].join('\n')
+    const fluxos = [
+      { caminho: '.github/workflows/call.yml', bytes: Buffer.from(chamador, 'utf8') },
+      { caminho: '.github/workflows/agent.yml', bytes: Buffer.from(chamado, 'utf8') },
+    ]
+    const estado = (dir) => seguranca(dir, AMBIENTE, '--heuristics', `--rule=${REGRA}`)[0].estado
+    const dir = repositorio(fluxos)
+    assert.equal(estado(dir), 'reprovou')
+    const r = cli('--sugerir-allowlist', dir)
+    assert.equal(r.status, 0, r.stderr)
+    const [cabecalho, ...linhas] = r.stdout.trimEnd().split('\n')
+    assert.match(cabecalho, /^# 2 line\(s\) /, r.stdout)
+    const objetos = linhas.map((l) => JSON.parse(l))
+    for (const o of objetos) {
+      assert.deepEqual(Object.keys(o), ['regra', 'arquivo', 'oid', 'motivo'])
+      assert.equal(o.regra, REGRA)
+    }
+    assert.deepEqual(objetos.map((o) => o.arquivo).sort(), fluxos.map((f) => f.caminho).sort())
+
+    // One line edited in: the step still fails, and only the other file is suggested.
+    const escrita = (o) => JSON.stringify({ ...o, motivo: 'reviewed in the proof' })
+    const [uma, outra] = objetos
+    const parcial = repositorio([
+      ...fluxos,
+      { caminho: '.rebar-injection-allowlist', bytes: Buffer.from(`${escrita(uma)}\n`, 'utf8') },
+    ])
+    assert.equal(estado(parcial), 'reprovou')
+    const falta = cli('--sugerir-allowlist', parcial).stdout.trimEnd().split('\n')
+    assert.match(falta[0], /^# 1 line\(s\) /, falta.join('\n'))
+    assert.equal(JSON.parse(falta[1]).arquivo, outra.arquivo)
+
+    // Both edited in: the step passes and nothing is left to suggest.
+    const ambos = repositorio([
+      ...fluxos,
+      {
+        caminho: '.rebar-injection-allowlist',
+        bytes: Buffer.from(`${escrita(uma)}\n${escrita(outra)}\n`, 'utf8'),
+      },
+    ])
+    assert.equal(estado(ambos), 'passou')
+    assert.match(cli('--sugerir-allowlist', ambos).stdout, /^# 0 line\(s\) /)
   })
 
   test('a key longer than 4096 characters is counted, not printed; --rule narrows; wrong calls exit 2', () => {

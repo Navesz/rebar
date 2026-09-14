@@ -98,6 +98,7 @@ import {
   onde,
   repositorioDeOrigem,
   resumir,
+  sugerirEntrada,
 } from './reader.mjs'
 
 const REGRA = 'ai-workflow-untrusted-input'
@@ -1761,12 +1762,11 @@ export function checarWorkflowDeAgente(r, tabelas) {
   // workflow_run upstream that made it reachable. Checked before marking, so an
   // entry that did not exempt anything alone is not counted as used.
   let usouEntrada = false
+  const chavesDe = (item) =>
+    [...new Set(item.arquivos)].map((arquivo) => ({ arquivo, oid: oids.get(arquivo) }))
   const restantes = itens.filter((item) => {
     if (malformada) return true
-    const chaves = [...new Set(item.arquivos)].map((arquivo) => ({
-      arquivo,
-      oid: oids.get(arquivo),
-    }))
+    const chaves = chavesDe(item)
     const cobre = (chave) =>
       permitidas.entradas.some(
         (x) => x.regra === REGRA && x.forma.every((campo) => chave[campo] === x[campo]),
@@ -1776,6 +1776,14 @@ export function checarWorkflowDeAgente(r, tabelas) {
     usouEntrada = true
     return false
   })
+  // What --sugerir-allowlist prints: one {arquivo, oid} line for every file a
+  // failing step depends on, since the exemption above wants them all. A line
+  // the allowlist already holds is dropped by the printer, so a finding one
+  // entry short gets exactly the missing line. Warnings fail nothing and get none.
+  for (const item of restantes) {
+    if (item.severidade !== 'reprova') continue
+    for (const chave of chavesDe(item)) if (chave.oid) sugerirEntrada(r, REGRA, chave)
+  }
   const reprova = restantes.filter((x) => x.severidade === 'reprova').map((x) => x.texto)
   const avisa = restantes.filter((x) => x.severidade === 'nota').map((x) => x.texto)
 

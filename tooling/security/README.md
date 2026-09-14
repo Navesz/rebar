@@ -496,9 +496,11 @@ nota. The hashes below are placeholders.
 
 ### Writing the lines: `--sugerir-allowlist`
 
-`node tooling/security/index.mjs --sugerir-allowlist <repository>` runs the six injection rules
+`node tooling/security/index.mjs --sugerir-allowlist <repository>` runs the seven injection rules
 (or the one `--rule=` names) and prints, for every finding an entry can exempt, the line that
-would exempt it, with the exact key that rule compares. It takes one repository and no `--json`
+would exempt it, with the exact key that rule compares. A failing workflow step gets one line for
+every file it depends on (the workflow, the reusable workflow or composite action it resolved, the
+`workflow_run` upstream), since `ai-workflow-untrusted-input` exempts it only with all of them. It takes one repository and no `--json`
 (exit `2`), and prints nothing but a message when a rule breaks (exit `127`). The keys are
 written as JSON, so a path with an invisible character comes out as a JSON unicode escape the
 reader decodes back; the output is otherwise the path, the JSON Pointer and the server name
