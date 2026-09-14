@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "The inputs context exists only for workflow_dispatch and workflow_call; on an issue comment it is null, and null compares equal to an empty string. The pass side lets the agent run when a dispatch input is not empty or the commenter is an owner, which on a comment leaves only owners. The fail side tests the input for being empty, which on every comment is true and admits any account. Whoever leaves the inputs atom undecided fails the pass side; whoever decides it the wrong way passes the fail side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/review.yml",
+        "base64": "bmFtZTogUmV2aWV3Cm9uOgogIGlzc3VlX2NvbW1lbnQ6CiAgICB0eXBlczogW2NyZWF0ZWRdCiAgd29ya2Zsb3dfZGlzcGF0Y2g6CiAgICBpbnB1dHM6CiAgICAgIHByOgogICAgICAgIHR5cGU6IHN0cmluZwpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIHJldmlldzoKICAgIGlmOiBpbnB1dHMucHIgIT0gJycgfHwgZ2l0aHViLmV2ZW50LmNvbW1lbnQuYXV0aG9yX2Fzc29jaWF0aW9uID09ICdPV05FUicKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFudGhyb3BpY3MvY2xhdWRlLWNvZGUtYWN0aW9uL2Jhc2UtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIGFudGhyb3BpY19hcGlfa2V5OiAke3sgc2VjcmV0cy5BTlRIUk9QSUNfQVBJX0tFWSB9fQogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gKICAgICAgICAgIHByb21wdDogUmV2aWV3IHRoZSBwdWxsIHJlcXVlc3QuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/review.yml",
+        "base64": "bmFtZTogUmV2aWV3Cm9uOgogIGlzc3VlX2NvbW1lbnQ6CiAgICB0eXBlczogW2NyZWF0ZWRdCiAgd29ya2Zsb3dfZGlzcGF0Y2g6CiAgICBpbnB1dHM6CiAgICAgIHByOgogICAgICAgIHR5cGU6IHN0cmluZwpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIHJldmlldzoKICAgIGlmOiBpbnB1dHMucHIgPT0gJycgfHwgZ2l0aHViLmV2ZW50LmNvbW1lbnQuYXV0aG9yX2Fzc29jaWF0aW9uID09ICdPV05FUicKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFudGhyb3BpY3MvY2xhdWRlLWNvZGUtYWN0aW9uL2Jhc2UtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIGFudGhyb3BpY19hcGlfa2V5OiAke3sgc2VjcmV0cy5BTlRIUk9QSUNfQVBJX0tFWSB9fQogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gKICAgICAgICAgIHByb21wdDogUmV2aWV3IHRoZSBwdWxsIHJlcXVlc3QuCg=="
+      }
+    ]
+  }
+}

@@ -835,6 +835,44 @@ describe('mcp-ansi-escape', () => {
     )
   })
 
+  test('Go servers of the official SDK and of mcp-go are candidates (backlog 14)', () => {
+    // Before the Go rows, both gave na('no MCP server source tracked'): the
+    // TypeScript and Python markers matched 8 and 2 of 400 measured Go servers.
+    const goSdk = (descricao) =>
+      [
+        'package main',
+        '',
+        `import "github.com/model${'contextprotocol'}/go-sdk/mcp"`,
+        '',
+        'func main() {',
+        `\tserver := mcp.New${'Server'}(&mcp.Implementation{Name: "w"}, nil)`,
+        `\tmcp.AddTool(server, &mcp.Tool{Name: "forecast", Description: ${descricao}}, nil)`,
+        '}',
+        '',
+      ].join('\n')
+    const suja = reprovou(
+      heuristica(repositorio([{ caminho: 'main.go', conteudo: goSdk(`"hot${B}x1b[31m"`) }])),
+    )
+    assert.match(
+      suja,
+      /^1 escaped terminal control in MCP server source: main\.go:7:\d+ hex escape of ESC/,
+    )
+    assert.equal(heuristica(repositorio([{ caminho: 'main.go', conteudo: goSdk('"hot"') }])), null)
+    const mcpGo = [
+      'package main',
+      '',
+      `import "github.com/mark3${'labs'}/mcp-go/server"`,
+      '',
+      `var s = server.New${'MCPServer'}("w", "1.0.0")`,
+      `var d = "hot${B}u001b[31m"`,
+      '',
+    ].join('\n')
+    assert.match(
+      reprovou(heuristica(repositorio([{ caminho: 'cmd/srv/main.go', conteudo: mcpGo }]))),
+      /cmd\/srv\/main\.go:6:\d+ unicode escape of ESC/,
+    )
+  })
+
   test('a file launched by a tracked MCP config is judged without a marker', () => {
     const escapado = `const t = 'hot${B}u001b[31m'\n`
     const dir = repositorio([

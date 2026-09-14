@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "The Codex action takes its sandbox as an input, not as a switch on a run line, so a rule that needs the binary and the switch in one command never saw it. The fail side sets the no-sandbox value in a push workflow. The pass side keeps the workspace sandbox and carries a config override for the sandbox in codex-args, which the action overrides with its own choice, so it passes. Whoever ignores action inputs passes the fail side; whoever greps codex-args fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/codex.yml",
+        "base64": "bmFtZTogQ29kZXgKb246IHB1c2gKam9iczoKICBjb2RleDoKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IG9wZW5haS9jb2RleC1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgb3BlbmFpLWFwaS1rZXk6ICR7eyBzZWNyZXRzLk9QRU5BSV9BUElfS0VZIH19CiAgICAgICAgICBzYW5kYm94OiB3b3Jrc3BhY2Utd3JpdGUKICAgICAgICAgIGNvZGV4LWFyZ3M6ICdbIi1jIiwic2FuZGJveF9tb2RlPWRhbmdlci1mdWxsLWFjY2VzcyJdJwogICAgICAgICAgcHJvbXB0OiBUaWR5IHRoZSBjaGFuZ2Vsb2cuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/codex.yml",
+        "base64": "bmFtZTogQ29kZXgKb246IHB1c2gKam9iczoKICBjb2RleDoKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IG9wZW5haS9jb2RleC1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgb3BlbmFpLWFwaS1rZXk6ICR7eyBzZWNyZXRzLk9QRU5BSV9BUElfS0VZIH19CiAgICAgICAgICBzYW5kYm94OiBkYW5nZXItZnVsbC1hY2Nlc3MKICAgICAgICAgIHByb21wdDogVGlkeSB0aGUgY2hhbmdlbG9nLgo="
+      }
+    ]
+  }
+}

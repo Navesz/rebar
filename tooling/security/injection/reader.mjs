@@ -216,6 +216,7 @@ export const REGRAS_DA_ALLOWLIST = [
   'agent-config-exec',
   'mcp-server-launch',
   'agent-bypass-invocation',
+  'ai-workflow-untrusted-input',
   'mcp-ansi-escape',
 ]
 

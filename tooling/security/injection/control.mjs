@@ -112,10 +112,17 @@ const BARRA = '\\\\'
 
 /**
  * What makes a code file a candidate for mcp-ansi-escape: the calls, classes
- * and imports of the TypeScript and Python MCP server SDKs. Measured over the
- * tracked trees of rebar, rebar-site and bookkeep, the refined marker set of
+ * and imports of the TypeScript, Python and Go MCP server SDKs. Measured over
+ * the tracked trees of rebar, rebar-site and bookkeep, the refined marker set of
  * the phase-1 measurement matched exactly the three server files, and 97 files
  * in node_modules.
+ *
+ * The Go rows came from a measurement on 2026-09-13 over 200 server files of
+ * the official Go SDK and 200 of mark3labs/mcp-go found by code search: the
+ * TypeScript and Python markers matched 8 and 2 of them, the Go rows all 400.
+ * None of the 400 held a raw ESC or CSI, so Go files are read without a comment
+ * stripper. The official SDK's `mcp` package serves clients too, so its import
+ * row also makes a client file a candidate; client files were not measured.
  *
  * The class names carry one letter as a one-letter class (`[S]`, `[M]`): same
  * matches, but mcp/generate.mjs indexes the word runs of each pattern source
@@ -135,6 +142,16 @@ export const MARCADORES_DE_SERVIDOR = [
     new RegExp('\\b(?:from|import)\\s+' + 'mcp' + '\\.server\\b'),
     'imports the Python server package',
   ],
+  [
+    new RegExp('["`]github\\.com\\/model' + 'contextprotocol\\/go-sdk\\/mcp["`]'),
+    'imports the Go SDK, whose mcp package serves clients and servers',
+  ],
+  [
+    new RegExp('["`]github\\.com\\/mark3' + 'labs\\/mcp-go\\/server["`]'),
+    'imports the server package of a Go MCP library',
+  ],
+  [new RegExp('\\bmcp\\.New' + '[S]erver\\s*\\('), 'creates a server with the Go SDK'],
+  [new RegExp('\\bNew' + '[M]CPServer\\s*\\('), 'creates a server with a Go MCP library'],
 ]
 
 /**

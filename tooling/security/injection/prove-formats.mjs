@@ -327,6 +327,101 @@ describe('lerYaml and lerFrontmatter', () => {
   })
 })
 
+describe('lerYaml with ancoras', () => {
+  // GitHub documents anchors and aliases in workflows (and not merge keys).
+  // Measured over 3,292 real workflows: without the option 15 did not parse,
+  // with it 9, and 2 of the 6 recovered hid an agent step behind an alias.
+  const ler = (linhas) => lerYaml(linhas.join('\n'), { ancoras: true })
+
+  test('a scalar alias on uses: is the anchored value', () => {
+    const r = ler(['x: &pin owner/action@v1', 'jobs:', '  a:', '    steps:', '      - uses: *pin'])
+    assert.equal(r.erro, null)
+    assert.equal(r.valor.jobs.a.steps[0].uses, 'owner/action@v1')
+    assert.deepEqual(r.posicoes.get('/jobs/a/steps/0/uses'), { linha: 5, coluna: 9 })
+  })
+
+  test('an alias of a whole steps: sequence copies it into the second job', () => {
+    const r = ler([
+      'jobs:',
+      '  a:',
+      '    steps: &passos',
+      '      - uses: owner/action@v1',
+      '      - run: echo',
+      '  b:',
+      '    steps: *passos',
+    ])
+    assert.equal(r.erro, null)
+    assert.deepEqual(semProto(r.valor.jobs.b.steps), [{ uses: 'owner/action@v1' }, { run: 'echo' }])
+    // A copy, not the same object: a rule that edits one job never edits the other.
+    assert.notEqual(r.valor.jobs.a.steps, r.valor.jobs.b.steps)
+    // Only the alias node's own pointer is recorded, never its copied children.
+    assert.ok(r.posicoes.has('/jobs/b/steps'))
+    assert.equal(r.posicoes.has('/jobs/b/steps/0'), false)
+  })
+
+  test('an anchored block scalar, a flow list, an item and a redefinition', () => {
+    const r = ler([
+      'run: &corpo |',
+      '  echo one',
+      'again: *corpo',
+      'paths: &p [a, b]',
+      'more: *p',
+      'list:',
+      '  - &item',
+      '    k: v',
+      '  - *item',
+      'flow: [&f 1, *f]',
+      'n: &n 1',
+      'n2: &n 2',
+      'last: *n',
+    ])
+    assert.equal(r.erro, null)
+    assert.deepEqual(semProto(r.valor), {
+      run: 'echo one\n',
+      again: 'echo one\n',
+      paths: ['a', 'b'],
+      more: ['a', 'b'],
+      list: [{ k: 'v' }, { k: 'v' }],
+      flow: [1, 1],
+      n: 1,
+      n2: 2,
+      last: 2,
+    })
+  })
+
+  test('an unknown alias, the self alias, an anchored key and the expansion bomb are errors', () => {
+    let bomba = 'l0: &l0 [a, a, a, a, a, a, a, a, a, a]\n'
+    for (let i = 1; i < 9; i++) {
+      bomba += `l${i}: &l${i} [${Array(10)
+        .fill(`*l${i - 1}`)
+        .join(', ')}]\n`
+    }
+    for (const [texto, padrao] of [
+      ['a: *nada\n', /unknown alias/],
+      ['a: &x [*x]\n', /inside its own anchor/],
+      ['a:\n  - &x uses: y\n', /anchor on a mapping key/],
+      ['&x a: 1\n', /anchor on a mapping key/],
+      [bomba, /alias expansion too large/],
+      ['a: &x !!str y\n', /tags/],
+    ]) {
+      const r = lerYaml(texto, { ancoras: true })
+      assert.equal(r.valor, undefined, JSON.stringify(texto.slice(0, 40)))
+      assert.match(r.erro.mensagem, padrao, JSON.stringify(texto.slice(0, 40)))
+    }
+  })
+
+  test('a merge key is an error with or without the option, and anchors stay off by default', () => {
+    for (const opcoes of [{ ancoras: true }, {}]) {
+      const r = lerYaml('base: &b\n  k: v\nfilho:\n  <<: *b\n', opcoes)
+      assert.equal(r.valor, undefined)
+      assert.match(r.erro.mensagem, opcoes.ancoras ? /merge keys/ : /anchors/)
+    }
+    assert.match(lerYaml('a: &x 1\nb: *x\n').erro.mensagem, /anchors/)
+    // Frontmatter never takes the option: a skill or subagent file is D22's.
+    assert.match(lerFrontmatter('---\na: &x 1\nb: *x\n---\n').erro.mensagem, /anchors/)
+  })
+})
+
 describe('escapesDecodificados', () => {
   test('an even-parity backslash before u001b is not reported; odd parity is', () => {
     const par = `{"a": "${B}${B}u001b[1m"}`

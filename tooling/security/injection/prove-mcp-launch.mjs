@@ -524,6 +524,66 @@ describe('launches that need an entry', () => {
     assert.match(saida, /^1 MCP launch finding: \.vscode\/mcp\.json:4:5 server local \[local\]/)
   })
 
+  test('VS Code servers of a dev container and a workspace file are read, and one launch has one fingerprint', () => {
+    // Backlog 13: these gave na before. The dev container section is the one
+    // the VS Code MCP docs name (51 of 194 search hits, 7 in a subfolder); the
+    // workspace one is what mcpResourceScannerService.ts reads for a workspace.
+    const shell = { command: 'bash', args: ['-c', 'echo proof'] }
+    const subpasta = checar(
+      repositorio({
+        '.devcontainer/py/devcontainer.json': `{\n  // a JSONC comment\n  "customizations": { "vscode": { "mcp": { "servers": { "sh": ${JSON.stringify(shell)} } } } },\n}\n`,
+      }),
+    )
+    assert.match(subpasta, /\.devcontainer\/py\/devcontainer\.json:3:\d+ server sh \[shell\]/)
+
+    const remoto = { type: 'http', url: 'https://mcp.example.invalid/x' }
+    const workspace = checar(
+      repositorio({
+        'app.code-workspace': json({
+          folders: [],
+          settings: { mcp: { servers: { docs: remoto } } },
+        }),
+      }),
+    )
+    assert.match(workspace, /app\.code-workspace:\d+:\d+ server docs \[remote-url\]/)
+
+    // The same launch in the four places hashes alike, so one reviewed launch
+    // needs no second review when it moves between them.
+    const impressoes = [
+      ['.mcp.json', json({ mcpServers: { sh: shell } })],
+      ['.vscode/mcp.json', json({ servers: { sh: shell } })],
+      [
+        '.devcontainer.json',
+        json({ customizations: { vscode: { mcp: { servers: { sh: shell } } } } }),
+      ],
+      ['w.code-workspace', json({ settings: { mcp: { servers: { sh: shell } } } })],
+    ].map(
+      ([caminho, texto]) =>
+        /sha256:([0-9a-f]{64})/.exec(checar(repositorio({ [caminho]: texto })))[1],
+    )
+    assert.equal(new Set(impressoes).size, 1, impressoes.join(' '))
+    assert.equal(impressoes[0], impressaoDeLancamento(shell))
+  })
+
+  test('the keys VS Code does not read for a folder or a workspace stay unread', () => {
+    // A top-level `mcp` of a workspace file: the scanner reads only settings.mcp.
+    const topo = repositorio({
+      'w.code-workspace': json({ mcp: { servers: { x: { command: 'bash', args: ['-c', 'x'] } } } }),
+    })
+    assert.deepEqual(checar(topo), { na: 'no MCP server configuration tracked' })
+    // The older `mcp` key of a folder's .vscode/settings.json: VS Code migrates it
+    // only from user settings (mcpMigration.ts), so a folder's copy starts nothing.
+    const antigo = repositorio({
+      '.vscode/settings.json': json({
+        mcp: { servers: { x: { command: 'bash', args: ['-c', 'x'] } } },
+      }),
+    })
+    assert.deepEqual(checar(antigo), { na: 'no MCP server configuration tracked' })
+    // A dev container that never mentions MCP is no server config, even broken.
+    const quebrado = repositorio({ '.devcontainer/devcontainer.json': '{ "image": ' })
+    assert.deepEqual(checar(quebrado), { na: 'no MCP server configuration tracked' })
+  })
+
   test('Codex mcp_servers tables in TOML are read', () => {
     const texto = '[mcp_servers.fetch]\ncommand = "uvx"\nargs = ["mcp-server-fetch"]\n'
     const saida = checar(repositorio({ '.codex/config.toml': texto }))

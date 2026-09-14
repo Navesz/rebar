@@ -27,6 +27,7 @@ node tooling/security/index.mjs --sugerir-allowlist .      # ready allowlist lin
 | `agent-config-exec` | deterministic | N4 | no known agent setting that runs a command or widens approval |
 | `mcp-server-launch` | deterministic | N4 | every MCP server launch in versioned config is the template or allowlisted |
 | `agent-bypass-invocation` | deterministic | N4 | no agent CLI started with its approval switch turned off |
+| `ai-workflow-untrusted-input` | deterministic | N4 | no AI agent step in a workflow that outside text reaches with power to act |
 | `mcp-ansi-escape` | heuristic | N1 | no escaped terminal control in an MCP server file |
 
 **Why N4 and not a hook.** Nothing runs these rules in a git hook in this phase: they bite in CI
@@ -177,10 +178,10 @@ CLI, TOML for Codex, YAML for frontmatter.
 | Claude Code | `.claude/settings.json` and `.claude/settings.local.json`, merged with the local file winning | a helper command that produces credentials, refreshes cloud auth or builds telemetry headers; environment that moves the API endpoint, adds custom headers or a proxy, trusts an extra certificate authority, prefixes every shell command, or moves the config, temp or home directory; a default permission mode that skips prompts; the setting that silences the warning before that mode; an allow rule that grants a whole shell or package runner, or a wildcard that reaches an interpreter's own options or replaces the script it runs (a wildcard after a fixed tracked script stays narrow, and so do these fixed shapes, in Claude Code and Gemini CLI rules: `deno fmt`, `check`, `doc` and `info`; `deno task` with a task name; `pwsh -File` or `powershell -File` with a script, after only `-NoProfile`, `-NoLogo`, `-NonInteractive`, `-Sta`, `-Mta` or a value switch such as `-ExecutionPolicy` (`-NoExit` runs what stdin holds after the script, and Windows PowerShell 5.1 reads an unknown `-SettingsFile` as the start of `-Command`, so both stay broad); `node --run`; and a version or help option first for npm, npx, pnpm, uvx, curl, node, python and bash) | approving every project MCP server; enabling listed servers; plugins and extra marketplaces; the mode that accepts edits without asking; the sandbox turned off, or commands let out of it; hooks; status line and file suggestion commands; a tracked local settings file; a local settings file in a folder spelled with another case, which overrides nothing where the file system tells case apart |
 | Claude Code agents, skills and commands | `.claude/agents/`, `.claude/skills/`, `.claude/commands/` | a frontmatter permission mode that skips prompts; a whole-shell tool grant | a narrow tool grant; frontmatter hooks or MCP servers; a skill that runs an inline command together with a shell grant; frontmatter that does not parse |
 | Claude Code preview | `.claude/launch.json` | — | every launch, listed by fingerprint |
-| VS Code | `.vscode/settings.json`, `.vscode/tasks.json`, `*.code-workspace` | automatic approval of every tool; a chat permission default that approves everything; a terminal approval entry that matches every command, an interpreter, or an interpreter with its inline-code switch (a regex is also tried on short probe lines); ignoring the default terminal rules; a URL approval entry that matches every address; a task that runs when the folder opens; allowing automatic tasks; workspace trust turned off; a tool-path setting that points at a tracked file | narrower terminal and URL approval entries |
+| VS Code | `.vscode/settings.json`, `.vscode/tasks.json`, `*.code-workspace` (its `settings.mcp.servers` judged as an MCP server map) | automatic approval of every tool; a chat permission default that approves everything; a terminal approval entry that matches every command, an interpreter, or an interpreter with its inline-code switch (a regex is also tried on short probe lines); ignoring the default terminal rules; a URL approval entry that matches every address; a task that runs when the folder opens; allowing automatic tasks; workspace trust turned off; a tool-path setting that points at a tracked file | narrower terminal and URL approval entries |
 | Dev Containers | `.devcontainer/devcontainer.json`, `.devcontainer/<folder>/devcontainer.json` one folder deep, `.devcontainer.json` | the VS Code settings it writes into the container (`customizations.vscode.settings`), judged as in `.vscode/settings.json` | lifecycle commands (initialize, on-create, update-content, post-create, post-start, post-attach), listed by fingerprint |
 | Cursor | `.cursor/hooks.json`, `.cursor/cli.json` | an allow rule that grants a whole shell | hooks |
-| OpenAI Codex | `.codex/config.toml`, `.codex/hooks.json`, `.env` | an approval policy that never asks and the sandbox mode with full access, at the top level or in any profile; a Codex home in `.env` that is relative to the repository | a Codex home that is absolute; the HTTP headers helper; hooks |
+| OpenAI Codex | `.codex/config.toml`, `.codex/hooks.json`, `.env` | an approval policy that never asks and the sandbox mode with full access, at the top level or in any profile; the built-in no-sandbox permission profile as the default; a Codex home in `.env` that is relative to the repository | a Codex home that is absolute; the HTTP headers helper; hooks |
 | Gemini CLI | `.gemini/settings.json`, `.gemini/.env` | a trusted MCP server; an allowed tool that grants a whole shell | hooks |
 | GitHub Copilot, Windsurf | `.github/hooks/*.json`, `.windsurf/hooks.json` | — | hooks |
 | Any of them | settings environment, MCP server environment, `.env` | a variable that preloads or audits a library in every process, loads a shell startup file, injects interpreter options, replaces git's SSH or diff program, or runs a prompt command; Node options that preload a module, register a loader or open the inspector | library and module search paths, a Python startup file, an env-file reference, telemetry exporter endpoints and headers |
@@ -208,7 +209,13 @@ parse.
 ### mcp-server-launch
 
 **What it catches.** Every MCP server launch in a tracked configuration, at any depth: `.mcp.json`,
-`.cursor/mcp.json`, `.gemini/settings.json`, `.vscode/mcp.json` (JSONC) and `.codex/config.toml`.
+`.cursor/mcp.json`, `.gemini/settings.json`, `.vscode/mcp.json` (JSONC), `.codex/config.toml`, the
+`customizations.vscode.mcp` section of a dev container (`.devcontainer.json`,
+`.devcontainer/devcontainer.json` and one folder down, the place the VS Code MCP docs name for
+container servers) and the `settings.mcp` section of a `*.code-workspace` file, which VS Code's
+resource scanner reads. A dev container or workspace file that never mentions MCP is not a server
+configuration here. The `mcp` key of a folder's `.vscode/settings.json` is not read: current VS Code
+migrates it only from user settings and never reads it for a folder.
 Each launch gets a fingerprint: the sha256 of its canonical JSON, keys sorted, over every field
 that decides what starts or where it connects — transport type, command, arguments, environment,
 env file, working directory, the URL fields, headers and their helper, OAuth and trust, plus the
@@ -266,6 +273,23 @@ runs without a person choosing to run it.
   Codex's options that never ask and that open the sandbox fully; the trust option of Amazon Q and
   Kiro chat; Cursor CLI's options that force, approve every MCP server, or turn its sandbox off;
   Copilot CLI's options that allow everything; Aider's option that answers yes to every question.
+- **Config overrides:** Codex's `-c` and `--config` override of the sandbox key or the default
+  permission profile set to no sandbox, under a profile too, is the same hole as the switch and is
+  matched like an ambiguous switch. The override of the approval policy to its never-ask value is
+  not counted: Codex's config reference recommends it for non-interactive runs and `exec` has no
+  approval option; over 1,590 fetched repositories that row only failed one skill file documenting
+  it, while the sandbox rows added 14 warnings and no failure.
+- **Vendor action inputs:** the official GitHub Actions take the setting as an input, and each
+  input is rebuilt into the command the action runs. `openai/codex-action` with its no-sandbox
+  value in `sandbox` or `permission-profile`, or the bypass switch or its short alias in
+  `codex-args` when no profile is set and neither the sandbox nor the safety strategy is
+  read-only (the action throws otherwise); `anthropics/claude-code-action` and both base actions
+  with a `settings` JSON whose default permission mode bypasses prompts. Sandbox and approval
+  switches and config overrides inside `codex-args` are not counted: the action appends its own
+  sandbox choice after them and rejects those config roots under every strategy but unsafe. The
+  unsafe strategy itself is judged by `ai-workflow-untrusted-input`. In a workflow these fail, in a
+  gh-aw lock file and in an `action.yml` they warn. Measured on 1,660 workflows of agent adopters:
+  22 files turn the Codex sandbox off through the input, 1 turns Claude's prompts off.
 - **Never counted:** Codex's sandboxed automatic mode, non-interactive and print modes, and the
   name of an environment variable on its own.
 
@@ -304,7 +328,8 @@ switch inside a group of short options, the camelCase spelling of a dashed optio
 built on yargs (Gemini CLI, Qwen Code), and any unique prefix of Aider's option. Comments in code are stripped first, so a switch written in a comment
 is not an invocation. Every other non-binary blob is read as raw text, whatever its extension, and
 so is every member of a `package.json` outside its scripts. A workflow that only runs on push or on
-a schedule still fails: judging who can trigger a workflow is a later rule's job.
+a schedule still fails: who can trigger a workflow, and what an agent in it can act with, is
+`ai-workflow-untrusted-input`'s question.
 
 **Why.** Amazon Q Developer for VS Code 1.84.0 shipped code that started the agent CLI with every
 tool trusted (CVE-2025-8217), and the Nx "s1ngularity" packages called the agent CLIs installed on
@@ -313,11 +338,90 @@ of the table carries the date it was last verified.
 
 **Allowlist key:** `{arquivo, oid}`.
 
+### ai-workflow-untrusted-input
+
+**What it catches.** A step of a GitHub workflow that starts an AI agent, on a trigger any
+account can fire, whose actor check is absent or opened by an input, when the agent holds power to
+act. The agent reads the issue, comment or pull request that started it, and whoever wrote that
+text steers it.
+
+- **Agents.** `anthropics/claude-code-action`, its base action and `claude-code-base-action`,
+  `anthropics/claude-code-security-review`, `google-github-actions/run-gemini-cli`,
+  `openai/codex-action`, `actions/ai-inference` (v1 and v2 send the prompt to GitHub Models and
+  can hand the model the GitHub MCP tools; v3 goes through the Copilot CLI) and OpenCode's GitHub
+  action, each with the inputs and outputs its `action.yml` declares; and a `run:` step whose
+  shell command starts an agent CLI, read the way `agent-bypass-invocation` names CLIs, inside a
+  command substitution and behind `sudo`, `env`, `timeout`, `nohup`, `time`, `exec` and the
+  package runners too.
+- **Triggers.** `issues`, `issue_comment`, `discussion`, `discussion_comment`,
+  `pull_request_target`, `pull_request_review`, `pull_request_review_comment` and
+  `workflow_run`, narrowed by the activity types each declares to the ones an account with no
+  role can cause (`pull_request_target` defaults to opened, synchronize and reopened). A fork's
+  `pull_request` gets no secret and a read-only token, and the others need write access, so they
+  never count. A `workflow_run` counts unless every workflow it names resolves to tracked
+  workflows (by `name:`, or by path when a workflow has none) whose own triggers include no
+  outside trigger, no `pull_request` and no `workflow_run`.
+- **Actor checks.** claude-code-action and codex-action run only for accounts with write access;
+  `allowed_non_write_users` (with a `github_token`, as its docs require), `allowed_bots` and
+  `allow-users` open that check when they hold `*` or an expression. A named list keeps it
+  closed. OpenCode's check has no input to open it.
+- **Conditions.** The job `if`, the `if` of every job it needs (unless its own `if` runs whatever
+  they did, with `always()`, `failure()` or `cancelled()`) and the step `if` are evaluated per
+  trigger in three values. False comes from the event name, the inputs context (null outside
+  dispatch and call), the association of the account that fired that trigger compared only with
+  owner, member or collaborator, its login against a literal or a JSON list, a fork check on
+  `pull_request_target`, and an activity type that account cannot cause. Anything else, a job or
+  step output included, is unknown and keeps the step reachable.
+- **Event text** it interpolates (a title, body, comment, branch name or commit message, or a whole
+  event object turned into text) is reported, never required: 11 of 13 vendor examples on these
+  triggers interpolate none, because the agent loads the text by itself.
+
+| What the agent can do | Verdict |
+|---|---|
+| run commands: a whole-shell tool grant, approvals or the sandbox off, Gemini's approve-everything mode with no tool list or with a shell tool, the Codex unsafe strategy, an agent CLI whose shell line interpolates event text, or its text output spliced into a later `run:` or `actions/github-script` step | fails, at any permission level |
+| nothing the vendor lets it reach: ai-inference with no tool and no GitHub MCP, run-gemini-cli with an empty core tool list and no MCP server or extension, codex-action in its sandbox with sudo dropped | warns, whatever the job holds |
+| anything else, which reads its own environment and workspace | fails with a write scope other than issues, pull requests, discussions, models, copilot requests and id-token, with no permissions block, with a secret other than its model credential or all of them, with a personal token given to the agent, or with the vendor App token claude-code-action and OpenCode trade the OIDC token for; warns otherwise |
+
+Codex's read-only strategy runs the agent as a user that likely keeps sudo, which the action says
+could read its API key from memory, so it is not contained; the action refuses a Windows runner
+unless the strategy is unsafe, which is counted. `id-token: write` alone is no capability: using it
+takes a call with the runner token, which is execution, and the Anthropic template ships it for its
+own OIDC exchange.
+
+Local resolution goes one level down: a job that calls `./.github/workflows/<file>` is judged with
+the caller's triggers, conditions, permissions and inherited or mapped secrets, and the callee's
+inputs carry the caller's event text; a step that uses a local composite action is judged as steps
+of the calling job. A deeper local call is named in a note. YAML anchors and aliases are read. A
+gh-aw lock file is never judged step by step: it warns when its role check admits every account. A
+workflow in YAML this reader does not support fails when its text names an agent action or CLI, and
+is a note otherwise; invalid YAML, which GitHub does not run either, is a note.
+
+**Why.** PromptPwnd (Aikido, 2025-12-04) steered the Gemini CLI in Google's own triage workflows
+with a new issue. Clinejection (Adnan Khan, 2026-02-09) led Claude Code, running with a shell grant
+on an issue trigger, from an issue title to a poisoned Actions cache that reached release tokens.
+Comment and Control (2026-04-15) did it from a comment.
+
+**Measured** with this engine on 2026-09-13: over 1,660 workflows of 1,394 agent adopters, 142 files
+fail (171 steps, 146 of them with execution or code injection) and 167 warn; over 1,571 workflows of 49
+well-known repositories, 3 files fail (two of Google's Gemini triage workflows, and a Copilot CLI
+with every tool allowed after a pull request's CI) and 11 warn; over the 29 workflows of 24 local
+repositories, the rebar worktree and the gate template, none. The prototype the owner decisions
+were taken on counted 130 failing steps over the same 1,660.
+
+**Output:** `<path>:<line>:<column> job <id> step <n> (<agent>): outside text reaches it through
+<triggers> (<actor check>); interpolates <fields>; it can act through <reasons>`. Secret names are
+never printed.
+
+**Allowlist key:** `{arquivo, oid}`. A finding is exempt only when every file it depends on has an
+entry: the workflow, the reusable workflow or composite action it resolved, and the `workflow_run`
+upstream that made it reachable.
+
 ### mcp-ansi-escape
 
 **What it catches.** An escaped terminal control — ESC or CSI written as a hex, Unicode, octal,
 HTML-entity or character-code escape — in the code, comments stripped, of a file that looks like
-an MCP server (it imports an MCP SDK, builds a server object or registers tools) or that a tracked
+an MCP server (it imports the TypeScript, Python or Go SDK, builds a server object or registers
+tools; the Go SDK import also marks a client file, which was not measured) or that a tracked
 MCP configuration launches. A launch's files are found the way `mcp-server-launch` finds them: a
 command written as one string and a shell wrapper's inner command are split into words.
 
@@ -343,7 +447,7 @@ Each line is `{regra, motivo}` plus exactly one key shape:
 
 | Shape | Rules | What the key is |
 |---|---|---|
-| `{arquivo, oid}` | `hidden-unicode`, `control-bytes`, `agent-bypass-invocation`, `mcp-ansi-escape` | the path and the blob id of its content, as `git ls-files -s <path>` prints it |
+| `{arquivo, oid}` | `hidden-unicode`, `control-bytes`, `agent-bypass-invocation`, `ai-workflow-untrusted-input`, `mcp-ansi-escape` | the path and the blob id of its content, as `git ls-files -s <path>` prints it |
 | `{commit}` | `hidden-unicode`, `control-bytes` | the id of the commit whose message carries the finding |
 | `{arquivo, ponteiro, sha256}` | `agent-config-exec` | the path, the JSON Pointer of the key, and the sha256 of that node serialized with sorted keys |
 | `{arquivo, servidor, sha256}` | `mcp-server-launch` | the path, the server name, and the launch fingerprint the finding prints |
@@ -468,4 +572,16 @@ Saying where the limit is is worth more than pretending to check.
 | A package script started through a workspace glob, a recursive run over every workspace, or a runner named by a variable | the rule follows a script name to the package a folder, a workspace or a package name selects, one at a time | review of the hook |
 | Cursor permission rules in the narrow shapes Claude Code and Gemini CLI rules get (a fixed `deno` subcommand, `pwsh -File`, `node --run`, a version option) | Cursor's command-base matching was not measured, so its rules keep the older, broader reading | review |
 | Homoglyphs and confusable identifiers | they need a confusables table and a measured false-positive rate | a heuristic, a later phase |
+| A reusable workflow called from another repository | it is not in the index | review the called workflow; pin it by commit |
+| A gate that lives in a job or step output, or in an earlier step that fails the job for an account without write access | the output is only known at run time, so the step counts as reachable: copies of Google's dispatch and plan-execute example fail, and so do workflows that check permissions in a script | an allowlist entry for the reviewed workflow |
+| Tool limits kept outside the step: a `settings` input given as a file path, `.claude/commands` or `.gemini/commands` | only inline JSON is read, so a path reads as no restriction for Gemini and as none found for Claude | inline the settings |
+| An agent started by a schedule or by hand that fetches issues or comments itself, and a maintainer's comment that starts an agent which then reads text an outsider wrote | the trigger no outside account fires, or the actor check passes, and nothing in the file says which text the agent reads | least privilege for every agent step |
+| Event text that reaches the agent through a file, an artifact or an earlier step's environment | only expressions in the step's own inputs, env and run text are followed | review |
+| An agent action or CLI this rule does not know, or a CLI name too generic to match | the vocabulary is the table | review; a later phase |
+| Secrets of a deployment environment and the repository's default token permissions | `environment:` secrets and the default permissions live in the repository settings | set `permissions:` explicitly |
+| Secrets a later step uses, which an agent that can write files could reach by changing what that step runs | only the agent step's own inputs and environment are counted (the prototype found such a later step next to 26 exposed steps that warn) | give the agent no write access to the workspace |
+| A private repository, where no outside account can open an issue | visibility is a setting, so it fails the same way | an allowlist entry |
+| A `codex-args` sandbox or approval switch | the action appends its own sandbox choice and rejects those overrides, so they are not counted | none needed |
+| YAML merge keys and tags in a workflow | not read; the file fails only when it names an agent | write the workflow without them |
+| A named allow list in an actor check input | the listed accounts are trusted as the owner chose | review the list |
 | An adaptive attack against these signatures | the list is public, and the attacker plays after reading it | defence in depth; the rules promise only "no known signature" |

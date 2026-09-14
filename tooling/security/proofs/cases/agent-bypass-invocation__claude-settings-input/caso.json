@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "The Claude Code action writes its settings input into the user settings file, where the default permission mode applies. The fail side sets the mode that approves every tool call, in a block scalar of a push workflow. The pass side sets the mode that accepts file edits. Whoever ignores the settings input passes the fail side; whoever fails any default mode fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/claude.yml",
+        "base64": "bmFtZTogQ2xhdWRlCm9uOiBwdXNoCmpvYnM6CiAgY2xhdWRlOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBzZXR0aW5nczogfAogICAgICAgICAgICB7InBlcm1pc3Npb25zIjogeyJkZWZhdWx0TW9kZSI6ICJhY2NlcHRFZGl0cyJ9fQogICAgICAgICAgcHJvbXB0OiBVcGRhdGUgdGhlIGRvY3MuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/claude.yml",
+        "base64": "bmFtZTogQ2xhdWRlCm9uOiBwdXNoCmpvYnM6CiAgY2xhdWRlOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBzZXR0aW5nczogfAogICAgICAgICAgICB7InBlcm1pc3Npb25zIjogeyJkZWZhdWx0TW9kZSI6ICJieXBhc3NQZXJtaXNzaW9ucyJ9fQogICAgICAgICAgcHJvbXB0OiBVcGRhdGUgdGhlIGRvY3MuCg=="
+      }
+    ]
+  }
+}

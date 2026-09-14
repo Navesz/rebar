@@ -1,0 +1,28 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A workflow_run job runs with the base secrets after another workflow, whoever started that one. The fail side runs an agent with a whole shell after CI, and CI runs on pull requests, which any fork can open. The pass side is the same pair with CI running only on push. Whoever treats workflow_run as safe passes the fail side; whoever never resolves the upstream fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/report.yml",
+        "base64": "bmFtZTogUmVwb3J0Cm9uOgogIHdvcmtmbG93X3J1bjoKICAgIHdvcmtmbG93czogW0NJXQogICAgdHlwZXM6IFtjb21wbGV0ZWRdCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgcmVwb3J0OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb24vYmFzZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBjbGF1ZGVfYXJnczogLS1hbGxvd2VkVG9vbHMgQmFzaAogICAgICAgICAgcHJvbXB0OiBFeHBsYWluIHRoZSBmYWlsdXJlLgo="
+      },
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "bmFtZTogQ0kKb246IHB1c2gKam9iczoKICB0ZXN0OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gcnVuOiBucG0gdGVzdAo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/report.yml",
+        "base64": "bmFtZTogUmVwb3J0Cm9uOgogIHdvcmtmbG93X3J1bjoKICAgIHdvcmtmbG93czogW0NJXQogICAgdHlwZXM6IFtjb21wbGV0ZWRdCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgcmVwb3J0OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb24vYmFzZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBjbGF1ZGVfYXJnczogLS1hbGxvd2VkVG9vbHMgQmFzaAogICAgICAgICAgcHJvbXB0OiBFeHBsYWluIHRoZSBmYWlsdXJlLgo="
+      },
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "bmFtZTogQ0kKb246IHB1bGxfcmVxdWVzdApqb2JzOgogIHRlc3Q6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5wbSB0ZXN0Cg=="
+      }
+    ]
+  }
+}

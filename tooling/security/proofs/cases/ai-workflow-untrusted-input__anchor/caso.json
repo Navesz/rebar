@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "GitHub reads YAML anchors and aliases in workflows, and two of six real workflows that use them hide an agent step behind one. The fail side names the agent action through an alias on a new issue, with a whole shell. The pass side is the same file started only by hand. Whoever refuses the alias as unreadable or skips it passes or breaks the fail side; whoever fails any agent regardless of trigger fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/agent.yml",
+        "base64": "bmFtZTogQWdlbnQKb246IHdvcmtmbG93X2Rpc3BhdGNoCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCngtYWdlbnQ6ICZhZ2VudCBhbnRocm9waWNzL2NsYXVkZS1jb2RlLWFjdGlvbi9iYXNlLWFjdGlvbkB2MQpqb2JzOgogIGFnZW50OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogKmFnZW50CiAgICAgICAgd2l0aDoKICAgICAgICAgIGFudGhyb3BpY19hcGlfa2V5OiAke3sgc2VjcmV0cy5BTlRIUk9QSUNfQVBJX0tFWSB9fQogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gKICAgICAgICAgIHByb21wdDogSGFuZGxlIHRoZSBpc3N1ZS4K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/agent.yml",
+        "base64": "bmFtZTogQWdlbnQKb246IGlzc3VlcwpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZAp4LWFnZW50OiAmYWdlbnQgYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb24vYmFzZS1hY3Rpb25AdjEKam9iczoKICBhZ2VudDoKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6ICphZ2VudAogICAgICAgIHdpdGg6CiAgICAgICAgICBhbnRocm9waWNfYXBpX2tleTogJHt7IHNlY3JldHMuQU5USFJPUElDX0FQSV9LRVkgfX0KICAgICAgICAgIGNsYXVkZV9hcmdzOiAtLWFsbG93ZWRUb29scyBCYXNoCiAgICAgICAgICBwcm9tcHQ6IEhhbmRsZSB0aGUgaXNzdWUuCg=="
+      }
+    ]
+  }
+}

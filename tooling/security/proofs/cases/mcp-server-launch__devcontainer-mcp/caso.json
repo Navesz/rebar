@@ -1,0 +1,24 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "VS Code starts the MCP servers a dev container declares under customizations.vscode.mcp, the place its docs name, and one repository can keep several containers one folder down. The fail side declares a server launched through a shell in such a subfolder config. The pass side accepts that exact launch by its fingerprint, and passes with a warning. Whoever reads only .vscode/mcp.json turns the fail side not applicable.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".devcontainer/python/devcontainer.json",
+        "base64": "ewogICJuYW1lIjogIlB5dGhvbiIsCiAgImltYWdlIjogIm1jci5taWNyb3NvZnQuY29tL2RldmNvbnRhaW5lcnMvcHl0aG9uOjMiLAogICJjdXN0b21pemF0aW9ucyI6IHsKICAgICJ2c2NvZGUiOiB7CiAgICAgICJtY3AiOiB7CiAgICAgICAgInNlcnZlcnMiOiB7CiAgICAgICAgICAidG9vbHMiOiB7ImNvbW1hbmQiOiJiYXNoIiwiYXJncyI6WyItYyIsIm5vZGUgdG9vbHMvc2VydmVyLm1qcyJdfQogICAgICAgIH0KICAgICAgfQogICAgfQogIH0KfQo="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "eyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoiY29udGFpbmVyIHNlcnZlciByZXZpZXdlZCBpbiBhIHByb29mIiwiYXJxdWl2byI6Ii5kZXZjb250YWluZXIvcHl0aG9uL2RldmNvbnRhaW5lci5qc29uIiwic2Vydmlkb3IiOiJ0b29scyIsInNoYTI1NiI6IjhhYjEzOWQ2OTY1MTJhMGZlZjBhYjJjY2ZhMjFhNTdmY2M2OTQwODQzMDJlMTQ0MjE4MDhhOGJkMGYzODBmOTUifQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".devcontainer/python/devcontainer.json",
+        "base64": "ewogICJuYW1lIjogIlB5dGhvbiIsCiAgImltYWdlIjogIm1jci5taWNyb3NvZnQuY29tL2RldmNvbnRhaW5lcnMvcHl0aG9uOjMiLAogICJjdXN0b21pemF0aW9ucyI6IHsKICAgICJ2c2NvZGUiOiB7CiAgICAgICJtY3AiOiB7CiAgICAgICAgInNlcnZlcnMiOiB7CiAgICAgICAgICAidG9vbHMiOiB7ImNvbW1hbmQiOiJiYXNoIiwiYXJncyI6WyItYyIsIm5vZGUgdG9vbHMvc2VydmVyLm1qcyJdfQogICAgICAgIH0KICAgICAgfQogICAgfQogIH0KfQo="
+      }
+    ]
+  }
+}

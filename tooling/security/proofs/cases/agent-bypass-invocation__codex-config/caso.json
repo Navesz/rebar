@@ -1,0 +1,20 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "Codex overrides any key of its config for one run with -c key=value, and the sandbox key set to no sandbox is the same hole as the sandbox switch. The fail side starts Codex that way from a postinstall, the Nx shape. The pass side overrides the approval policy with its never value, which the Codex config reference recommends for non-interactive runs, so it is not counted. Whoever reads only switches passes the fail side; whoever counts every override fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogInByb29mIiwKICAidmVyc2lvbiI6ICIxLjAuMCIsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiY29kZXggZXhlYyAtYyBhcHByb3ZhbF9wb2xpY3k9bmV2ZXIgXCJzdW1tYXJpemVcIiIKICB9Cn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogInByb29mIiwKICAidmVyc2lvbiI6ICIxLjAuMCIsCiAgInNjcmlwdHMiOiB7CiAgICAicG9zdGluc3RhbGwiOiAiY29kZXggZXhlYyAtYyBzYW5kYm94X21vZGU9ZGFuZ2VyLWZ1bGwtYWNjZXNzIFwic3VtbWFyaXplXCIiCiAgfQp9Cg=="
+      }
+    ]
+  }
+}

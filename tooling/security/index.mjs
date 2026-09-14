@@ -92,11 +92,17 @@ import {
   lerAllowlist,
 } from './injection/reader.mjs'
 import { checarHiddenUnicode } from './injection/unicode.mjs'
+import {
+  ACOES_DE_AGENTE,
+  CAMPOS_DO_EVENTO,
+  GATILHOS_DE_FORA,
+  checarWorkflowDeAgente,
+} from './injection/workflow.mjs'
 import { CONTROLES, ESCAPAR_TAMBEM, IGNORAVEIS, escaparSaida, naFaixa } from './texto-seguro.mjs'
 
 // ─────────────────────────────────────── the prompt-injection signature tables
 //
-// The six injection rules keep their engines AND their pattern tables in
+// The seven injection rules keep their engines AND their pattern tables in
 // `./injection/*.mjs`, one file per family, and this file only re-exports each
 // table by name. Two readers depend on that
 // shape: `mcp/generate.mjs` walks this module's exports for `[RegExp, string]`
@@ -104,9 +110,10 @@ import { CONTROLES, ESCAPAR_TAMBEM, IGNORAVEIS, escaparSaida, naFaixa } from './
 // passed any other way would leave the MCP artifact without its vocabulary; and
 // `tooling/security/prove-table.mjs` holds the six text tables exported here
 // against this file, the family sources, the READMEs and the artifact, so none
-// of them turns into a sample of what the tables hunt; the four tables that
-// match parsed config keys and launch commands whole are held to that anchored
-// shape, since no raw file can match them.
+// of them turns into a sample of what the tables hunt; the seven tables that
+// match parsed config keys, launch commands, action names, triggers and
+// expression leaves whole are held to that anchored shape, since no raw file
+// can match them.
 export { CHAVES_QUE_EXECUTAM, VARIAVEIS_PERIGOSAS } from './injection/agent-config.mjs'
 export {
   BINARIOS_DE_AGENTE,
@@ -116,6 +123,7 @@ export {
 } from './injection/bypass.mjs'
 export { ESCAPES_DE_CONTROLE, MARCADORES_DE_SERVIDOR } from './injection/control.mjs'
 export { EXECUTORES_REMOTOS, SINAIS_DE_SHELL } from './injection/mcp-launch.mjs'
+export { ACOES_DE_AGENTE, CAMPOS_DO_EVENTO, GATILHOS_DE_FORA } from './injection/workflow.mjs'
 
 /** "Not applicable" — the third state. Out of the denominator, not the scoreboard. */
 const na = (motivo) => ({ na: motivo })
@@ -765,7 +773,58 @@ export const REGRAS = [
      * names the CLI and the effect, never the switch.
      */
     checar: (r) =>
-      checarBypass(r, { FLAGS_FORTES, FLAGS_AMBIGUAS, PARES_DE_FLAG, BINARIOS_DE_AGENTE }),
+      checarBypass(r, {
+        FLAGS_FORTES,
+        FLAGS_AMBIGUAS,
+        PARES_DE_FLAG,
+        BINARIOS_DE_AGENTE,
+        ACOES_DE_AGENTE,
+      }),
+  },
+
+  {
+    id: 'ai-workflow-untrusted-input',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'no AI agent step in a workflow that outside text reaches with power to act',
+    /**
+     * An agent step in a GitHub workflow reads the issue, comment or pull
+     * request that started it, and any account can write that text. PromptPwnd
+     * (Aikido, 2025-12-04) steered the Gemini CLI in Google's own triage
+     * workflows with a new issue. Clinejection (Adnan Khan, 2026-02-09) led
+     * Claude Code, running with a shell grant on an issue trigger, from an
+     * issue title to a poisoned Actions cache that reached release tokens.
+     * Comment and Control (2026-04-15) did it from a comment. The GitHub
+     * Security Lab keeps the list of event fields whose text is untrusted.
+     *
+     * A step is exposed when a trigger any account can fire reaches it and its
+     * actor check is absent or opened by an input. Interpolated event text is
+     * reported, not required: 11 of 13 vendor examples on those triggers
+     * interpolate none, because the agent loads the text by itself. Conditions
+     * are evaluated per trigger, and a condition this rule cannot decide keeps
+     * the step reachable.
+     *
+     * The verdict follows what the agent can reach. One that can run commands
+     * fails at any permission level; one the vendor keeps from commands and its
+     * own environment is a warning; anything else fails with a write scope
+     * beyond issues, pull requests and discussions, with no permissions block,
+     * or with a secret other than its model credential. Its text output spliced
+     * into a later script fails too. Measured over 1,660 workflows of agent
+     * adopters: 171 steps fail, 146 of them with execution or code injection.
+     * Over the 29 workflows of 24 local repositories, the rebar worktree and the
+     * gate template: none. Of 3,292 real workflows 6 use YAML anchors, and
+     * 2 of those hide an agent step behind an alias, so aliases are read.
+     */
+    checar: (r) =>
+      checarWorkflowDeAgente(r, {
+        ACOES_DE_AGENTE,
+        GATILHOS_DE_FORA,
+        CAMPOS_DO_EVENTO,
+        FLAGS_FORTES,
+        FLAGS_AMBIGUAS,
+        PARES_DE_FLAG,
+        BINARIOS_DE_AGENTE,
+      }),
   },
 
   {

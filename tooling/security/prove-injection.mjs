@@ -1,9 +1,10 @@
 // THE PROMPT-INJECTION RULES, PROVED AS ONE GATE STEP
 //
-// rebar-security gained six rules that look for known prompt-injection
+// rebar-security gained seven rules that look for known prompt-injection
 // signatures in what git tracks: hidden Unicode, terminal controls, agent
 // settings that run commands, MCP server launches, agent CLIs started with their
-// approval switch off, and escaped controls in MCP server source. Their engines
+// approval switch off, AI agent steps that outside text reaches in a GitHub
+// workflow, and escaped controls in MCP server source. Their engines
 // live in `./injection/`, one file per family, and each family has its own
 // node:test file. The proof runner learned to build index-only fixtures for them
 // (`gerados` in tooling/rebar-check/proofs/prove.mjs), and that runner has its
@@ -18,14 +19,15 @@
 // which is how the step once took 198 s of its 5 min. Given each file, `node
 // --test` runs one process per file, in parallel.
 //
-// This file keeps a lock on the order of the six rules in index.mjs, a lock on
+// This file keeps a lock on the order of the seven rules in index.mjs, a lock on
 // the step itself (it still names every proof file, and every step that starts
 // the checker still requires every engine the checker imports), and the three
 // tests no single family can own, because they judge the rules together:
 //
 //   (d) what rebar GENERATES passes them. Generated projects run rebar-security
-//       unpinned in CI, so an injection rule that failed the generated AGENTS.md
-//       or `.mcp.json` would turn every downstream CI red on the day it merged.
+//       unpinned in CI, so an injection rule that failed the generated AGENTS.md,
+//       `.mcp.json` or CI workflow would turn every downstream CI red on the day
+//       it merged.
 //   (e) the proof cases do not smuggle a real agent file into rebar's own tree.
 //       Claude Code loads nested instruction files on demand, so a static
 //       AGENTS.md fixture under a case folder would instruct the agents that
@@ -61,14 +63,16 @@ import { FORMAS_DE_CHAVE, MOTIVO_A_ESCREVER, tipoDoCaminho } from './injection/r
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url))
 const CLI = fileURLToPath(new URL('./index.mjs', import.meta.url))
 const MOLDE_MCP = fileURLToPath(new URL('../../new/gate/arquivos/mcp.json', import.meta.url))
+const MOLDE_CI = fileURLToPath(new URL('../../new/gate/arquivos/verificar.yml', import.meta.url))
 
-/** The six rule ids this file is about, in the order index.mjs declares them. */
+/** The seven rule ids this file is about, in the order index.mjs declares them. */
 const INJECAO = [
   'hidden-unicode',
   'control-bytes',
   'agent-config-exec',
   'mcp-server-launch',
   'agent-bypass-invocation',
+  'ai-workflow-untrusted-input',
   'mcp-ansi-escape',
 ]
 
@@ -152,8 +156,8 @@ const sujos = (resultados) =>
         `${x.id}: ${x.estado}${x.motivo ? ` · ${x.motivo}` : ''}${x.nota ? ` · ⚠ ${x.nota}` : ''}`,
     )
 
-describe('the six injection rules, judged together', () => {
-  test('index.mjs declares the six injection rules, in order, after hardcoded-secret', () => {
+describe('the seven injection rules, judged together', () => {
+  test('index.mjs declares the seven injection rules, in order, after hardcoded-secret', () => {
     // Without this, a rule that left REGRAS would make (d) and (f) pass by
     // vacuity: --rule=<id> exits 2 and a missing id has no result to judge.
     const ids = REGRAS.map((r) => r.id)
@@ -169,6 +173,7 @@ describe('the six injection rules, judged together', () => {
     const dir = repositorio([
       { caminho: 'AGENTS.md', bytes: Buffer.from(moldeAgents('proof', null), 'utf8') },
       { caminho: '.mcp.json', bytes: readFileSync(MOLDE_MCP) },
+      { caminho: '.github/workflows/verificar.yml', bytes: readFileSync(MOLDE_CI) },
     ])
     const vistos = []
     for (const id of INJECAO) {
@@ -182,6 +187,11 @@ describe('the six injection rules, judged together', () => {
     // The template launch is judged, not skipped: mcp-server-launch must have
     // read a server, so it cannot be `na` here.
     assert.equal(vistos.find((x) => x.id === 'mcp-server-launch').estado, 'passou')
+    // The generated CI workflow starts no agent, and the rule says so after
+    // reading it, instead of passing by vacuity.
+    const workflow = vistos.find((x) => x.id === 'ai-workflow-untrusted-input')
+    assert.equal(workflow.estado, 'na')
+    assert.match(workflow.motivo, /no known AI agent step in 1 workflow/)
   })
 
   test('(e) no proof case tracks an agent file, and every caso.json is printable ASCII', () => {

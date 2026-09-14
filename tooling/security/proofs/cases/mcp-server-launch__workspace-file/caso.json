@@ -1,0 +1,21 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "A VS Code workspace file declares MCP servers under settings.mcp, which the VS Code resource scanner reads. The fail side points one there at a remote address. The pass side writes the same map at the top level of the file, which VS Code never reads, so no configuration is tracked. Whoever reads the top-level key fails the pass side; whoever reads no workspace file passes the fail side.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "proof.code-workspace",
+        "base64": "ewogICJmb2xkZXJzIjogWwogICAgewogICAgICAicGF0aCI6ICIuIgogICAgfQogIF0sCiAgIm1jcCI6IHsKICAgICJzZXJ2ZXJzIjogewogICAgICAiZG9jcyI6IHsKICAgICAgICAidHlwZSI6ICJodHRwIiwKICAgICAgICAidXJsIjogImh0dHBzOi8vbWNwLmV4YW1wbGUuaW52YWxpZC9kb2NzIgogICAgICB9CiAgICB9CiAgfQp9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "proof.code-workspace",
+        "base64": "ewogICJmb2xkZXJzIjogWwogICAgewogICAgICAicGF0aCI6ICIuIgogICAgfQogIF0sCiAgInNldHRpbmdzIjogewogICAgIm1jcCI6IHsKICAgICAgInNlcnZlcnMiOiB7CiAgICAgICAgImRvY3MiOiB7CiAgICAgICAgICAidHlwZSI6ICJodHRwIiwKICAgICAgICAgICJ1cmwiOiAiaHR0cHM6Ly9tY3AuZXhhbXBsZS5pbnZhbGlkL2RvY3MiCiAgICAgICAgfQogICAgICB9CiAgICB9CiAgfQp9Cg=="
+      }
+    ]
+  }
+}

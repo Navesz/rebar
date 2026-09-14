@@ -924,10 +924,11 @@ const RUNTIME_DO_REBAR_SECURITY = [
   'tooling/security/injection/agent-config.mjs',
   'tooling/security/injection/mcp-launch.mjs',
   'tooling/security/injection/bypass.mjs',
+  'tooling/security/injection/workflow.mjs',
 ]
 
 // The node:test files of the prompt-injection rules: one per family, the proof
-// runner's `gerados`, and prove-injection.mjs for the tests that judge the six
+// runner's `gerados`, and prove-injection.mjs for the tests that judge the seven
 // rules together. The `security-injection` step hands them to ONE `node --test`
 // call, which runs each file in its own process, all of them at once.
 const PROVAS_DE_INJECAO = [
@@ -939,6 +940,7 @@ const PROVAS_DE_INJECAO = [
   'tooling/security/injection/prove-agent-config.mjs',
   'tooling/security/injection/prove-mcp-launch.mjs',
   'tooling/security/injection/prove-bypass.mjs',
+  'tooling/security/injection/prove-workflow.mjs',
   'tooling/rebar-check/proofs/prove-gerados.mjs',
   'tooling/security/prove-injection.mjs',
 ]
@@ -1432,13 +1434,14 @@ export default [
     // expression and, in plain text, in the readable message beside it -- and
     // the message matched. The rule accused its own table, eight times.
     //
-    // Since the prompt-injection rules there are eleven exported tables. Six of
-    // them are text patterns run over tracked blobs, read raw with no exclusion,
-    // and the proof holds each against what its own rule reads of rebar: the
-    // family sources, the READMEs and mcp/rules.generated.json, whose
-    // JSDoc-derived text would otherwise ship a sample of the attack. Four match
-    // parsed config keys and launch commands whole, so a raw file can never match
-    // them; the proof holds their anchored shape instead.
+    // Since the prompt-injection rules there are fourteen exported tables. Six
+    // of them are text patterns run over tracked blobs, read raw with no
+    // exclusion, and the proof holds each against what its own rule reads of
+    // rebar: the family sources, the READMEs and mcp/rules.generated.json, whose
+    // JSDoc-derived text would otherwise ship a sample of the attack. Seven match
+    // parsed config keys, launch commands, action names, triggers and expression
+    // leaves whole, so a raw file can never match them; the proof holds their
+    // anchored shape instead.
     nome: 'security-table',
     comando: node('--test', 'tooling/security/prove-table.mjs'),
     exige: [
@@ -1453,10 +1456,11 @@ export default [
   {
     // THE PROMPT-INJECTION RULES, as one step.
     //
-    // Six rules of rebar-security look for known prompt-injection signatures in
-    // what git tracks: hidden Unicode, terminal controls, agent settings that
+    // Seven rules of rebar-security look for known prompt-injection signatures
+    // in what git tracks: hidden Unicode, terminal controls, agent settings that
     // run commands, MCP server launches, agent CLIs with approval switched off,
-    // and escaped controls in MCP server source. Each family has a node:test
+    // AI agent steps that outside text reaches in a workflow, and escaped
+    // controls in MCP server source. Each family has a node:test
     // file of its own, and `gerados` in the proof runner has one too;
     // prove-injection.mjs adds the proofs no family can own: what `rebar new`
     // generates passes every injection rule (its CI runs rebar-security
@@ -1509,6 +1513,7 @@ export default [
       'tooling/rebar-check/proofs/prove.mjs',
       'new/gate/aplicar.mjs',
       'new/gate/arquivos/mcp.json',
+      'new/gate/arquivos/verificar.yml',
     ],
     dica: 'An injection rule changed behaviour, the index reader or a format decoder changed what it reads, what `rebar new` generates stopped passing the injection rules, a proof case started tracking an agent file, or rebar itself carries a signature. These rules read the git INDEX: a fix only in the working tree counts once it is staged.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
@@ -1525,7 +1530,7 @@ export default [
     // It is the mirror of the `self` step, which exists for the same reason for
     // rebar-check. The security ruler did not have its own.
     //
-    // Since the prompt-injection rules it also reads the git INDEX for six of its
+    // Since the prompt-injection rules it also reads the git INDEX for seven of its
     // rules, so locally a fix counts once it is staged; in CI the index is the
     // commit.
     nome: 'security-self',

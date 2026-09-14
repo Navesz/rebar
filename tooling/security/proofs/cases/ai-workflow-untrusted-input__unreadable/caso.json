@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A YAML feature this rule does not read cannot hide an agent. Both sides carry an explicit tag the reader refuses. The fail side names an agent action in that file, so it fails closed. The pass side names none and passes with a warning that says which file was not read. Whoever skips unreadable files passes the fail side; whoever fails every unreadable file fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/tagged.yml",
+        "base64": "bmFtZTogVGFnZ2VkCm9uOiBpc3N1ZXMKam9iczoKICBqb2I6CiAgICBydW5zLW9uOiAhIXN0ciB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5wbSB0ZXN0Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/tagged.yml",
+        "base64": "bmFtZTogVGFnZ2VkCm9uOiBpc3N1ZXMKam9iczoKICBqb2I6CiAgICBydW5zLW9uOiAhIXN0ciB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhbnRocm9waWNzL2NsYXVkZS1jb2RlLWFjdGlvbi9iYXNlLWFjdGlvbkB2MQo="
+      }
+    ]
+  }
+}

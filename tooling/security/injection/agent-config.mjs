@@ -335,6 +335,16 @@ export const CHAVES_QUE_EXECUTAM = [
     'a sandbox mode with no sandbox at all',
     { veredito: 'reprova', quando: { um: [V.semSandbox] }, rotulo: 'confianca' },
   ),
+  // The permission profile that replaces the sandbox mode (Codex permissions
+  // docs): its built-in no-sandbox profile is the same hole under a new key.
+  // Top-level only: the config reference says a project .codex/config.toml
+  // cannot override `profile` or `profiles`, so a profile table there is inert
+  // (the two rows above still judge those tables, which a later change can drop).
+  registro(
+    j('^codex:/', 'default', '_permissions$'),
+    'a default permission profile with no sandbox at all',
+    { veredito: 'reprova', quando: { um: [j(':', V.semSandbox)] }, rotulo: 'confianca' },
+  ),
 
   // ── Gemini project settings
   registro(
@@ -539,9 +549,13 @@ const ALVOS = [
     rota('\\.code-', 'workspace$'),
     {
       formato: 'jsonc',
+      // settings.mcp.servers is where VS Code reads the MCP servers of a
+      // workspace file (mcpResourceScannerService.ts), so their keys are judged
+      // like those of any other server map.
       visoes: [
         ['vscode', '/settings'],
         ['tasks', '/tasks'],
+        ['mcp', '/settings/mcp/servers'],
       ],
       pastaDoArquivo: true,
     },
@@ -549,8 +563,10 @@ const ALVOS = [
   [
     // One folder deeper is a config too: the containers.dev spec lists
     // `.devcontainer/<folder>/devcontainer.json` "where <folder> is a single level
-    // deep subfolder". Measured before: chat auto-approve in
-    // .devcontainer/py/devcontainer.json was not applicable.
+    // deep subfolder", the form for several configurations in one repository.
+    // Measured before: chat auto-approve in .devcontainer/py/devcontainer.json
+    // was not applicable, and 7 of 51 MCP search hits used that form, which
+    // mcp-server-launch reads too.
     rota(
       '(?:^|/)\\.',
       'devcontainer/(?:[^/]+/)?',

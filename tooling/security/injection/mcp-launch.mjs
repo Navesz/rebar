@@ -133,53 +133,99 @@ export const SINAIS_DE_SHELL = [
 // ─────────────────────────────────────────────────────────── config formats
 
 /**
- * Where each client keeps its servers. Matched on the lowercased path, at any
- * depth: on Windows and macOS a tracked `.Cursor/MCP.json` is the file the
- * client opens (measured with core.ignorecase=true). Every JSON file is read
+ * Where each client keeps its servers. Matched on the path, case-insensitively,
+ * at any depth: on Windows and macOS a tracked `.Cursor/MCP.json` is the file
+ * the client opens (measured with core.ignorecase=true). Every JSON file is read
  * as JSONC: a comment that makes a strict client skip the file can only make
- * this rule report MORE servers, never hide one. `compartilhado` files also
- * hold other settings, so only duplicates under the servers key are this
- * rule's business (agent-config-exec judges the rest).
+ * this rule report MORE servers, never hide one. `caminho` is the key path to
+ * the servers object. `compartilhado` files also hold other settings, so only
+ * duplicates on that path are this rule's business (agent-config-exec judges
+ * the rest). `raiz` names the folder the client starts stdio servers in.
+ *
+ * VS Code reads servers from three places besides `.vscode/mcp.json`: the
+ * `customizations.vscode.mcp` section of a dev container, which its MCP docs
+ * name as the place for container servers (51 of 194 search hits, 7 of them in
+ * a `.devcontainer/<folder>/`), and `settings.mcp` of a workspace file, which
+ * `mcpResourceScannerService.ts` reads (33 of 100 hits). A dev container or
+ * workspace file that never mentions MCP is no server config, so its reading
+ * problems stay agent-config-exec's. The `mcp` key of a folder's
+ * `.vscode/settings.json` is NOT read: current VS Code migrates it only from user
+ * settings (`mcpMigration.ts`) and never reads it for a folder, and the
+ * README lists that as a limit.
  */
 const CONFIGS = [
-  { sufixo: '.cursor/mcp.json', cliente: 'cursor', chave: 'mcpServers', formato: 'json' },
-  { sufixo: '.vscode/mcp.json', cliente: 'vscode', chave: 'servers', formato: 'json' },
   {
-    sufixo: '.gemini/settings.json',
+    padrao: /(?:^|\/)\.cursor\/mcp\.json$/i,
+    cliente: 'cursor',
+    caminho: ['mcpServers'],
+    formato: 'json',
+    raiz: 'acimaDaPasta',
+  },
+  {
+    padrao: /(?:^|\/)\.vscode\/mcp\.json$/i,
+    cliente: 'vscode',
+    caminho: ['servers'],
+    formato: 'json',
+    raiz: 'acimaDaPasta',
+  },
+  {
+    padrao: /(?:^|\/)\.gemini\/settings\.json$/i,
     cliente: 'gemini',
-    chave: 'mcpServers',
+    caminho: ['mcpServers'],
     formato: 'json',
     compartilhado: true,
+    raiz: 'acimaDaPasta',
   },
   {
-    sufixo: '.codex/config.toml',
+    padrao: /(?:^|\/)\.codex\/config\.toml$/i,
     cliente: 'codex',
-    chave: 'mcp_servers',
+    caminho: ['mcp_servers'],
     formato: 'toml',
     compartilhado: true,
+    raiz: 'acimaDaPasta',
   },
-  { sufixo: '.mcp.json', cliente: 'claude', chave: 'mcpServers', formato: 'json', nome: true },
+  {
+    padrao: /(?:^|\/)\.mcp\.json$/i,
+    cliente: 'claude',
+    caminho: ['mcpServers'],
+    formato: 'json',
+    raiz: 'pastaDoArquivo',
+  },
+  {
+    padrao:
+      /(?:^|\/)\.devcontainer\.json$|(?:^|\/)\.devcontainer\/(?:[^/]+\/)?devcontainer\.json$/i,
+    cliente: 'vscode',
+    caminho: ['customizations', 'vscode', 'mcp', 'servers'],
+    formato: 'json',
+    compartilhado: true,
+    soComMcp: true,
+    raiz: 'antesDoDevcontainer',
+  },
+  {
+    padrao: /\.code-workspace$/i,
+    cliente: 'vscode',
+    caminho: ['settings', 'mcp', 'servers'],
+    formato: 'json',
+    compartilhado: true,
+    soComMcp: true,
+    raiz: 'pastaDoArquivo',
+  },
 ]
 
 function configDe(caminho) {
-  const baixo = caminho.toLowerCase()
-  for (const c of CONFIGS) {
-    if (
-      c.nome
-        ? posix.basename(baixo) === c.sufixo
-        : baixo === c.sufixo || baixo.endsWith(`/${c.sufixo}`)
-    ) {
-      return c
-    }
-  }
-  return null
+  return CONFIGS.find((c) => c.padrao.test(caminho)) || null
 }
 
 /** The folder a client treats as the project: where it starts stdio servers. */
 function raizDoProjeto(caminho, config) {
   const pasta = posix.dirname(caminho)
-  const acima = config.nome ? pasta : posix.dirname(pasta)
-  return acima === '.' ? '' : acima
+  let raiz = pasta
+  if (config.raiz === 'acimaDaPasta') raiz = posix.dirname(pasta)
+  if (config.raiz === 'antesDoDevcontainer') {
+    const m = /^(?:(.*)\/)?\.devcontainer(?:\.json$|\/)/i.exec(caminho)
+    raiz = m && m[1] !== undefined ? m[1] : '.'
+  }
+  return raiz === '.' ? '' : raiz
 }
 
 const ponteiroDe = (...chaves) =>
@@ -299,6 +345,8 @@ export function lerConfigsMcp(indice) {
     const config = configDe(entrada.caminho)
     if (!config) continue
     const arquivo = entrada.caminho
+    // A dev container or workspace file that never says MCP holds no server.
+    if (config.soComMcp && (entrada.texto === null || !/mcp/i.test(entrada.texto))) continue
     const problemas = problemasDeLeitura(entrada, indice)
     if (problemas.length) {
       duros.push(
@@ -316,10 +364,15 @@ export function lerConfigsMcp(indice) {
       )
       continue
     }
-    const base = ponteiroDe(config.chave)
+    const base = ponteiroDe(...config.caminho)
     for (const d of lido.duplicatas) {
-      if (config.compartilhado && d.ponteiro !== base && !d.ponteiro.startsWith(`${base}/`))
-        continue
+      // A duplicate on the way to the servers object decides which servers a
+      // client reads as much as one inside it.
+      const noCaminho =
+        d.ponteiro === base ||
+        d.ponteiro.startsWith(`${base}/`) ||
+        (d.ponteiro !== '' && base.startsWith(`${d.ponteiro}/`))
+      if (config.compartilhado && !noCaminho) continue
       const ultima = d.ocorrencias[d.ocorrencias.length - 1]
       duros.push(
         `${onde(arquivo, ultima.linha, ultima.coluna)} duplicate key ` +
@@ -327,22 +380,25 @@ export function lerConfigsMcp(indice) {
       )
     }
 
-    const valor = lido.valor
-    const container =
-      valor !== null && typeof valor === 'object' && !Array.isArray(valor)
-        ? valor[config.chave]
-        : undefined
+    let container = lido.valor
+    for (const chave of config.caminho) {
+      container =
+        container !== null && typeof container === 'object' && !Array.isArray(container)
+          ? container[chave]
+          : undefined
+      if (container === undefined) break
+    }
     if (container === undefined) continue
     declaram++
     if (container === null || typeof container !== 'object' || Array.isArray(container)) {
       const p = lido.posicoes.get(base) || { linha: 1, coluna: 1 }
       duros.push(
-        `${onde(arquivo, p.linha, p.coluna)} ${config.chave} is not an object (not exemptable)`,
+        `${onde(arquivo, p.linha, p.coluna)} ${config.caminho.join('.')} is not an object (not exemptable)`,
       )
       continue
     }
     for (const [nome, bruto] of Object.entries(container)) {
-      const p = lido.posicoes.get(ponteiroDe(config.chave, nome)) || { linha: 1, coluna: 1 }
+      const p = lido.posicoes.get(ponteiroDe(...config.caminho, nome)) || { linha: 1, coluna: 1 }
       const razoes = []
       let argv = null
       let argvInteiro = null
