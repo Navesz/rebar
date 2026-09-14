@@ -90,6 +90,8 @@
  *   The text an agent reading the checkout as UTF-8 sees when
  *   working-tree-encoding is a UTF-16 or UTF-32 name; [] otherwise.
  *
+ * repositorioDeOrigem(dir) -> 'owner/name' | null   from remote.origin.url; null when unknown
+ *
  * lerCommits(dir, { semMemoria = false } = {}) -> Array<{ id, mensagem, codificacao: 'utf-8'|'utf-8-invalido' }>
  *   Every commit reachable from HEAD, newest first, message raw (no trim, no
  *   BOM handling). No HEAD, or no repository: [].
@@ -1162,6 +1164,31 @@ export function textosNoDisco(entrada) {
   if (/^(?:utf32|ucs4)(?:le)?(?:bom)?$/.test(nome)) bytes.push(utf32(false))
   if (/^(?:utf32|ucs4)(?:be)?(?:bom)?$/.test(nome)) bytes.push(utf32(true))
   return bytes.map((b) => b.toString('utf8'))
+}
+
+// ────────────────────────────────────────────────────────────── the remote
+
+/**
+ * The `owner/name` a clone's origin remote names, or null: the value GitHub
+ * gives `github.repository` when this clone is where the workflow runs.
+ * actions/checkout sets origin to the repository the run belongs to, and a fork
+ * or a copy has its own. Read from the local config, not the index: nothing a
+ * commit carries can set it. Any git failure is null (unknown), never a throw.
+ */
+export function repositorioDeOrigem(dir) {
+  let r
+  try {
+    r = git(dir, ['config', '--get', 'remote.origin.url'], { aceitar: [0, 1] })
+  } catch {
+    return null
+  }
+  if (r.status !== 0) return null
+  const url = String(r.stdout)
+    .trim()
+    .replace(/\.git$/i, '')
+    .replace(/\/+$/, '')
+  const m = /[/:]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/.exec(url)
+  return m ? `${m[1]}/${m[2]}` : null
 }
 
 // ─────────────────────────────────────────────────────────────────── commits

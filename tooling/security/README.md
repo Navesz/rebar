@@ -275,7 +275,8 @@ runs without a person choosing to run it.
   Copilot CLI's options that allow everything; Aider's option that answers yes to every question.
 - **Config overrides:** Codex's `-c` and `--config` override of the sandbox key or the default
   permission profile set to no sandbox, under a profile too, is the same hole as the switch and is
-  matched like an ambiguous switch. The override of the approval policy to its never-ask value is
+  matched like an ambiguous switch, with the value glued to `-c` and blanks before the key too
+  (clap takes the glued form and Codex trims the key). The override of the approval policy to its never-ask value is
   not counted: Codex's config reference recommends it for non-interactive runs and `exec` has no
   approval option; over 1,590 fetched repositories that row only failed one skill file documenting
   it, while the sandbox rows added 14 warnings and no failure.
@@ -284,7 +285,8 @@ runs without a person choosing to run it.
   value in `sandbox` or `permission-profile`, or the bypass switch or its short alias in
   `codex-args` when no profile is set and neither the sandbox nor the safety strategy is
   read-only (the action throws otherwise); `anthropics/claude-code-action` and both base actions
-  with a `settings` JSON whose default permission mode bypasses prompts. Sandbox and approval
+  with a `settings` JSON, or an inline JSON `--settings` inside `claude_args`, whose default
+  permission mode bypasses prompts. Sandbox and approval
   switches and config overrides inside `codex-args` are not counted: the action appends its own
   sandbox choice after them and rejects those config roots under every strategy but unsafe. The
   unsafe strategy itself is judged by `ai-workflow-untrusted-input`. In a workflow these fail, in a
@@ -299,7 +301,7 @@ runs without a person choosing to run it.
 | git hooks: anything under `.husky/` or `.githooks/`, a hook-named file inside a `hooks` folder, and the hook commands `simple-git-hooks` and husky before v5 keep in `package.json`; the tracked files and the package scripts they start, also with runner options before or after `run` (`--silent`, `--prefix`, a workspace or filter by folder or package name, pnpm's workspace root), a runner called by full path, and a runner behind another command | fails |
 | commands that run by themselves: tasks that run when the folder opens, dev container lifecycle commands, agent hook commands; the tracked files and the package scripts they start | fails |
 | agent instruction files, fenced code included | fails |
-| GitHub workflows, whatever triggers them, except GitHub Agentic Workflows lock files | fails |
+| GitHub workflows, whatever triggers them, except GitHub Agentic Workflows lock files (a `.lock.yml` with gh-aw's header and its `activation` and `agent` jobs, the agent needing the activation; the header alone is no lock) | fails |
 | GitHub Agentic Workflows lock files, other package scripts, code, fenced code in other Markdown, unknown extensions | warns |
 | prose outside fences in Markdown that is not an agent file | nothing |
 
@@ -349,10 +351,14 @@ text steers it.
   `anthropics/claude-code-security-review`, `google-github-actions/run-gemini-cli`,
   `openai/codex-action`, `actions/ai-inference` (v1 and v2 send the prompt to GitHub Models and
   can hand the model the GitHub MCP tools; v3 goes through the Copilot CLI) and OpenCode's GitHub
-  action, each with the inputs and outputs its `action.yml` declares; and a `run:` step whose
-  shell command starts an agent CLI, read the way `agent-bypass-invocation` names CLIs, inside a
-  command substitution and behind `sudo`, `env`, `timeout`, `nohup`, `time`, `exec` and the
-  package runners too.
+  action, each with the inputs and outputs its `action.yml` declares, its `uses` split the way the
+  runner splits it (backslashes, doubled slashes and `.` parts name the same folder); and a `run:`
+  step whose shell command starts an agent CLI, read the way `agent-bypass-invocation` names CLIs,
+  inside a command substitution, a shell's `-c` string, `eval`, and a here-document a shell reads,
+  and behind `sudo`, `env`, `timeout`, `nohup`, `time`, `exec`, `xargs`, `nice`, `setsid` and the
+  package runners too. The body of a here-document another program reads is data, and the Copilot
+  name followed by one of AWS Copilot's or GitHub Copilot CLI's commands that open no session is
+  no agent.
 - **Triggers.** `issues`, `issue_comment`, `discussion`, `discussion_comment`,
   `pull_request_target`, `pull_request_review`, `pull_request_review_comment` and
   `workflow_run`, narrowed by the activity types each declares to the ones an account with no
@@ -365,20 +371,23 @@ text steers it.
   `allowed_non_write_users` (with a `github_token`, as its docs require), `allowed_bots` and
   `allow-users` open that check when they hold `*` or an expression. A named list keeps it
   closed. OpenCode's check has no input to open it.
-- **Conditions.** The job `if`, the `if` of every job it needs (unless its own `if` runs whatever
-  they did, with `always()`, `failure()` or `cancelled()`) and the step `if` are evaluated per
-  trigger in three values. False comes from the event name, the inputs context (null outside
-  dispatch and call), the association of the account that fired that trigger compared only with
-  owner, member or collaborator, its login against a literal or a JSON list, a fork check on
-  `pull_request_target`, and an activity type that account cannot cause. Anything else, a job or
-  step output included, is unknown and keeps the step reachable.
+- **Conditions.** The job `if`, the `if` of every job it needs, and the step `if` are evaluated per
+  trigger in three values. A job `if` that calls a status function in any letter case (`always`,
+  `success`, `failure`, `cancelled`) is kept as written, the way the runner keeps it, and its
+  `success()` is false when a job it needs is closed. False comes from the event name, the inputs
+  context (null outside dispatch and call), the association of the account that fired that trigger
+  compared only with owner, member or collaborator, its login against a literal or a JSON list, a
+  fork check on `pull_request_target`, an activity type that account cannot cause, and a
+  repository or owner literal that differs from the clone's origin remote (a copy or fork of
+  another project's workflow never runs that job). Anything else, a job or step output included,
+  is unknown and keeps the step reachable.
 - **Event text** it interpolates (a title, body, comment, branch name or commit message, or a whole
   event object turned into text) is reported, never required: 11 of 13 vendor examples on these
   triggers interpolate none, because the agent loads the text by itself.
 
 | What the agent can do | Verdict |
 |---|---|
-| run commands: a whole-shell tool grant, approvals or the sandbox off, Gemini's approve-everything mode with no tool list or with a shell tool, the Codex unsafe strategy, an agent CLI whose shell line interpolates event text, or its text output spliced into a later `run:` or `actions/github-script` step | fails, at any permission level |
+| run commands: a whole-shell tool grant (in the action inputs or on the CLI's own command line), approvals or the sandbox off, settings that approve every tool call (the `settings` input or an inline `--settings`), Gemini's approve-everything mode with no tool list or with a shell tool that only a scoped exclusion narrows, the Codex unsafe strategy, an agent CLI whose shell line interpolates event text, or its text output spliced into a later `run:` or `actions/github-script` step (dot or bracket spelling, or through an `env` key the script expands in an expression) | fails, at any permission level |
 | nothing the vendor lets it reach: ai-inference with no tool and no GitHub MCP, run-gemini-cli with an empty core tool list and no MCP server or extension, codex-action in its sandbox with sudo dropped | warns, whatever the job holds |
 | anything else, which reads its own environment and workspace | fails with a write scope other than issues, pull requests, discussions, models, copilot requests and id-token, with no permissions block, with a secret other than its model credential or all of them, with a personal token given to the agent, or with the vendor App token claude-code-action and OpenCode trade the OIDC token for; warns otherwise |
 
@@ -391,18 +400,27 @@ own OIDC exchange.
 Local resolution goes one level down: a job that calls `./.github/workflows/<file>` is judged with
 the caller's triggers, conditions, permissions and inherited or mapped secrets, and the callee's
 inputs carry the caller's event text; a step that uses a local composite action is judged as steps
-of the calling job. A deeper local call is named in a note. YAML anchors and aliases are read. A
-gh-aw lock file is never judged step by step: it warns when its role check admits every account. A
-workflow in YAML this reader does not support fails when its text names an agent action or CLI, and
-is a note otherwise; invalid YAML, which GitHub does not run either, is a note.
+of the calling job, through a tracked folder link too (the finding names the file the link ends
+at), and a link that resolves nowhere is named in a note. A deeper local call is named in a note.
+YAML anchors and aliases are read, and so is a plain scalar a flow list wraps over lines. A gh-aw
+lock file, known by its `.lock.yml` name, header and `activation` and `agent` jobs, is never judged
+step by step: it warns when the role-check env of the jobs its agent needs admits every account. A
+workflow in YAML this reader does not support fails when its text names an agent action or CLI
+anywhere (behind an anchor, in a flow step, on a folded line), and is a note otherwise; invalid
+YAML, which GitHub does not run either, is a note. Measured over 2,987 distinct workflow texts of
+both corpora, this reader and js-yaml refuse the same 9 files, and all 9 name an agent: failing
+invalid YAML would fail 9 files GitHub never runs.
 
 **Why.** PromptPwnd (Aikido, 2025-12-04) steered the Gemini CLI in Google's own triage workflows
 with a new issue. Clinejection (Adnan Khan, 2026-02-09) led Claude Code, running with a shell grant
 on an issue trigger, from an issue title to a poisoned Actions cache that reached release tokens.
 Comment and Control (2026-04-15) did it from a comment.
 
-**Measured** with this engine on 2026-09-13: over 1,660 workflows of 1,394 agent adopters, 142 files
-fail (171 steps, 146 of them with execution or code injection) and 167 warn; over 1,571 workflows of 49
+**Measured** with this engine on 2026-09-13: over 1,660 workflows of 1,394 agent adopters, with
+each repository's own name as its origin, 124 files fail (150 steps, 126 of them with execution or
+code injection) and 140 warn; read with no origin, as a clone without a remote is, 142 files fail
+(170 steps, 146 with execution) and 166 warn, and the 18 files and 20 steps between the two are
+copies of Gemini CLI's own triage workflows gated on its repository name. Over 1,571 workflows of 49
 well-known repositories, 3 files fail (two of Google's Gemini triage workflows, and a Copilot CLI
 with every tool allowed after a pull request's CI) and 11 warn; over the 29 workflows of 24 local
 repositories, the rebar worktree and the gate template, none. The prototype the owner decisions
@@ -419,9 +437,12 @@ upstream that made it reachable.
 ### mcp-ansi-escape
 
 **What it catches.** An escaped terminal control — ESC or CSI written as a hex, Unicode, octal,
-HTML-entity or character-code escape — in the code, comments stripped, of a file that looks like
+HTML-entity or character-code escape, or built in Go by a rune or byte conversion, a byte slice
+literal or a `%c` verb of its number — in the code, comments stripped, of a file that looks like
 an MCP server (it imports the TypeScript, Python or Go SDK, builds a server object or registers
-tools; the Go SDK import also marks a client file, which was not measured) or that a tracked
+tools; the official Go SDK import counts only in a file with server-side code, because the same
+package serves clients: the bare import made 2 of 5 public Go client files that print colour fail,
+and the narrowed marker selects none of them and 143 of 200 go-sdk files of a code search) or that a tracked
 MCP configuration launches. A launch's files are found the way `mcp-server-launch` finds them: a
 command written as one string and a shell wrapper's inner command are split into words.
 
@@ -564,7 +585,7 @@ Saying where the limit is is worth more than pretending to check.
 | An allowlist line written by an agent under the owner's identity | the checker cannot tell who wrote a line | a ruleset that requires a second person's review |
 | Annotated tag messages, git notes, branch and ref names | the rules read the index and commit messages only | review |
 | A local MCP server script that changes its code while its launch stays the same | the fingerprint covers the launch, not the script it starts | file integrity, a later phase |
-| A switch whose value is attached to its short option or grouped with other short options, where the CLI's parser allows it | a value switch is matched only as a separate word or with `=`; the attached and grouped forms were not measured against each vendor parser | review; a later phase |
+| A switch whose value is attached to its short option or grouped with other short options, where the CLI's parser allows it, other than Codex's `-c` | a value switch is matched only as a separate word or with `=`; the attached and grouped forms were not measured against each vendor parser | review; a later phase |
 | Agent CLIs that approve by default and need no switch, a CLI whose binary name is too generic to match, a switch that only exists on a tag or in something downloaded at build time | there is no trace in the tree | pin dependencies; review release artifacts |
 | Low-capacity channels the exceptions leave open: one joiner between letters of a joining script, one joiner after a virama, a form feed alone on its line, a variation selector after a Han character, alternating emoji selectors | real text needs those exceptions | a warning at most |
 | Colour a terminal theme can match: the visible set assumes no theme paints its background red, green, yellow, blue, magenta or cyan | those six are what test snapshots record; no theme with such a background was looked for | review in a web diff, which shows the sequence as text |
@@ -583,5 +604,12 @@ Saying where the limit is is worth more than pretending to check.
 | A private repository, where no outside account can open an issue | visibility is a setting, so it fails the same way | an allowlist entry |
 | A `codex-args` sandbox or approval switch | the action appends its own sandbox choice and rejects those overrides, so they are not counted | none needed |
 | YAML merge keys and tags in a workflow | not read; the file fails only when it names an agent | write the workflow without them |
+| Valid YAML this reader wrongly refuses as invalid | a refused file is a note, so an agent in it is not judged; over 2,987 distinct corpus workflows this reader and js-yaml refused the same 9 files, and the one construct the review found (a plain scalar a flow list wraps over lines) is now read | review; report the construct |
+| A workflow that copies gh-aw's whole lock structure: the `.lock.yml` name, its header, `activation` and `agent` jobs, and a role env in a job the agent needs | it is trusted as a lock and never judged step by step, although its role-check job may check nothing | review of every `.lock.yml` change |
+| A job gated on another repository's name in a clone with no origin remote, or with an origin that is not the repository the workflow runs in | the repository is unknown, so the literal is unknown and the step stays reachable: read with no origin, 18 files and 20 failing steps of the adopter corpus are copies gated on Gemini CLI's own name | clone with the origin remote; an allowlist entry |
+| An agent CLI word followed by one of its own commands that start no session, such as adding an MCP server or logging in | only the Copilot name has its non-session commands listed (it also names AWS Copilot); other CLIs still read as an agent step | review; a later phase |
+| A here-document opened inside a double-quoted command substitution (`"$(cat <<EOF`) | the opener sits inside quotes, so its body lines are read as commands | review |
+| Claude Code's `--settings` given as a file path, and inline `--settings` JSON in a script or hook that `agent-bypass-invocation` reads as text | only inline JSON in a workflow step's command or `claude_args` is parsed | inline the settings in the step; review scripts |
+| An escaped control in a Go MCP server built by arithmetic, or in a file with no server-side identifier (a wiring file, a helper package) | the Go rows see a literal number in a conversion, a byte or rune slice or a `%c` argument, and the import counts only next to server-side code | review; sanitizing output at run time |
 | A named allow list in an actor check input | the listed accounts are trusted as the owner chose | review the list |
 | An adaptive attack against these signatures | the list is public, and the attacker plays after reading it | defence in depth; the rules promise only "no known signature" |

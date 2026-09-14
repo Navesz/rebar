@@ -1,0 +1,21 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A gh-aw lock file carries its own role check, so the rule never judges it step by step, and it has to know a lock by what the compiler writes. The pass side, not applicable because no step of a lock is judged, is a lock on new issues whose agent job needs the activation job, which needs a role-check job whose step env admits admins, maintainers and writers. The fail side pastes the gh-aw header and a roles comment above a plain workflow that runs a base action with every permission prompt skipped under write-all on new issues; the review showed those two comment lines silenced the rule. Whoever judges locks step by step fails the pass side; whoever trusts the header passes the fail side.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.lock.yml",
+        "base64": "IyBUaGlzIGZpbGUgd2FzIGF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IGdoLWF3LiBETyBOT1QgRURJVC4KbmFtZTogVHJpYWdlCm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIHByZV9hY3RpdmF0aW9uOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gbmFtZTogQ2hlY2sgdGhlIHJvbGUKICAgICAgICBlbnY6CiAgICAgICAgICBHSF9BV19SRVFVSVJFRF9ST0xFUzogImFkbWluLG1haW50YWluZXIsd3JpdGUiCiAgICAgICAgcnVuOiBlY2hvIGNoZWNrZWQKICBhY3RpdmF0aW9uOgogICAgbmVlZHM6IHByZV9hY3RpdmF0aW9uCiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IGVjaG8gYWN0aXZhdGVkCiAgYWdlbnQ6CiAgICBuZWVkczogYWN0aXZhdGlvbgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gcnVuOiBjb2RleCBleGVjIC0tZGFuZ2Vyb3VzbHktYnlwYXNzLWFwcHJvdmFscy1hbmQtc2FuZGJveCAidHJpYWdlIHRoZSBpc3N1ZSIK"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.lock.yml",
+        "base64": "IyBUaGlzIGZpbGUgd2FzIGF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IGdoLWF3LiBETyBOT1QgRURJVC4KIyBHSF9BV19SRVFVSVJFRF9ST0xFUzogImFkbWluIgpuYW1lOiBUcmlhZ2UKb246CiAgaXNzdWVzOgogICAgdHlwZXM6IFtvcGVuZWRdCnBlcm1pc3Npb25zOiB3cml0ZS1hbGwKam9iczoKICBhZ2VudDoKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFudGhyb3BpY3MvY2xhdWRlLWNvZGUtYWN0aW9uL2Jhc2UtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIHByb21wdDogVHJpYWdlIHRoZSBpc3N1ZS4KICAgICAgICAgIGNsYXVkZV9hcmdzOiAtLWRhbmdlcm91c2x5LXNraXAtcGVybWlzc2lvbnMK"
+      }
+    ]
+  }
+}

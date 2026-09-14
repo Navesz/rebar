@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "The runner splits a uses value at slashes and backslashes and drops the empty parts, so a doubled slash still names the same folder of the action repository. The pass side runs the Claude Code action itself, which runs only for accounts with write access, with a whole shell on new issues. The fail side names its base action with a doubled slash before the folder: the runner starts the base action, which checks no actor, and the review showed the rule read it as the gated action. Whoever ignores the actor check fails the pass side; whoever matches the raw uses text passes the fail side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.yml",
+        "base64": "bmFtZTogVHJpYWdlCm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIHRyaWFnZToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFudGhyb3BpY3MvY2xhdWRlLWNvZGUtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIGFudGhyb3BpY19hcGlfa2V5OiAke3sgc2VjcmV0cy5BTlRIUk9QSUNfQVBJX0tFWSB9fQogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gKICAgICAgICAgIHByb21wdDogVHJpYWdlIHRoaXMgaXNzdWUuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.yml",
+        "base64": "bmFtZTogVHJpYWdlCm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIHRyaWFnZToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFudGhyb3BpY3MvY2xhdWRlLWNvZGUtYWN0aW9uLy9iYXNlLWFjdGlvbkB2MQogICAgICAgIHdpdGg6CiAgICAgICAgICBhbnRocm9waWNfYXBpX2tleTogJHt7IHNlY3JldHMuQU5USFJPUElDX0FQSV9LRVkgfX0KICAgICAgICAgIGNsYXVkZV9hcmdzOiAtLWFsbG93ZWRUb29scyBCYXNoCiAgICAgICAgICBwcm9tcHQ6IFRyaWFnZSB0aGlzIGlzc3VlLgo="
+      }
+    ]
+  }
+}

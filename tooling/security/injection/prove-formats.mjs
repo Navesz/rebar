@@ -420,6 +420,28 @@ describe('lerYaml with ancoras', () => {
     // Frontmatter never takes the option: a skill or subagent file is D22's.
     assert.match(lerFrontmatter('---\na: &x 1\nb: *x\n---\n').erro.mensagem, /anchors/)
   })
+
+  test('a plain scalar in a flow collection goes on over lines, as js-yaml reads it (review finding 4)', () => {
+    // Measured before: 'expected a comma or a closing bracket in a flow sequence'.
+    for (const [texto, valor] of [
+      ['b: [main, release\n    candidate]\n', { b: ['main', 'release candidate'] }],
+      ['b: {x: one\n  two, y: 3}\n', { b: { x: 'one two', y: 3 } }],
+      ['b: [a\n\n  c]\n', { b: ['a\nc'] }],
+      ['b: [a, b\n]\n', { b: ['a', 'b'] }],
+      ['b: [a # note\n  , d]\n', { b: ['a', 'd'] }],
+    ]) {
+      const r = lerYaml(texto, { ancoras: true })
+      assert.equal(r.erro, null, JSON.stringify(texto))
+      assert.deepEqual(JSON.parse(JSON.stringify(r.valor)), valor, JSON.stringify(texto))
+    }
+  })
+
+  test('a backslash at the end of a double-quoted line joins the next one (review finding 7, not reproduced)', () => {
+    // The review's input held the two characters backslash and n, a newline
+    // escape that GitHub decodes too; a real escaped line break was already joined.
+    assert.deepEqual(lerYaml(`a: "base-${B}\n  action"\n`).valor.a, 'base-action')
+    assert.deepEqual(lerYaml(`a: "base-${B}n  action"\n`).valor.a, 'base-\n  action')
+  })
 })
 
 describe('escapesDecodificados', () => {

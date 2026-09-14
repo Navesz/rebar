@@ -810,7 +810,9 @@ export const REGRAS = [
      * beyond issues, pull requests and discussions, with no permissions block,
      * or with a secret other than its model credential. Its text output spliced
      * into a later script fails too. Measured over 1,660 workflows of agent
-     * adopters: 171 steps fail, 146 of them with execution or code injection.
+     * adopters, each with its own repository as the origin: 150 steps fail, 126
+     * of them with execution or code injection (170 with no origin, where copies
+     * of a workflow gated on another repository's name stay reachable).
      * Over the 29 workflows of 24 local repositories, the rebar worktree and the
      * gate template: none. Of 3,292 real workflows 6 use YAML anchors, and
      * 2 of those hide an agent step behind an alias, so aliases are read.

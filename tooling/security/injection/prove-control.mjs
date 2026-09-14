@@ -873,6 +873,50 @@ describe('mcp-ansi-escape', () => {
     )
   })
 
+  test('the Go SDK import selects server code, not a client, and Go number constructors fail (review findings 14, 18)', () => {
+    const IMPORTACAO = `"github.com/model${'contextprotocol'}/go-sdk/mcp"`
+    // A server under a package alias: only the import row can select it.
+    const servidor = (descricao) =>
+      [
+        'package main',
+        '',
+        `import sdk ${IMPORTACAO}`,
+        '',
+        'func main() {',
+        `\ts := sdk.New${'Server'}(&sdk.Implementation{Name: "w"}, nil)`,
+        `\tsdk.AddTool(s, &sdk.Tool{Name: "t", Description: ${descricao}}, nil)`,
+        '}',
+        '',
+      ].join('\n')
+    const construcoes = [
+      `"a" + string(ru${'ne'}(27)) + "[8m"`,
+      `"a" + string([]by${'te'}{0x1b}) + "[8m"`,
+      `fmt.Sprintf("a%${'c'}[8m", 27)`,
+    ]
+    for (const descricao of construcoes) {
+      const r = reprovou(
+        heuristica(repositorio([{ caminho: 'main.go', conteudo: servidor(descricao) }])),
+      )
+      assert.match(r, /main\.go:7:\d+ ESC or CSI built from its number/, descricao)
+    }
+    assert.equal(heuristica(repositorio([{ caminho: 'main.go', conteudo: servidor('"t"') }])), null)
+    // A client that prints colour: measured, 2 of 5 public client files failed
+    // with 28 findings while the bare import made them candidates.
+    const cliente = [
+      'package main',
+      '',
+      `import ${IMPORTACAO}`,
+      '',
+      'func main() {',
+      '\tclient := mcp.NewClient(&mcp.Implementation{Name: "c"}, nil)',
+      `\tfmt.Println("${B}033[32mconnected${B}033[0m", client)`,
+      '}',
+      '',
+    ].join('\n')
+    const semServidor = heuristica(repositorio([{ caminho: 'cli/main.go', conteudo: cliente }]))
+    assert.ok(semServidor && semServidor.na, JSON.stringify(semServidor))
+  })
+
   test('a file launched by a tracked MCP config is judged without a marker', () => {
     const escapado = `const t = 'hot${B}u001b[31m'\n`
     const dir = repositorio([
@@ -983,12 +1027,24 @@ describe('mcp-ansi-escape', () => {
       '&#x' + '1b;',
       'String.from' + 'CodePoint(155)',
       'ch' + 'r(27)',
+      'string(ru' + 'ne(27))',
+      '[]by' + 'te{0x1b}',
+      'fmt.Sprintf("%' + 'c[8m", 27)',
     ]
     assert.equal(amostras.length, ESCAPES_DE_CONTROLE.length)
     amostras.forEach((amostra, k) => {
       assert.ok(ESCAPES_DE_CONTROLE[k][0].test(amostra), `row ${k} misses its sample`)
     })
-    const quase = ['x1' + 'b[', `${B}33` + '7', '&#' + '270;', 'from' + 'CharCode(270)', `${B}ex`]
+    const quase = [
+      'x1' + 'b[',
+      `${B}33` + '7',
+      '&#' + '270;',
+      'from' + 'CharCode(270)',
+      `${B}ex`,
+      'ru' + 'ne(270)',
+      '[]by' + 'te{1, 127}',
+      'Sprintf("%' + 'd", 27)',
+    ]
     for (const q of quase) {
       assert.ok(
         !ESCAPES_DE_CONTROLE.some(([re]) => re.test(q)),

@@ -34,10 +34,13 @@
 //                credential fails.
 //
 // Measured with this engine on 2026-09-13 over 1,660 workflows of 1,394 agent
-// adopters: 171 steps in 142 files fail, and 146 of those 171 carry execution
-// or code injection, not only a token scope; 187 steps warn. Over 1,571
-// workflows of 49 well-known repositories, 3 files fail. Over the 29 workflows
-// of 24 local repositories, the rebar worktree and the gate template: none.
+// adopters, each read with its own repository as the origin: 150 steps in 124
+// files fail, and 126 of those 150 carry execution or code injection, not only
+// a token scope; 154 steps warn. Read with no origin, 170 steps in 142 files
+// fail: the 20 steps between are copies of Gemini CLI's triage workflows gated
+// on its repository name. Over 1,571 workflows of 49 well-known repositories,
+// 3 files fail. Over the 29 workflows of 24 local repositories, the rebar
+// worktree and the gate template: none.
 //
 // WHY EVERY WORD IS ASSEMBLED. Like bypass.mjs, this file is read raw by the
 // text tables prove-table.mjs holds against it, so every agent binary, switch
@@ -47,8 +50,8 @@
 //
 /**
  * ACOES_DE_AGENTE    [RegExp, explicacao, dados]: vendor agent actions, matched
- *                    whole against a step's `uses` (trimmed, `@ref` and a
- *                    trailing slash dropped, lowercased), the first row wins.
+ *                    whole against the path a step's `uses` names, read as the
+ *                    runner splits it (bypass.mjs caminhoDoUses), the first row wins.
  *   dados = { agente, portao: null | { abridores: [input, 'estrela'|'estrelaComToken'][] },
  *             texto: input[], autenticacao: input[], saidas: output[],
  *             aprovacao: 'claude'|'codex'|null, tokenDoApp?: input, mcpDoGithub?: input }
@@ -57,11 +60,17 @@
  *                    whose text an outside account wrote.
  *
  * taintEm(valor, CAMPOS_DO_EVENTO) -> string[]   the event leaves interpolated in `valor`
- * avaliarCondicao(expr, gatilho, { comEntradas = false }) -> 'T' | 'F' | 'U'
- * achadosDosWorkflows(arquivos: Map<caminho, texto>, tabelas)
+ * avaliarCondicao(expr, gatilho, { comEntradas = false, sucesso = 'U', repositorio = null })
+ *   -> 'T' | 'F' | 'U'    `sucesso` is what success() means here; `repositorio`
+ *   the 'owner/name' the run belongs to, when known.
+ * achadosDosWorkflows(arquivos: Map<caminho, texto>, tabelas,
+ *                     { repositorio = null, apelidos = Map<caminho, real>, ligacoesQuebradas = [] })
  *   -> { itens: Item[], notas: string[], agentes: number, workflows: number }
  *   Item = { severidade: 'reprova'|'nota', texto, arquivos: string[] }. Pure: the
- *   index-free core, which the corpus measurements call directly.
+ *   index-free core, which the corpus measurements call directly. `apelidos`
+ *   maps an action file reached through a tracked link to the file it ends at,
+ *   and `ligacoesQuebradas` lists the links that end nowhere.
+ *   checarWorkflowDeAgente fills all three from the index and the origin remote.
  * checarWorkflowDeAgente(r, { ACOES_DE_AGENTE, GATILHOS_DE_FORA, CAMPOS_DO_EVENTO,
  *                             FLAGS_FORTES, FLAGS_AMBIGUAS, PARES_DE_FLAG, BINARIOS_DE_AGENTE })
  *   -> string (reprova) | { nota } | null | { na }
@@ -73,14 +82,23 @@ import { escaparSaida } from '../texto-seguro.mjs'
 import { ehRegraAmpla } from './agent-config.mjs'
 import {
   acaoDoUses,
-  agenteDoComando,
-  comandosDoShell,
-  ehLockDoGhAw,
+  caminhoDoUses,
+  invocacoesDeAgente,
+  lockDoGhAw,
+  palavrasDosArgs,
+  settingsDasPalavras,
   validarAcoesDeAgente,
   varrerShell,
 } from './bypass.mjs'
 import { lerJsonc, lerYaml } from './formats.mjs'
-import { NOME_DA_ALLOWLIST, lerAllowlist, lerIndice, onde, resumir } from './reader.mjs'
+import {
+  NOME_DA_ALLOWLIST,
+  lerAllowlist,
+  lerIndice,
+  onde,
+  repositorioDeOrigem,
+  resumir,
+} from './reader.mjs'
 
 const REGRA = 'ai-workflow-untrusted-input'
 const na = (motivo) => ({ na: motivo })
@@ -448,10 +466,19 @@ function tiposDeFora(gatilhoNome, gatilhos) {
   return row ? row[2] : []
 }
 
-function avaliarAtomo(bruto, gatilhoNome, comEntradas, gatilhos) {
+function avaliarAtomo(bruto, gatilhoNome, comEntradas, gatilhos, sucesso, repositorio) {
   const s = bruto.trim()
   if (s === 'true') return T
   if (s === 'false') return F
+  // 0. The status functions, in any letter case (the runner compares their
+  // names ignoring case). always() is true; success() is what the caller knows
+  // of the jobs this one needs (avaliarItem), unknown for a step.
+  const status = /^(always|success|failure|cancelled)\s*\(\s*\)$/i.exec(s)
+  if (status) {
+    const nome = status[1].toLowerCase()
+    if (nome === 'always') return T
+    return nome === 'success' ? sucesso : U
+  }
   // 1. A gate on a job or step output, or on a job result, cannot be decided
   // from the text: an output check was measured to be a draft or duplicate
   // check, not an actor check, in 9 exposed Codex steps with the sandbox off.
@@ -562,13 +589,39 @@ function avaliarAtomo(bruto, gatilhoNome, comEntradas, gatilhos) {
     /^'([^']*)'\s*==\s*github\.event\.action$/.exec(s)
   if (m && !tiposDeFora(gatilhoNome, gatilhos).includes(m[1])) return F
 
+  // 8. The repository the run belongs to, when the caller knows it (the origin
+  // remote of the clone the rule reads). A job gated on another repository's
+  // name never runs in a copy or a fork: measured over the adopter corpus, 20
+  // failing steps in 18 files were copies of Gemini CLI's own triage workflows
+  // gated on 'google-gemini/gemini-cli'. GitHub compares strings ignoring case
+  // (GitHub "Expressions", operators). Unknown stays unknown.
+  if (repositorio) {
+    const REPO = '(github\\.repository|github\\.event\\.repository\\.full_name)'
+    const DONO = '(github\\.repository_owner|github\\.event\\.repository\\.owner\\.login)'
+    for (const [contexto, valor] of [
+      [REPO, repositorio],
+      [DONO, repositorio.split('/')[0]],
+    ]) {
+      const direita = new RegExp(`^${contexto}\\s*(==|!=)\\s*'([^']*)'$`).exec(s)
+      const esquerda = direita ? null : new RegExp(`^'([^']*)'\\s*(==|!=)\\s*${contexto}$`).exec(s)
+      if (!direita && !esquerda) continue
+      const [op, literal] = direita ? [direita[2], direita[3]] : [esquerda[2], esquerda[1]]
+      return (literal.toLowerCase() === valor.toLowerCase()) === (op === '==') ? T : F
+    }
+  }
+
   return U
 }
 
 export function avaliarCondicao(
   expr,
   gatilhoNome,
-  { comEntradas = false, GATILHOS_DE_FORA: gatilhos = GATILHOS_DE_FORA } = {},
+  {
+    comEntradas = false,
+    GATILHOS_DE_FORA: gatilhos = GATILHOS_DE_FORA,
+    sucesso = U,
+    repositorio = null,
+  } = {},
 ) {
   if (expr === true) return T
   if (expr === false) return F
@@ -660,7 +713,7 @@ export function avaliarCondicao(
     }
     const ficha = fichas[p++]
     if (!ficha || typeof ficha !== 'object') throw new Error('expected an operand')
-    return avaliarAtomo(ficha.atomo, gatilhoNome, comEntradas, gatilhos)
+    return avaliarAtomo(ficha.atomo, gatilhoNome, comEntradas, gatilhos, sucesso, repositorio)
   }
   try {
     const v = ouExpr()
@@ -769,12 +822,9 @@ function jsonDaEntrada(v) {
   return r.erro ? undefined : r.valor
 }
 
-/** The tool entries of `--allowedTools`/`--allowed-tools` in claude_args, split as the CLI splits them. */
-function ferramentasDosArgs(args) {
+/** The tool entries of `--allowedTools`/`--allowed-tools` among the words, split as the CLI splits them. */
+function ferramentasDasPalavras(palavras) {
   const saida = []
-  const palavras = comandosDoShell(`x ${comoTexto(args).replace(/\r?\n/g, ' ')}`).flatMap(
-    (c) => c.palavras,
-  )
   const OPCAO = new RegExp(j('^--allowed', '(?:Tools|-tools)(?:=(.*))?$'))
   for (let i = 0; i < palavras.length; i++) {
     const m = OPCAO.exec(palavras[i])
@@ -786,6 +836,22 @@ function ferramentasDosArgs(args) {
     }
   }
   return saida.flatMap(dividirFerramentas)
+}
+
+/**
+ * The entries of Copilot CLI's `--allow-tool`, one value per option, a quoted
+ * comma-separated list allowed (GitHub Copilot CLI command reference).
+ */
+function ferramentasDoCopilot(palavras) {
+  const saida = []
+  const OPCAO = new RegExp(j('^--allow', '-tool(?:=(.*))?$'))
+  for (let i = 0; i < palavras.length; i++) {
+    const m = OPCAO.exec(palavras[i])
+    if (!m) continue
+    const v = m[1] !== undefined ? m[1] : palavras[i + 1]
+    if (typeof v === 'string') saida.push(...dividirFerramentasPorVirgula(v))
+  }
+  return saida
 }
 
 /** Splits a tool list at commas and blanks outside parentheses. */
@@ -808,9 +874,41 @@ function dividirFerramentas(texto) {
 }
 
 const SHELL_DO_GEMINI = new RegExp(j('^\\s*(?:run', '_shell', '_command|Shell', 'Tool)\\b'))
+const SHELL_INTEIRO_DO_GEMINI = new RegExp(
+  j('^\\s*(?:run', '_shell', '_command|Shell', 'Tool)\\s*$'),
+)
 const BYPASS_DO_CODEX = j('-', '-', 'dangerously-', 'bypass-', 'approvals-', 'and-', 'sandbox')
 const FREIO_DO_CODEX = j('-', '-', 'yo', 'lo')
 const SEM_SANDBOX = j('danger-', 'full-', 'access')
+
+/** Whether a Copilot tool entry (`copilot-allow-tools`, `--allow-tool`) grants the whole shell. */
+function copilotAmplo(t) {
+  if (t === 'shell') return true
+  const m = /^shell\s*\(([\s\S]*)\)$/.exec(t)
+  return m !== null && ehRegraAmpla(j('cla', 'ude'), j('Ba', 'sh(', m[1], ')'))
+}
+
+/**
+ * The Claude Code reasons in the words given to the CLI (claude_args, or the
+ * command a `run:` step starts) and in settings objects: the `settings` input,
+ * and each inline JSON `--settings` value among the words.
+ */
+function motivosDoClaude(palavras, settingsExtra, motivos) {
+  let amplo = ferramentasDasPalavras(palavras).some((f) => ehRegraAmpla(j('cla', 'ude'), f))
+  let aprova = false
+  for (const settings of [...settingsExtra, ...settingsDasPalavras(palavras)]) {
+    const permissoes =
+      ehMapa(settings) && ehMapa(settings.permissions) ? settings.permissions : null
+    if (permissoes && [j('bypass', 'Permissions'), 'auto'].includes(permissoes.defaultMode)) {
+      aprova = true
+    }
+    if (permissoes && Array.isArray(permissoes.allow)) {
+      amplo ||= permissoes.allow.some((f) => ehRegraAmpla(j('cla', 'ude'), f))
+    }
+  }
+  if (aprova) motivos.push('settings that approve every tool call')
+  return amplo
+}
 
 /** The reasons an agent step can run commands, from its inputs or its run text. */
 function motivosDeExecucao(dados, com, run, tabelas, campos) {
@@ -824,19 +922,16 @@ function motivosDeExecucao(dados, com, run, tabelas, campos) {
     const achados = varrerShell(`${j('cla', 'ude')} ${args}`, tabelas, { dialetos: ['posix'] })
     if (achados.some((a) => a.forca !== 'fraca'))
       motivos.push('the agent starts with its approval checks off')
-    const ferramentas = [
-      ...ferramentasDosArgs(com[j('cla', 'ude_args')]),
-      ...(com.allowed_tools !== undefined ? dividirFerramentas(comoTexto(com.allowed_tools)) : []),
-    ]
-    let amplo = ferramentas.some((f) => ehRegraAmpla(j('cla', 'ude'), f))
     const settings = jsonDaEntrada(com.settings)
-    const permissoes =
-      ehMapa(settings) && ehMapa(settings.permissions) ? settings.permissions : null
-    if (permissoes && [j('bypass', 'Permissions'), 'auto'].includes(permissoes.defaultMode)) {
-      motivos.push('settings that approve every tool call')
-    }
-    if (permissoes && Array.isArray(permissoes.allow)) {
-      amplo ||= permissoes.allow.some((f) => ehRegraAmpla(j('cla', 'ude'), f))
+    let amplo = motivosDoClaude(
+      palavrasDosArgs(comoTexto(com[j('cla', 'ude_args')])),
+      ehMapa(settings) ? [settings] : [],
+      motivos,
+    )
+    if (com.allowed_tools !== undefined) {
+      amplo ||= dividirFerramentas(comoTexto(com.allowed_tools)).some((f) =>
+        ehRegraAmpla(j('cla', 'ude'), f),
+      )
     }
     if (amplo) motivos.push('a whole-shell tool grant')
   }
@@ -850,7 +945,10 @@ function motivosDeExecucao(dados, com, run, tabelas, campos) {
         ...(Array.isArray(ferramentas.exclude) ? ferramentas.exclude : []),
         ...(Array.isArray(settings.excludeTools) ? settings.excludeTools : []),
       ]
-      const shellExcluido = excluidas.some((x) => SHELL_DO_GEMINI.test(String(x)))
+      // Only the bare tool name removes the shell: a scoped entry such as
+      // `run_shell_command(rm)` blocks that command prefix and keeps the rest
+      // (Gemini CLI docs/tools/shell.md, "Block specific command prefixes").
+      const shellExcluido = excluidas.some((x) => SHELL_INTEIRO_DO_GEMINI.test(String(x)))
       if (!Array.isArray(nucleo)) {
         if (!shellExcluido) motivos.push('every tool approved and no tool list')
       } else if (!shellExcluido && nucleo.some((x) => SHELL_DO_GEMINI.test(String(x)))) {
@@ -871,20 +969,15 @@ function motivosDeExecucao(dados, com, run, tabelas, campos) {
       const lidos = Array.isArray(jsonDaEntrada(bruto)) ? jsonDaEntrada(bruto) : null
       const palavras = lidos
         ? lidos.filter((x) => typeof x === 'string')
-        : comandosDoShell(`x ${comoTexto(bruto)}`).flatMap((c) => c.palavras)
+        : palavrasDosArgs(comoTexto(bruto))
       if (palavras.some((w) => w === BYPASS_DO_CODEX || w === FREIO_DO_CODEX)) {
         motivos.push('codex-args turn approval and the sandbox off')
       }
     }
   }
   if (dados.agente === j('copi', 'lot')) {
-    const itens = dividirFerramentasPorVirgula(valor('copilot-allow-tools'))
-    const amplo = itens.some((t) => {
-      if (t === 'shell') return true
-      const m = /^shell\s*\(([\s\S]*)\)$/.exec(t)
-      return m !== null && ehRegraAmpla(j('cla', 'ude'), j('Ba', 'sh(', m[1], ')'))
-    })
-    if (amplo) motivos.push('a whole-shell tool grant')
+    if (dividirFerramentasPorVirgula(valor('copilot-allow-tools')).some(copilotAmplo))
+      motivos.push('a whole-shell tool grant')
   }
   if (dados.agente === 'cli') {
     const achados = varrerShell(run, tabelas, { dialetos: ['posix', 'pwsh'] })
@@ -892,8 +985,17 @@ function motivosDeExecucao(dados, com, run, tabelas, campos) {
       motivos.push('the agent starts with its approval checks off')
     if (taintEm(run, campos).length)
       motivos.push('event text interpolated into the shell that starts the agent')
+    // The same grants the actions are judged by, read from the command itself:
+    // measured before, `--allowedTools Bash` failed the base action and was a
+    // note on the CLI.
+    let amplo = false
+    for (const { agente, palavras } of invocacoesDeAgente(run)) {
+      if (agente === j('cla', 'ude')) amplo ||= motivosDoClaude(palavras, [], motivos)
+      if (agente === j('copi', 'lot')) amplo ||= ferramentasDoCopilot(palavras).some(copilotAmplo)
+    }
+    if (amplo) motivos.push('a whole-shell tool grant')
   }
-  return motivos
+  return [...new Set(motivos)]
 }
 
 /** copilot-allow-tools splits at commas outside parentheses. */
@@ -951,13 +1053,32 @@ function contido(dados, com) {
 
 const ACAO_SCRIPT = /^actions\/github-script(?:@|$)/i
 
-/** Where an output of step `id` is spliced into a later script: its own job and, through job outputs, any job. */
+/**
+ * The expressions of a text with property indexing written as dots, the way
+ * taintEm reads chains: `steps['x'].outputs["y"]` reads as `steps.x.outputs.y`.
+ */
+const expressoesNormalizadas = (texto) =>
+  expressoesEm(texto).map((expr) =>
+    expr.replace(/\s*\[\s*(?:'([^']*)'|"([^"]*)")\s*\]/g, (_, a, b) => `.${a ?? b}`),
+  )
+
+/**
+ * Where an output of step `id` is spliced into a later script: its own job and,
+ * through job outputs, any job. A script splices it when one of its `${{ }}`
+ * expressions names the output, in dot or bracket spelling, or names an
+ * `env.<K>` whose value maps the output: the expression is substituted into the
+ * script before the shell reads it, unlike `$K`. The mapping counts from the
+ * step's own env and, for another job reading `needs`, from that job's env.
+ * Measured before: `outputs['response']`, `steps['inference']` and the
+ * `${{ env.R }}` hop were each a note where the dot spelling failed.
+ */
 function saidaEmExecucao(passos, indice, id, nomes, jobId, jobs) {
   if (typeof id !== 'string' || !nomes.length) return false
   const alternativas = nomes.join('|')
   const refPasso = new RegExp(
     `\\bsteps\\s*\\.\\s*${escapar(id)}\\s*\\.\\s*outputs\\s*\\.\\s*(?:${alternativas})(?![\\w-])`,
   )
+  const nomeia = (texto, ref) => expressoesNormalizadas(texto).some((e) => ref.test(e))
   const textosQueExecutam = (passo) => {
     if (!ehMapa(passo)) return []
     const saida = []
@@ -971,12 +1092,24 @@ function saidaEmExecucao(passos, indice, id, nomes, jobId, jobs) {
     }
     return saida
   }
-  if (passos.slice(indice + 1).some((p) => textosQueExecutam(p).some((t) => refPasso.test(t))))
-    return true
+  /** Whether a later step's scripts splice the output, directly or through an env key. */
+  const splica = (passo, ref, envDoJob) => {
+    const textos = textosQueExecutam(passo)
+    if (!textos.length) return false
+    if (textos.some((t) => nomeia(t, ref))) return true
+    const chaves = [envDoJob, ehMapa(passo) ? passo.env : null]
+      .filter(ehMapa)
+      .flatMap((env) => Object.entries(env).filter(([, v]) => nomeia(comoTexto(v), ref)))
+      .map(([k]) => escapar(k))
+    if (!chaves.length) return false
+    const refEnv = new RegExp(`\\benv\\s*\\.\\s*(?:${chaves.join('|')})(?![\\w-])`)
+    return textos.some((t) => nomeia(t, refEnv))
+  }
+  if (passos.slice(indice + 1).some((p) => splica(p, refPasso, null))) return true
   const job = jobs && jobId !== null ? jobs[jobId] : null
   if (!ehMapa(job) || !ehMapa(job.outputs)) return false
   const mapeadas = Object.entries(job.outputs)
-    .filter(([, v]) => refPasso.test(comoTexto(v)))
+    .filter(([, v]) => nomeia(comoTexto(v), refPasso))
     .map(([n]) => escapar(n))
   if (!mapeadas.length) return false
   const refJob = new RegExp(
@@ -986,30 +1119,53 @@ function saidaEmExecucao(passos, indice, id, nomes, jobId, jobs) {
     (outro) =>
       ehMapa(outro) &&
       Array.isArray(outro.steps) &&
-      outro.steps.some((p) => textosQueExecutam(p).some((t) => refJob.test(t))),
+      outro.steps.some((p) => splica(p, refJob, outro.env)),
   )
 }
 
-/** The conditions a job inherits: its own `if`, and its needs' unless it runs whatever they did. */
+/** A condition's text with its string literals blanked, for looking at its function calls. */
+const semLiterais = (c) => String(c).replace(/'(?:[^']|'')*'/g, "''")
+
+/**
+ * The conditions a job inherits. The runner keeps a job `if` as written when it
+ * calls a status function (always, cancelled, failure or success, in any letter
+ * case) and otherwise runs `success() && (<if>)` (actions/runner
+ * PipelineTemplateConverter.ConvertToIfCondition), and success() is false once
+ * a job it needs was skipped. So a job with no status function inherits the
+ * conditions of every job it needs, and one that calls one gets its own `if`
+ * with those conditions attached as `herdadas`, which decide its success()
+ * atoms: measured before, `if: Always()` and `if: success() || needs.gate.result
+ * == 'skipped'` behind an association gate job read as closed.
+ * Items are a condition, or { se, herdadas } (see avaliarItem).
+ */
 function condicoesDoJob(jobs, id, vistos = new Set()) {
   if (vistos.has(id)) return []
   vistos.add(id)
   const job = jobs[id]
   if (!ehMapa(job)) return []
-  const proprias = job.if !== undefined && job.if !== null ? [job.if] : []
-  if (
-    proprias.some(
-      (c) => typeof c === 'string' && /\b(?:always|failure|cancelled)\s*\(\s*\)/.test(c),
-    )
-  ) {
-    return proprias
-  }
   const precisa =
     typeof job.needs === 'string' ? [job.needs] : Array.isArray(job.needs) ? job.needs : []
-  return [
-    ...proprias,
-    ...precisa.filter((n) => typeof n === 'string').flatMap((n) => condicoesDoJob(jobs, n, vistos)),
-  ]
+  const herdadas = precisa
+    .filter((n) => typeof n === 'string')
+    .flatMap((n) => condicoesDoJob(jobs, n, vistos))
+  if (job.if === undefined || job.if === null) return herdadas
+  const status =
+    typeof job.if === 'string' &&
+    /(?<![\w.])(?:always|failure|cancelled|success)\s*\(\s*\)/i.test(semLiterais(job.if))
+  return status ? [{ se: job.if, herdadas }] : [job.if, ...herdadas]
+}
+
+/**
+ * One inherited condition judged for a trigger: a plain condition, or a job `if`
+ * with a status function, whose success() is false when any condition it
+ * inherits is false and unknown otherwise.
+ */
+function avaliarItem(item, gatilhoNome, opcoes) {
+  if (ehMapa(item) && 'se' in item) {
+    const sucesso = item.herdadas.some((h) => avaliarItem(h, gatilhoNome, opcoes) === F) ? F : U
+    return avaliarCondicao(item.se, gatilhoNome, { ...opcoes, sucesso })
+  }
+  return avaliarCondicao(item, gatilhoNome, opcoes)
 }
 
 /** The `inputs.<name>` references in the expressions of a value. */
@@ -1096,9 +1252,13 @@ function analisarWorkflow(caminho, texto, contexto, t) {
   }
 
   // gh-aw lock files: the compiler writes its own role check; never a failure.
-  if (ehLockDoGhAw(texto)) {
+  // Recognised by the structure it writes (lockDoGhAw), and the roles are read
+  // from the parsed env of the jobs the agent job needs: a pasted header comment
+  // and a roles string in a comment made a plain workflow silent before.
+  const lock = lockDoGhAw(texto, caminho)
+  if (lock) {
     if (!fora.length) return { itens, notas, agentes }
-    const papeis = [...texto.matchAll(/GH_AW_REQUIRED_ROLES:\s*"([^"]*)"/g)].map((m) => m[1])
+    const papeis = lock.papeis
     const restrito = papeis.length > 0 && papeis.every((p) => !/(?:^|,)\s*all\s*(?:,|$)/i.test(p))
     if (!restrito) {
       itens.push({
@@ -1181,7 +1341,7 @@ function analisarWorkflow(caminho, texto, contexto, t) {
           itens.push({
             severidade: r.veredito,
             texto: cabeca + r.cauda,
-            arquivos: [caminho, alvo, ...acima],
+            arquivos: [caminho, contexto.real(alvo), ...acima],
           })
         })
       }
@@ -1197,10 +1357,24 @@ function analisarWorkflow(caminho, texto, contexto, t) {
       // A local composite action, one level down.
       if (ehMapa(passo) && typeof passo.uses === 'string' && passo.uses.trim().startsWith('./')) {
         const pasta = posix.normalize(passo.uses.trim().replace(/\/+$/, ''))
-        const arquivoAcao = [`${pasta}/action.yml`, `${pasta}/action.yaml`]
-          .map((c) => (c.startsWith('./') ? c.slice(2) : c))
-          .find((c) => contexto.yaml(c))
-        if (!arquivoAcao) return
+        const candidatos = [`${pasta}/action.yml`, `${pasta}/action.yaml`].map((c) =>
+          c.startsWith('./') ? c.slice(2) : c,
+        )
+        const achado = candidatos.find((c) => contexto.yaml(c))
+        if (!achado) {
+          // The runner reads a local action from the checked-out workspace, where
+          // the file system follows a link; one this reader cannot follow is said.
+          if (fora.length && candidatos.some((c) => contexto.quebrado(c))) {
+            const onde2 = lugar(ponteiro)
+            notas.aninhados.push(
+              `${onde(caminho, onde2.linha, onde2.coluna)} local action behind a link that resolves nowhere`,
+            )
+          }
+          return
+        }
+        // Measured before: a composite action behind a tracked folder link read
+        // as no agent step at all; the finding names the file the link ends at.
+        const arquivoAcao = contexto.real(achado)
         const acaoLida = contexto.yaml(arquivoAcao).valor
         const runs = ehMapa(acaoLida.runs) ? acaoLida.runs : {}
         if (String(runs.using).toLowerCase() !== 'composite' || !Array.isArray(runs.steps)) return
@@ -1283,14 +1457,23 @@ function analisarWorkflow(caminho, texto, contexto, t) {
   return { itens, notas, agentes }
 }
 
-/** Whether the raw text of a workflow names an agent action or starts an agent CLI. */
+/**
+ * Whether the raw text of a workflow names an agent action or starts an agent
+ * CLI. Every token of a line that holds a path separator is tried as a `uses`,
+ * wherever it sits: after an anchor or tag, inside a flow mapping step, or on
+ * the line below a folded `uses: >-`. Measured before: `uses: &a <action>` and
+ * `- {uses: <action>}` in a workflow with a tag this reader refuses were a note.
+ */
 function nomeiaAgente(texto, t) {
   for (const bruta of String(texto).split('\n')) {
-    const usa = /^\s*(?:-\s+)?["']?uses["']?\s*:\s*["']?([^"'\s#]+)/.exec(bruta)
-    if (usa && acaoDoUses(usa[1], t.acoes)) return true
+    const semComentario = bruta.replace(/(?:^|\s)#.*$/, '')
+    for (const ficha of semComentario.split(/[\s"'{}[\],]+/)) {
+      const alvo = ficha.replace(/^(?:[&!*][^\s]*$|uses:)/, '')
+      if (/[/\\]/.test(alvo) && acaoDoUses(alvo, t.acoes)) return true
+    }
     const linha = bruta.replace(/^\s*(?:-\s+)?(?:["']?run["']?\s*:\s*[|>]?[-+0-9]*)?\s*/, '')
     if (!linha || linha.startsWith('#')) continue
-    if (comandosDoShell(linha).some((c) => agenteDoComando(c.palavras))) return true
+    if (invocacoesDeAgente(linha).length) return true
   }
   return false
 }
@@ -1319,7 +1502,7 @@ function julgarPasso({
   let rotulo = row ? row.explicacao.slice(0, row.explicacao.indexOf(':')) : null
   let dados = row ? row.dados : null
   const run = typeof passo.run === 'string' ? passo.run : ''
-  if (!dados && run && comandosDoShell(run).some((c) => agenteDoComando(c.palavras))) {
+  if (!dados && run && invocacoesDeAgente(run).length) {
     dados = {
       agente: 'cli',
       portao: null,
@@ -1336,7 +1519,11 @@ function julgarPasso({
   const alcance = fora.filter((g) =>
     condicoes.every(
       ([c, comEntradas]) =>
-        avaliarCondicao(c, g, { comEntradas, GATILHOS_DE_FORA: t.gatilhos }) !== F,
+        avaliarItem(c, g, {
+          comEntradas,
+          GATILHOS_DE_FORA: t.gatilhos,
+          repositorio: t.repositorio,
+        }) !== F,
     ),
   )
   let abertoPor = null
@@ -1445,10 +1632,17 @@ function julgarPasso({
 
 const WORKFLOW = /^\.github\/workflows\/[^/]+\.ya?ml$/
 
-export function achadosDosWorkflows(arquivos, tabelas) {
-  const t = validarTabelas(tabelas)
+export function achadosDosWorkflows(
+  arquivos,
+  tabelas,
+  { repositorio = null, apelidos = new Map(), ligacoesQuebradas = [] } = {},
+) {
+  const t = { ...validarTabelas(tabelas), repositorio }
   const cache = new Map()
+  // A path reached through a tracked link reads the file the link ends at.
+  const real = (caminho) => apelidos.get(caminho) || caminho
   const yaml = (caminho) => {
+    caminho = real(caminho)
     if (cache.has(caminho)) return cache.get(caminho)
     const texto = arquivos.get(caminho)
     let r = null
@@ -1471,7 +1665,9 @@ export function achadosDosWorkflows(arquivos, tabelas) {
           (typeof lido.valor.name === 'string' ? lido.valor.name === nome : caminho === nome),
       )
       .map(({ caminho, lido }) => ({ caminho, raiz: lido.valor }))
-  const contexto = { yaml, porNome }
+  const quebrado = (caminho) =>
+    ligacoesQuebradas.some((a) => caminho === a || caminho.startsWith(`${a}/`))
+  const contexto = { yaml, porNome, real, quebrado }
   const itens = []
   const notas = { ilegiveis: [], invalidos: [], aninhados: [] }
   let agentes = 0
@@ -1534,7 +1730,30 @@ export function checarWorkflowDeAgente(r, tabelas) {
   if (naoYaml)
     notasDeLeitura.push(`${plural(naoYaml, 'workflow is', 'workflows are')} not YAML text`)
 
-  const { itens, notas, agentes, workflows: lidos } = achadosDosWorkflows(arquivos, tabelas)
+  // Action files behind a tracked link, by the path a workflow names, to the
+  // real file the link ends at; and the links that end nowhere.
+  const apelidos = new Map()
+  const ligacoesQuebradas = []
+  for (const e of indice.entradas) {
+    if (!e.symlink && !e.viaSymlink) continue
+    if (e.symlink && e.symlink.externo) {
+      ligacoesQuebradas.push(e.caminho)
+      continue
+    }
+    const fonte = indice.origem.get(e)
+    if (fonte && arquivos.has(fonte.caminho) && /(?:^|\/)action\.ya?ml$/.test(e.caminho))
+      apelidos.set(e.caminho, fonte.caminho)
+  }
+  const {
+    itens,
+    notas,
+    agentes,
+    workflows: lidos,
+  } = achadosDosWorkflows(arquivos, tabelas, {
+    repositorio: repositorioDeOrigem(r.dir),
+    apelidos,
+    ligacoesQuebradas,
+  })
   const oids = new Map(reais.map((e) => [e.caminho, e.oid]))
 
   // An exemption needs an entry for EVERY file the finding depends on: the

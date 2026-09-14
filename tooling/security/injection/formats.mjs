@@ -1156,15 +1156,45 @@ function lerYamlEm(fonte, inicio, fim, { ancoras = false } = {}) {
       if ('&*!'.includes(c)) falhar('anchors, aliases and tags are not supported', li, k)
       if (c === '@' || c === '`')
         falhar('a plain scalar cannot start with a reserved indicator', li, k)
-      const inicio = k
-      while (k < t.length) {
-        const d = t[k]
-        if (d === ',' || d === '[' || d === ']' || d === '{' || d === '}') break
-        if (d === ':' && (k + 1 >= t.length || ' \t,[]{}'.includes(t[k + 1]))) break
-        if (comentarioComeca(t, k)) break
-        k++
+      // A plain scalar in a flow collection may go on over more lines, which
+      // fold into one space, or a line break per blank line (YAML 1.2 example
+      // 7.14). Measured before: a branch list wrapped across two lines read as
+      // invalid YAML, which lowered a failing agent workflow to a note.
+      const fimDoIndicador = (linha, p) =>
+        linha[p] === ',' ||
+        linha[p] === '[' ||
+        linha[p] === ']' ||
+        linha[p] === '{' ||
+        linha[p] === '}' ||
+        (linha[p] === ':' && (p + 1 >= linha.length || ' \t,[]{}'.includes(linha[p + 1])))
+      let linhaAtual = t
+      let inicio = k
+      let s = ''
+      for (;;) {
+        while (k < linhaAtual.length) {
+          if (fimDoIndicador(linhaAtual, k) || comentarioComeca(linhaAtual, k)) break
+          k++
+        }
+        s += linhaAtual.slice(inicio, k).trim()
+        if (k < linhaAtual.length) break
+        let proxima = li + 1
+        let vazias = 0
+        while (proxima < total && linhas[proxima].texto.trim() === '') {
+          proxima++
+          vazias++
+        }
+        if (proxima >= total) break
+        const t2 = linhas[proxima].texto
+        let k2 = 0
+        while (t2[k2] === ' ' || t2[k2] === '\t') k2++
+        if (fimDoIndicador(t2, k2) || t2[k2] === '#' || marcaDeDocumento(t2)) break
+        s += vazias ? '\n'.repeat(vazias) : ' '
+        li = proxima
+        k = k2
+        inicio = k2
+        linhaAtual = t2
       }
-      return resolverPlano(t.slice(inicio, k).trim())
+      return resolverPlano(s)
     }
     const noDeFluxo = (p, prof) => {
       if (prof > PROFUNDIDADE_MAXIMA) falhar(`nesting deeper than ${PROFUNDIDADE_MAXIMA}`, li, k)
