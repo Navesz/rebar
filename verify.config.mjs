@@ -1174,8 +1174,17 @@ export default [
     // because nothing asked whether it had found anything.
     nome: 'secret-proofs',
     comando: node('--test', 'tooling/secret/prove-scan.mjs'),
-    exige: ['tooling/secret/prove-scan.mjs'],
-    dica: 'The secret scanner stopped finding what it used to find. If the complaint is about encoding, it is `decodificar()` -- the UTF-16 BOM goes back to being NUL and the token comes out one character per line.',
+    // The proofs also read texto-seguro (the invisible-code-point table the
+    // scanner duplicates) and rebar-check (the proof roots it duplicates): the
+    // scanner is copied alone into generated projects, so those two locks are
+    // text comparisons, and they need both files present.
+    exige: [
+      'tooling/secret/prove-scan.mjs',
+      'tooling/secret/scan-secret.mjs',
+      'tooling/security/texto-seguro.mjs',
+      'tooling/rebar-check/index.mjs',
+    ],
+    dica: 'The secret scanner stopped finding what it used to find. If the complaint is about encoding, it is `decodificar()` -- the UTF-16 BOM goes back to being NUL and the token comes out one character per line. About an escape, it is ALCANCE_DA_MARCA and the marker loop in varrerLinha(); about a caso.json, raizesDeProvaValidas(); about an invisible code point, projetar().',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
   },
   {

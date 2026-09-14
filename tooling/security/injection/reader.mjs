@@ -132,9 +132,11 @@ import { escaparSaida } from '../texto-seguro.mjs'
 import { FORMATO_POR_EXTENSAO, lerJsonc, lerToml, lerYaml } from './formats.mjs'
 
 /**
- * The same ceiling as tooling/secret/scan-secret.mjs:91. A blob above it is
- * read truncated and SAID so, per entry: an 8 MiB instruction file is already
- * an anomaly, and reading it whole would let one blob blow the process memory.
+ * The same ceiling as `LIMITE_BYTES` in tooling/secret/scan-secret.mjs, named
+ * and not cited by line: a line number there went stale when that file's header
+ * grew by 40 lines. A blob above it is read truncated and SAID so, per entry: an
+ * 8 MiB instruction file is already an anomaly, and reading it whole would let
+ * one blob blow the process memory.
  */
 export const LIMITE_DE_BLOB = 8 * 1024 * 1024
 

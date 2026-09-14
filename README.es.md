@@ -194,7 +194,7 @@ sea avisada antes de escribir, y no después.
 El artefacto es **derivado, nunca duplicado**: `npm run verify` lo regenera en memoria y falla
 si el disco diverge. Es imposible cambiar una regla y olvidar el MCP.
 
-Lleva <!--n mcp.artefato.regras-->33<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->26<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->124<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
+Lleva <!--n mcp.artefato.regras-->33<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->26<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->125<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
 
 ## Mapa del repositorio
 
@@ -203,7 +203,7 @@ Lleva <!--n mcp.artefato.regras-->33<!--/n--> reglas de dos módulos, <!--n mcp.
 | `tooling/rebar-check/` | la regla de formato y sus <!--n proofs.casos-->69<!--/n--> casos de prueba |
 | `tooling/security/` | la regla de seguridad |
 | `tooling/verify/` | el ejecutor de la compuerta y las pruebas por mutación de sus pasos |
-| `tooling/secret/` | el escáner de secretos, y las seis pruebas de detección |
+| `tooling/secret/` | el escáner de secretos, y las <!--n secret.provas-->31<!--/n--> pruebas de detección |
 | `new/` | el generador: plantillas, compuerta, y las pruebas del mapa de archivos |
 | `mcp/` | el artefacto generado y el servidor que lo sirve |
 | `docs/PLANO.md` | el manuscrito único: taxonomía, decisiones y la revisión adversarial |

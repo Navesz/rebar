@@ -191,7 +191,7 @@ avisada antes de escrever, e não depois.
 O artefato é **derivado, nunca duplicado**: o `npm run verify` o regenera em memória e reprova
 se o disco divergir. É impossível mudar uma regra e esquecer o MCP.
 
-Ele carrega <!--n mcp.artefato.regras-->33<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->26<!--/n--> passos de portão e <!--n mcp.artefato.provas-->124<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
+Ele carrega <!--n mcp.artefato.regras-->33<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->26<!--/n--> passos de portão e <!--n mcp.artefato.provas-->125<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
 
 ## Mapa do repositório
 
@@ -200,7 +200,7 @@ Ele carrega <!--n mcp.artefato.regras-->33<!--/n--> regras de dois módulos, <!-
 | `tooling/rebar-check/` | a régua de formato e seus <!--n proofs.casos-->69<!--/n--> casos de prova |
 | `tooling/security/` | a régua de segurança |
 | `tooling/verify/` | o executor do portão e as provas por mutação dos passos |
-| `tooling/secret/` | o varredor de segredo, e as seis provas de detecção |
+| `tooling/secret/` | o varredor de segredo, e as <!--n secret.provas-->31<!--/n--> provas de detecção |
 | `new/` | o gerador: moldes, portão, e as provas do mapa de arquivos |
 | `mcp/` | o artefato gerado e o servidor que o serve |
 | `docs/PLANO.md` | o manuscrito único: taxonomia, decisões e a revisão adversarial |
