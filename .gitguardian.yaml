@@ -26,10 +26,11 @@
 #
 # The house's own scanner solves the same problem by a different route and does
 # not need this file: `tooling/secret/scan-secret.mjs` recognises proof material
-# by the `caso.json` marker in an ancestor directory, still READS and COUNTS the
-# file, and prints how many findings it declined to charge. Silence there would
-# be worse than a false positive. This file cannot do that — it is a path list —
-# so it stays as small as the fact allows.
+# by a `caso.json` with a schema under the two literal proof roots, read from the
+# index under --staged, still READS and COUNTS the file, and prints how many
+# findings it declined to charge. Silence there would be worse than a false
+# positive. This file cannot do that — it is a path list — so it stays as small
+# as the fact allows.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # AND IT DOES NOT WORK FOR THE CHECK ON THE PULL REQUEST. Measured, not assumed:

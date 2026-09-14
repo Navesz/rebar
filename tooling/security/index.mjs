@@ -161,9 +161,10 @@ const corpo = (dir, rel) => {
 
 // ───────────────────────────────────── the existing scanner, run and not copied
 //
-// `tooling/secret/scan-secret.mjs` is 900 lines of detection that was rewritten
-// after an adversarial audit closed seven measured holes in it. None of that is
-// re-typed here. The reuse is a SUBPROCESS, and the shape was not a choice:
+// `tooling/secret/scan-secret.mjs` is 1,360 lines of detection that was rewritten
+// after an adversarial audit closed seven measured holes in it, and a second
+// audit on 2026-09-13 closed three more. None of that is re-typed here. The
+// reuse is a SUBPROCESS, and the shape was not a choice:
 // that file exports nothing and runs on import — it calls git at the top level
 // and ends in `process.exit`, so `import` would scan on load and kill this
 // process. Reading its `--json` is the closest thing to a single source that
@@ -172,7 +173,8 @@ const corpo = (dir, rel) => {
 // The property that buys is worth more than the elegance it costs: this rule
 // cannot invent a finding the hook would not have made, nor miss one the hook
 // makes. Every placeholder list, every vendor prefix, the `rebar-segredo-ok:`
-// escape and the seven closed holes arrive here for free and stay in one place.
+// escape (now scoped to the one finding it follows) and the ten closed holes
+// arrive here for free and stay in one place.
 //
 // DEBT, written down because paying it is not this module's to pay: with the
 // rules table and the line scan EXPORTED from that file, this becomes an
@@ -437,8 +439,10 @@ export const REGRAS = [
       // `rebar-segredo-ok:` is not prose either: it is the escape token
       // `tooling/secret/scan-secret.mjs` matches, and renaming it voids every
       // escape already written in the audited repositories. Only the
-      // justification after the colon is English — the token demands `\s*\S+`
-      // after it, and it gets it.
+      // justification after the colon is English — the token demands a reason
+      // that starts with a character neither whitespace nor default-ignorable,
+      // right after the finding and within 256 characters of it, and it gets
+      // both.
       const SENHA = '(?:password|senha|passwd|pwd)' // rebar-segredo-ok: regex vocabulary, not a credential -- it is the list the rule LOOKS FOR
       const LENTA = /\b(bcrypt|argon2|scrypt|pbkdf2)\b/i
       const RAPIDA =
@@ -533,19 +537,26 @@ export const REGRAS = [
         .filter((a) => a.caminho.startsWith(prefixo))
         .map((a) => ({ ...a, caminho: a.caminho.slice(prefixo.length) }))
 
-      // PROOF MATERIAL, BY THE MARKER THE TOOLKIT ALREADY USES — and this is the
-      // false positive that decides whether the rule is usable at all. This
-      // repository tracks 345 case files stuffed with credentials that are fake
-      // on purpose, including the two `fail/` trees that exist to prove THIS
-      // rule fails what it should. Without this filter the rule accuses the
-      // proofs that keep it honest, which is the same problem `scan-secret.mjs`
-      // already solved for a tracked `.env` and solved this same way.
+      // PROOF MATERIAL, BY THE MARKER THE TOOLKIT ALREADY USES. This repository
+      // tracks case files stuffed with credentials that are fake on purpose,
+      // including the `fail/` trees that exist to prove THIS rule fails what it
+      // should.
       //
-      // `r.ignorados.raizesDeProva` is not a second mechanism: it is the list of
-      // `caso.json` roots `semFixtures` already VALIDATED — only under a literal
-      // proof root and only with the schema —, which is strictly harder to forge
-      // than "some ancestor has a caso.json". A `mkdir` plus an empty object
-      // does not hide a key here.
+      // The scanner itself now exempts only VALIDATED roots: a tracked
+      // `caso.json` with the schema, under a literal proof root, read from the
+      // index under `--staged` (HOLE 9 of its header). `r.ignorados.raizesDeProva`
+      // is the same validation done by `semFixtures`. So "a `mkdir` plus an empty
+      // object does not hide a key" is now true of BOTH — and it was false until
+      // that change: on the previous scanner, an empty untracked caso.json made
+      // this rule pass (measured, and locked by the
+      // `hardcoded-secret__marker-outside-root` case).
+      //
+      // WHAT THIS FILTER IS, measured and not assumed: an EXEMPTION, not a lock.
+      // It can only remove findings, and at the git root it is a no-op — with it
+      // deleted, this rule still passou on rebar, because the scanner already
+      // dropped every proof-fixture finding. It changes a verdict only when the
+      // target is NOT the git root (rebar vendored under a subfolder, say): the
+      // scanner's roots are relative to the git root, `lerRepo`'s to the target.
       //
       // `.rebarignore` is deliberately NOT honoured. It is a declared bypass for
       // vendor and generated material, and style debt is not a credential: one
@@ -560,7 +571,10 @@ export const REGRAS = [
       // find the line without carrying the credential one hop further.
       const onde = achados
         .slice(0, 12)
-        .map((a) => `${a.caminho}:${a.linha}:${a.coluna} (${a.regra})`)
+        .map(
+          (a) =>
+            `${a.caminho}:${a.linha}:${a.coluna} (${a.regra}${a.invisiveis?.length ? `, hidden ${a.invisiveis.join('')}` : ''})`,
+        )
       const resto = achados.length > onde.length ? ` …and ${achados.length - onde.length} more` : ''
       const cobertura = naoLidos
         ? ` · this verdict does not cover ${naoLidos} file(s) the scanner could not read whole`

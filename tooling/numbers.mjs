@@ -500,6 +500,18 @@ function grupoDominio() {
 }
 
 /**
+ * The secret scanner's detection proofs. The READMEs said "the six detection
+ * proofs" in words, and the count went from 6 to 28 in one change: a number
+ * written by hand is the number that goes stale first.
+ */
+function grupoSegredo() {
+  const rel = 'tooling/secret/prove-scan.mjs'
+  const testes = [...ler(rel).matchAll(/^\s*test\(/gm)].length
+  exigir(testes, `${rel}: no test( matched — the suite changed shape`)
+  return { 'secret.provas': `${testes}` }
+}
+
+/**
  * Group → the sources it REQUIRES. The same table decides what is generated and
  * what is compared, so that deriving and checking never diverge.
  */
@@ -524,6 +536,7 @@ const GRUPOS = [
     exige: ['domains/privilegio-de-banco/privilegio.test.mjs'],
     montar: grupoDominio,
   },
+  { chave: 'segredo', exige: ['tooling/secret/prove-scan.mjs'], montar: grupoSegredo },
 ]
 
 /** Derives what this tree can derive, and says what was left out. */

@@ -191,7 +191,7 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->124<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->125<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 
@@ -200,7 +200,7 @@ It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n
 | `tooling/rebar-check/` | the format ruler and its <!--n proofs.casos-->69<!--/n--> proof cases |
 | `tooling/security/` | the security ruler |
 | `tooling/verify/` | the gate runner and the mutation proofs of its steps |
-| `tooling/secret/` | the secret scanner, and the six detection proofs |
+| `tooling/secret/` | the secret scanner, and the <!--n secret.provas-->28<!--/n--> detection proofs |
 | `new/` | the generator: templates, gate, and the file-map proofs |
 | `mcp/` | the generated artifact and the server that serves it |
 | `docs/PLANO.md` | the single manuscript: taxonomy, decisions, and the adversarial review |

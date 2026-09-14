@@ -26,8 +26,10 @@
 //      "ghp_…" }` — a line any project writes. Now the placeholder is tested
 //      against the MATCHED SPAN, never against the line, and the vendor rules
 //      (fixed prefix + length) only accept a disabler that sits INSIDE the token
-//      itself: a 40-character `ghp_` is an example of nothing. Turning off the
-//      whole line only through the escape hatch `rebar-segredo-ok:`.
+//      itself: a 40-character `ghp_` is an example of nothing. The escape hatch
+//      `rebar-segredo-ok:` is the only thing left that releases a finding, and
+//      since hole 8 it releases only the finding it follows, within
+//      ALCANCE_DA_MARCA, never the whole line.
 //
 //   3. SIX SILENT EXITS. The same `ghp_` came in through vendor/, build/, .svg,
 //      a file >512 KB, a line >2000 characters and a file with a NUL byte — all
@@ -57,20 +59,58 @@
 //      C-quoted, readFileSync failed and the failure was swallowed. Every path
 //      listing now uses `-z` (NUL), which does not go through quoting.
 // ─────────────────────────────────────────────────────────────────────────────
+// REOPENED BY THE 2026-09-13 AUDIT. Three more roads for the same `ghp_`, each
+// reproduced on the previous version before it was closed:
+//
+//   8. ONE MARKER SILENCED A MINIFIED FILE. The escape was tested against the
+//      WHOLE line before any rule ran, and a minified bundle is one line: a
+//      marker written after the first value silenced a second value 48,050
+//      characters further on — 2 findings became 0. Now one marker releases
+//      ONE finding, the nearest one that ENDS at most ALCANCE_DA_MARCA (256)
+//      UTF-16 units before the marker starts, and only when a readable reason
+//      follows the colon. A marker before the value, or inside it, releases
+//      nothing. What was released is counted and printed.
+//
+//   9. ANY caso.json EXEMPTED. A `caso.json` in ANY ancestor directory, checked
+//      on DISK even under `--staged`, took every finding below it out of the
+//      scan: an empty, untracked src/caso.json hidden by .git/info/exclude, or
+//      a directory with that name, gave exit 0 in the hook and in tracked mode,
+//      and `hardcoded-secret` passou with it. Now a marker counts only when it
+//      is tracked as a regular file, under one of the literal RAIZES_DE_PROVA,
+//      with the rebar-check schema, and read from the INDEX under `--staged`.
+//      rebar's 124 existing markers stayed valid, 127 with the case that proves
+//      this. The roots are literal PATHS, not a check that the repository is
+//      rebar: any repository that creates them gets the exemption, but only
+//      for files below a tracked, schema-valid marker.
+//
+//  10. AN INVISIBLE CODE POINT HID A TOKEN. U+200B, U+200D, U+2060, U+00AD,
+//      U+FEFF, U+E0041, U+180E or U+3164 inside a `ghp_` value: 8 of 8 gave 0
+//      findings, because a renderer draws them as nothing and every vendor
+//      pattern breaks on them. Now a line that holds a Default_Ignorable code
+//      point is ALSO scanned with those code points removed; the finding keeps
+//      the ORIGINAL column and names what was hidden as `<U+XXXX>`. Measured:
+//      0 extra findings on 2,978 such lines in 25 repositories and on 2,781 in
+//      369 node_modules files.
+//      NOT A GOAL: fullwidth forms, homoglyphs, concatenation, encodings. The
+//      threat is the ACCIDENTAL commit — a rich-text copy inserts U+00AD,
+//      U+200B or U+FEFF that no reviewer sees. Deliberate obfuscation is beyond
+//      what a hook can promise: rebar's own proofs defeat this scanner with a
+//      prefix and a remainder joined by `+`.
+// ─────────────────────────────────────────────────────────────────────────────
 //
 // Usage:
 //   node scan-secret.mjs              everything Git tracks
 //   node scan-secret.mjs --staged     only what is staged (hook)
 //   node scan-secret.mjs --json
 //
-// Escape hatch, on the finding's line:  // rebar-segredo-ok: <reason>
+// Escape hatch, right after the finding on its line (within 256 characters):  // rebar-segredo-ok: <reason>
 // The token stays Portuguese on purpose: it is a CONTRACT with the user, already
 // written into the audited repositories. Renaming it voids every escape already
 // in place. Without a written reason it does not count — suppression without
 // justification is exactly the workaround this tool exists to prevent.
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
+import { closeSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const args = process.argv.slice(2)
@@ -102,10 +142,82 @@ const SOBREPOSICAO = 200
 // LIMITE_BYTES never enter the batch, so the batch only grows by count.
 const LOTE_BYTES = 32 * 1024 * 1024
 
+/**
+ * Default_Ignorable_Code_Point, UCD 17.0.0: 17 ranges, 4174 code points. A
+ * renderer may draw every one of them as nothing, which is what made HOLE 10.
+ *
+ * A LITERAL COPY of `IGNORAVEIS` in tooling/security/texto-seguro.mjs, and
+ * `tooling/secret/prove-scan.mjs` fails the moment the two differ. It cannot be
+ * an import: this file is copied ALONE into every generated project's hooks.
+ * Why numbers and not `\p{Default_Ignorable_Code_Point}`:
+ *   · `\p{}` resolves against the ICU of whatever Node runs the hook. The set
+ *     agrees on Node 22 and 24 today; a literal keeps a future ICU from moving
+ *     the verdict of the same bytes without a diff here.
+ *   · texto-seguro's own proof holds this exact table equal to `\p{}`, so the
+ *     scanner and the security module mean the same set.
+ *   · no escaped invisible is spelled in the source, which is what the
+ *     hidden-Unicode checks of this repository look for.
+ */
+const IGNORAVEIS = [
+  [0x00ad, 0x00ad],
+  [0x034f, 0x034f],
+  [0x061c, 0x061c],
+  [0x115f, 0x1160],
+  [0x17b4, 0x17b5],
+  [0x180b, 0x180f],
+  [0x200b, 0x200f],
+  [0x202a, 0x202e],
+  [0x2060, 0x206f],
+  [0x3164, 0x3164],
+  [0xfe00, 0xfe0f],
+  [0xfeff, 0xfeff],
+  [0xffa0, 0xffa0],
+  [0xfff0, 0xfff8],
+  [0x1bca0, 0x1bca3],
+  [0x1d173, 0x1d17a],
+  [0xe0000, 0xe0fff],
+]
+
+// The class body is built from the numbers at runtime, `\u{…}` in a string, so
+// the regex and the table can never disagree.
+const CLASSE_IGNORAVEL = IGNORAVEIS.map(
+  ([a, b]) => `\\u{${a.toString(16)}}-\\u{${b.toString(16)}}`,
+).join('')
+const RE_IGNORAVEL = new RegExp(`[${CLASSE_IGNORAVEL}]`, 'u')
+const RE_IGNORAVEL_G = new RegExp(`[${CLASSE_IGNORAVEL}]`, 'gu')
+
+/** `<U+XXXX>`: uppercase hex, at least 4 digits, the form texto-seguro prints. */
+const rotuloDoCodigo = (cp) => `<U+${cp.toString(16).toUpperCase().padStart(4, '0')}>`
+
 // The token stays Portuguese, and it is not prose: it is the escape hatch
 // already written into the audited repositories. Renaming it voids every escape
 // in place — see the header.
-const MARCA_LIBERACAO = /rebar-segredo-ok:\s*\S+/
+//
+// The reason must START with a character that is neither whitespace nor
+// default-ignorable. `\s*\S+` accepted a lone U+200B as the justification, a
+// reason nobody can read. Measured: 0 of the 36 markers in 25 repositories have
+// an empty or invisible reason, so the tightening voids none of them.
+const MARCA_LIBERACAO = new RegExp(
+  'rebar-segredo-ok:[\\s' + CLASSE_IGNORAVEL + ']*[^\\s' + CLASSE_IGNORAVEL + ']',
+  'gu',
+)
+
+/**
+ * HOLE 8. How far BEFORE the marker a finding may END and still be released.
+ *
+ * Measured over 25 repositories: 36 marker occurrences, and only 10 of them
+ * actually release something, each alone on its line. Two are escapes a person
+ * wrote, with gaps of 4 and 5 (security/index.mjs and the pass side of the
+ * `hardcoded-secret` case); the other eight are copies of this scanner's own
+ * documentation lines about PLACEHOLDER, with gaps from 10 to 21. The attack
+ * gap was 48,050. 256 leaves room for a padded table cell or a long comment
+ * opener and still keeps a marker from reaching across a minified bundle.
+ *
+ * One marker releases ONE finding, the nearest that ends before it. With every
+ * measured escape alone on its line, that costs none of them, and it keeps one
+ * marker from releasing the five vendor tokens that fit in 256 units.
+ */
+const ALCANCE_DA_MARCA = 256
 
 /**
  * Placeholders are the main source of false positives, and a rule with a false
@@ -520,17 +632,51 @@ function caminhosParaVarrer() {
 // many files the commit has. Measured: rebar's whole 106 tracked files staged,
 // scanned through the index, take 381–432 ms across three runs — the hook has a
 // 5 s budget.
-function conteudosDoIndice(caminhos) {
-  const desejados = new Set(caminhos)
-  const oidPorCaminho = new Map()
+let registrosMemo = null
+
+/**
+ * Every index entry, `caminho -> { modo, oid, estagio }`, from ONE `ls-files -s`
+ * however many times it is asked for: the staged content and the proof-marker
+ * check (HOLE 9) both read it, and a second process per commit buys nothing.
+ */
+function registrosDoIndice() {
+  if (registrosMemo) return registrosMemo
+  registrosMemo = new Map()
   for (const registro of git(['ls-files', '-s', '-z']).split('\0')) {
     if (!registro) continue
     const tabulacao = registro.indexOf('\t')
     if (tabulacao === -1) continue
-    const caminho = registro.slice(tabulacao + 1)
-    if (!desejados.has(caminho)) continue
     // format: "<mode> <oid> <stage>\t<path>"
-    oidPorCaminho.set(caminho, registro.slice(0, tabulacao).split(' ')[1])
+    const [modo, oid, estagio] = registro.slice(0, tabulacao).split(' ')
+    registrosMemo.set(registro.slice(tabulacao + 1), { modo, oid, estagio })
+  }
+  return registrosMemo
+}
+
+/** One `cat-file --batch` for a list of OIDs, `oid -> Buffer`. */
+function blobsDoIndice(oids) {
+  const conteudo = new Map()
+  if (oids.length === 0) return conteudo
+  const buffer = git(['cat-file', '--batch'], { entrada: `${oids.join('\n')}\n`, binario: true })
+  let posicao = 0
+  while (posicao < buffer.length) {
+    const fimDoCabecalho = buffer.indexOf(0x0a, posicao)
+    if (fimDoCabecalho === -1) break
+    const cabecalho = buffer.toString('utf8', posicao, fimDoCabecalho).split(' ')
+    posicao = fimDoCabecalho + 1
+    if (cabecalho[1] !== 'blob') continue // "<oid> missing"
+    const tamanho = Number(cabecalho[2])
+    conteudo.set(cabecalho[0], buffer.subarray(posicao, posicao + tamanho))
+    posicao += tamanho + 1 // git closes each blob with an extra \n
+  }
+  return conteudo
+}
+
+function conteudosDoIndice(caminhos) {
+  const desejados = new Set(caminhos)
+  const oidPorCaminho = new Map()
+  for (const [caminho, { oid }] of registrosDoIndice()) {
+    if (desejados.has(caminho)) oidPorCaminho.set(caminho, oid)
   }
 
   const oids = [...new Set(oidPorCaminho.values())]
@@ -567,18 +713,7 @@ function conteudosDoIndice(caminhos) {
   let bytesDoLote = 0
   const despejar = () => {
     if (lote.length === 0) return
-    const buffer = git(['cat-file', '--batch'], { entrada: `${lote.join('\n')}\n`, binario: true })
-    let posicao = 0
-    while (posicao < buffer.length) {
-      const fimDoCabecalho = buffer.indexOf(0x0a, posicao)
-      if (fimDoCabecalho === -1) break
-      const cabecalho = buffer.toString('utf8', posicao, fimDoCabecalho).split(' ')
-      posicao = fimDoCabecalho + 1
-      if (cabecalho[1] !== 'blob') continue // "<oid> missing"
-      const tamanho = Number(cabecalho[2])
-      conteudoPorOid.set(cabecalho[0], buffer.subarray(posicao, posicao + tamanho))
-      posicao += tamanho + 1 // git closes each blob with an extra \n
-    }
+    for (const [oid, dados] of blobsDoIndice(lote)) conteudoPorOid.set(oid, dados)
     lote = []
     bytesDoLote = 0
   }
@@ -640,18 +775,22 @@ function redigir(texto, sensivel) {
   return `${texto.slice(0, 4)}…‹${texto.length} chars›`
 }
 
-function varrerLinha(caminho, numero, linha, apenasAlta, achados) {
-  if (MARCA_LIBERACAO.test(linha)) return
-
+/**
+ * Every rule over one text, in rule order, calling `aoAchar(regra, casado,
+ * inicio, fim)` for each match that survives its filter and the placeholder.
+ * The text is either the line itself or its projection (HOLE 10); deciding
+ * overlap, escape and position is the caller's job, because only the caller
+ * knows which coordinates are the original ones.
+ */
+function casarRegras(texto, apenasAlta, aoAchar) {
   // A long line is no longer discarded (HOLE 3): it is sliced into overlapping
   // windows, because none of the rules needs to see more than that.
   const pedacos = []
-  if (linha.length <= JANELA) pedacos.push([0, linha])
+  if (texto.length <= JANELA) pedacos.push([0, texto])
   else
-    for (let b = 0; b < linha.length; b += JANELA - SOBREPOSICAO)
-      pedacos.push([b, linha.slice(b, b + JANELA)])
+    for (let b = 0; b < texto.length; b += JANELA - SOBREPOSICAO)
+      pedacos.push([b, texto.slice(b, b + JANELA)])
 
-  const tomados = []
   for (const regra of REGRAS) {
     if (apenasAlta && !regra.alta) continue
     for (const [deslocamento, pedaco] of pedacos) {
@@ -664,22 +803,169 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados) {
         }
         const inicio = deslocamento + casamento.index
         const fim = inicio + casamento[0].length
-        if (regra.filtrar && !regra.filtrar(casamento, linha, inicio, fim)) continue
-        if (ehPlaceholder(regra, linha, inicio, fim)) continue
-        // An interval already taken by an earlier (more specific) rule does not
-        // become a second finding, and the window overlap does not become a
-        // doubled finding.
-        if (tomados.some(([i, f]) => inicio < f && i < fim)) continue
-        tomados.push([inicio, fim])
-        achados.push({
-          caminho,
-          linha: numero,
-          coluna: inicio + 1,
-          regra: regra.nome,
-          trecho: redigir(casamento[0], regra.sensivel !== false),
-        })
+        if (regra.filtrar && !regra.filtrar(casamento, texto, inicio, fim)) continue
+        if (ehPlaceholder(regra, texto, inicio, fim)) continue
+        aoAchar(regra, casamento[0], inicio, fim)
       }
     }
+  }
+}
+
+/**
+ * HOLE 10. The line without its default-ignorable code points, and the way
+ * back to ORIGINAL UTF-16 indices, which is what every column this tool prints
+ * and every marker distance is measured in.
+ *
+ * `removidos` is `[original index, code point]`, in order. `cortes` holds
+ * `[projected index where a run of removed units ends, units removed so far]`,
+ * so `original(k)` is one binary search. Matching through RE_IGNORAVEL_G (flag
+ * `u`) makes a tag character such as U+E0041 count as the 2 units it occupies.
+ */
+function projetar(linha) {
+  const partes = []
+  const cortes = []
+  const removidos = []
+  let ultimo = 0
+  let unidadesRemovidas = 0
+  for (const m of linha.matchAll(RE_IGNORAVEL_G)) {
+    partes.push(linha.slice(ultimo, m.index))
+    removidos.push([m.index, m[0].codePointAt(0)])
+    const posProjetada = m.index - unidadesRemovidas
+    unidadesRemovidas += m[0].length
+    ultimo = m.index + m[0].length
+    const anterior = cortes[cortes.length - 1]
+    if (anterior && anterior[0] === posProjetada) anterior[1] = unidadesRemovidas
+    else cortes.push([posProjetada, unidadesRemovidas])
+  }
+  partes.push(linha.slice(ultimo))
+
+  const original = (k) => {
+    let baixo = 0
+    let alto = cortes.length - 1
+    let deslocamento = 0
+    while (baixo <= alto) {
+      const meio = (baixo + alto) >> 1
+      if (cortes[meio][0] <= k) {
+        deslocamento = cortes[meio][1]
+        baixo = meio + 1
+      } else alto = meio - 1
+    }
+    return k + deslocamento
+  }
+  return { projecao: partes.join(''), original, removidos }
+}
+
+/** Index of the first removed code point at or after `inicio`. */
+function primeiroRemovidoDesde(removidos, inicio) {
+  let baixo = 0
+  let alto = removidos.length
+  while (baixo < alto) {
+    const meio = (baixo + alto) >> 1
+    if (removidos[meio][0] < inicio) baixo = meio + 1
+    else alto = meio
+  }
+  return baixo
+}
+
+/**
+ * Distinct labels of the code points removed inside `[inicio, fim)`. Capped at
+ * 8 plus a count: a run of tag characters can spell a whole sentence inside one
+ * span, and this output is read by people and by agents in a hook.
+ */
+const MAXIMO_DE_ROTULOS = 8
+function rotulosEntre(removidos, inicio, fim) {
+  const vistos = new Set()
+  for (let k = primeiroRemovidoDesde(removidos, inicio); k < removidos.length; k++) {
+    if (removidos[k][0] >= fim) break
+    vistos.add(removidos[k][1])
+  }
+  const rotulos = [...vistos].slice(0, MAXIMO_DE_ROTULOS).map(rotuloDoCodigo)
+  if (vistos.size > MAXIMO_DE_ROTULOS) rotulos.push(`…(+${vistos.size - MAXIMO_DE_ROTULOS})`)
+  return rotulos
+}
+
+function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
+  // Only a line that holds an invisible pays for the projection. Measured on
+  // 25 repositories: 89 ms of projection in total.
+  const projetada = RE_IGNORAVEL.test(linha) ? projetar(linha) : null
+  const tomados = []
+  const daLinha = []
+
+  const registrar = (regra, casado, inicio, fim) => {
+    // An interval already taken by an earlier (more specific) rule does not
+    // become a second finding, and the window overlap does not become a
+    // doubled finding. A finding the escape releases below still holds its
+    // interval, so no lower-priority rule re-reports that span.
+    if (tomados.some(([i, f]) => inicio < f && i < fim)) return
+    tomados.push([inicio, fim])
+    const achado = {
+      caminho,
+      linha: numero,
+      coluna: inicio + 1,
+      regra: regra.nome,
+      // No raw invisible reaches the excerpt: this output is a terminal, a CI
+      // log and an agent's context, and each of them draws it as nothing. A
+      // projected match is already cut from the projection; a normal one can
+      // still hold one in the 4 characters it prints, because JavaScript's `\s`
+      // includes U+FEFF and `pwd<U+FEFF>= '…'` is a `credencial-atribuida`.
+      trecho: redigir(
+        projetada ? casado.replace(RE_IGNORAVEL_G, '') : casado,
+        regra.sensivel !== false,
+      ),
+    }
+    // Computed for EVERY finding on the line, not only the projected ones. The
+    // normal pass runs first, and `credencial-atribuida` accepts U+200B inside
+    // a quoted value (it is not `\s`): measured, `$Token = "ghp_…"` with a ZWSP
+    // came out as that heuristic rule with nothing saying a code point hid in
+    // it, because it took the interval before the projected `github-token`.
+    if (projetada) {
+      const invisiveis = rotulosEntre(projetada.removidos, inicio, fim)
+      if (invisiveis.length) achado.invisiveis = invisiveis
+    }
+    daLinha.push({ achado, fim })
+  }
+
+  casarRegras(linha, apenasAlta, registrar)
+
+  if (projetada) {
+    const { projecao, original, removidos } = projetada
+    casarRegras(projecao, apenasAlta, (regra, casado, inicioP, fimP) => {
+      const inicio = original(inicioP)
+      const fim = original(fimP - 1) + 1
+      // A projected match counts only if something was removed from INSIDE its
+      // span. Anything else was already seen by the normal pass, or exists only
+      // because a removal OUTSIDE the value changed its context — a soft hyphen
+      // in the word `se-cret` is not a hidden credential.
+      const k = primeiroRemovidoDesde(removidos, inicio)
+      if (k === removidos.length || removidos[k][0] >= fim) return
+      registrar(regra, casado, inicio, fim)
+    })
+  }
+
+  if (daLinha.length === 0) return
+
+  // HOLE 8. Each marker releases the nearest finding that ENDS before it, if
+  // that end is within reach. Positions are original ones on both sides.
+  const liberados = new Set()
+  const porFim = [...daLinha].sort((a, b) => a.fim - b.fim)
+  for (const marca of linha.matchAll(MARCA_LIBERACAO)) {
+    let baixo = 0
+    let alto = porFim.length
+    while (baixo < alto) {
+      const meio = (baixo + alto) >> 1
+      if (porFim[meio].fim <= marca.index) baixo = meio + 1
+      else alto = meio
+    }
+    const anterior = porFim[baixo - 1]
+    if (anterior && marca.index - anterior.fim <= ALCANCE_DA_MARCA) liberados.add(anterior)
+  }
+  for (const item of daLinha) {
+    if (!liberados.has(item)) {
+      achados.push(item.achado)
+      continue
+    }
+    const { coluna, regra } = item.achado
+    relatorio.liberados.push({ caminho, linha: numero, coluna, regra })
   }
 }
 
@@ -742,7 +1028,9 @@ function varrerConteudo(caminho, dados, relatorio) {
 
   const achados = []
   const linhas = texto.split(/\r?\n/)
-  for (let i = 0; i < linhas.length; i++) varrerLinha(caminho, i + 1, linhas[i], binario, achados)
+  for (let i = 0; i < linhas.length; i++) {
+    varrerLinha(caminho, i + 1, linhas[i], binario, achados, relatorio)
+  }
   return achados
 }
 
@@ -759,31 +1047,127 @@ function varrerConteudo(caminho, dados, relatorio) {
 // does not show up here.
 
 const caminhos = caminhosParaVarrer()
-const relatorio = { truncados: [], ilegiveis: [], binarios: [], provas: [], varridos: 0 }
+const relatorio = {
+  truncados: [],
+  ilegiveis: [],
+  binarios: [],
+  provas: [],
+  liberados: [],
+  marcadoresRecusados: [],
+  varridos: 0,
+}
 const achados = []
 
 const doIndice = soStaged ? conteudosDoIndice(caminhos) : null
 
 /**
- * Path inside a proof case? The marker is the `caso.json` in some ancestor
- * directory -- the same one rebar-check's `semFixtures` uses, and not a
- * hand-written list of folders, which would age on its own.
- */
-/**
- * A file under a proof-case directory, marked by a `caso.json` in an ancestor.
+ * HOLE 9. Where a `caso.json` means "proof material below". A LITERAL COPY of
+ * RAIZES_DE_PROVA in tooling/rebar-check/index.mjs — this file cannot import it,
+ * because it is copied alone into generated projects — and
+ * `tooling/secret/prove-scan.mjs` fails the moment the two lists differ.
  *
- * RESOLVED AGAINST `RAIZ`, NOT THE WORKING DIRECTORY. It used to be relative,
- * and the effect was silent: run the scanner from inside a subdirectory and the
- * marker stopped being found, so the `.env` of the `env-committed` case became a
- * finding again. A guard that only holds when you happen to stand in the right
- * folder is a guard that fails on the machine that is not yours.
+ * Literal prefixes and not "any folder called proofs/cases/": recognizing the
+ * shape gives the generic bypass back with one `mkdir -p`.
  */
-function ehMaterialDeProva(caminho) {
-  const partes = caminho.split('/')
-  for (let i = partes.length - 1; i > 0; i--) {
-    if (existsSync(join(RAIZ, partes.slice(0, i).join('/'), 'caso.json'))) return true
+const RAIZES_DE_PROVA = ['tooling/rebar-check/proofs/cases/', 'tooling/security/proofs/cases/']
+
+/**
+ * The prefixes of the `caso.json` markers this scan honours, validated the way
+ * rebar-check's `semFixtures` validates them, plus one check it does not make.
+ *
+ *   1. tracked, with a non-empty prefix (a marker at the repository root would
+ *      make `''.startsWith` exempt everything);
+ *   2. under a literal root, and not equal to it (a marker in the folder that
+ *      holds the cases would exempt them all at once);
+ *   3. an index entry at stage 0 with mode 100644 or 100755 — semFixtures does
+ *      not look at the index entry, so a symlink marker on a Linux checkout is
+ *      the one known divergence: rebar-check follows it, this scan refuses it;
+ *   4. a JSON object whose `rule` and `why` are non-empty strings.
+ *
+ * WHERE THE CONTENT COMES FROM is the rest of the fix. Under `--staged` it is
+ * the INDEX blob, like every other byte this mode reads: the old check asked
+ * the disk, so an untracked file decided what the commit carried. In tracked
+ * mode it is the disk, exactly like `semFixtures` and like the rest of tracked
+ * mode, which keeps `hardcoded-secret` (it filters by rebar-check's validated
+ * list) in agreement with this scan. Paths are relative to RAIZ, never to the
+ * working directory: a guard that only holds from the right folder fails on the
+ * machine that is not yours.
+ *
+ * Refusals go to `marcadoresRecusados`, with the reason. Measured on rebar: 124
+ * markers valid and 0 refused before this change, equal to `lerRepo('.')`.
+ */
+function raizesDeProvaValidas(caminhos) {
+  const ehMarcador = (c) => c === 'caso.json' || c.endsWith('/caso.json')
+  // Tracked mode asks the index only when a marker is among the tracked paths,
+  // so a generated project or an audited repository pays no extra process.
+  if (!soStaged && !caminhos.some(ehMarcador)) return []
+
+  const recusar = (caminho, motivo) => relatorio.marcadoresRecusados.push(`${caminho} — ${motivo}`)
+  const candidatos = []
+  for (const [caminho, { modo, oid, estagio }] of registrosDoIndice()) {
+    if (!ehMarcador(caminho)) continue
+    const prefixo = caminho.slice(0, -'caso.json'.length)
+    if (!prefixo) {
+      recusar(caminho, 'at the repository root')
+      continue
+    }
+    if (!RAIZES_DE_PROVA.some((raiz) => prefixo.startsWith(raiz) && prefixo !== raiz)) {
+      recusar(caminho, `outside ${RAIZES_DE_PROVA.map((r) => `${r}<case>/`).join(' and ')}`)
+      continue
+    }
+    if (estagio !== '0' || (modo !== '100644' && modo !== '100755')) {
+      recusar(caminho, `index entry mode ${modo} stage ${estagio}, not a regular file`)
+      continue
+    }
+    candidatos.push({ caminho, oid, prefixo })
   }
-  return false
+
+  const blobs = soStaged ? blobsDoIndice(candidatos.map((c) => c.oid)) : null
+  const validas = []
+  for (const { caminho, oid, prefixo } of candidatos) {
+    let texto
+    if (soStaged) {
+      const dados = blobs.get(oid)
+      if (dados === undefined) {
+        recusar(caminho, 'no blob in the index')
+        continue
+      }
+      texto = dados.toString('utf8')
+    } else {
+      try {
+        texto = readFileSync(join(RAIZ, ...caminho.split('/')), 'utf8')
+      } catch (erro) {
+        const some = erro.code === 'ENOENT' || erro.code === 'ENOTDIR'
+        recusar(caminho, some ? 'tracked by git and absent from disk' : erro.code || erro.message)
+        continue
+      }
+    }
+    let valor
+    try {
+      valor = JSON.parse(texto)
+    } catch (erro) {
+      recusar(caminho, `invalid JSON: ${String(erro.message).split('\n')[0]}`)
+      continue
+    }
+    if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
+      recusar(caminho, 'valid JSON but not an object')
+      continue
+    }
+    const falta = ['rule', 'why'].filter((k) => typeof valor[k] !== 'string' || !valor[k].trim())
+    if (falta.length) {
+      recusar(caminho, `missing ${falta.join(' and ')}`)
+      continue
+    }
+    validas.push(prefixo)
+  }
+  return validas
+}
+
+const RAIZES_VALIDAS = raizesDeProvaValidas(caminhos)
+
+/** A file below a validated marker — see raizesDeProvaValidas(). */
+function ehMaterialDeProva(caminho) {
+  return RAIZES_VALIDAS.some((prefixo) => caminho.startsWith(prefixo))
 }
 
 for (const caminho of caminhos) {
@@ -799,17 +1183,19 @@ for (const caminho of caminhos) {
   //
   // The second: proof material. A `.env` that exists to PROVE that the rule
   // detects `.env` cannot block the commit of the proof itself. The marker is
-  // the same one rebar-check uses -- a `caso.json` in an ancestor directory.
+  // the one rebar-check validates — a tracked `caso.json` with its schema under
+  // one of the literal RAIZES_DE_PROVA (HOLE 9) — and the exemption is COUNTED:
+  // until HOLE 9 an exempted `.env` vanished from the summary.
   //
   // `exemplo` and `modelo` stay Portuguese in the suffix list below: they are
   // file-name suffixes written by the Brazilian repositories this scanner
   // audits, not prose.
   if (
     /(^|\/)\.env(\.|$)/.test(caminho) &&
-    !/\.(example|exemplo|sample|template|dist|modelo)$/.test(caminho) &&
-    !ehMaterialDeProva(caminho)
+    !/\.(example|exemplo|sample|template|dist|modelo)$/.test(caminho)
   ) {
-    achados.push({ caminho, linha: 0, coluna: 0, regra: 'env-committed', trecho: caminho })
+    if (ehMaterialDeProva(caminho)) relatorio.provas.push(`${caminho} (env-committed)`)
+    else achados.push({ caminho, linha: 0, coluna: 0, regra: 'env-committed', trecho: caminho })
     continue
   }
 
@@ -857,7 +1243,8 @@ for (const caminho of caminhos) {
   // The file is still READ and still COUNTED, so the summary does not shrink,
   // and what was dropped is PRINTED. Silence here would be worse than a false
   // positive: a scanner that quietly skips a directory is one that can be
-  // turned off by adding a `caso.json`.
+  // turned off by adding a `caso.json` — which is exactly what HOLE 9 was, until
+  // the marker had to be tracked, validated and under a literal root.
   const doArquivo = varrerConteudo(caminho, dados, relatorio)
   if (doArquivo.length && ehMaterialDeProva(caminho)) {
     relatorio.provas.push(`${caminho} (${doArquivo.length})`)
@@ -892,6 +1279,13 @@ if (comoJson) {
           truncados: relatorio.truncados,
           ilegiveis: relatorio.ilegiveis,
           binariosVarridos: relatorio.binarios,
+          // The list whose COUNT the text summary prints as "proof fixture(s)
+          // not charged".
+          provas: relatorio.provas,
+          // `{caminho, linha, coluna, regra}` and never the excerpt: a released
+          // finding is still credential-shaped text.
+          liberados: relatorio.liberados,
+          marcadoresRecusados: relatorio.marcadoresRecusados,
         },
       },
       null,
@@ -906,7 +1300,10 @@ if (comoJson) {
     `[secret] ${relatorio.varridos} file(s) scanned in ${soStaged ? 'stage' : 'tracked files'}` +
     ` · ${relatorio.binarios.length} binary file(s) · ${relatorio.truncados.length} truncated` +
     ` · ${relatorio.ilegiveis.length} not scanned` +
-    (relatorio.provas.length ? ` · ${relatorio.provas.length} proof fixture(s) not charged` : '')
+    (relatorio.provas.length ? ` · ${relatorio.provas.length} proof fixture(s) not charged` : '') +
+    (relatorio.liberados.length
+      ? ` · ${relatorio.liberados.length} finding(s) released by rebar-segredo-ok`
+      : '')
 
   // ─── The ⚠, and why it exists (finding of 02/09) ───────────────────────────
   //
@@ -944,14 +1341,20 @@ if (comoJson) {
       console.error(`\n[secret] ${achados.length} finding(s):\n`)
       for (const a of achados) {
         console.error(`  error  ${a.caminho}:${a.linha}:${a.coluna}  ${a.regra}`)
-        console.error(`         ${a.trecho}`)
+        // The label, never the code point: `trecho` already comes without it.
+        const escondido = a.invisiveis ? ` · hidden ${a.invisiveis.join('')}` : ''
+        console.error(`         ${a.trecho}${escondido}`)
       }
+      // A refused marker only matters next to a finding: it is the likely
+      // reason a fixture someone meant as proof material was charged. No ⚠,
+      // because the `secret` step warns on ⚠ and a green run must stay quiet.
+      imprimirLista('caso.json not honoured as a proof marker', relatorio.marcadoresRecusados)
     }
     avisoDoNaoLido()
     console.error(
       '\n  A secret that already entered history is not removed by a new commit:\n' +
         '  it has to be ROTATED. Rewriting history comes after, not instead.\n' +
-        '  False positive: add on the line  // rebar-segredo-ok: <reason>\n',
+        '  False positive: right after it, on the same line:  // rebar-segredo-ok: <reason>\n',
     )
   }
 }

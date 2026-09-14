@@ -1,0 +1,4 @@
+{
+  "rule": "hardcoded-secret",
+  "why": "Until 2026-09-13 the secret scanner exempted every file below ANY caso.json on disk, in any ancestor folder, even under --staged: an empty, untracked caso.json hidden by .git/info/exclude, or a directory named caso.json, took every finding below it out of the scan in both modes, and hardcoded-secret passed with it. The fail side is a schema-valid src/caso.json OUTSIDE the two literal proof roots, beside one vendor-shaped value (the same synthetic literal the sibling case already commits): a scanner that goes back to 'any ancestor caso.json' turns it green. The pass side is the same marker beside a value read from process.env, so a rule that failed any tree holding a caso.json goes red. Every file here is tracked on disk and none comes from gerados: tracked mode reads the disk, so an index-only fixture would not be read at all and the fail side would come out passed with a coverage note, the wrong verdict."
+}
