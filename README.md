@@ -200,7 +200,7 @@ It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n
 | `tooling/rebar-check/` | the format ruler and its <!--n proofs.casos-->69<!--/n--> proof cases |
 | `tooling/security/` | the security ruler |
 | `tooling/verify/` | the gate runner and the mutation proofs of its steps |
-| `tooling/secret/` | the secret scanner, and the <!--n secret.provas-->28<!--/n--> detection proofs |
+| `tooling/secret/` | the secret scanner, and the <!--n secret.provas-->31<!--/n--> detection proofs |
 | `new/` | the generator: templates, gate, and the file-map proofs |
 | `mcp/` | the generated artifact and the server that serves it |
 | `docs/PLANO.md` | the single manuscript: taxonomy, decisions, and the adversarial review |

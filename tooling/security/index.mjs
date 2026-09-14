@@ -161,9 +161,10 @@ const corpo = (dir, rel) => {
 
 // ───────────────────────────────────── the existing scanner, run and not copied
 //
-// `tooling/secret/scan-secret.mjs` is 1,360 lines of detection that was rewritten
-// after an adversarial audit closed seven measured holes in it, and a second
-// audit on 2026-09-13 closed three more. None of that is re-typed here. The
+// `tooling/secret/scan-secret.mjs` is the detection that was rewritten after an
+// adversarial audit closed seven measured holes in it, and a second audit on
+// 2026-09-13 closed three more. No line count here: the one this comment carried
+// went stale twice. None of that is re-typed here. The
 // reuse is a SUBPROCESS, and the shape was not a choice:
 // that file exports nothing and runs on import — it calls git at the top level
 // and ends in `process.exit`, so `import` would scan on load and kill this

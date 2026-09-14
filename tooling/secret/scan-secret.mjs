@@ -69,7 +69,9 @@
 //      ONE finding, the nearest one that ENDS at most ALCANCE_DA_MARCA (256)
 //      UTF-16 units before the marker starts, and only when a readable reason
 //      follows the colon. A marker before the value, or inside it, releases
-//      nothing. What was released is counted and printed.
+//      nothing. What was released is counted and printed. The end is the
+//      REAL one also where a 2000-unit window cuts the finding: the review of
+//      this fix measured a gap of 255 read as 259 at that seam.
 //
 //   9. ANY caso.json EXEMPTED. A `caso.json` in ANY ancestor directory, checked
 //      on DISK even under `--staged`, took every finding below it out of the
@@ -137,6 +139,10 @@ const LIMITE_BYTES = 8 * 1024 * 1024
 // (github_pat_, ~82 characters) fits inside it with room to spare.
 const JANELA = 2000
 const SOBREPOSICAO = 200
+// Units of real line kept BEFORE each window, read by lookbehind and `\b` but
+// never the start of a match. Every rule's lookbehind reads 1 unit; 16 leaves
+// room for a new one without reopening the seam — see casarRegras().
+const CONTEXTO = 16
 
 // Memory ceiling per `git cat-file --batch` batch. Blobs larger than
 // LIMITE_BYTES never enter the batch, so the batch only grows by count.
@@ -785,23 +791,61 @@ function redigir(texto, sensivel) {
 function casarRegras(texto, apenasAlta, aoAchar) {
   // A long line is no longer discarded (HOLE 3): it is sliced into overlapping
   // windows, because none of the rules needs to see more than that.
-  const pedacos = []
-  if (texto.length <= JANELA) pedacos.push([0, texto])
-  else
-    for (let b = 0; b < texto.length; b += JANELA - SOBREPOSICAO)
-      pedacos.push([b, texto.slice(b, b + JANELA)])
+  const inicios = []
+  if (texto.length <= JANELA) inicios.push(0)
+  else for (let b = 0; b < texto.length; b += JANELA - SOBREPOSICAO) inicios.push(b)
 
   for (const regra of REGRAS) {
     if (apenasAlta && !regra.alta) continue
-    for (const [deslocamento, pedaco] of pedacos) {
-      regra.padrao.lastIndex = 0
+    for (const b of inicios) {
+      // THE SEAM, measured by the 2026-09-13 review. A window cut at 2000 hands
+      // the regex an END OF STRING where the line goes on, and every lookahead
+      // passes there: a `ghp_` crossing the cut was registered with the window's
+      // end, 4 units short. The marker distance was then measured from the wrong
+      // place — a gap of 255 read as 259 and stayed red, and a marker glued INTO
+      // the host of a connection string read as "after" it and released it.
+      //
+      // Two fixes, both about giving the regex the text it would see on the
+      // whole line. On the left, CONTEXTO units before the window, with
+      // `lastIndex` at the window start: no match starts there, but a
+      // lookbehind or a `\b` reads the real neighbour instead of a string start.
+      // On the right, a match that TOUCHES the cut is not trusted: the slice
+      // grows by ONE more window and the regex runs again from that match's
+      // start. A finding up to 2,000 units past the cut gets its real end.
+      //
+      // ONE window and not "until the match ends", and that was measured: a
+      // draft of this fix doubled the slice up to the end of the line. On a
+      // 256 KiB line of `a=a=…a=(` the value of `credencial-atribuida-sem-
+      // aspas` runs to the `(`, its lookahead fails there, and the regex
+      // backtracks over the whole run from every `=`: more than 300 s, killed,
+      // against 409 ms before. At a cut the lookahead passes again, so a
+      // bounded slice stays one pass. What is longer than that still ends at
+      // the cut, as every finding did before the review.
+      const comeco = Math.max(0, b - CONTEXTO)
+      const fimDaJanela = Math.min(texto.length, b + JANELA)
+      const limite = Math.min(texto.length, fimDaJanela + JANELA)
+      let pedaco = texto.slice(comeco, fimDaJanela)
+      regra.padrao.lastIndex = b - comeco
       let casamento
       while ((casamento = regra.padrao.exec(pedaco)) !== null) {
         if (casamento[0].length === 0) {
           regra.padrao.lastIndex += 1
           continue
         }
-        const inicio = deslocamento + casamento.index
+        const inicio = comeco + casamento.index
+        // What starts at or after the window's end belongs to the next window,
+        // which starts SOBREPOSICAO before it: a slice grown for one match does
+        // not make this window scan the next one's text too.
+        if (inicio >= fimDaJanela) break
+        if (
+          casamento.index + casamento[0].length === pedaco.length &&
+          comeco + pedaco.length < limite
+        ) {
+          const retomar = casamento.index
+          pedaco = texto.slice(comeco, limite)
+          regra.padrao.lastIndex = retomar
+          continue
+        }
         const fim = inicio + casamento[0].length
         if (regra.filtrar && !regra.filtrar(casamento, texto, inicio, fim)) continue
         if (ehPlaceholder(regra, texto, inicio, fim)) continue
@@ -888,7 +932,6 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
   // Only a line that holds an invisible pays for the projection. Measured on
   // 25 repositories: 89 ms of projection in total.
   const projetada = RE_IGNORAVEL.test(linha) ? projetar(linha) : null
-  const tomados = []
   const daLinha = []
 
   const registrar = (regra, casado, inicio, fim) => {
@@ -896,8 +939,7 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
     // become a second finding, and the window overlap does not become a
     // doubled finding. A finding the escape releases below still holds its
     // interval, so no lower-priority rule re-reports that span.
-    if (tomados.some(([i, f]) => inicio < f && i < fim)) return
-    tomados.push([inicio, fim])
+    if (daLinha.some((d) => inicio < d.fim && d.inicio < fim)) return
     const achado = {
       caminho,
       linha: numero,
@@ -908,6 +950,8 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
       // projected match is already cut from the projection; a normal one can
       // still hold one in the 4 characters it prints, because JavaScript's `\s`
       // includes U+FEFF and `pwd<U+FEFF>= '…'` is a `credencial-atribuida`.
+      // The projected match usually replaces that finding (see below), but not
+      // when removing the code points leaves the value under the rule's minimum.
       trecho: redigir(
         projetada ? casado.replace(RE_IGNORAVEL_G, '') : casado,
         regra.sensivel !== false,
@@ -922,7 +966,7 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
       const invisiveis = rotulosEntre(projetada.removidos, inicio, fim)
       if (invisiveis.length) achado.invisiveis = invisiveis
     }
-    daLinha.push({ achado, fim })
+    daLinha.push({ achado, inicio, fim, regra: regra.nome })
   }
 
   casarRegras(linha, apenasAlta, registrar)
@@ -938,6 +982,23 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
       // in the word `se-cret` is not a hidden credential.
       const k = primeiroRemovidoDesde(removidos, inicio)
       if (k === removidos.length || removidos[k][0] >= fim) return
+      // THE SAME TOKEN, CUT SHORT BY THE NORMAL PASS. `gh[pousr]_…{30,}` needs
+      // only 30 body characters and its lookahead accepts U+200B, so with the
+      // code point after the 30th the normal pass already matched the part
+      // BEFORE it. That shorter finding held the interval, nothing removed sat
+      // inside it, and the review measured 12 of 1,200 fuzzed lines printing
+      // `‹38 chars›` for a 40-character token with no `<U+XXXX>` at all. When
+      // every finding this match overlaps is the SAME rule and lies INSIDE its
+      // span, it is a piece of this token: the projected match replaces it. A
+      // different rule keeps its interval, which is how `$Token = "…"` stays
+      // `credencial-atribuida` and still carries the label.
+      const sobrepostos = daLinha.filter((d) => inicio < d.fim && d.inicio < fim)
+      if (
+        sobrepostos.length > 0 &&
+        sobrepostos.every((d) => d.regra === regra.nome && d.inicio >= inicio && d.fim <= fim)
+      ) {
+        for (const d of sobrepostos) daLinha.splice(daLinha.indexOf(d), 1)
+      }
       registrar(regra, casado, inicio, fim)
     })
   }
@@ -1146,7 +1207,12 @@ function raizesDeProvaValidas(caminhos) {
     try {
       valor = JSON.parse(texto)
     } catch (erro) {
-      recusar(caminho, `invalid JSON: ${String(erro.message).split('\n')[0]}`)
+      // The position, never the parser's message. V8 quotes up to 10 raw
+      // characters of the input around the error, and this list is printed to
+      // the hook's terminal: the review got two raw ESC bytes and `ghp_A1b2C3`
+      // through it — 10 characters of a token this scanner redacts to 4.
+      const posicao = /\bposition (\d+)/.exec(String(erro.message))
+      recusar(caminho, posicao ? `invalid JSON at position ${posicao[1]}` : 'invalid JSON')
       continue
     }
     if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
