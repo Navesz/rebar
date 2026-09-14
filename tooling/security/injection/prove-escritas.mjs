@@ -235,6 +235,73 @@ describe('urlsDe and tokensDeUrl', () => {
     // An invalid label stays raw, and raw ASCII is no mix.
     assert.equal(urlsDe(`${WEB}${PUNY}zz!.com`)[0].host.startsWith(PUNY), true)
   })
+
+  test('a label longer than DNS allows is not decoded, and a 200,000-letter one does not break the ruler', () => {
+    // 59 letters after the prefix fit a 63-octet label; one more does not.
+    assert.equal(decodificarPunycode(`${'a'.repeat(58)}-`), 'a'.repeat(58))
+    assert.equal(decodificarPunycode(`${'a'.repeat(59)}-`), null)
+    // Decoded, this label overflowed the stack: mixed-script-token broke and
+    // rebar-security exited 127 without --heuristics.
+    const longo = `${PUNY}${'a'.repeat(200000)}-`
+    assert.equal(urlsDe(`see ${WEB}${longo}.example/`)[0].host, `${longo}.example`)
+  })
+
+  test('user@host:path is found from each @, exactly where the pattern it replaces matched', () => {
+    // The pattern the first engine ran, kept here as the reference.
+    const ANTIGO =
+      /(?<![^\s"'`(<[{=,])[^\s"'`<>@:/()[\]{}]+@([^\s"'`<>@:/()[\]{},;]+\.[^\s"'`<>@:/()[\]{},;.]+):(?!\/\/)[^\s"'`<>]+/g
+    // Addresses assembled from edge pieces: 594 matches in 568 of these 4,000
+    // strings, the rest near misses (no dot, a trailing dot, `://`, a `;` host).
+    let semente = 20260914
+    const um = (lista) => {
+      semente = (semente * 48271) % 2147483647
+      return lista[semente % lista.length]
+    }
+    const JUNTA = ['', ' ', '(', 'x', '=', ',', ':', '/', '"', '>', '@', 'a.b', '\n']
+    const USUARIO = ['', 'git', 'a,b', 'x=y', '1.2', 'u-v', ':u']
+    const HOST = ['h.io', 'h.', '.h', 'h', 'a.b.c', 'h;x.y', 'h,i.j', 'h.i/']
+    const SEPARA = [':', ':', ':/' + '/', '']
+    const CAMINHO = ['p', '', 'p q', 'p@q.r:s', '/r', 'x>']
+    const sorteadas = []
+    for (let n = 0; n < 4000; n++) {
+      let s = ''
+      for (let k = 0, partes = 1 + (n % 3); k < partes; k++)
+        s += um(JUNTA) + um(USUARIO) + '@' + um(HOST) + um(SEPARA) + um(CAMINHO) + um(JUNTA)
+      sorteadas.push(s)
+    }
+    const fixas = ['git@host.example:o/r.git', 'x,y@a.b:c d=e@f.g:h', 'a@b.c:d@e.f:g', '(u@h.io:p)']
+    for (const s of [...fixas, ...sorteadas]) {
+      const esperado = [...s.matchAll(ANTIGO)].map((m) => [
+        m.index,
+        m.index + m[0].indexOf('@') + 1,
+      ])
+      assert.deepEqual(
+        urlsDe(s).map((u) => [u.indice, u.indiceDoHost]),
+        esperado,
+        JSON.stringify(s),
+      )
+    }
+  })
+
+  test('linear on what JSON.stringify writes for a vector of numbers', () => {
+    // The pattern retried every comma of the run: 32 s here on the first engine
+    // for 301 KB with no address at all, 57.6 s for an honest 318 KB bundle.
+    let x = 1
+    const vetor = Array.from({ length: 32000 }, () => {
+      x = (x * 48271) % 2147483647
+      return Number(((x / 2147483647) * 2 - 1).toFixed(6))
+    })
+    const casos = {
+      vetor: JSON.stringify({ model: 'probe', embedding: vetor }),
+      arrobas: `${'1,'.repeat(100000)}@`.repeat(3),
+      pontuacao: `${WEB}x.example/${','.repeat(200000)}a`,
+    }
+    for (const [nome, texto] of Object.entries(casos)) {
+      const t0 = performance.now()
+      for (const u of urlsDe(texto)) tokensDeUrl(u)
+      assert.ok(performance.now() - t0 < 5000, nome)
+    }
+  })
 })
 
 // ================================================================= the rule
@@ -289,5 +356,21 @@ describe('checarMixedScript over the index', () => {
     assert.deepEqual(checarMixedScript({ dir: repositorio({ 'notes.txt': 'no address\n' }) }), {
       na: 'no URL, package manifest or agent config tracked',
     })
+  })
+
+  test('a manifest npm reads is judged even past the strict reader, and a tracked manifest is never not applicable', () => {
+    let fundo = 0
+    for (let k = 0; k < 513; k++) fundo = [fundo]
+    const nome = `lod${cp(0x430)}sh`
+    // 513 levels: the strict reader refuses, npm and JSON.parse do not. Before,
+    // this manifest judged no name and the verdict was na, "no package manifest".
+    const dir = repositorio({
+      'package.json': JSON.stringify({ name: 'app', dependencies: { [nome]: '1.0.0' }, x: fundo }),
+    })
+    assert.match(
+      checarMixedScript({ dir }),
+      /^1 token\(s\) mixing writing systems: package\.json \(package name\) package name mixes writing systems at <U\+0430>/,
+    )
+    assert.equal(checarMixedScript({ dir: repositorio({ 'package.json': '{}\n' }) }), null)
   })
 })

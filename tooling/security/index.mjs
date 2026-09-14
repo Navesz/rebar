@@ -870,7 +870,9 @@ export const REGRAS = [
      * block-level comments, and only from CLAUDE.md; Codex, Copilot, Cursor and the
      * rest read instruction files raw. Elements hidden by a style or by the hidden
      * attribute count too, because an editor preview that renders raw HTML hides
-     * them.
+     * them, and so does the MDX expression comment of an .mdx page. Code and
+     * comments are read in one pass, the way CommonMark gives the construct that
+     * starts first the text, and inside list items and block quotes too.
      *
      * Hidden prose is common and honest (381 of 690 public instruction files that
      * carry a comment hide prose in it), so a region counts only when it is
@@ -945,22 +947,25 @@ export const REGRAS = [
     classe: 'heurística',
     nivel: 'N1',
     titulo:
-      'no new install hook, no script that gained a download or shell pipe, no Python file shadowing the standard library',
+      'no script that gained a download or shell pipe, no Python module shadowing the standard library',
     /**
      * An instruction file says to run the tests and the agent obeys, so the
      * injection can change what the tests run instead of touching the
      * instruction file: GitInject measured the configuration-file channel working
      * where a pull request body did not.
      *
-     * Three signals. Since the first parent of HEAD, a package script that
+     * Two signals fail. Since the first parent of HEAD, a package script that
      * changed and gained an execution family (a pipe into a shell, a download, a
-     * URL, eval and the like), or a new script npm runs on install. And any tracked
-     * Python file named like a standard library module where a script run by path
-     * would import it first.
+     * URL that leaves the machine, eval called and the like). And any tracked
+     * Python module, in any suffix the import system loads, named like a standard
+     * library module where a script run by path would import it first. A new
+     * script npm runs on install with no family only warns: 258 of 1,261
+     * node_modules manifests with scripts carry one, and none of their 261 hooks
+     * carries a family.
      *
      * "A script an instruction file names changed" alone fired on 14 of 212 honest
-     * commits; the refined signal on 0 of 199 changed script values. The Python
-     * signal hit 3 of 20,291 files of an installed site-packages. A heuristic
+     * commits; the refined signal on 0 of 200 changed script values. The Python
+     * signal hit 4 of 19,927 importable files of an installed site-packages. A heuristic
      * because an honest change can add a download to a script, and a folder of
      * scripts can hold a module named like the standard library on purpose.
      */

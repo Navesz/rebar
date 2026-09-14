@@ -23,6 +23,7 @@ const na = (motivo) => ({ na: motivo })
 const NOME_DA_FORMA = {
   'comentario bloco': 'block comment',
   'comentario inline': 'inline comment',
+  'comentario jsx': 'MDX comment',
   'definicao definicao': 'unused link definition',
   'elemento estilo': 'element hidden by style',
   'elemento hidden': 'element with the hidden attribute',
@@ -53,10 +54,11 @@ export function checarHiddenMarkdown(r) {
   const itens = []
   for (const e of alvos) {
     const texto = e.texto.replace(/\r\n/g, '\n')
-    // Cheap first: a file with none of the three openers has no region.
-    if (!texto.includes('<!--') && !texto.includes(']:') && !texto.includes('<')) continue
+    const mdx = /\.mdx$/i.test(e.caminho)
+    // Cheap first: a file with none of the openers has no region.
+    if (!texto.includes(']:') && !texto.includes('<') && !(mdx && texto.includes('/*'))) continue
     const diretivas = []
-    for (const regiao of regioesOcultas(texto)) {
+    for (const regiao of regioesOcultas(texto, { mdx })) {
       const a = avaliarRegiao(regiao.corpo)
       if (a.familias.length) diretivas.push({ regiao, a })
     }
@@ -68,8 +70,13 @@ export function checarHiddenMarkdown(r) {
     const { clientes, removeBloco } = clientesDe(e.caminho, e.tipo)
     for (const { regiao, a } of diretivas) {
       const forma = NOME_DA_FORMA[`${regiao.tipo} ${regiao.forma}`]
+      // Only a top-level block comment: what Claude Code does with one inside a
+      // list item or a block quote is not documented.
       const remove =
-        removeBloco && regiao.tipo === 'comentario' && regiao.forma === 'bloco'
+        removeBloco &&
+        regiao.tipo === 'comentario' &&
+        regiao.forma === 'bloco' &&
+        !regiao.recipiente
           ? '; Claude Code strips block comments'
           : ''
       itens.push(

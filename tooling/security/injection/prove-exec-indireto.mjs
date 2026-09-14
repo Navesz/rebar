@@ -102,7 +102,7 @@ const manifesto = (scripts) => `${JSON.stringify({ name: 'app', scripts }, null,
 describe('the range half: HEAD^1 against the index', () => {
   const NONCE = 'wkqzjxvbtrmp'
 
-  test('a new install hook and a script that gained a pipe into a shell fail, named where an instruction file runs it', () => {
+  test('a script that gained a pipe into a shell fails, named where an instruction file runs it, and new hooks are listed after it', () => {
     const antes = { 'package.json': manifesto({ test: 'node --test', build: 'tsc' }) }
     const dir = faixa(antes, {
       'package.json': manifesto({
@@ -117,16 +117,17 @@ describe('the range half: HEAD^1 against the index', () => {
     const motivo = checarIndirectExec({ dir })
     assert.equal(typeof motivo, 'string')
     assert.ok(!motivo.includes(NONCE) && !motivo.includes('example'), motivo)
-    assert.match(motivo, /^4 indirect execution change\(s\): /)
+    assert.match(motivo, /^1 indirect execution change\(s\): /)
     assert.match(
       motivo,
       /package\.json:4:5 scripts\.test gained pipe into a shell or interpreter, download tool since the parent commit \(sha256:[0-9a-f]{12} len:\d+\); named in AGENTS\.md:3:6/,
     )
-    for (const gancho of ['postinstall', 'prepare', 'dependencies'])
-      assert.match(
-        motivo,
-        new RegExp(`scripts\\.${gancho} is new since the parent commit \\(it runs on install\\)`),
-      )
+    // A new hook with no execution family does not fail: 258 of 1,261 node_modules
+    // manifests with scripts carry one, most a build or a git hook installer.
+    assert.match(
+      motivo,
+      / · also 3 new install hook\(s\) with no execution family since the parent commit: package\.json:6:5 scripts\.postinstall · package\.json:7:5 scripts\.prepare · package\.json:8:5 scripts\.dependencies — npm runs them on install; review what they run, or allowlist the value$/,
+    )
     assert.ok(!motivo.includes('scripts.build'))
   })
 
@@ -204,6 +205,74 @@ describe('the range half: HEAD^1 against the index', () => {
     )
     assert.equal(checarIndirectExec({ dir }), null)
   })
+
+  test('a new hook with no family is a nota, a git hook installer is nothing, and one with a family fails', () => {
+    const base = { test: 'node --test', build: 'tsc' }
+    const antes = { 'package.json': manifesto(base) }
+    // One range: the root gains what `npx husky init` writes (it failed as a new
+    // hook before) and a new workspace manifest brings a build hook. Only the
+    // second is listed, and neither fails.
+    assert.deepEqual(
+      checarIndirectExec({
+        dir: faixa(antes, {
+          'package.json': manifesto({ ...base, prepare: 'husky' }),
+          'packages/ui/package.json': manifesto({ build: 'tsc', prepare: 'npm run build' }),
+        }),
+      }),
+      {
+        nota:
+          '1 new install hook(s) with no execution family since the parent commit: ' +
+          'packages/ui/package.json:5:5 scripts.prepare — npm runs them on install; review what ' +
+          'they run, or allowlist the value',
+      },
+    )
+    assert.match(
+      checarIndirectExec({
+        dir: faixa(antes, {
+          'package.json': manifesto({ ...base, postinstall: `${BAIXAR}x ${PIPE_SH}` }),
+        }),
+      }),
+      /^1 indirect execution change\(s\): package\.json:6:5 scripts\.postinstall gained pipe into a shell or interpreter, download tool since the parent commit \(sha256:[0-9a-f]{12} len:\d+\) and is a new install hook — /,
+    )
+  })
+
+  test('a manifest past the strict reader is read as npm reads it', () => {
+    let fundo = 0
+    for (let k = 0; k < 513; k++) fundo = [fundo]
+    // npm ran the scripts of a 513-deep manifest; the strict reader refused it and
+    // the new postinstall below passed.
+    const agora = `${JSON.stringify({ name: 'app', scripts: { test: 'node --test', postinstall: `${BAIXAR}x ${PIPE_SH}` }, x: fundo })}\n`
+    const motivo = checarIndirectExec({
+      dir: faixa({ 'package.json': manifesto({ test: 'node --test' }) }, { 'package.json': agora }),
+    })
+    assert.match(
+      motivo,
+      /^1 indirect execution change\(s\): package\.json:1:1 scripts\.postinstall gained pipe into a shell or interpreter, download tool since the parent commit/,
+    )
+  })
+
+  test('with no parent, an accepted script still counts as in use: no stale-entry nota', () => {
+    const valor = 'node scripts/setup.mjs'
+    const linha = JSON.stringify({
+      regra: 'indirect-exec-change',
+      arquivo: 'package.json',
+      ponteiro: '/scripts/postinstall',
+      sha256: sha256(valor),
+      motivo: 'reviewed setup',
+    })
+    const arquivos = {
+      'package.json': manifesto({ postinstall: valor }),
+      [NOME_DA_ALLOWLIST]: `${linha}\n`,
+    }
+    // A root commit and a shallow clone have no parent. Before, this entry was
+    // reported as matching nothing, and deleting it failed the next full clone.
+    // The only nota left is ownership, the same with a parent or without one.
+    const nota = {
+      nota: `no CODEOWNERS entry owns ${NOME_DA_ALLOWLIST}, so any pull request can widen what it exempts`,
+    }
+    assert.deepEqual(checarIndirectExec({ dir: repositorio(arquivos, 1) }), nota)
+    assert.deepEqual(checarIndirectExec({ dir: faixa(arquivos, arquivos) }), nota)
+  })
 })
 
 // =================================================================== static
@@ -254,6 +323,56 @@ describe('the static half: Python files named like the standard library', () => 
     )
   })
 
+  test('every suffix the import system loads counts, a symlink counts by its path, and __pycache__ does not', () => {
+    const dir = repositorio({
+      'a/json.pyw': 'X = 1\n',
+      'b/json.pyc': 'x',
+      'c/json.cp312-win_amd64.pyd': 'x',
+      'd/json.cpython-312-x86_64-linux-gnu.so': 'x',
+      'e/json.abi3.so': 'x',
+      'f/__init__.pyc': 'x',
+      'f/json.py': 'X = 1\n',
+      'g/__pycache__/json.cpython-312.pyc': 'x',
+      'h/json.txt': 'x',
+    })
+    // A 120000 entry: on Windows git checks it out as a file holding the target
+    // path, and Python imported that file in place of json.
+    const oid = git(dir, ['hash-object', '-w', '--no-filters', '--stdin'], '../a/json.pyw')
+    git(dir, ['update-index', '-z', '--add', '--index-info'], `120000 ${oid}\ti/json.py\0`)
+    const motivo = checarIndirectExec({ dir })
+    for (const caminho of [
+      'a/json.pyw',
+      'b/json.pyc',
+      'c/json.cp312-win_amd64.pyd',
+      'd/json.cpython-312-x86_64-linux-gnu.so',
+      'e/json.abi3.so',
+      'i/json.py',
+    ])
+      assert.ok(motivo.includes(`${caminho} can shadow the standard library module json`), caminho)
+    assert.match(motivo, /^6 indirect execution change\(s\): /)
+  })
+
+  test('a Python name is accepted by its path, which survives an edit of the file', () => {
+    // CircuitPython runs code.py by name, so renaming is no remedy; an entry keyed
+    // by blob id was lost on every commit that edited the file.
+    const linha = JSON.stringify({
+      regra: 'indirect-exec-change',
+      arquivo: 'code.py',
+      ponteiro: '',
+      sha256: sha256('code.py'),
+      motivo: 'CircuitPython runs code.py by name',
+    })
+    const base = {
+      [NOME_DA_ALLOWLIST]: `${linha}\n`,
+      '.github/CODEOWNERS': `/${NOME_DA_ALLOWLIST} @o\n`,
+    }
+    // The key names no content, so any version of the file is accepted.
+    assert.equal(
+      checarIndirectExec({ dir: repositorio({ ...base, 'code.py': 'import board\nprint(2)\n' }) }),
+      null,
+    )
+  })
+
   test('the name list: 212 names of Python 3.12 without an underscore, minus the 21 no file can shadow', () => {
     assert.equal(STDLIB_PYTHON.length, 191)
     const fora =
@@ -286,7 +405,16 @@ describe('helpers', () => {
     assert.deepEqual(familiasDe(j('n', 'c -e x')), ['network listener'])
     assert.deepEqual(familiasDe(j('cat ~/.s', 'sh/k')), ['SSH key path'])
     assert.deepEqual(familiasDe(j('open ', 'https://x')), ['URL'])
-    assert.deepEqual(familiasDe(j('ev', 'al x')), ['eval'])
+    assert.deepEqual(familiasDe(j('ev', 'al "$X"')), ['eval'])
+    assert.deepEqual(familiasDe(j('node -e "ev', 'al(x)"')), ['eval'])
+    // The word is no eval, and a local dev server is no download.
+    assert.deepEqual(familiasDe(j('promptfoo ev', 'al -c p.yaml')), [])
+    assert.deepEqual(familiasDe(j('node scripts/ev', 'al.mjs && vitest run ev', 'al/')), [])
+    assert.deepEqual(
+      familiasDe(j('wait-on http:', '//localhost:3000 && x http:', '//127.0.0.1:8080/')),
+      [],
+    )
+    assert.deepEqual(familiasDe(j('x http:', '//localhost.example.invalid/')), ['URL'])
     assert.deepEqual(familiasDe(j('base', '64 -d f')), ['base64 decode'])
     assert.deepEqual(familiasDe('node --test && npm run lint || tsc'), [])
     assert.deepEqual(familiasDe(undefined), [])

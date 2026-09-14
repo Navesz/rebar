@@ -220,6 +220,17 @@ describe('conferirAgents', () => {
     assert.equal(estado(`${render}\n${FENCE}md\n${MARCADOR_AGENTES}\n${FENCE}\n`).estado, 'confere')
     assert.deepEqual(estado(`# Doc\n\n\`${MARCADOR_AGENTES}\`\n`), { estado: 'sem-marcador' })
   })
+
+  test('a backtick inside an earlier comment pairs with nothing, so it cannot mask a marker', () => {
+    // Masks built apart from the comments paired this backtick with the one after
+    // the marker and hid both claims (reproduced through the whole rule).
+    const envenenada = `<!-- \` --> ${MARCADOR_AGENTES} \``
+    assert.deepEqual(estado(`${render}\n${envenenada}\n`), { estado: 'marcador-repetido', n: 2 })
+    assert.deepEqual(estado(`# Docs\n\n${envenenada}\n`), {
+      estado: 'marcador-fora-do-topo',
+      indice: 19,
+    })
+  })
 })
 
 // ================================================================= the rule

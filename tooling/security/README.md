@@ -1,11 +1,11 @@
 # security — prompt-injection signatures in versioned files
 
 `rebar-security` ([index.mjs](index.mjs)) answers "does this repository have a security flaw?".
-Besides the rules distilled from the security inventory, it carries a family of ten rules that
+Besides the rules distilled from the security inventory, it carries a family of eleven rules that
 look for **known prompt-injection signatures in what git versions**: text an agent reads and a
 reviewer does not see, and configuration an agent client or an editor acts on by itself. Six are
-deterministic signatures; four are heuristics of the third phase, which warn and fail only under
-`--heuristics`.
+deterministic signatures; five are heuristics (`mcp-ansi-escape` and the four of the third phase),
+which warn and fail only under `--heuristics`.
 
 > **A pass means "no known signature". It never means "free of injection".**
 >
@@ -34,7 +34,7 @@ node tooling/security/index.mjs --sugerir-allowlist .      # ready allowlist lin
 | `hidden-markdown-directive` | heuristic | N1 | no hidden Markdown region addressed to an agent |
 | `instruction-provenance` | heuristic | N1 | an AGENTS.md carrying the rebar generator marker matches a template rebar generated |
 | `mixed-script-token` | heuristic | N1 | no URL, host, package name or config identifier mixing writing systems |
-| `indirect-exec-change` | heuristic | N1 | no new install hook, no script that gained a download or shell pipe, no Python file shadowing the standard library |
+| `indirect-exec-change` | heuristic | N1 | no script that gained a download or shell pipe, no Python module shadowing the standard library |
 
 **Why N4 and not a hook.** Nothing runs these rules in a git hook in this phase: they bite in CI
 and in rebar's own gate (`security-injection`, `security-self`). A hook is a file the agent can
@@ -467,15 +467,22 @@ module with no server marker. rebar runs it with `--heuristics` on itself.
 **What it catches.** A region of a tracked Markdown file (`.md`, `.mdx`, `.markdown`, `.mdc`) or
 agent rule file (`.cursorrules`, `.windsurfrules`, `.clinerules`, `.roorules`) that the rendered
 page hides, when the region is addressed to an agent. The regions are HTML comments (a block
-comment that never closes runs to the end of the file, as CommonMark reads it), link reference
-definitions nothing uses (the `[//]: # (...)` shape), and elements hidden by a `style` (display,
-visibility, a zero font size or opacity) or by the `hidden` attribute. Closed front matter, closed
-fences and code spans are shown as code, so nothing inside them is a region. A region counts when
+comment that never closes runs to the end of the file, as CommonMark reads it, at the top or inside
+a list item or a block quote), link reference definitions nothing uses (the `[//]: # (...)` shape,
+also inside a container, with a label that may wrap one line; an inline link, which carries its own
+destination, and a label inside a comment are no use), elements hidden by a `style` (display, visibility, any zero
+font size or opacity, quoted or not) or by the `hidden` attribute, in any tag case, and in `.mdx`
+the `{/* ... */}` expression comment. Closed front matter, closed fences and code spans are shown as
+code, so nothing inside them is a region; they are read in one pass with the comments, so a
+backtick or a fence line inside a comment pairs with nothing. A region counts when
 one of six families fires: a vocative, an override of earlier instructions, a request to conceal,
 a condition on being a model, a model that must do something, or an imperative beside a strong
-execution token, in English, Portuguese or Spanish. The finding names the position, the kind of
-region, the word count, the families and the clients that load the file; Claude Code's stripping
-is noted only for a block comment in `CLAUDE.md` or `CLAUDE.local.md`.
+execution token, in English, Portuguese or Spanish, on the body with short code spans and link
+destinations blanked or on the body with the ones that read as prose (3 words or more) kept. A
+namespaced marker (`tool:agents:start v10`) excuses its token only, followed by attribute pairs and
+at most three bare words with no family. The finding names the position, the kind of region, the
+word count, the families and the clients that load the file; Claude Code's stripping is noted only
+for a top-level block comment in `CLAUDE.md` or `CLAUDE.local.md`.
 
 **Why.** GitHub renders Markdown with comments and unused definitions removed (checked through its
 `/markdown` API), and a model reads the raw file. Claude Code strips only block comments, and only
@@ -488,7 +495,10 @@ public instruction files that carry a comment hide prose in it. Measured with th
 regions in the 23 local repositories and rebar, 0 in 2,798 unique node_modules Markdown files (704
 unused definitions among them), and 2 regions in 2 of 690 public instruction files; 28 of 28 recall
 phrases read right. A seventh family (an imperative next to an addressee) fired on 3 honest local
-files and was dropped. The vocabulary is internal to the engine, not an exported table: exported,
+files and was dropped. The containers, the uses, the MDX comment, the prose kept in code spans and
+the capped marker shape moved no finding: the same 0, 0 and 2 of 690 after them, and every file
+reads in linear time (20,000 comments took 56 s before, 39 ms after). The vocabulary is internal
+to the engine, not an exported table: exported,
 it would match rebar's own visible prose, which this rule never reads, so the MCP artifact carries
 no search term for it.
 
@@ -552,12 +562,19 @@ READMEs.
 
 - since the first parent of `HEAD`, a `package.json` script whose value changed and gained an
   execution family (a pipe into a shell or interpreter, a download tool, command substitution, a
-  netcat listener, an SSH key path, a URL, eval, a base64 decode), named with the instruction file
-  that runs it when one does;
-- since the first parent, a new script npm runs by itself: `preinstall`, `install`,
-  `postinstall`, `prepublish`, `preprepare`, `prepare`, `postprepare` or `dependencies`;
-- a tracked Python file named like a standard library module in a folder with no `__init__.py`,
-  or a package of that name whose parent has none: a script run by path imports it first.
+  netcat listener, an SSH key path, a URL that leaves the machine, eval called or run as a shell
+  command, a base64 decode), named with the instruction file that runs it when one does; a new
+  install hook that carries a family fails this way too;
+- a tracked Python module named like a standard library module in a folder with no `__init__`,
+  or a package of that name whose parent has none: a script run by path imports it first. Every
+  suffix the import system loads counts (`.py`, `.pyw`, a sourceless `.pyc`, `.pyd` and `.so` with
+  or without an ABI tag), and so does a symlink, by its path.
+
+It warns (`⚠`, passes, even under `--heuristics`) on a new script npm runs by itself with no
+family in it: `preinstall`, `install`, `postinstall`, `prepublish`, `preprepare`, `prepare`,
+`postprepare` or `dependencies`, except a git hook installer as the whole value (`husky`,
+`husky install`, `lefthook install`, `simple-git-hooks`). A manifest is read as npm reads it, so
+nesting past the strict reader's 512 levels hides nothing.
 
 The script value is printed only as a hash. The standard library list is Python 3.12's, minus the
 21 names no file can shadow (loaded before a script starts, frozen, or built into every
@@ -568,16 +585,22 @@ a pull request body did not), and the injection does not need to touch it: it ca
 command it names does.
 
 **Why it is a heuristic.** An honest change can add a download to a script, and an honest folder
-can hold a module named like the standard library. Measured with this engine over 570
-first-parent commits of the local repositories and rebar: 0 of 199 changed script values gained a
-family and no install hook was added, while "a script an instruction file names changed" fired on
-14 of 212 commits. 0 of 24 repositories carry a shadowing Python file (126 tracked `.py`), and a
-Python 3.12 site-packages carries 3 among 20,291 files.
+can hold a module named like the standard library. Measured with this engine over 576
+first-parent commits of the local repositories and rebar: 0 of 200 changed script values gained a
+family, while "a script an instruction file names changed" fired on 14 of 212 commits. No commit
+of that history added an install hook, so the local history cannot say how often an honest one
+is added; node_modules can say how common they are: 258 of 1,261 published manifests with scripts
+carry one (`prepare: npm run build` 26 times, husky 16), and none of their 261 hooks carries a
+family. That is why a new hook with no family warns and does not fail. 0 of 24 repositories carry
+a shadowing Python module, and a Python 3.12 site-packages carries 4 among 19,927 importable files
+(2 of them `.pyd` extension modules a `.py` filter did not see).
 
 **Allowlist keys:** `{arquivo, ponteiro, sha256}` for a script, where `ponteiro` is
-`/scripts/<key>` and `sha256` hashes the script value; `{arquivo, oid}` for a Python file (the
-`__init__.py` of a package). Every current script is offered to the allowlist whether the range
-shows it or not, so an accepted entry does not turn stale one commit later.
+`/scripts/<key>` and `sha256` hashes the script value; for a Python module, `{arquivo, ponteiro:
+"", sha256}` with the sha256 of the path, which survives every edit of the file (a CircuitPython
+`code.py` must keep its name), or `{arquivo, oid}`, which an edit invalidates. Every current script
+is offered to the allowlist whether the range shows it or not, and with no parent commit too, so an
+accepted entry is never reported stale on a root commit or a shallow clone.
 
 ## The allowlist
 
@@ -593,7 +616,7 @@ Each line is `{regra, motivo}` plus exactly one key shape:
 |---|---|---|
 | `{arquivo, oid}` | `hidden-unicode`, `control-bytes`, `agent-bypass-invocation`, `ai-workflow-untrusted-input`, `mcp-ansi-escape`, `hidden-markdown-directive`, `mixed-script-token`, `indirect-exec-change` | the path and the blob id of its content, as `git ls-files -s <path>` prints it |
 | `{commit}` | `hidden-unicode`, `control-bytes` | the id of the commit whose message carries the finding |
-| `{arquivo, ponteiro, sha256}` | `agent-config-exec`, `indirect-exec-change` | the path, the JSON Pointer of the key, and the sha256 of that node serialized with sorted keys (for `indirect-exec-change`, of the script string) |
+| `{arquivo, ponteiro, sha256}` | `agent-config-exec`, `indirect-exec-change` | the path, the JSON Pointer of the key, and the sha256 of that node serialized with sorted keys (for `indirect-exec-change`, of the script string; for one of its Python modules, `ponteiro` is `""` and `sha256` hashes the path) |
 | `{arquivo, servidor, sha256}` | `mcp-server-launch` | the path, the server name, and the launch fingerprint the finding prints |
 
 `motivo` is 1 to 200 characters. There are no globs and no path prefixes: every key names
@@ -619,7 +642,7 @@ nota. The hashes below are placeholders.
 
 ### Writing the lines: `--sugerir-allowlist`
 
-`node tooling/security/index.mjs --sugerir-allowlist <repository>` runs the seven injection rules
+`node tooling/security/index.mjs --sugerir-allowlist <repository>` runs the ten injection rules that take an entry
 (or the one `--rule=` names) and prints, for every finding an entry can exempt, the line that
 would exempt it, with the exact key that rule compares. A failing workflow step gets one line for
 every file it depends on (the workflow, the reusable workflow or composite action it resolved, the
@@ -725,11 +748,14 @@ Saying where the limit is is worth more than pretending to check.
 | Colour a word-colour diff uses as its only marker: red and green in `git diff --word-diff=color` can make added text look removed in a terminal review | a snapshot records exactly those colours, so excluding them would undo the snapshot exemption; not measured | review in a web diff, which shows the sequence as text |
 | A package script started through a workspace glob, a recursive run over every workspace, or a runner named by a variable | the rule follows a script name to the package a folder, a workspace or a package name selects, one at a time | review of the hook |
 | Cursor permission rules in the narrow shapes Claude Code and Gemini CLI rules get (a fixed `deno` subcommand, `pwsh -File`, `node --run`, a version option) | Cursor's command-base matching was not measured, so its rules keep the older, broader reading | review |
-| Lookalikes that mix no scripts: a whole host in one foreign script under a same-script top-level domain, ASCII lookalikes (`rn` for `m`, `l` for `1`), a lone lookalike letter among digits, and lookalike identifiers in code and prose | `mixed-script-token` judges script mixing, not visual confusability, and only in hosts, URL segments, package names and config identifiers | a confusables skeleton, review |
+| Lookalikes that mix no scripts: a whole host in one foreign script under a same-script top-level domain, ASCII lookalikes (`rn` for `m`, `l` for `1`), a lone lookalike letter among digits, and lookalike identifiers in code and prose; and Latin with a Han, kana, Hangul or Bopomofo character that reads as a Latin letter (U+4E28 for `l`), which the Highly Restrictive level allows because Japanese, Chinese and Korean text mixes with Latin honestly | `mixed-script-token` judges script mixing, not visual confusability, and only in hosts, URL segments, package names and config identifiers | a confusables skeleton, review |
+| A DNS label longer than 63 octets written as punycode | it names no host, so it is not decoded | nothing to catch |
 | Hidden directives outside the English, Portuguese and Spanish vocabulary, paraphrases, and text hidden in `title` or `alt` attributes, `<details>`, front matter, or by a CSS class from a stylesheet | the families are vocabulary, and those places are shown, or hidden only after rendering a stylesheet | review of the raw file |
+| An order of at most three bare words after a namespaced marker token (`Claude:note prefer tabs`), an element hidden by an unclosed tag, by `transform`, `clip`, an off-screen position or a zero height, and MDX hiding other than `{/* */}` (a component that renders nothing, an `export`) | real markers carry up to three bare words; the CSS tests are the four measured ones; MDX components are code | review of the raw file |
 | A script FILE that changes while the command line that runs it stays the same | `indirect-exec-change` compares script values, not the files they run | file integrity, a later phase |
 | Earlier commits of a push with several commits, and shallow clones | the range is the first parent to the index; with no parent it is not evaluated | CI on every commit, `fetch-depth: 0` |
 | Python shadowing through `.pth` files, `sitecustomize` or `PYTHONPATH`, and a module inside a package run by path (`python pkg/run.py` imports `pkg/json.py`) | only a tracked file named like the standard library, outside a package, is judged | review, `python -m` |
+| A Python file whose name is imposed and honest: CircuitPython's `code.py` and `boot.py`, a module of a PEP 420 namespace package that nobody runs by path | the rule judges the name and the folder, not how the code is started | an allowlist entry keyed by the path, which survives edits |
 | Visible instructions appended after a matching generated template, and an AGENTS.md edited after generation (its false-positive rate is unmeasured: the base is 3 unedited repositories) | a tail is allowed, and visible prose cannot be told from documentation | review |
 | A reusable workflow called from another repository | it is not in the index | review the called workflow; pin it by commit |
 | A gate that lives in a job or step output, or in an earlier step that fails the job for an account without write access | the output is only known at run time, so the step counts as reachable: copies of Google's dispatch and plan-execute example fail, and so do workflows that check permissions in a script | an allowlist entry for the reviewed workflow |

@@ -37,7 +37,7 @@
 
 import { escaparSaida } from '../texto-seguro.mjs'
 import { ESCRITAS_DE_LETRA } from './escritas-tabelas.mjs'
-import { FORMATO_POR_EXTENSAO, lerJsonc, lerToml, lerYaml } from './formats.mjs'
+import { FORMATO_POR_EXTENSAO, lerJsonc, lerManifestoNpm, lerToml, lerYaml } from './formats.mjs'
 import {
   allowlistMalformada,
   extensaoDe,
@@ -133,6 +133,7 @@ const BASE = 36
 const TMIN = 1
 const TMAX = 26
 const LIMITE = 0x7fffffff
+const COMPRIMENTO_MAXIMO_DE_ROTULO = 59
 
 function adaptar(delta, pontos, primeiro) {
   let d = primeiro ? Math.floor(delta / 700) : delta >> 1
@@ -160,6 +161,11 @@ function digito(u) {
  */
 export function decodificarPunycode(rotulo) {
   const entrada = String(rotulo)
+  // A DNS label holds at most 63 octets, so 59 after `xn--`: a longer one names
+  // no host. Decoded anyway, a 200,000-letter label overflowed the stack in the
+  // final String.fromCodePoint and broke the ruler (exit 127, even without
+  // --heuristics); and each splice below is linear, so the decoder is quadratic.
+  if (entrada.length > COMPRIMENTO_MAXIMO_DE_ROTULO) return null
   const saida = []
   const delimitador = entrada.lastIndexOf('-')
   for (let k = 0; k < Math.max(0, delimitador); k++) {
@@ -201,10 +207,65 @@ export function decodificarPunycode(rotulo) {
 // ═════════════════════════════════════════════════════════════════════ URLs
 
 const URL_COM_ESQUEMA = /\b(?:https?|ftp|wss?|git|ssh|svn|file):\/\/[^\s"'`<>()[\]{}\\|^]+/gi
-// user@host:path, the address form git and scp take. The host needs a dot, and
-// the lookbehind keeps it from starting in the middle of a word.
-const URL_SCP =
-  /(?<![^\s"'`(<[{=,])[^\s"'`<>@:/()[\]{}]+@([^\s"'`<>@:/()[\]{},;]+\.[^\s"'`<>@:/()[\]{},;.]+):(?!\/\/)[^\s"'`<>]+/g
+
+const ESPACO = /\s/
+/** A test for "not whitespace and not one of `excluidos`", on a UTF-16 code unit. */
+function foraDe(excluidos) {
+  const fora = new Set([...excluidos].map((c) => c.charCodeAt(0)))
+  return (u) => !fora.has(u) && !ehEspaco(u)
+}
+const DO_USUARIO = foraDe('"\'`<>@:/()[]{}')
+const DO_HOST = foraDe('"\'`<>@:/()[]{},;')
+const DO_CAMINHO = foraDe('"\'`<>')
+const ABRE_SCP = new Set([...'"\'`(<[{=,'].map((c) => c.charCodeAt(0)))
+const ehEspaco = (u) => (u <= 0x20 || u >= 0xa0) && ESPACO.test(String.fromCharCode(u))
+const podeAbrirScp = (u) => ABRE_SCP.has(u) || ehEspaco(u)
+
+/**
+ * Every `user@host:path` of a text, the address form git and scp take, as
+ * `{ index, host }`: the matches, in order and without overlap, of
+ *   (?<![^\s"'`(<[{=,])[^\s"'`<>@:/()[\]{}]+@([^\s"'`<>@:/()[\]{},;]+\.[^\s"'`<>@:/()[\]{},;.]+):(?!\/\/)[^\s"'`<>]+
+ * found from each `@` instead of from each place that pattern could start. The
+ * user class takes digits, commas and dots, so on what JSON.stringify writes for
+ * an array of numbers the regex tried every comma and scanned the whole run back
+ * to it: 49.0 s for one 301 KB embedding file with no match at all, and 57.6 s
+ * for an honest 318 KB bundle. Walking back from an `@` stops at the previous
+ * `@`, so each character is read a bounded number of times.
+ */
+function* enderecosScp(t) {
+  let fim = 0
+  for (let a = t.indexOf('@'); a !== -1; a = t.indexOf('@', a + 1)) {
+    if (a < fim) continue
+    let s = a
+    while (s > fim && DO_USUARIO(t.charCodeAt(s - 1))) s--
+    let p = -1
+    for (let q = s; q < a; q++) {
+      if (q === 0 || podeAbrirScp(t.charCodeAt(q - 1))) {
+        p = q
+        break
+      }
+    }
+    if (p === -1) continue
+    let h = a + 1
+    while (h < t.length && DO_HOST(t.charCodeAt(h))) h++
+    const host = t.slice(a + 1, h)
+    const ponto = host.lastIndexOf('.')
+    if (ponto < 1 || ponto === host.length - 1) continue
+    if (t[h] !== ':' || t.startsWith('//', h + 1)) continue
+    let e = h + 1
+    while (e < t.length && DO_CAMINHO(t.charCodeAt(e))) e++
+    if (e === h + 1) continue
+    yield { index: p, host }
+    fim = e
+  }
+}
+
+/** The text without trailing sentence punctuation, trimmed without a regex that retries each start. */
+function semPontuacaoFinal(s) {
+  let k = s.length
+  while (k > 0 && '.,;:!?'.includes(s[k - 1])) k--
+  return s.slice(0, k)
+}
 
 const decodificar = (s) => {
   try {
@@ -226,7 +287,7 @@ export function urlsDe(texto) {
   const saida = []
   const cobertos = []
   for (const m of t.matchAll(URL_COM_ESQUEMA)) {
-    const url = m[0].replace(/[.,;:!?]+$/, '')
+    const url = semPontuacaoFinal(m[0])
     const inicioDaAutoridade = url.indexOf('://') + 3
     const resto = url.slice(inicioDaAutoridade)
     const autoridade = resto.split(/[/?#]/)[0]
@@ -246,10 +307,12 @@ export function urlsDe(texto) {
     saida.push(montarHost(host, m.index + inicioDaAutoridade + deslocamento, m.index, segmentos))
     cobertos.push([m.index, m.index + url.length])
   }
-  for (const m of t.matchAll(URL_SCP)) {
-    if (cobertos.some(([a, b]) => m.index >= a && m.index < b)) continue
-    const indiceDoHost = m.index + m[0].indexOf('@') + 1
-    saida.push(montarHost(m[1], indiceDoHost, m.index, []))
+  let c = 0
+  for (const m of enderecosScp(t)) {
+    while (c < cobertos.length && cobertos[c][1] <= m.index) c++
+    if (c < cobertos.length && m.index >= cobertos[c][0]) continue
+    const indiceDoHost = t.indexOf('@', m.index) + 1
+    saida.push(montarHost(m.host, indiceDoHost, m.index, []))
   }
   return saida
 }
@@ -376,7 +439,9 @@ export function checarMixedScript(r) {
       const cp = escritaMista(token)
       if (cp !== null) achados.push({ tipo, cp, lugar })
     }
-    const noTexto = (i) => posicao(texto, i)
+    // Positions are computed for findings only: reader.mjs's posicao walks from the
+    // line start, and a minified line carries thousands of URL tokens.
+    const noTexto = (i) => () => posicao(texto, i)
     const doPonteiro = (analise, ponteiro) => analise.posicoes?.get(ponteiro) || null
 
     for (const url of urlsDe(texto)) {
@@ -385,8 +450,13 @@ export function checarMixedScript(r) {
 
     const nome = e.caminho.split('/').pop()
     if (nome === 'package.json') {
-      const analise = lerJsonc(texto)
-      if (!analise.erro) {
+      // A tracked manifest is a candidate even when it names nothing or cannot
+      // be read: 'no package manifest tracked' was the reason printed for a
+      // package.json the reader refused.
+      candidatos++
+      const lida = lerJsonc(texto)
+      const analise = lida.erro ? lerManifestoNpm(texto) : lida
+      if (analise) {
         for (const [ponteiro, token] of nomesDoPacote(analise.valor))
           julgar('package name', token, doPonteiro(analise, ponteiro))
       }
@@ -442,8 +512,9 @@ export function checarMixedScript(r) {
     }
     const vistos = new Set()
     for (const a of achados) {
-      const local = a.lugar
-        ? onde(e.caminho, a.lugar.linha, a.lugar.coluna)
+      const lugar = typeof a.lugar === 'function' ? a.lugar() : a.lugar
+      const local = lugar
+        ? onde(e.caminho, lugar.linha, lugar.coluna)
         : `${escaparSaida(e.caminho)} (${a.tipo})`
       const item = `${local} ${a.tipo} mixes writing systems at ${rotulo(a.cp)}`
       if (vistos.has(item)) continue
