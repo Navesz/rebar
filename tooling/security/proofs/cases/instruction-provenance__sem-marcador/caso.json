@@ -1,0 +1,22 @@
+{
+  "rule": "instruction-provenance",
+  "why": "The not-applicable branch: when no instruction file carries the marker there is no claim to hold (invariant I4). Both sides reach it for different reasons. The pass side is a hand-written AGENTS.md with no marker. The fail side has a Markdown file that starts with the marker but is no instruction file (docs/template.md, which no client loads), the way rebar tracks its own template: read every Markdown file and the fail side stops being na.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyBCYWtlcnkKClJ1biB0aGUgdGVzdHMgYmVmb3JlIGNvbW1pdHRpbmcuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "docs/template.md",
+        "base64": "PCEtLSByZWJhcjphZ2VudGVzIC0tPgoKIyBUZW1wbGF0ZQo="
+      }
+    ]
+  }
+}

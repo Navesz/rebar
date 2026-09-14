@@ -117,6 +117,17 @@
  *   otherwise. An engine calls it where a reprova finding stands that `chave`,
  *   passed to aceita(), would exempt.
  *
+ * notasDaAllowlist(allowlist, regra, usouAlguma) -> string[]
+ *   The allowlist notes a rule reports: stale entries of `regra`, an untracked
+ *   copy on disk, a file in use that no CODEOWNERS entry owns.
+ * allowlistMalformada(allowlist) -> string | null
+ *   The reprova every injection rule returns for a malformed allowlist.
+ *
+ * lerDoPai(dir, filtro, { semMemoria = false } = {}) -> null | Map<caminho, { oid, texto, codificacao }>
+ *   The blobs of the FIRST PARENT of HEAD whose path passes `filtro`, decoded like
+ *   index blobs, paths in the ls-files frame. null when HEAD^1 is not a commit
+ *   here: an unborn branch, a root commit, a shallow clone cut at HEAD.
+ *
  * posicao(texto, indice) -> { linha, coluna }
  *   `indice` is a UTF-16 offset (what indexOf returns). 1-based; `linha` counts
  *   LF; `coluna` counts code points since the line start.
@@ -220,6 +231,9 @@ export const REGRAS_DA_ALLOWLIST = [
   'agent-bypass-invocation',
   'ai-workflow-untrusted-input',
   'mcp-ansi-escape',
+  'hidden-markdown-directive',
+  'mixed-script-token',
+  'indirect-exec-change',
 ]
 
 // ───────────────────────────────────────────────────────────── classification
@@ -1416,6 +1430,110 @@ export function lerAllowlist(dir) {
       return n
     },
   }
+}
+
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
+
+/**
+ * The allowlist parts a rule reports as a nota, the pattern control.mjs keeps
+ * for its own rules: stale entries, a copy git does not track, and an allowlist
+ * in use that no CODEOWNERS entry owns (only then: without an entry in use that
+ * line is noise nobody acts on).
+ */
+export function notasDaAllowlist(allowlist, regra, usouAlguma) {
+  const notas = []
+  const obsoletas = allowlist.obsoletas(regra)
+  if (obsoletas) {
+    notas.push(
+      `${plural(obsoletas, 'allowlist entry', 'allowlist entries')} for ${regra} ` +
+        `${obsoletas === 1 ? 'matches' : 'match'} nothing tracked today and can be removed`,
+    )
+  }
+  if (allowlist.naoRastreada) {
+    notas.push(
+      `${NOME_DA_ALLOWLIST} exists on disk but git does not track it, so it exempts nothing`,
+    )
+  }
+  if (allowlist.rastreada && usouAlguma && !allowlist.cobertaPorCodeowners) {
+    notas.push(
+      `no CODEOWNERS entry owns ${NOME_DA_ALLOWLIST}, so any pull request can widen what it exempts`,
+    )
+  }
+  return notas
+}
+
+/** The reprova of a malformed allowlist, in the words control.mjs prints, or null. */
+export function allowlistMalformada(allowlist) {
+  if (!allowlist.erros.length) return null
+  const erros = allowlist.erros.map(
+    (x) => `${NOME_DA_ALLOWLIST}:${x.linha}:${x.coluna} ${escaparSaida(x.mensagem)}`,
+  )
+  return `${NOME_DA_ALLOWLIST} is malformed, and that is never exempt: ${resumir(erros)}`
+}
+
+// ─────────────────────────────────────────────────────────── the parent commit
+
+const MEMORIA_DO_PAI = new Map()
+
+/**
+ * The first parent of HEAD, read like the index: blob entries of
+ * `git ls-tree -r -z HEAD^1` whose path passes `filtro`, their bytes from the
+ * same batched cat-file, decoded by BOM. The paths are relative to `dir`, the
+ * frame ls-files uses, so a path means the same file in both reads.
+ *
+ * WHY THE FIRST PARENT AND NOT A RANGE. rebar-security takes no range input, and
+ * on a pull request actions/checkout checks out the merge commit, whose first
+ * parent is the base branch, so HEAD^1 -> index is the diff of the pull request.
+ * Measured: `rev-parse --verify -q HEAD^1^{commit}` exits 1 on an unborn branch
+ * and on a root commit, and 0 on a child. A shallow clone cut at HEAD has no
+ * parent object either, and gets null too: the half of a rule that needs the
+ * parent is then not evaluated, which the security README lists as a limit.
+ *
+ * Only the listing is memoized per resolved dir; blobs are read per call, for
+ * the paths that call asks about.
+ */
+export function lerDoPai(dir, filtro, { semMemoria = false } = {}) {
+  const chave = resolve(dir)
+  if (semMemoria) {
+    MEMORIA_DO_PAI.delete(chave)
+    MEMORIA_DE_REPOSITORIO.delete(chave)
+  }
+  let listagem = MEMORIA_DO_PAI.get(chave)
+  if (listagem === undefined) {
+    listagem = null
+    if (!foraDeRepositorio(chave)) {
+      const pai = git(chave, ['rev-parse', '--verify', '-q', 'HEAD^1^{commit}'], {
+        aceitar: [0, 1],
+      })
+      if (pai.status === 0) {
+        const id = String(pai.stdout).trim()
+        listagem = []
+        for (const registro of partirPorNul(git(chave, ['ls-tree', '-r', '-z', id]).stdout)) {
+          if (registro.length === 0) continue
+          const tab = registro.indexOf(0x09)
+          if (tab === -1) throw new Error('git ls-tree printed a record without a tab')
+          const [modo, tipo, oid] = registro.toString('latin1', 0, tab).split(' ')
+          if (tipo !== 'blob' || modo === '120000') continue
+          listagem.push({ caminho: registro.subarray(tab + 1).toString('utf8'), oid })
+        }
+      }
+    }
+    MEMORIA_DO_PAI.set(chave, listagem)
+  }
+  if (listagem === null) return null
+  const escolhidos = listagem.filter((x) => filtro(x.caminho))
+  const blobs = lerBlobs(chave, [...new Set(escolhidos.map((x) => x.oid))])
+  const saida = new Map()
+  for (const { caminho, oid } of escolhidos) {
+    const blob = blobs.get(oid)
+    if (!blob || blob.ausente || blob.bytes === null) {
+      saida.set(caminho, { oid, texto: null, codificacao: 'utf-8' })
+      continue
+    }
+    const d = decodificarBlob(blob.bytes)
+    saida.set(caminho, { oid, texto: d.texto, codificacao: d.codificacao })
+  }
+  return saida
 }
 
 // ──────────────────────────────────────────────────────────────── reporting

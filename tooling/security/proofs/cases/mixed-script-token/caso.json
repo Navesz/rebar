@@ -1,0 +1,20 @@
+{
+  "rule": "mixed-script-token",
+  "why": "The curl project received an AI-written report whose GitHub link began with an Armenian letter in place of the g. The fail side is a README with that link. The pass side holds the honest non-ASCII a repository carries: the same link in ASCII, a Portuguese accented path segment, a Japanese path segment on a Latin host, and a resistance written with the Greek omega in prose, which is never judged. Judge prose, or treat any non-ASCII as mixed, and the pass side goes red; judge only the path and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBMaW5rcwoKaHR0cHM6Ly9naXRodWIuY29tL28vci9wdWxsLzEKCmh0dHBzOi8vZXhhbXBsZS5jb20vcmVsYXTDs3JpbwoKaHR0cHM6Ly9qYS53aWtpcGVkaWEub3JnL3dpa2kv5p2x5LqsCgpBIDEwIGvOqSByZXNpc3Rvci4K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBMaW5rcwoKaHR0cHM6Ly/WgWl0aHViLmNvbS9vL3IvcHVsbC8xCg=="
+      }
+    ]
+  }
+}

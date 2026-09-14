@@ -200,6 +200,25 @@ const ESCAPES_JSON = {
 }
 const NUMERO_JSON = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y
 
+/**
+ * A package.json as npm reads it: `{ valor, posicoes }`, or null when npm could
+ * not read it either. The strict reader comes first, for positions. When it
+ * refuses what JSON.parse accepts (nesting past its 512 levels, which npm runs:
+ * `npm test` ran the script of a 513-deep manifest), JSON.parse decides and the
+ * positions are null. Without this, one deep array anywhere in the manifest hid
+ * a new postinstall from indirect-exec-change and every package name from
+ * mixed-script-token.
+ */
+export function lerManifestoNpm(texto) {
+  const analise = lerJsonc(texto, { estrito: true })
+  if (!analise.erro) return { valor: analise.valor, posicoes: analise.posicoes }
+  try {
+    return { valor: JSON.parse(String(texto).replace(/^\uFEFF/, '')), posicoes: null }
+  } catch {
+    return null
+  }
+}
+
 export function lerJsonc(texto, { estrito = false } = {}) {
   const fonte = String(texto)
   const n = fonte.length
