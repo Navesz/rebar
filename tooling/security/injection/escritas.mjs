@@ -47,6 +47,7 @@ import {
   onde,
   posicao,
   resumir,
+  sugerirEntrada,
 } from './reader.mjs'
 
 /** "Not applicable": the class leaves the denominator (invariant I4). */
@@ -506,10 +507,13 @@ export function checarMixedScript(r) {
     }
 
     if (!achados.length) continue
-    if (allowlist.aceita('mixed-script-token', { arquivo: e.caminho, oid: e.oid })) {
+    const chave = { arquivo: e.caminho, oid: e.oid }
+    if (allowlist.aceita('mixed-script-token', chave)) {
       usouAlguma = true
       continue
     }
+    // What --sugerir-allowlist prints: the key aceita() just refused.
+    sugerirEntrada(r, 'mixed-script-token', chave)
     const vistos = new Set()
     for (const a of achados) {
       const lugar = typeof a.lugar === 'function' ? a.lugar() : a.lugar

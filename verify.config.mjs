@@ -1517,7 +1517,8 @@ export default [
     //
     // The four phase-3 heuristics brought four more files, 14 in all: the step
     // took 105.0 s on 2026-09-13 on this machine while four other worktrees ran
-    // their own gates on it (35% of the limit).
+    // their own gates on it (35% of the limit). ai-workflow-untrusted-input
+    // brought prove-workflow.mjs, 15 in all.
     nome: 'security-injection',
     comando: node('--test', `--test-concurrency=${PROVAS_DE_INJECAO.length}`, ...PROVAS_DE_INJECAO),
     // `exige` lists what the step loads: every proof file, the checker they

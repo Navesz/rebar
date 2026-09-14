@@ -16,6 +16,7 @@ import {
   notasDaAllowlist,
   onde,
   resumir,
+  sugerirEntrada,
 } from './reader.mjs'
 
 const na = (motivo) => ({ na: motivo })
@@ -63,10 +64,13 @@ export function checarHiddenMarkdown(r) {
       if (a.familias.length) diretivas.push({ regiao, a })
     }
     if (!diretivas.length) continue
-    if (allowlist.aceita('hidden-markdown-directive', { arquivo: e.caminho, oid: e.oid })) {
+    const chave = { arquivo: e.caminho, oid: e.oid }
+    if (allowlist.aceita('hidden-markdown-directive', chave)) {
       usouAlguma = true
       continue
     }
+    // What --sugerir-allowlist prints: the key aceita() just refused.
+    sugerirEntrada(r, 'hidden-markdown-directive', chave)
     const { clientes, removeBloco } = clientesDe(e.caminho, e.tipo)
     for (const { regiao, a } of diretivas) {
       const forma = NOME_DA_FORMA[`${regiao.tipo} ${regiao.forma}`]

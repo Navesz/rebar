@@ -10,12 +10,12 @@
     },
     {
       "arquivo": "tooling/security/index.mjs",
-      "sha256": "eff86a0c01fada35b66957a08f2d0a213e042f90a3867a09fa9085eaee25baac",
+      "sha256": "4fc85804640d8c3f68ccf22ee903110582d468b2a72a70ea5a997b1bbd8641e6",
       "daqui": "the security rules and the why of each one"
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "e363c962827059e5db6d1be9cbfbe6f697469600805ffe2955112627f92ca637",
+      "sha256": "54cd6727d7bbb8da345f3b6e4a0a3ff032eed576956ba02cba17f454076e78de",
       "daqui": "the gate steps, in order"
     },
     {
@@ -25,8 +25,8 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "a322d7bfcbb523692c8a0c9a70cd93876e4559ffba53c6e7101d1b29631e80a3",
-      "daqui": "the why of each of the 155 proof cases"
+      "sha256": "65a59fb0129fa4f159c52c78adb809f8b172a50fc1a617a2e51c66ee54b41b7e",
+      "daqui": "the why of each of the 175 proof cases"
     },
     {
       "arquivo": "new/index.mjs",
@@ -90,7 +90,11 @@
         "single-language",
         "disabled-defense",
         "password-without-kdf",
-        "mcp-ansi-escape"
+        "mcp-ansi-escape",
+        "hidden-markdown-directive",
+        "instruction-provenance",
+        "mixed-script-token",
+        "indirect-exec-change"
       ]
     },
     {
@@ -1258,27 +1262,27 @@
       "nivel": "N5",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 319
+        "linha": 323
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 324,
+          "linha": 328,
           "texto": "The most common class in the whole inventory: a versioned secret shows up in 7 of the 16 videos. This is its cheapest slice — a `git ls-files`."
         },
         {
           "onde": "cabecalho",
-          "linha": 327,
+          "linha": 331,
           "texto": "It is NOT the secret scanner, which already exists in `tooling/secret/`. That one looks at the staged CONTENT; this one looks at the tracked NAME. They are different findings: a `.env` can be tracked and empty today and get the key tomorrow with nobody noticing, because the file already went through review."
         },
         {
           "onde": "cabecalho",
-          "linha": 333,
+          "linha": 337,
           "texto": "False positive predicted and excluded: `.env.example`, `.env.sample`, `.env.template`, `.env.dist` and `.env.exemplo` are the FIX for this flaw, not the flaw. A repository that documents its variables in a tracked `.env.example` is doing the right thing."
         },
         {
           "onde": "cabecalho",
-          "linha": 338,
+          "linha": 342,
           "texto": "N5 and not N1 because the fix after the commit is not deleting the file: it is rotating the credential. The place to block is before the commit exists."
         }
       ],
@@ -1299,32 +1303,32 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 358
+        "linha": 362
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 363,
+          "linha": 367,
           "texto": "The cheapest gap the inventory audit found, and it was not even in the inventory: no video showed it, but it is the most deterministic pattern there is in a repository built with AI."
         },
         {
           "onde": "cabecalho",
-          "linha": 367,
+          "linha": 371,
           "texto": "Every literal in this list is a HUMAN DECISION recorded on one line — somebody turned a protection off so the demo would stop erroring, and never turned it back on. There is no dataflow, no schema, no proof of absence: the literal is there or it is not. That is why the false positive tends to zero and the finding explains itself."
         },
         {
           "onde": "cabecalho",
-          "linha": 373,
+          "linha": 377,
           "texto": "It brings CSRF (CWE-352, third in the CWE Top 25) into the module, which would otherwise be left with no rule at all."
         },
         {
           "onde": "cabecalho",
-          "linha": 376,
+          "linha": 380,
           "texto": "FALSE POSITIVE PREDICTED AND HANDLED: the very file that documents these patterns — this one — would match every one of them. That is what `semComentarioNemImport` solves (I7), and it is the reason the body is read without comments."
         },
         {
           "onde": "implementacao",
-          "linha": 382,
+          "linha": 386,
           "texto": "Source already comes with the text; config and workflow need a read. THE MATCHED TEXT, and not a copy of it typed into the table. The output reads as before -- `rejectUnauthorized: false — TLS without ...` -- except that the literal is now what IS in the audited file, with the spacing it really has. DEBUG on only counts alongside an open host: `DEBUG = True` by itself is the development default, and flagging it paints every settings.py."
         }
       ],
@@ -1377,42 +1381,42 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 418
+        "linha": 422
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 423,
+          "linha": 427,
           "texto": "Third most common class in the inventory — 4 of the 16 videos. Chosen ahead of `mass-assignment`, which shows up in 5, for a cost reason: mass assignment only decides severity by reading the privileged column of the schema, which demands a `schema.prisma` or SQL parser. This one is textual all the way through."
         },
         {
           "onde": "cabecalho",
-          "linha": 429,
+          "linha": 433,
           "texto": "TWO SIGNALS, and both need bilingual vocabulary:"
         },
         {
           "onde": "cabecalho",
-          "linha": 431,
+          "linha": 435,
           "texto": "(a) direct comparison — `u.password === req.body.password`, or the same with `senha`. If the comparison is `===`, it never went through a KDF: bcrypt, argon2 and scrypt return a hash with the salt embedded and demand `compare`."
         },
         {
           "onde": "cabecalho",
-          "linha": 436,
+          "linha": 440,
           "texto": "(b) fast hash on an authentication path — `createHash('sha256')`, `md5`, `sha1`. Fast is the defect: what protects a password is being slow."
         },
         {
           "onde": "cabecalho",
-          "linha": 440,
+          "linha": 444,
           "texto": "FALSE POSITIVE PREDICTED AND EXCLUDED: LEGITIMATE PRE-HASH. `bcrypt` silently truncates at 72 bytes, and the recommended defense is to feed a sha256 of the password into bcrypt. A file that does `bcrypt.hash(sha256(senha))` is RIGHT, and flagging it would punish whoever knows the problem. That is why signal (b) only counts where there is no slow primitive in the same file."
         },
         {
           "onde": "implementacao",
-          "linha": 451,
+          "linha": 455,
           "texto": "BILINGUAL vocabulary. See the note at the top: the English-only list is blind in exactly the repositories this module exists to audit. `senha` stays in Portuguese because it is what the rule LOOKS FOR inside third-party Brazilian code — translating it blinds the detector."
         },
         {
           "onde": "implementacao",
-          "linha": 456,
+          "linha": 460,
           "texto": "`rebar-segredo-ok:` is not prose either: it is the escape token `tooling/secret/scan-secret.mjs` matches, and renaming it voids every escape already written in the audited repositories. Only the justification after the colon is English — the token demands a reason that starts with a character neither whitespace nor default-ignorable, right after the finding and within 256 characters of it, and it gets both."
         }
       ],
@@ -1433,52 +1437,52 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 491
+        "linha": 495
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 496,
+          "linha": 500,
           "texto": "THE MEASUREMENT THAT OPENED THIS RULE. A repository was built with four credentials of real shape — an AWS access key, a GitHub token, an LLM API key, and the assignment of a literal to an `apiKey` constant, which is the exact shape of the live one sitting in the public `Navesz/Climatic` today. Both rulers were run against it:"
         },
         {
           "onde": "cabecalho",
-          "linha": 502,
+          "linha": 506,
           "texto": "rebar-security . 2 of 2, 1 not applicable, EXIT 0 — saw nothing rebar . none of the 23 rules mentions a credential"
         },
         {
           "onde": "cabecalho",
-          "linha": 505,
+          "linha": 509,
           "texto": "The detector that catches all four already existed and worked: `tooling/secret/scan-secret.mjs` exited 1 with 4 findings on the same tree. It was simply not a rule of either ruler — it ran only as an internal step of rebar's own gate, and as the pre-commit hook of the generated project."
         },
         {
           "onde": "cabecalho",
-          "linha": 511,
+          "linha": 515,
           "texto": "WHY THAT GAP IS THE WHOLE POINT, AND WHY THE LEVEL IS N4. The hook is N5, and N5 is the level `docs/PLANO.md` describes as the one the agent removes WITH NO DIFF AT ALL: `git commit --no-verify` and the scan never happened. What the generated project's CI runs is `npm run verificar`, `npx rebar .` and `npx rebar-security .` — and until this rule none of the three read a single byte looking for a credential. So a secret committed with `--no-verify` reached main with CI green. The mother rule of the taxonomy says a rule that can go down a level must go down: N4 blocks the merge and survives the flag, and this rule is the same scan standing there."
         },
         {
           "onde": "cabecalho",
-          "linha": 522,
+          "linha": 526,
           "texto": "IT DETECTS NOTHING OF ITS OWN. Every pattern, every placeholder list and the `rebar-segredo-ok:` escape come from the scanner, run as a subprocess — see the note above `VARREDOR`. Derived, never duplicated: a second copy of those patterns would drift from the hook's, and then the commit and the merge would disagree about what a credential is."
         },
         {
           "onde": "implementacao",
-          "linha": 533,
+          "linha": 537,
           "texto": "ABSENCE OF A TARGET IS `na`; ABSENCE OF INFORMATION IS NOT. A repository where git tracks nothing has no credential to hide, and the class leaves the denominator (I4). A repository where the scanner READ NOTHING it tried to read is a different thing entirely — the measurement failed, and laundering that into `na` is exactly the move that once took a repository from 9 of 10 to 6 of 6. It goes out as a broken ruler. The scanner reports paths relative to the GIT ROOT it discovers from its cwd; `lerRepo` reports them relative to the TARGET. The two coincide only when the target is the root, which is the usual call and not the only one. `--show-prefix` is the translation between the two, and without it a target one folder down would be judged by findings from outside itself, with paths that do not exist in it. PROOF MATERIAL, BY THE MARKER THE TOOLKIT ALREADY USES. This repository tracks case files stuffed with credentials that are fake on purpose, including the `fail/` trees that exist to prove THIS rule fails what it should."
         },
         {
           "onde": "implementacao",
-          "linha": 562,
+          "linha": 566,
           "texto": "The scanner itself now exempts only VALIDATED roots: a tracked `caso.json` with the schema, under a literal proof root, read from the index under `--staged` (HOLE 9 of its header). `r.ignorados.raizesDeProva` is the same validation done by `semFixtures`. So \"a `mkdir` plus an empty object does not hide a key\" is now true of BOTH — and it was false until that change: on the previous scanner, an empty untracked caso.json made this rule pass (measured, and locked by the `hardcoded-secret__marker-outside-root` case)."
         },
         {
           "onde": "implementacao",
-          "linha": 571,
+          "linha": 575,
           "texto": "WHAT THIS FILTER IS, measured and not assumed: an EXEMPTION, not a lock. It can only remove findings, and at the git root it is a no-op — with it deleted, this rule still passou on rebar, because the scanner already dropped every proof-fixture finding. It changes a verdict only when the target is NOT the git root (rebar vendored under a subfolder, say): the scanner's roots are relative to the git root, `lerRepo`'s to the target."
         },
         {
           "onde": "implementacao",
-          "linha": 578,
+          "linha": 582,
           "texto": "`.rebarignore` is deliberately NOT honoured. It is a declared bypass for vendor and generated material, and style debt is not a credential: one committed under an ignored prefix leaks in the clone exactly like any other. The scanner refuses folder exclusions for the same reason. Location and rule NAME, never the matched text. The scanner already redacts what it prints because its output goes to a CI log; this one goes to a CI log too, and into `--json`, and the position is enough to find the line without carrying the credential one hop further. Passed, with a hole named. There is no fourth state and there should not be one, but \"I scanned everything\" and \"I did not read these N\" are two different claims and the rule was only able to make the first."
         }
       ],
@@ -1511,27 +1515,27 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 621
+        "linha": 625
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 626,
+          "linha": 630,
           "texto": "A model reads code points and a pull request shows glyphs. The Default_Ignorable_Code_Point set (4174 code points in UCD 17.0.0) is the part of Unicode a renderer may draw as nothing, so a line of an agent instruction file can carry a sentence no reviewer sees: tag characters spell ASCII one for one, bidi overrides reorder what the reviewer reads (Trojan Source, CVE-2021-42574), a Hangul filler is a valid identifier that looks empty, and the GlassWorm loader hid in runs of variation selectors."
         },
         {
           "onde": "cabecalho",
-          "linha": 635,
+          "linha": 639,
           "texto": "It reads what git will hand out, not the disk: stage-0 index blobs decoded by their byte order mark, every tracked path and symlink target as a name, every commit message reachable from HEAD, and a second pass over the escapes JSON, YAML and TOML decode by themselves. No proof root, template root or `.rebarignore` hides anything from it."
         },
         {
           "onde": "cabecalho",
-          "linha": 641,
+          "linha": 645,
           "texto": "The exemptions exist because a measurement demanded each one: RGI emoji sequences (rebar's own docs carry 25 warning signs with a presentation selector), script joiners in the scripts that write words with them, a joiner right after a virama on a letter of its script outside code (the Unicode security profile allows that context, and legacy Malayalam and Bengali end words with it), right-to-left marks on lines that are already right-to-left. Agent files and names keep only the joiner between two letters of one script, the Indic conjunct joiners around a virama, and the lone mark on a right-to-left line, which Persian, Arabic and the Indic scripts need. What is left in a repository goes into `.rebar-injection-allowlist` by blob id or commit id."
         },
         {
           "onde": "cabecalho",
-          "linha": 654,
+          "linha": 658,
           "texto": "N4 for the reason hardcoded-secret gives: a hook is removed with no diff, and CI on the merge is the level that survives it. A pass means no known signature matched, never that the repository is free of prompt injection."
         }
       ],
@@ -1618,22 +1622,22 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 662
+        "linha": 666
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 667,
+          "linha": 671,
           "texto": "A C0 or C1 control in a tracked text file acts on the terminal that prints it: a colour sequence conceals what follows, a backspace or a bare carriage return overwrites what came before, and `git diff` pages through a pager that passes colour sequences raw. The reviewer reads less than the model that reads the blob."
         },
         {
           "onde": "cabecalho",
-          "linha": 673,
+          "linha": 677,
           "texto": "Measured before the rule existed, over the 744 files tracked by rebar, rebar-site and bookkeep: the only raw control was rebar's own colour helper, 2 bytes on one line. Code keeps a narrower set, because honest sources carry sentinels (a YAML plugin, a PNG magic), and a file whose line endings are all bare carriage returns is a warning, not a finding. In prose and data files a form feed alone on its line (a license page break) and a colour sequence whose parameters all keep text visible (a test snapshot) pass, because neither hides anything; concealing, background and cursor sequences still fail."
         },
         {
           "onde": "cabecalho",
-          "linha": 683,
+          "linha": 687,
           "texto": "JSON and YAML parsers refuse a raw control, so the attack reaches them as the format's own escape. Those escapes go through the same decoder hidden-unicode uses, and fail the same way. Tracked names and commit messages are read too, because `git log` and `ls-files` print them raw."
         }
       ],
@@ -1720,22 +1724,22 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 692
+        "linha": 696
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 697,
+          "linha": 701,
           "texto": "A cloned repository can carry the settings an AI client obeys before anyone types a command: a helper that runs in a non-interactive session, an environment block that sends the client's API traffic and credential to another host, a task that starts when the folder opens, a rule that approves every shell command. Each shipped as an advisory: CVE-2025-53773 (a workspace auto-approve key), CVE-2026-21852 (a project environment block redirecting the API endpoint), CVE-2025-61260 (a dotenv file moving an agent home into the repository), CVE-2026-41613 (a loader variable in an MCP server environment). In a diff they all look like configuration."
         },
         {
           "onde": "cabecalho",
-          "linha": 707,
+          "linha": 711,
           "texto": "The files are PARSED, not grepped: a key with one letter written as a unicode escape, behind a comment and a trailing comma, is invisible to a text pattern and real to the editor. A duplicate key fails on its own, because clients disagree about which copy wins. Command text, URLs and header values are printed only as a sha256 prefix and a length."
         },
         {
           "onde": "cabecalho",
-          "linha": 713,
+          "linha": 717,
           "texto": "Settings that wait for folder trust, or that a team uses on purpose, pass with a warning instead: hooks, plugin marketplaces, the preview launch file. An accepted setting is pinned in `.rebar-injection-allowlist` by file, pointer and the hash of its value."
         }
       ],
@@ -1992,27 +1996,27 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 722
+        "linha": 726
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 727,
+          "linha": 731,
           "texto": "A versioned MCP configuration is a program the client starts on the developer's machine, and headless and cloud sessions load project servers without asking. An allowlist by server NAME was measured against real history and lost both ways: it fired on 149 of 150 routine version bumps, and a server renamed in the same commit as its new command walked past it."
         },
         {
           "onde": "cabecalho",
-          "linha": 733,
+          "linha": 737,
           "texto": "So a launch is judged by a sha256 fingerprint of every field that decides what runs. The one launch accepted with no entry is the template this rebar ships, read from the running package and never from the target: rebar-site, assay and navesz-portfolio track it byte for byte. Any other launch needs its fingerprint in `.rebar-injection-allowlist`."
         },
         {
           "onde": "cabecalho",
-          "linha": 739,
+          "linha": 743,
           "texto": "Some findings no entry can accept, because they change what runs without changing the text: an unparseable file or a duplicate key, a command read from the environment, a server marked trusted, the mcp-remote proxy below"
         },
         {
           "onde": "cabecalho",
-          "linha": 742,
+          "linha": 746,
           "texto": "0.1.16 (CVE-2025-6514, CVSS 9.6), and a package runner next to a tracked registry override."
         }
       ],
@@ -2148,22 +2152,22 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 749
+        "linha": 753
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 754,
+          "linha": 758,
           "texto": "Two supply-chain incidents used exactly this shape. The Nx s1ngularity release (August 2025) shipped an install script that looked for agent CLIs on the machine and started each one with its permission prompts skipped, asking it to search the disk for wallets and keys. The Amazon Q Developer extension 1.84.0 (CVE-2025-8217) carried a line that started the vendor's chat CLI with every tool trusted and a prompt that wiped files and cloud resources. The switch was the whole difference between an agent that asks and an agent that acts."
         },
         {
           "onde": "cabecalho",
-          "linha": 763,
+          "linha": 767,
           "texto": "The place decides the verdict, not the switch alone: 25 of 39 sampled GitHub Agentic Workflows lock files carry such switches inside a firewall container, on purpose. It fails where nothing asks a person first: package lifecycle scripts and the files they start, git hooks, editor tasks that run on folder open, agent hooks, agent instruction files, and workflows that are not generated lock files (a workflow that only runs on push or on a schedule included). Elsewhere it is a warning."
         },
         {
           "onde": "cabecalho",
-          "linha": 771,
+          "linha": 775,
           "texto": "Most switches are one letter or a generic word, so they count only with their binary in the same command, or within 3 lines in code. The output names the CLI and the effect, never the switch."
         }
       ],
@@ -2385,22 +2389,22 @@
       "nivel": "N4",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 786
+        "linha": 790
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 791,
+          "linha": 795,
           "texto": "An agent step in a GitHub workflow reads the issue, comment or pull request that started it, and any account can write that text. PromptPwnd (Aikido, 2025-12-04) steered the Gemini CLI in Google's own triage workflows with a new issue. Clinejection (Adnan Khan, 2026-02-09) led Claude Code, running with a shell grant on an issue trigger, from an issue title to a poisoned Actions cache that reached release tokens. Comment and Control (2026-04-15) did it from a comment. The GitHub Security Lab keeps the list of event fields whose text is untrusted."
         },
         {
           "onde": "cabecalho",
-          "linha": 800,
+          "linha": 804,
           "texto": "A step is exposed when a trigger any account can fire reaches it and its actor check is absent or opened by an input. Interpolated event text is reported, not required: 11 of 13 vendor examples on those triggers interpolate none, because the agent loads the text by itself. Conditions are evaluated per trigger, and a condition this rule cannot decide keeps the step reachable."
         },
         {
           "onde": "cabecalho",
-          "linha": 807,
+          "linha": 811,
           "texto": "The verdict follows what the agent can reach. One that can run commands fails at any permission level; one the vendor keeps from commands and its own environment is a warning; anything else fails with a write scope beyond issues, pull requests and discussions, with no permissions block, or with a secret other than its model credential. Its text output spliced into a later script fails too. Measured over 1,660 workflows of agent adopters, each with its own repository as the origin: 150 steps fail, 126 of them with execution or code injection (170 with no origin, where copies of a workflow gated on another repository's name stay reachable). Over the 29 workflows of 24 local repositories, the rebar worktree and the gate template: none. Of 3,292 real workflows 6 use YAML anchors, and 2 of those hide an agent step behind an alias, so aliases are read."
         }
       ],
@@ -2682,22 +2686,22 @@
       "nivel": "N1",
       "fonte": {
         "arquivo": "tooling/security/index.mjs",
-        "linha": 833
+        "linha": 837
       },
       "porque": [
         {
           "onde": "cabecalho",
-          "linha": 838,
+          "linha": 842,
           "texto": "Trail of Bits showed terminal control sequences inside MCP tool descriptions, hidden from the person using a coding agent and read in full by the model, written in the server source as ESCAPES rather than raw bytes, which control-bytes cannot see."
         },
         {
           "onde": "cabecalho",
-          "linha": 843,
+          "linha": 847,
           "texto": "Where a description string begins and ends cannot be found without running the server: descriptions are built by concatenation, joins, interpolation and schema helpers. So this works per file. A candidate is a code file that uses an MCP server SDK, or a tracked file a versioned MCP config launches; the finding is an escaped ESC or CSI in its code, comments stripped."
         },
         {
           "onde": "cabecalho",
-          "linha": 850,
+          "linha": 854,
           "texto": "A heuristic at N1 because an honest server may colour a console line: measured, 2 of 48 unique server files in node_modules did. It informs, and fails only under `--heuristics`."
         }
       ],
@@ -2793,6 +2797,246 @@
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "The server markers knew only the TypeScript and Python SDKs, so a Go server built with the official Go SDK was never a candidate. The fail side is such a server whose tool description carries a hex escape of ESC before a colour code. The pass side is the same server with plain text. Whoever drops the Go markers turns the fail side not applicable; whoever fires on the markers alone fails the pass side."
+        }
+      ]
+    },
+    {
+      "id": "hidden-markdown-directive",
+      "modulo": "rebar-security",
+      "titulo": "no hidden Markdown region addressed to an agent",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 862
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 867,
+          "texto": "GitHub renders a Markdown file with its HTML comments and unused link definitions removed, and an agent reads the raw file, so a sentence can reach the model that no reviewer saw on the page. Claude Code strips only block-level comments, and only from CLAUDE.md; Codex, Copilot, Cursor and the rest read instruction files raw. Elements hidden by a style or by the hidden attribute count too, because an editor preview that renders raw HTML hides them, and so does the MDX expression comment of an .mdx page. Code and comments are read in one pass, the way CommonMark gives the construct that starts first the text, and inside list items and block quotes too."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 877,
+          "texto": "Hidden prose is common and honest (381 of 690 public instruction files that carry a comment hide prose in it), so a region counts only when it is addressed to an agent: a vocative, an override of earlier instructions, a request to conceal, a condition on being a model, a model that must act, or an imperative beside an execution token. Measured with the shipped engine: 0 regions in the local repositories, 0 in rebar, 0 in node_modules, and 2 regions in 2 of 690 public instruction files."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 885,
+          "texto": "A heuristic because a signal is vocabulary: a first design that also counted an imperative next to an addressee fired on 3 honest local files. Its vocabulary is internal to the engine and not an exported table, a departure from how the other injection rules publish theirs: exported, its patterns would match rebar's own prose, and this rule never reads visible prose."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "hidden-markdown-directive",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "GitHub renders Markdown with its HTML comments removed and an agent reads the raw file, so a comment addressed to an agent is text the reviewer never saw. The fail side is an AGENTS.md whose block comment opens with a note for the coding agent (the vocative family). The pass side holds what honest repositories carry: the AGENTS.md rebar generates, rebar numbers markers around a count, a translator note in a comment with no addressee, and the same note for the agent inside a closed fence and inside a code span, where the page shows it. Drop the fence mask or the code span mask and the pass side goes red; drop the vocative family and the fail side goes green."
+        },
+        {
+          "caso": "hidden-markdown-directive__css-hidden",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "GitHub strips the hidden attribute, but the Markdown preview bundled with Cursor renders raw HTML with no sanitizer, so there an element with that attribute hides its text. The fail side is a README with a paragraph carrying the attribute and a condition on being an AI assistant; the pass side is the same paragraph without the attribute, visible everywhere. Stop reading hidden elements and the fail side goes green; treat every element as hidden and the pass side goes red."
+        },
+        {
+          "caso": "hidden-markdown-directive__linkref",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A link reference definition nobody uses renders as nothing on GitHub, and the `[//]: # (...)` shape is the common way to write a Markdown comment. The fail side is a Copilot instructions file whose unused definition carries a title that opens by naming the assistant. The body of a definition is the label, a line break and the title: joined by a space, the title no longer starts the body, and the fail side goes green (measured). The pass side uses the same label in a later paragraph, so the definition is a real link target and not a hidden region: count used definitions and the pass side goes red."
+        },
+        {
+          "caso": "hidden-markdown-directive__marker-shape",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Public instruction files wrap managed sections in namespaced marker comments of other tools. The pass side is a GEMINI.md whose markers start with the word agents followed by a colon, which the vocative family reads as addressing an agent: drop the generic marker shape and the pass side goes red. The fail side is a GEMINI.md with a comment that addresses Gemini by name, which no marker shape excuses."
+        },
+        {
+          "caso": "hidden-markdown-directive__not-applicable",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "The not-applicable branch: with no tracked Markdown and no agent rule file there is no page to hide anything in, and silence by absence must not become passed (invariant I4). The rule has one such branch, so both sides reach it by different trees: the pass side tracks one source file, the fail side tracks a text note and an agent JSON config, which carry no Markdown region. Return null there and both sides diverge."
+        },
+        {
+          "caso": "hidden-markdown-directive__unterminated",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "In CommonMark a comment that starts a line and never closes runs to the end of the document, hidden. The fail side is a CLAUDE.md with a stray inline opener in a paragraph (literal text, not a comment) and then a line-start opener that never closes, followed by an override of earlier instructions. Stop at the stray inline opener, as the first prototype did, or require a closer, and the fail side goes green. The pass side has the same stray opener and the same lines inside a closed fence: drop the fence mask and it goes red."
+        }
+      ]
+    },
+    {
+      "id": "instruction-provenance",
+      "modulo": "rebar-security",
+      "titulo": "an AGENTS.md carrying the rebar generator marker matches a template rebar generated",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 895
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 900,
+          "texto": "The generator marks the AGENTS.md it writes, then trusts that marker anywhere in the file and copies a third-party Next.js block into it unread (new/gate/aplicar.mjs:494-500 and :604). So the marker is a claim, and a reviewer who sees it skips a file that may not be generated at all."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 905,
+          "texto": "The whole root AGENTS.md is matched against every template version the generator ever rendered (4 so far, kept append-only in injection/moldes-agentes.json), with the project name and the Next.js block as slots and any tail allowed. It fails on a false claim: the marker below the top, repeated, in another instruction file, or no version matching. The 3 generated repositories match today, with no tail."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 912,
+          "texto": "A heuristic for its first release, though an exact match is not a guess: it is promoted once a release shows it fails no honest project. An unknown block is a warning only when it is large or carries a URL, fenced code, a nested comment or an execution token."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "instruction-provenance",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "The rebar generator marks the AGENTS.md it writes, and a reviewer who sees the marker skips the file. The pass side is the AGENTS.md the current template renders for a project, which matches the last version of the append-only template table. The fail side is the same file with one word of section 1 changed: the marker now claims a template no version matches. Drop the exact match and the fail side goes green; lose a version from the table and the pass side goes red."
+        },
+        {
+          "caso": "instruction-provenance__marcador-aninhado",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "The marker belongs only at the top of the root AGENTS.md, and a nested AGENTS.md is loaded by Codex, Copilot and Cursor for its folder. The fail side adds docs/AGENTS.md starting with the marker next to an exact root render. The pass side keeps docs/AGENTS.md without the marker and adds a Copilot instructions file that quotes the marker inside a fence: judge only the root file and the fail side goes green; count a fenced marker and the pass side goes red."
+        },
+        {
+          "caso": "instruction-provenance__marcador-fora-do-topo",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "The generator writes its marker on the first line only, and the generator itself trusts the marker anywhere in the file. The fail side puts a heading above an otherwise exact render, so the marker is below the top; the pass side is the render. Accept the marker anywhere and the fail side goes green."
+        },
+        {
+          "caso": "instruction-provenance__marcador-repetido",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "The generator writes its marker once. The fail side appends a second marker to an exact render. The pass side appends the marker inside a fenced code block that documents it, which is shown as code and claims nothing: count the marker inside code and the pass side goes red; stop counting and the fail side goes green."
+        },
+        {
+          "caso": "instruction-provenance__sem-marcador",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "The not-applicable branch: when no instruction file carries the marker there is no claim to hold (invariant I4). Both sides reach it for different reasons. The pass side is a hand-written AGENTS.md with no marker. The fail side has a Markdown file that starts with the marker but is no instruction file (docs/template.md, which no client loads), the way rebar tracks its own template: read every Markdown file and the fail side stops being na."
+        },
+        {
+          "caso": "instruction-provenance__versao-antiga",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Projects generated by an older template keep matching: rebar-site tracks a version-3 AGENTS.md byte for byte. The pass side is the version-3 render with a Next.js block for that project name, and the block is small, has no URL, fence, nested comment or execution token, so its unknown hash is no warning. Compare only against the current template and the pass side goes red. The fail side is the same render with one literal line extended, which matches no version."
+        }
+      ]
+    },
+    {
+      "id": "mixed-script-token",
+      "modulo": "rebar-security",
+      "titulo": "no URL, host, package name or config identifier mixing writing systems",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 921
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 926,
+          "texto": "One letter from another alphabet turns a host or a package name into a different one that reads the same: Daniel Stenberg showed an AI-written report for curl on 2025-05-16 whose GitHub link began with an Armenian letter, and CVE-2021-42694 is the identifier form. A model copies the address; a reviewer reads the familiar name."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 932,
+          "texto": "Judged with the UTS #39 resolved script set at the Highly Restrictive level, over URL hosts (punycode labels decoded, the host as one token), URL segments, package manifest names and agent config keys and identifier values. Measured 0 mixed tokens in about 450,000 of them across the local repositories and node_modules."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 938,
+          "texto": "Never prose or code identifiers: the same test over every word hit 92 honest words in 4 local repositories. A heuristic because an honest internationalized host under a Latin top-level domain mixes too."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "mixed-script-token",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "The curl project received an AI-written report whose GitHub link began with an Armenian letter in place of the g. The fail side is a README with that link. The pass side holds the honest non-ASCII a repository carries: the same link in ASCII, a Portuguese accented path segment, a Japanese path segment on a Latin host, and a resistance written with the Greek omega in prose, which is never judged. Judge prose, or treat any non-ASCII as mixed, and the pass side goes red; judge only the path and the fail side goes green."
+        },
+        {
+          "caso": "mixed-script-token__config-key",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "An MCP server name that reads like a known one is how a lookalike server gets approved. The fail side is a .mcp.json whose server key has a Cyrillic i inside it; the pass side is the same file in ASCII. Stop reading agent config keys and the fail side goes green."
+        },
+        {
+          "caso": "mixed-script-token__not-applicable",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "The not-applicable branch: with no URL, no package manifest and no agent config there is no token to judge (invariant I4). Both sides reach it by different trees: the pass side tracks a text note with no address, the fail side tracks nothing and has no commit. Return null there and both sides diverge."
+        },
+        {
+          "caso": "mixed-script-token__package-name",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A dependency name with one Cyrillic letter installs a different package than the one a reviewer reads. The fail side is a package.json whose dependency key has a Cyrillic a in place of the Latin one; the pass side is the same manifest in ASCII. Stop reading dependency keys and the fail side goes green."
+        },
+        {
+          "caso": "mixed-script-token__punycode",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A host written in punycode is plain ASCII in the file and a different name once the client decodes it. The fail side links a host whose punycode label decodes to a Latin name with one Cyrillic letter; the pass side links a German host whose label decodes to Latin letters only. Skip punycode decoding and the fail side goes green; judge the encoded label as foreign and the pass side goes red."
+        }
+      ]
+    },
+    {
+      "id": "indirect-exec-change",
+      "modulo": "rebar-security",
+      "titulo": "no script that gained a download or shell pipe, no Python module shadowing the standard library",
+      "classe": "heurística",
+      "nivel": "N1",
+      "fonte": {
+        "arquivo": "tooling/security/index.mjs",
+        "linha": 946
+      },
+      "porque": [
+        {
+          "onde": "cabecalho",
+          "linha": 952,
+          "texto": "An instruction file says to run the tests and the agent obeys, so the injection can change what the tests run instead of touching the instruction file: GitInject measured the configuration-file channel working where a pull request body did not."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 957,
+          "texto": "Two signals fail. Since the first parent of HEAD, a package script that changed and gained an execution family (a pipe into a shell, a download, a URL that leaves the machine, eval called and the like). And any tracked Python module, in any suffix the import system loads, named like a standard library module where a script run by path would import it first. A new script npm runs on install with no family only warns: 258 of 1,261 node_modules manifests with scripts carry one, and none of their 261 hooks carries a family."
+        },
+        {
+          "onde": "cabecalho",
+          "linha": 966,
+          "texto": "\"A script an instruction file names changed\" alone fired on 14 of 212 honest commits; the refined signal on 0 of 200 changed script values. The Python signal hit 4 of 19,927 importable files of an installed site-packages. A heuristic because an honest change can add a download to a script, and a folder of scripts can hold a module named like the standard library on purpose."
+        }
+      ],
+      "provas": [
+        {
+          "caso": "indirect-exec-change",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A script run by path puts its own folder first on the import path, so a file there named like a standard library module is what the script imports. The fail side tracks a scripts folder with a json module file next to a script that imports json. The pass side keeps that module inside a package folder with an __init__.py, the precision trade-off the rule makes. Stop judging Python file names and the fail side goes green; drop the package exemption and the pass side goes red."
+        },
+        {
+          "caso": "indirect-exec-change__not-applicable",
+          "aprovar": "na",
+          "reprovar": "na",
+          "porque": "The not-applicable branch: a manifest whose repository has no parent commit gives no range to judge, and with no Python file there is no static half either (invariant I4). Both sides track a package.json with a postinstall script and reach it by different routes: the pass side has no commit at all (an unborn branch), the fail side has one root commit. Evaluate the range against an empty parent and both sides report the hook as new."
+        },
+        {
+          "caso": "indirect-exec-change__package",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "A folder with an __init__.py named like a standard library package shadows that package for a script run from its parent folder. The fail side tracks a logging package at the repository root; the pass side keeps the same package inside an app package, whose parent has an __init__.py. Stop judging package folders and the fail side goes green."
         }
       ]
     }
@@ -3042,7 +3286,7 @@
         "comando": [
           "node",
           "--test",
-          "--test-concurrency=11",
+          "--test-concurrency=15",
           "tooling/security/injection/prove-texto-seguro.mjs",
           "tooling/security/injection/prove-formats.mjs",
           "tooling/security/injection/prove-reader.mjs",
@@ -3052,6 +3296,10 @@
           "tooling/security/injection/prove-mcp-launch.mjs",
           "tooling/security/injection/prove-bypass.mjs",
           "tooling/security/injection/prove-workflow.mjs",
+          "tooling/security/injection/prove-markdown-oculto.mjs",
+          "tooling/security/injection/prove-proveniencia.mjs",
+          "tooling/security/injection/prove-escritas.mjs",
+          "tooling/security/injection/prove-exec-indireto.mjs",
           "tooling/rebar-check/proofs/prove-gerados.mjs",
           "tooling/security/prove-injection.mjs"
         ],

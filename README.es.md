@@ -8,7 +8,7 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licencia](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Reglas](https://img.shields.io/badge/reglas-34-blue)](#qué-verifica)
+[![Reglas](https://img.shields.io/badge/reglas-38-blue)](#qué-verifica)
 [![Compuerta](https://img.shields.io/badge/compuerta-26%20pasos-blue)](#la-compuerta)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
@@ -194,7 +194,7 @@ sea avisada antes de escribir, y no después.
 El artefacto es **derivado, nunca duplicado**: `npm run verify` lo regenera en memoria y falla
 si el disco diverge. Es imposible cambiar una regla y olvidar el MCP.
 
-Lleva <!--n mcp.artefato.regras-->34<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->26<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->155<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
+Lleva <!--n mcp.artefato.regras-->38<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->26<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->175<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
 
 ## Mapa del repositorio
 

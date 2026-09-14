@@ -61,6 +61,7 @@ import {
   onde,
   posicao,
   resumir,
+  sugerirEntrada,
 } from './reader.mjs'
 
 const na = (motivo) => ({ na: motivo })
@@ -287,6 +288,13 @@ export function checarIndirectExec(r) {
       if (agora.aceitos.get(chave)) continue
       const nome = escaparSaida(chave, { limite: 60 })
       if (ganhas.length) {
+        // What --sugerir-allowlist prints: the script key offered to aceita()
+        // above. A new hook with no family only warns, so it gets no line.
+        sugerirEntrada(r, 'indirect-exec-change', {
+          arquivo: e.caminho,
+          ponteiro: `/scripts/${codificarSegmento(chave)}`,
+          sha256: sha256(valor),
+        })
         const nomeado = nomeados.get(`${pasta}\0${chave}`)
         itens.push(
           `${lugar(chave)} scripts.${nome} gained ${ganhas.join(', ')} since the parent commit ` +
@@ -349,6 +357,13 @@ export function checarIndirectExec(r) {
       usouAlguma = true
       continue
     }
+    // What --sugerir-allowlist prints: the key by name, which survives an edit
+    // of the file; {arquivo, oid} would fail again on the next edit.
+    sugerirEntrada(r, 'indirect-exec-change', {
+      arquivo: e.caminho,
+      ponteiro: '',
+      sha256: sha256(e.caminho),
+    })
     itens.push(item)
     python++
   }

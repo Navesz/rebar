@@ -646,7 +646,10 @@ nota. The hashes below are placeholders.
 (or the one `--rule=` names) and prints, for every finding an entry can exempt, the line that
 would exempt it, with the exact key that rule compares. A failing workflow step gets one line for
 every file it depends on (the workflow, the reusable workflow or composite action it resolved, the
-`workflow_run` upstream), since `ai-workflow-untrusted-input` exempts it only with all of them. It takes one repository and no `--json`
+`workflow_run` upstream), since `ai-workflow-untrusted-input` exempts it only with all of them. A
+failing heuristic gets its line too, under `--heuristics` or not: a script of `indirect-exec-change`
+by its value, and a Python module by its path, the key that survives an edit; a new install hook
+with no family only warns, and gets none. It takes one repository and no `--json`
 (exit `2`), and prints nothing but a message when a rule breaks (exit `127`). The keys are
 written as JSON, so a path with an invisible character comes out as a JSON unicode escape the
 reader decodes back; the output is otherwise the path, the JSON Pointer and the server name
