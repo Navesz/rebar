@@ -1,0 +1,92 @@
+{
+  "esquema": 2,
+  "gerado_por": "new/gate/modelos-mcp.mjs",
+  "destino": ".rebar/mcp.mjs",
+  "fontes": ["novo/portao/arquivos/mcp-rebar.mjs", "new/gate/arquivos/mcp-rebar.mjs"],
+  "versoes": [
+    {
+      "ordem": 1,
+      "sha256": "2d40b7edbca63e0962ab24ffe8ec783c3bc5f9e5c4356ac65533b16016da78fa",
+      "blob": "6cf8634287ff62b56d3a648be161e41c783809b1",
+      "bytes": 10416,
+      "desde": "f3b36576faf4174dbeb19e5a0d93a60a4036e9a6",
+      "data": "2026-09-01",
+      "atual": false,
+      "recusada": "it starts npx --yes github:Navesz/rebar --mcp, unpinned, every time the client starts it, with a shell: true fallback",
+      "regua_sem_pino": true,
+      "ganchos_antigos": false
+    },
+    {
+      "ordem": 2,
+      "sha256": "21718883da0c94877abc2b0298ee70986f052639de59e8778d2d1f78df9ca33e",
+      "blob": "8bc5d7fe440e73c26c3e332ae11bf0a0669357ee",
+      "bytes": 45574,
+      "desde": "8982ccb6daf0f1117456d9fa3dae3e7867160df2",
+      "data": "2026-09-03",
+      "atual": false,
+      "recusada": null,
+      "regua_sem_pino": true,
+      "ganchos_antigos": true
+    },
+    {
+      "ordem": 3,
+      "sha256": "0319d7bc956446000db84a67b7f9a144ca001fdc373b81a0bbd2b14a685cfa43",
+      "blob": "ef5e851d5e4e630bfd5d31bd9187409f91e0fd3a",
+      "bytes": 45565,
+      "desde": "1d9661067e2e9033e38631ed4d2a3f95fecfc9bf",
+      "data": "2026-09-06",
+      "atual": false,
+      "recusada": null,
+      "regua_sem_pino": true,
+      "ganchos_antigos": false
+    },
+    {
+      "ordem": 4,
+      "sha256": "320837279dc3467a7d4b47c25c61103a50af1707decfcff9ce09ebfa10969ffe",
+      "blob": "3c13d5430b65df7ebb78fc28d6b79c4ccbccfeb5",
+      "bytes": 46247,
+      "desde": "2d54807bbf7fadc63ee4d31eae8f414de0b6fb96",
+      "data": "2026-09-06",
+      "atual": false,
+      "recusada": null,
+      "regua_sem_pino": true,
+      "ganchos_antigos": false
+    },
+    {
+      "ordem": 5,
+      "sha256": "1730f8d285f2a0d5ddfeab84cab5020d71f866568e03cf26d30edd53537dec4c",
+      "blob": "1e6b799187453f3479d5fd36a86ee77b26212bfe",
+      "bytes": 49132,
+      "desde": "99c6ff88f92d0a2fa0592f153c96160facc3f2f3",
+      "data": "2026-09-06",
+      "atual": false,
+      "recusada": null,
+      "regua_sem_pino": true,
+      "ganchos_antigos": false
+    },
+    {
+      "ordem": 6,
+      "sha256": "e88672736caa94c5a191ad6423c7371b8815b8f37b874748cbdef1049eafcbd5",
+      "blob": "ea75237df44a0f6c06d8cd634541ff3f1434af8e",
+      "bytes": 52297,
+      "desde": "4e88a8f766429f413c67b9e6ffeb9cb696b79812",
+      "data": "2026-09-07",
+      "atual": false,
+      "recusada": null,
+      "regua_sem_pino": true,
+      "ganchos_antigos": false
+    },
+    {
+      "ordem": 7,
+      "sha256": "152a8bb1c4b1f68116b28018d9a30c8a4344c1a7ae1d5b2f7491c9e155ebc7f6",
+      "blob": "5a3a014501a70b49308d3caeab20eec9fb081aa2",
+      "bytes": 77010,
+      "desde": null,
+      "data": null,
+      "atual": true,
+      "recusada": null,
+      "regua_sem_pino": false,
+      "ganchos_antigos": false
+    }
+  ]
+}

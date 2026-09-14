@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A workflow step that runs a GitHub package with no ref runs whatever the default branch holds when the job starts. The fail side runs the package by its bare owner/repo spec; the pass side runs the commit tarball from codeload, the spelling npm 10.9.3 (Node 22 on the runners) accepts where it refuses a git spec with a commit ref, measured on 2026-09-13. Whoever reads the tarball as unpinned turns the pass side red; whoever skips workflows turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBodHRwczovL2NvZGVsb2FkLmdpdGh1Yi5jb20vb3duZXItcHJvdmEvcmVwby1wcm92YS90YXIuZ3ovYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSAuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBnaXRodWI6b3duZXItcHJvdmEvcmVwby1wcm92YSAuCg=="
+      }
+    ]
+  }
+}

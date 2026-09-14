@@ -1,9 +1,9 @@
 # security — prompt-injection signatures in versioned files
 
 `rebar-security` ([index.mjs](index.mjs)) answers "does this repository have a security flaw?".
-Besides the rules distilled from the security inventory, it carries a family of eleven rules that
+Besides the rules distilled from the security inventory, it carries a family of thirteen rules that
 look for **known prompt-injection signatures in what git versions**: text an agent reads and a
-reviewer does not see, and configuration an agent client or an editor acts on by itself. Six are
+reviewer does not see, and configuration an agent client or an editor acts on by itself. Eight are
 deterministic signatures; five are heuristics (`mcp-ansi-escape` and the four of the third phase),
 which warn and fail only under `--heuristics`.
 
@@ -35,6 +35,8 @@ node tooling/security/index.mjs --sugerir-allowlist .      # ready allowlist lin
 | `instruction-provenance` | heuristic | N1 | an AGENTS.md carrying the rebar generator marker matches a template rebar generated |
 | `mixed-script-token` | heuristic | N1 | no URL, host, package name or config identifier mixing writing systems |
 | `indirect-exec-change` | heuristic | N1 | no script that gained a download or shell pipe, no Python module shadowing the standard library |
+| `mcp-integrity` | deterministic | N4 | the rebar MCP server a tracked config launches is a version rebar shipped |
+| `unpinned-remote-exec` | deterministic | N4 | no workflow, MCP config, package script or agent instruction runs a git or tarball package without a commit pin |
 
 **Why N4 and not a hook.** Nothing runs these rules in a git hook in this phase: they bite in CI
 and in rebar's own gate (`security-injection`, `security-self`). A hook is a file the agent can
@@ -512,14 +514,17 @@ twice, the marker in any other Markdown instruction file, or a root `AGENTS.md` 
 of the template versions the generator ever rendered. A marker inside code is shown as code and
 counts for nothing. The whole file is matched against
 [`injection/moldes-agentes.json`](injection/moldes-agentes.json), an append-only table of every
-version (4 so far, over 13 generator commits), with the project name and the Next.js agent-rules
-block as slots, trailing newlines free, and any tail allowed. A third-party block whose hash is
+version (5 so far: 4 over 13 generator commits, then the pinned one), with the project name, the
+Next.js agent-rules block and, from version 5, the rebar commit the template pins (40 lowercase hex
+digits, or the generator's `TROQUE-PELO-COMMIT-DO-REBAR` placeholder) as slots, trailing newlines
+free, and any tail allowed. A third-party block whose hash is
 not recorded warns (`⚠`, passes) only when it is over 18 lines or 1,354 bytes, twice the measured
 maximum, or carries a URL, fenced code, a nested comment or an execution token.
 
-**Why.** The generator trusts the marker anywhere in the file and copies the Next.js block in
-unread (`new/gate/aplicar.mjs:494-500` and `:604`), so the marker is a claim nobody holds against
-the text, and a reviewer who sees it skips the file.
+**Why.** Until 2026-09-13 the generator trusted the marker anywhere in the file and copied the
+Next.js block in unread; it now keeps a marked file only when it equals the render and warns on an
+unknown block. To a reviewer the marker is still a claim nobody holds against the text, and one who
+sees it skips the file.
 
 **Why it is a heuristic.** An exact match is no guess, but a first release has to show it fails no
 honest project before it gates: assay and navesz-portfolio match version 4 and rebar-site version
@@ -601,6 +606,137 @@ a shadowing Python module, and a Python 3.12 site-packages carries 4 among 19,92
 `code.py` must keep its name), or `{arquivo, oid}`, which an edit invalidates. Every current script
 is offered to the allowlist whether the range shows it or not, and with no parent commit too, so an
 accepted entry is never reported stale on a root commit or a shallow clone.
+
+### mcp-integrity
+
+**What it catches.** A tracked MCP configuration (the same files `mcp-server-launch` reads) whose
+launch names a path ending in `.rebar/mcp.mjs`, resolved from the client's project folder or a
+relative `cwd`, and the tracked blob at that path is not byte for byte a version of rebar's
+generated server. Each launched path is judged once, whichever config names it first. A config
+that launches such a file git does not track, or tracks as a symbolic link, fails too; so does one
+whose blob cannot be read as stored (the reading problems listed under _What reads what_).
+
+**Why.** `rebar new` copies `new/gate/arquivos/mcp-rebar.mjs` into every project, and the client
+starts it on every session; Claude Code's headless, Agent SDK and cloud sessions start project
+servers without asking. `mcp-server-launch` pins the launch text, `node .rebar/mcp.mjs`, and that
+text does not change when the file does, so an edit to the server walked past every rule.
+
+**How it knows the versions.** The sha256 is looked up in
+[`injection/modelos-mcp.json`](injection/modelos-mcp.json), a table
+[`new/gate/modelos-mcp.mjs`](../../new/gate/modelos-mcp.mjs) derives from rebar's git history with
+one `git cat-file --batch` over both paths the template ever had (measured: 6 commits, 6 versions,
+178 ms). The gate's `mcp-template` step fails unless the committed table equals the one derived
+from `HEAD`'s history and the file on disk, field for field: an entry nothing in that history
+proves fails too. Until 2026-09-13 such an entry was tolerated, and a review measured the cost: a
+hand-added sha256 with an invented blob and commit passed the step, and every rebar-security built
+from that commit accepted those bytes. The price of the strict check: a pull request that commits
+the template in more than one commit leaves on the table a version a squash merge removes from
+main's history, so squash such a branch before merging (or run `--escrever` on main after). A table
+and not the running template, because measured on 2026-09-13 the three published sites track older
+versions: rebar-site blob `8bc5d7f` (version 2), assay and navesz-portfolio blob `ea75237`
+(version 6). With this table all three pass, each with a note naming its version and how to update.
+
+Each entry also carries three fields derived from its own bytes: `recusada` (a reviewed reason to
+fail a version rebar shipped), `regua_sem_pino` (the version names `github:Navesz/rebar` unpinned)
+and `ganchos_antigos` (the version predates the English hook file names).
+
+| The launched file | Verdict |
+|---|---|
+| the current template | passes |
+| version 1 (blob `6cf8634`) | fails: it is a launcher that runs `npx --yes github:Navesz/rebar --mcp`, unpinned, every time the client starts it, with a `shell: true` fallback (measured by review: started offline, it requested main's current tarball) |
+| versions 2 to 6 | pass, with a `⚠` note that says the version runs rebar unpinned when `rebar_verificar {regua: true}` is called, and how to update |
+| version 2 (rebar-site) | the note names the hook files too: measured on a clone of rebar-site, copying the server alone made `rebar_verificar` report two rules DESARMADA; the server plus `.githooks/pre-commit`, `commit-msg`, `install.mjs`, `scan-secret.mjs`, `check-message.mjs` and `.rebar-coautores` renamed to `.rebar-coauthors` passed |
+| versions 3 to 6 | copy `new/gate/arquivos/mcp-rebar.mjs` from the rebar commit your CI pins over it (measured on assay, version 6: no new failure) |
+| any other bytes | fails, printing the blob and sha256 prefixes, never the content |
+| not tracked, a symbolic link, or not readable as stored | fails |
+| no tracked config launches `.rebar/mcp.mjs` | not applicable, even when the file is tracked |
+
+Versions 2 to 6 stay a note and not a failure, on purpose: the three published sites run them
+today, and a failure would turn assay and navesz-portfolio red on the pin bump that ships this
+rule, before the server copy that fixes it. The note says what they run.
+
+The generator itself checks its copy right after the formatter pass (`conferirIntegridadeMcp`), and
+writes `.rebar/mcp.mjs` into the generated `.prettierignore`: the sites declare prettier `^3.8.3`
+while rebar pins 3.9.6, and one line the two disagree on would turn an honest server into an
+unknown blob on the owner's next `npm run format`.
+
+**Allowlist key:** none. A modified server is legitimate and already has a way in: launch it under
+another file name, and accept that launch by fingerprint for `mcp-server-launch`.
+
+### unpinned-remote-exec
+
+**What it catches.** A package runner (the `npx`, `pnpm dlx`, `yarn dlx`, `bunx`, `uvx` and
+`pipx run` rows `mcp-server-launch` classifies with, shell wrappers unwrapped) that starts a git
+package or a tarball not addressed by a commit id, in four places that run a command no person
+retypes:
+
+- root workflows, `.github/workflows/*.yml` and `.yaml`: every `jobs.*.steps[*].run`, read as the
+  YAML value (quoted and folded scalars included), then cut at unquoted `&&`, `||`, `;`, `|`, `&`,
+  parentheses and backticks, with comment lines, trailing comments and the body of a here-document
+  written to a file by `cat` or `tee` dropped; a workflow the YAML reader refuses (anchors, aliases,
+  tags) is read line by line, `run:` values only, an aliased `run: *name` through its anchor;
+- every server of every MCP configuration, with no exemption: an allowlist entry for
+  `mcp-server-launch` pins the launch text, and that text keeps running whatever the branch holds
+  next;
+- the `scripts` of every tracked `package.json` that parses (npm runs none of the scripts of one
+  that does not);
+- agent instruction files (the index's agent class, imports included) with a `.md` or `.mdc` name,
+  in fenced blocks at any indentation (a fence inside a list item), fences and code inside `>`
+  blockquotes, indented code blocks and inline code spans, a span that crosses a line break
+  included; and the rules files with no extension, every line.
+
+**How a command is read.** The package is taken where npm would take it: npm's own option table
+(the Boolean and value keys of `@npmcli/config` definitions, the union of npm 10.9.3, 10.9.4, 11.6.2
+and 12.0.2, in [`injection/opcoes-npm.mjs`](injection/opcoes-npm.mjs)) under both readings, `npx`'s
+argument loop (where an unknown option takes the next word) and `npm exec`'s (where it is a
+switch). A proof holds the table against the npm that runs it. Transparent prefixes are stripped,
+any number of them: `VAR=value`, `env`, `timeout`, `time`, `exec`, `command`, `nice`, `nohup`,
+`sudo`, `doas`, `setsid`, `stdbuf`, `ionice`, `xargs`, `cross-env`, `dotenv`, `corepack`, `winpty`,
+`call`. Words are split twice, as cmd keeps a backslash and as bash reads it (a backslash before a
+letter and ANSI-C `$'...'` quoting are gone by the time npx sees the word). Specs are classified the
+way npm-package-arg classifies them: an alias `name@github:o/r`, the scp form `git@host:o/r.git`,
+`ssh://`, and schemes in any letter case are git. Each of those spellings, the prefixes and the value
+options passed the rule until a review measured them on 2026-09-13, while npm resolved the default
+branch.
+
+A 40-hex (or 64-hex) commit passes as a git ref (`github:o/r#<commit>`, `git+https://…#<commit>`,
+`https://github.com/o/r#<commit>`, pip's `git+…@<commit>`, the ssh user included) and as a tarball
+from `https://codeload.github.com/<o>/<r>/tar.gz/<commit>` or
+`https://github.com/<o>/<r>/archive/<commit>.tar.gz`; a registry tarball with an exact version
+passes too. A branch, a tag, a short sha, `semver:`, `http://`, and any other tarball fail.
+
+**Why.** An unpinned spec runs whatever the remote default branch holds at the instant the job
+starts, so a push there changes what this repository executes with no diff here. rebar's own
+generated projects ran rebar that way until 2026-09-13. The pin has to be a spelling the runner
+accepts: measured on 2026-09-13 with an isolated cache against rebar commit `134f112`, npm 10.9.3
+(the npm of Node 22 on GitHub's runners) exits 1 on `github:Navesz/rebar#<commit>` ("GitFetcher
+requires an Arborist constructor to pack a tarball"), while npm 10.9.3 and npm 11.6.2 both run the
+codeload tarball, its default bin and `-p … rebar-security`.
+
+**What it does not judge, on purpose.** Prose: rebar's README carries 5 command lines that run rebar
+unpinned for people (lines 27, 28 and 133 to 135; 15 across the three READMEs), and a nota there
+would be a warning on every run nobody acts on. Measured over
+rebar and 18 local repositories: the only findings were the three generated sites' old workflows
+(5 lines) and their `AGENTS.md` (1 line each); rebar-site's `conteudo/textos/*.json` holds 42
+command strings that are page data. On rebar itself the rule reads one workflow and 58 tracked
+`package.json` (55 of them rebar-check proof fixtures, one unparseable), and passes with 0
+findings; a future proof fixture whose script runs an unpinned package would fail rebar's own
+`security-self`, so such fixtures must be index-only or pinned.
+
+**The three sites, measured on 2026-09-13** (their branches that pin rebar by tarball): the
+workflows pass; each `AGENTS.md` (assay line 19, navesz-portfolio 19, rebar-site 20) still teaches
+the unpinned command and fails. Pinning that line alone breaks each site's own `npm test`, whose
+`testes/portao.test.mjs` asserts the unpinned spelling in AGENTS.md (assay and navesz-portfolio
+line 270, rebar-site 261): the pin bump must edit that assertion to the tarball spelling in the
+same pull request. Copying the new generated test instead does not work, measured by review: in
+assay it fails 2 tests on files later templates add (`.rebar/portao-remoto.json`), in rebar-site 5,
+one of them because its workflow pins rebar on 1 line where the new test expects 2. The assertion on
+the server source (line 112, rebar-site 113) can stay: the current server still names
+`github:Navesz/rebar`. assay and navesz-portfolio run rebar-security in CI and will see this rule
+fail on the bump; rebar-site's CI runs only rebar-check, so there it shows only through the MCP's
+`regua: true` or a manual run.
+
+**Allowlist key:** none. An entry would pin the text, and the text is what keeps moving.
 
 ## The allowlist
 
@@ -710,6 +846,12 @@ person writes why the finding was accepted. A fixed placeholder says why nobody 
   repository, including one found behind a linked folder, or a path that collides with another one
   by case makes `hidden-unicode` and `control-bytes` fail: in each of those, what the agent reads is
   not what was judged.
+- **Bytes and commands, for the last two rules.** `mcp-integrity` hashes the raw index bytes of the
+  launched `.rebar/mcp.mjs`, with no line-ending normalization (none of the historical template
+  blobs holds a carriage return), and reads its version table from the running rebar, never from
+  the target. `unpinned-remote-exec` parses workflows as YAML, `package.json` as strict JSON and
+  MCP configs as `mcp-server-launch` does, and reads Markdown only inside fences and code spans.
+  Neither honours an allowlist entry, and both still fail on a malformed allowlist line.
 - **Attributes and pointers of every file.** The attributes are read for every tracked file, not
   only agent files: a `.env` or `package.json` re-encoded on checkout is also read as checkout
   writes it. An LFS pointer is recognised by any version line git-lfs accepts, the two legacy
@@ -743,7 +885,20 @@ Saying where the limit is is worth more than pretending to check.
 | A commit made with git's hook-skipping option, and everything that ran locally before the push | the hook can be removed, and local execution does not wait for CI | a ruleset with a required check (N4s); a local sandbox |
 | An allowlist line written by an agent under the owner's identity | the checker cannot tell who wrote a line | a ruleset that requires a second person's review |
 | Annotated tag messages, git notes, branch and ref names | the rules read the index and commit messages only | review |
-| A local MCP server script that changes its code while its launch stays the same | the fingerprint covers the launch, not the script it starts | file integrity, a later phase |
+| A local MCP server script other than `.rebar/mcp.mjs` that changes its code while its launch stays the same | the fingerprint covers the launch, not the script it starts; `mcp-integrity` knows only the versions of rebar's own server | review of the script |
+| A command in prose: a README, docs, data files, code, a plain sentence in an agent file without code formatting | a command a person reads before typing is not a command something runs; rebar's README alone has 5 such lines | review; agent instruction files are judged in their fences and code spans |
+| A warning in an agent file that puts the unpinned command in code formatting ("never run `npx github:o/r`") | a code span is judged as a command whatever the sentence around it says: telling a warning from an instruction takes reading the sentence, which this rule does not do | write the warning without code formatting, or name the pinned spelling instead |
+| A spec built from a variable (`${REBAR}`, `${{ env.REBAR }}`) | the rule reads no environment; the finding names the kind, "reference built from a variable", instead of calling it a branch | spell the commit in the command |
+| A here-document fed to a shell (`bash <<EOF`, `cat <<EOF \| sh`) holding an example that is never reached | the body is read as commands, because a shell runs it; only a body `cat` or `tee` writes to a file is data | write the example to a file first, or split the spec |
+| The project's `.npmrc` in CI (`node-options`, `script-shell`, `cache`, a proxy) when the generated workflow runs the rulers in the checkout | measured: `npm_config_node_options=` set empty does not override a project `node-options` (npm 10.9.3 and 11.6.2 both loaded the planted file), and a pull request that can edit `.npmrc` can edit the workflow itself; the MCP's `regua: true` runs the rulers from outside the project, where the `.npmrc` is never read | review of `.npmrc` changes; a rule for it is a later phase |
+| The pinned rulers spawning `git` by name with the audited repository as `cwd` (a `git.exe` committed to the project, on Windows) | the rulers' own readers, `tooling/security/injection/reader.mjs`, `tooling/security/index.mjs` and `tooling/rebar-check/index.mjs`, resolve git by name; the MCP template resolves its own git by absolute path | a later fix in those readers |
+| A registry package by tag or version range, a container image by tag, a Deno module | `unpinned-remote-exec` judges git and tarball specs; a version the registry refuses to republish is a different question | a lockfile, digest pinning |
+| `uses:` action tags, in rebar's generated workflow too (`actions/checkout@v7`) | the rule reads `run:` commands, not action references; the actions are GitHub's own | Dependabot keeps them current; pinning by commit is a later decision |
+| Git hooks and the commands agent settings run (`.claude/settings.json` hooks, tasks that run on folder open, dev container lifecycle commands) | `unpinned-remote-exec` reads workflows, MCP configs, package scripts and agent instruction files; those settings are `agent-config-exec`'s, which accepts reviewed ones by fingerprint | `agent-config-exec`, review |
+| `npm install <git spec>`, `pnpm add`, `pip install git+…` inside a workflow | an install is not a runner row; the package then runs through the lockfile or a script | lockfile review |
+| A project generated from a rebar commit rebar's history does not know (an unmerged branch, a local mirror) | `mcp-integrity` knows only the template versions reachable in the running rebar's history, so that server fails as unknown | generate from a pushed rebar commit, or launch the server under another name |
+| That a pinned commit belongs to the repository it names | see impostor commits below; the pin stops the branch from moving, it does not prove provenance | pin verification, a later phase |
+| A `rebar new` run through pnpm dlx, yarn or bun | they leave no lockfile the generator can reach, so it cannot learn its own commit and writes `TROQUE-PELO-COMMIT-DO-REBAR` where the pin goes; CI, this rule and the MCP then refuse until someone writes the commit | run the generator from a git checkout or with npx |
 | A switch whose value is attached to its short option or grouped with other short options, where the CLI's parser allows it, other than Codex's `-c` | a value switch is matched only as a separate word or with `=`; the attached and grouped forms were not measured against each vendor parser | review; a later phase |
 | Agent CLIs that approve by default and need no switch, a CLI whose binary name is too generic to match, a switch that only exists on a tag or in something downloaded at build time | there is no trace in the tree | pin dependencies; review release artifacts |
 | Low-capacity channels the exceptions leave open: one joiner between letters of a joining script, one joiner after a virama, a form feed alone on its line, a variation selector after a Han character, alternating emoji selectors | real text needs those exceptions | a warning at most |

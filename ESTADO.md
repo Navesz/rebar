@@ -359,7 +359,7 @@ yet tracked, the ruler read `git ls-files` and did not see a single line of the 
 score was **11 of 11 · 5 n/a**, with 227 case files out of the evaluation. To predict the effect
 of tracking it without touching `.git`, a mirror of the tree was set up in an `os.tmpdir()`, with
 its own `git init` and everything committed, and it gave **12 of 12 · 4 n/a**, with 318 tracked
-files and 24 in `new/`. Today the mirror is no longer necessary — the real tree has 340 *(measured on 02/09; not derived — it changes by the very commit that records it)* tracked files, of which <!--n new.arquivos-->39<!--/n--> in `new/`, and the score went up one more point with the
+files and 24 in `new/`. Today the mirror is no longer necessary — the real tree has 340 *(measured on 02/09; not derived — it changes by the very commit that records it)* tracked files, of which <!--n new.arquivos-->40<!--/n--> in `new/`, and the score went up one more point with the
 `hooks-executaveis` rule, which came in later.
 
 `env-example` left N/A and started to **PASS**: the generator reads `GIT_AUTHOR_NAME` and
@@ -710,7 +710,7 @@ _The two end-to-end runs are from **31/08/2026**, with network, in `os.tmpdir()`
 they were not redone: everything this block reports about them is historical. The file
 counts below, those are derived and up to date._
 
-The generator announces <!--n new.passos-->6<!--/n--> steps and `new/` has <!--n new.arquivos-->39<!--/n--> files, of which <!--n new.arquivos-modelo-->28<!--/n--> are **template** — what it copies into the
+The generator announces <!--n new.passos-->6<!--/n--> steps and `new/` has <!--n new.arquivos-->40<!--/n--> files, of which <!--n new.arquivos-modelo-->28<!--/n--> are **template** — what it copies into the
 created project, and which for that reason is not evaluated here. That leaves 4 of its own
 code: `new/index.mjs` (433 lines) · `new/gate/aplicar.mjs` (829) · `new/site/aplicar.mjs`
 (239) · `new/site/og.mjs` (227), 1.728 in total — line count measured on 02/09/2026,
@@ -873,7 +873,7 @@ artifact is derived from the source, never a copy of it.
 | ------------------------- | ----------------------------------------------------------------------- |
 | `tooling/rebar-check/index.mjs` | **The source.** <!--n lines.rebar-check-->3.265<!--/n--> lines, <!--n rules.total-->23<!--/n--> rules, with the measured why of each one |
 | `mcp/generate.mjs`           | **The generator.** <!--n lines.mcp-gerador-->1.259<!--/n--> lines, **zero dependency** |
-| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->256 KB<!--/n--> · <!--n mcp.artefato.regras-->38<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->26<!--/n--> steps · <!--n mcp.artefato.provas-->175<!--/n--> proofs |
+| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->269 KB<!--/n--> · <!--n mcp.artefato.regras-->40<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->26<!--/n--> steps · <!--n mcp.artefato.provas-->187<!--/n--> proofs |
 | `mcp/src/`                | **The server.** <!--n lines.mcp-servidor-->1.649<!--/n--> lines, <!--n mcp.ferramentas-->5<!--/n--> tools. Reads the artifact, never the source |
 
 The artifact's five numbers are checked by **two** independent gates: the `mcp` step

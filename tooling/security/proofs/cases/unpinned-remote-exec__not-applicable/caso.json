@@ -1,0 +1,21 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A repository with no workflow, MCP config, package script or agent instruction file has nothing this rule reads, and silence by absence must not become passed (invariant I4). The pass side tracks only a README and must be na; the fail side is the base failing workflow. Whoever returns null there turns the pass side into a divergence.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBwcm92YQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBnaXRodWI6b3duZXItcHJvdmEvcmVwby1wcm92YSAuCg=="
+      }
+    ]
+  }
+}

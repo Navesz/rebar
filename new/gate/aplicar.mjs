@@ -17,6 +17,7 @@
 // the first one or a declared no-op.
 
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   chmodSync,
   copyFileSync,
@@ -112,16 +113,51 @@ export const ESTATICOS = [
   ['portao.test.mjs', 'testes/portao.test.mjs'],
   // THIS PROJECT'S MCP. See the header of `mcp-rebar.mjs` for the whole
   // decision and for the numbers that measured it; the summary is: the project
-  // serves ITS OWN rules, not a copy of rebar's 22, and there is no copy to age
-  // because every answer is DERIVED from disk at call time. That is why this
-  // pair goes into ESTATICOS and needs no freshness gate: what gets copied is
-  // MECHANICS, and mechanics do not change when a rule changes.
+  // serves ITS OWN rules, not a copy of rebar's, and no rule ages in it because
+  // every answer is DERIVED from disk at call time. The MECHANICS do age, and
+  // that is checked elsewhere: rebar-security's `mcp-integrity` accepts the
+  // copied `.rebar/mcp.mjs` only when its bytes are a version of this template,
+  // from tooling/security/injection/modelos-mcp.json, a table with its own
+  // freshness gate (the `mcp-template` step). So the copy is verbatim, and
+  // `conferirIntegridadeMcp` checks it came out that way.
   ['mcp.json', '.mcp.json'],
   ['mcp-rebar.mjs', MCP_LANCADOR],
   ['portao-remoto.mjs', PORTAO_REMOTO],
   ['portao-remoto.json', REGISTRO_REMOTO],
   ['check-links.mjs', CHECK_LINKS],
 ]
+
+// ─────────────────────────────────────────────────── the rebar commit, pinned
+//
+// Every reference the generated project makes to rebar runs rebar's code: the
+// two CI steps, the command AGENTS.md tells an agent to run, the README block.
+// Until 2026-09-13 all of them said `github:Navesz/rebar`, which runs whatever
+// rebar's default branch holds that minute. They are now pinned to the commit
+// of the rebar that generated the project, written where the templates carry
+// this marker.
+//
+// THE FORM IS THE COMMIT TARBALL, and not `github:Navesz/rebar#<commit>`.
+// Measured on 2026-09-13 against 134f1126e65758781f962681b2e01a7b753c1689 with
+// an isolated cache: npm 10.9.3, the npm of Node 22 on the CI runners, exits 1
+// on the git form ("GitFetcher requires an Arborist constructor to pack a
+// tarball"); the tarball runs both bins under npm 10.9.3 and npm 11.6.2.
+//
+// WHEN THE COMMIT IS UNKNOWN the marker becomes SEM_COMMIT, never an unpinned
+// spec: CI then fails on a URL that names it, rebar-security's
+// unpinned-remote-exec fails it, the MCP refuses `regua: true`, and rebar-check's
+// `gate-with-placeholder` (its MARCA matches `TROQUE-[A-Z-]{3,}` in README.md)
+// fails the generator's own step 5. `mcp-rebar.mjs` never carries the marker: a
+// stamped commit would make every generated server a unique blob, and
+// mcp-integrity judges that file by a table of template versions.
+export const MARCA_DO_COMMIT = '{{commit-do-rebar}}'
+export const SEM_COMMIT = 'TROQUE-PELO-COMMIT-DO-REBAR'
+
+/** The template text with the marker replaced by the commit, or by SEM_COMMIT. */
+export function renderizarCommit(texto, commit) {
+  return String(texto)
+    .split(MARCA_DO_COMMIT)
+    .join(commit ?? SEM_COMMIT)
+}
 
 // `arquivos/agentes.md` LIVES NEXT TO THESE AND IS NOT ON THE LIST, on purpose.
 // It is a template, not a copy: it goes through `moldeAgents`, which swaps the
@@ -415,7 +451,7 @@ ${dono} <${email}>
 `
 }
 
-function moldeReadme(nome, dono, ano) {
+function moldeReadme(nome, dono, ano, commit = null) {
   return `# ${nome}
 
 Site estático em Next.js com App Router, gerado pelo \`rebar new\` e nascido com
@@ -445,7 +481,8 @@ silêncio**. A régua do rebar cobra isso pelas regras \`telefone\` e
 npm run dev         # desenvolvimento
 npm run verificar   # o portão inteiro: lint, typecheck, teste e build
 npm run build       # gera out/ , estático
-npx --yes github:Navesz/rebar .   # a régua do rebar, o placar
+npx --yes https://codeload.github.com/Navesz/rebar/tar.gz/${commit ?? SEM_COMMIT} .   # a régua do rebar, o placar
+npx --yes -p https://codeload.github.com/Navesz/rebar/tar.gz/${commit ?? SEM_COMMIT} rebar-security .   # a régua de segurança
 \`\`\`
 
 ## Hooks
@@ -538,6 +575,32 @@ const RE_BLOCO_SHADCN =
   /<!--\s*BEGIN:nextjs-agent-rules\s*-->[\s\S]*?<!--\s*END:nextjs-agent-rules\s*-->/
 
 /**
+ * The scaffold blocks the gate has seen, by sha256 of the block as
+ * RE_BLOCO_SHADCN matches it, with LF line ends. A file equal to what the gate
+ * would render was trusted whatever the block held, because the block is read
+ * from the file being judged and so sits on both sides of the comparison:
+ * measured by review on 2026-09-13, an instruction written inside the block came
+ * back 'was there' with 0 warnings. Measured the same day, rebar-site, assay and
+ * navesz-portfolio carry one block, 324 characters, this sha256.
+ */
+const BLOCOS_SHADCN_CONHECIDOS = new Set([
+  '41c125af7671d1712a2779a87817ae289cdd45425b9fc31753824e5fbef73c02',
+])
+
+/** The warning for a scaffold block the gate has not seen, or null. */
+function avisoDeBlocoDesconhecido(bloco) {
+  if (!bloco) return null
+  const h = createHash('sha256').update(bloco, 'utf8').digest('hex')
+  if (BLOCOS_SHADCN_CONHECIDOS.has(h)) return null
+  return (
+    `AGENTS.md carries a nextjs-agent-rules block (sha256:${h.slice(0, 12)}) the gate has not ` +
+    'seen — an agent obeys text inside that block like any other, and the gate keeps it as it ' +
+    'came; review it, and when it is what the scaffold writes, add its sha256 to ' +
+    'BLOCOS_SHADCN_CONHECIDOS in new/gate/aplicar.mjs'
+  )
+}
+
+/**
  * Assembles the AGENTS.md from `arquivos/agentes.md`.
  *
  * The substitution is a literal `{{chave}}`, with `split`/`join` and not
@@ -558,7 +621,7 @@ const RE_BLOCO_SHADCN =
  * it would leave that assertion passing for the wrong reason, which is worse
  * than no assertion because it occupies its place.
  */
-function moldeAgents(nome, blocoTerceiro) {
+function moldeAgents(nome, blocoTerceiro, commit = null) {
   const terceiro = blocoTerceiro
     ? `## Aviso do scaffold, preservado como veio
 
@@ -574,6 +637,7 @@ ${blocoTerceiro}
   return Object.entries({
     nome,
     lancador: MCP_LANCADOR,
+    'commit-do-rebar': commit ?? SEM_COMMIT,
     'bloco-terceiro': terceiro,
   }).reduce((texto, [chave, valor]) => texto.split(`{{${chave}}}`).join(valor), molde)
 }
@@ -582,11 +646,21 @@ ${blocoTerceiro}
  * Writes the AGENTS.md in pt-BR preserving the third-party block, idempotently
  * and WITHOUT EVER destroying text that is not shadcn boilerplate.
  *
- * The four states, and none of them is silent:
+ * The five states, and none of them is silent:
  *
- *   'was there'    the file already has our marker — second pass of the
- *                  generator, or the preset wrote first. A declared no-op,
- *                  which is the rule of this whole file.
+ *   'was there'    the file is EXACTLY what the gate writes for this project —
+ *                  second pass of the generator. A declared no-op, which is the
+ *                  rule of this whole file.
+ *   'unknown block' the file is what the gate writes, but its scaffold block is
+ *                  not one the gate has seen (BLOCOS_SHADCN_CONHECIDOS). The
+ *                  block comes from the file itself, so the equality proves
+ *                  nothing about it; it becomes a WARNING and the file stays.
+ *   'forged marker' the file carries our marker and is not what the gate writes.
+ *                  Until 2026-09-13 the marker alone meant 'was there': a file
+ *                  holding `<!-- rebar:agentes -->` above any instruction at all
+ *                  was kept, with 0 warnings (measured). A marker is a string
+ *                  anyone can type, so it proves nothing; it becomes a WARNING
+ *                  and the file stays as it came.
  *   'rewritten'    the file was ONLY the shadcn block (and whitespace). It is
  *                  the case decision (a) exists to handle.
  *   'no block'     the file did not exist, or had no block. The pt-BR template
@@ -597,14 +671,27 @@ ${blocoTerceiro}
  *                  overwriting someone else's prose is exactly the defect a
  *                  layered generator's `force: true` commits.
  */
-function garantirAgents(destino, nome, avisos) {
+function garantirAgents(destino, nome, commit, avisos) {
   const rel = 'AGENTS.md'
   const atual = lerSe(destino, rel)
 
-  if (atual !== null && atual.includes(MARCADOR_AGENTES)) return 'was there'
-
   const casou = atual === null ? null : atual.match(RE_BLOCO_SHADCN)
   const bloco = casou ? casou[0].replace(/\r\n/g, '\n') : ''
+
+  if (atual !== null && atual.includes(MARCADOR_AGENTES)) {
+    if (atual.replace(/\r\n/g, '\n') === moldeAgents(nome, bloco, commit)) {
+      const aviso = avisoDeBlocoDesconhecido(bloco)
+      if (!aviso) return 'was there'
+      avisos.push(aviso)
+      return 'unknown block'
+    }
+    avisos.push(
+      'AGENTS.md carries the <!-- rebar:agentes --> marker but is not the file the gate writes for ' +
+        'this project — a marker proves nothing, so it was not trusted and the file was left as it ' +
+        'came; delete it and generate again, or rewrite it from new/gate/arquivos/agentes.md',
+    )
+    return 'forged marker'
+  }
 
   if (atual !== null) {
     const resto = atual.replace(RE_BLOCO_SHADCN, '').trim()
@@ -617,7 +704,9 @@ function garantirAgents(destino, nome, avisos) {
     }
   }
 
-  escrever(destino, rel, moldeAgents(nome, bloco))
+  const aviso = avisoDeBlocoDesconhecido(bloco)
+  if (aviso) avisos.push(aviso)
+  escrever(destino, rel, moldeAgents(nome, bloco, commit))
   return atual === null ? 'no block' : bloco ? 'rewritten' : 'no block'
 }
 
@@ -718,6 +807,35 @@ function conferirPonteiroMcp(destino, avisos) {
     return 'no launcher'
   }
   return 'matches'
+}
+
+/**
+ * The `.rebar/mcp.mjs` on disk is the template, byte for byte.
+ *
+ * rebar-security's `mcp-integrity` accepts that file only when its sha256 is a
+ * version of `arquivos/mcp-rebar.mjs`, so a copy that came out different is a
+ * project born failing its own CI. The copy is verbatim; what can still change
+ * it is the formatter pass (`normalizarFormato`), which is why the generated
+ * `.prettierignore` lists the file and why this runs after that pass.
+ *
+ * @returns {'matches' | 'differs' | 'missing'}
+ */
+export function conferirIntegridadeMcp(destino, avisos) {
+  const caminho = join(destino, ...MCP_LANCADOR.split('/'))
+  if (!existsSync(caminho)) {
+    avisos.push(`${MCP_LANCADOR} is not on disk — the .mcp.json points at nothing`)
+    return 'missing'
+  }
+  const sha = (b) => createHash('sha256').update(b).digest('hex')
+  const noDisco = sha(readFileSync(caminho))
+  const doModelo = sha(readFileSync(join(MOLDES, 'mcp-rebar.mjs')))
+  if (noDisco === doModelo) return 'matches'
+  avisos.push(
+    `${MCP_LANCADOR} came out different from the template (sha256 ${noDisco.slice(0, 12)} vs ` +
+      `${doModelo.slice(0, 12)}) — the project is born failing rebar-security mcp-integrity; the ` +
+      'formatter pass most likely rewrote it',
+  )
+  return 'differs'
 }
 
 // The scaffold's prettier keys that are THEME and not style. They configure the
@@ -994,14 +1112,17 @@ function marcarExecutaveis(destino, avisos) {
  * @param {string} opcoes.raizRebar  root of the rebar checkout, what is copied from
  * @param {string} opcoes.dono       owner name, for NOTICE and allowlist
  * @param {string} opcoes.email      owner e-mail, for the allowlist
+ * @param {string|null} opcoes.commit the 40-hex rebar commit the references pin, or null
  * @returns {{escritos: string[], avisos: string[], elos: string[]|null, exportEstatico: string}}
  */
-export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
+export function aplicarPortao({ destino, nome, raizRebar, dono, email, commit = null }) {
   const escritos = []
   const avisos = []
 
   for (const [molde, rel] of ESTATICOS) {
-    escrever(destino, rel, readFileSync(join(MOLDES, molde), 'utf8'))
+    // Every static template goes through the commit marker; only the workflow
+    // carries it today, and `mcp-rebar.mjs` must never (see MARCA_DO_COMMIT).
+    escrever(destino, rel, renderizarCommit(readFileSync(join(MOLDES, molde), 'utf8'), commit))
     escritos.push(rel)
   }
 
@@ -1026,13 +1147,15 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
   // The create-next-app README is framework boilerplate, and the README is the
   // first thing one sees in a public repository. This is the only scaffold file
   // the gate overwrites without asking permission.
-  escrever(destino, 'README.md', moldeReadme(nome, dono, ano))
+  escrever(destino, 'README.md', moldeReadme(nome, dono, ano, commit))
   escritos.push('NOTICE', '.rebar-coauthors', 'README.md')
 
   // The scaffold's AGENTS.md is the second — and last — scaffold file the gate
   // overwrites. See the header of `garantirAgents` for the decision.
-  const agents = garantirAgents(destino, nome, avisos)
-  if (agents !== 'left alone') escritos.push(`AGENTS.md (${agents})`)
+  const agents = garantirAgents(destino, nome, commit, avisos)
+  if (!['left alone', 'forged marker', 'unknown block'].includes(agents)) {
+    escritos.push(`AGENTS.md (${agents})`)
+  }
 
   // The shadcn .prettierignore knows neither prose nor license. Add, do not
   // replace: what it already lists (.next/, coverage/) still holds.
@@ -1057,6 +1180,26 @@ export function aplicarPortao({ destino, nome, raizRebar, dono, email }) {
       `${ignore.replace(/\s*$/, '')}\n\n${nota}*.md\nLICENSE\nNOTICE\n${gerados}`,
     )
     escritos.push('.prettierignore')
+  }
+
+  // THE MCP SERVER IS JUDGED BY ITS BYTES, not by the formatter. rebar-security's
+  // mcp-integrity accepts `.rebar/mcp.mjs` only as a version rebar shipped, and
+  // the project's `format` script is `prettier --write .` under a prettier range
+  // (`^3.8.3` in the published sites) that is not rebar's pinned 3.9.6: the day
+  // the two disagree on one line, `format-check` fails, the owner runs `format`,
+  // and an honest server becomes an unknown blob. A separate check so projects
+  // generated before this line get it on the next pass too.
+  const ignoreAgora = lerSe(destino, '.prettierignore')
+  if (ignoreAgora !== null && !ignoreAgora.split(/\r?\n/).includes(MCP_LANCADOR)) {
+    escrever(
+      destino,
+      '.prettierignore',
+      `${ignoreAgora.replace(/\s*$/, '')}\n\n` +
+        '# O servidor MCP é conferido byte a byte pela régua de segurança (mcp-integrity):\n' +
+        '# reformatado, ele deixa de ser uma versão que o rebar conhece.\n' +
+        `${MCP_LANCADOR}\n`,
+    )
+    if (!escritos.includes('.prettierignore')) escritos.push('.prettierignore')
   }
 
   // BEFORE `garantirScripts`, because that is what puts `format-check` in the
@@ -1149,6 +1292,12 @@ export {
   // function. Until 2026-09-07 nothing executed it, and the template and the
   // emitted test diverged in two places without anything calling it out.
   moldeAgents,
+  // The two below are exported for the same reason: prove-map.mjs runs the
+  // forged-marker cases against the real function, and prove-injection.mjs
+  // renders the generated README into the repository every injection rule
+  // must pass.
+  garantirAgents,
+  moldeReadme,
   marcarExecutaveis,
   PASTA_HOOKS,
   EXECUTAVEIS,

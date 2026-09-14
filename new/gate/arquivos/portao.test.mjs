@@ -16,7 +16,7 @@
 
 import { strict as assert } from 'node:assert'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
@@ -158,7 +158,34 @@ test('the server writes to stdout by ONE path only, and it is the JSON-RPC one',
     !/console\.log/.test(fonte),
     'there is a console.log in the server, and that corrupts the JSON-RPC',
   )
-  assert.ok(fonte.includes('github:Navesz/rebar'), 'the server does not name the published ruler')
+  assert.ok(
+    fonte.includes('https://codeload.github.com/Navesz/rebar/tar.gz/'),
+    'the server does not derive the pinned ruler',
+  )
+})
+
+// ─────────────────────────────────────────────── rebar, pinned to one commit
+//
+// WHY THIS TEST. An unpinned `npx github:Navesz/rebar` runs whatever rebar's
+// default branch holds on the day CI runs: a change there changes this
+// project's verdict with no diff here. The workflow pins one commit, as the
+// commit tarball, because npm 10.9.3 (Node 22 on the runners) refuses the git
+// form with `#<commit>` (measured 2026-09-13). `.rebar/mcp.mjs` reads the pin
+// from this same file, so two different commits would make the server and the
+// CI disagree about which rebar is "the ruler".
+test('the CI pins rebar to one commit, by tarball', () => {
+  const linhas = ler('.github/workflows/verificar.yml')
+    .split('\n')
+    .filter((l) => !/^\s*#/.test(l))
+  const url =
+    /https:\/\/codeload\.github\.com\/Navesz\/rebar\/tar\.gz\/([0-9a-f]{40})(?![0-9A-Za-z])/g
+  const commits = linhas.flatMap((l) => [...l.matchAll(url)].map((m) => m[1]))
+  assert.ok(commits.length >= 2, `the workflow pins rebar on ${commits.length} line(s), expected 2`)
+  assert.equal(new Set(commits).size, 1, 'the workflow pins more than one rebar commit')
+  assert.ok(
+    !linhas.some((l) => l.includes('github:Navesz/rebar')),
+    'the workflow still runs rebar unpinned',
+  )
 })
 
 /**
@@ -225,6 +252,7 @@ test('the MCP server comes up from .mcp.json, handshakes and answers the tools',
   const { r, respostas } = conversarComOMcp(RAIZ, [
     { name: 'rebar_regras' },
     { name: 'rebar_verificar' },
+    { name: 'rebar_portao' },
   ])
 
   const ini = respostas.find((m) => m.id === 1)
@@ -279,6 +307,20 @@ test('the MCP server comes up from .mcp.json, handshakes and answers the tools',
   assert.ok(texto.includes('pilha-fechada'), 'rebar_regras says nothing about the stack')
 
   assert.ok(respostas.find((m) => m.id === 11)?.result, 'rebar_verificar did not answer')
+
+  // The server names the ruler by the commit the CI pins, read from the
+  // workflow, and says that what it read from the project is data. Offline:
+  // rebar_portao only names the command, it runs nothing.
+  const portao = JSON.parse(respostas.find((m) => m.id === 12)?.result?.content?.[0]?.text || '{}')
+  const pino = /https:\/\/codeload\.github\.com\/Navesz\/rebar\/tar\.gz\/[0-9a-f]{40}/.exec(
+    ler('.github/workflows/verificar.yml'),
+  )
+  assert.ok(pino, 'the workflow pins no rebar commit')
+  assert.ok(
+    String(portao.regua_do_rebar).includes(pino[0]),
+    `rebar_portao does not name the pinned ruler: ${portao.regua_do_rebar}`,
+  )
+  assert.ok(portao.dados, 'rebar_portao does not say that project values are data')
 })
 
 test('the MCP server answers DESARMADA instead of reciting a rule with no guard', () => {
@@ -300,7 +342,14 @@ test('the MCP server answers DESARMADA instead of reciting a rule with no guard'
   // the rules were copied. That is the mutation.
   writeFileSync(join(copia, 'package.json'), '{"name":"mutado"}\n', 'utf8')
 
-  const { respostas } = conversarComOMcp(copia, [{ name: 'rebar_regras' }])
+  // Removed afterwards: rebar's generator-map step runs this test on every gate run,
+  // and a copy left behind per run is a temp folder nobody asked for.
+  let respostas
+  try {
+    respostas = conversarComOMcp(copia, [{ name: 'rebar_regras' }]).respostas
+  } finally {
+    rmSync(copia, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
+  }
   const texto = respostas.find((m) => m.id === 10)?.result?.content?.[0]?.text || ''
   assert.match(
     texto,
@@ -316,7 +365,11 @@ test('the MCP server answers DESARMADA instead of reciting a rule with no guard'
 
 test('AGENTS.md orders the rules derived, and repeats none', () => {
   const agents = ler('AGENTS.md')
-  assert.match(agents, /npx --yes github:Navesz\/rebar \./, 'AGENTS.md has no derived ruler')
+  assert.match(
+    agents,
+    /npx --yes https:\/\/codeload\.github\.com\/Navesz\/rebar\/tar\.gz\/[0-9a-f]{40} \./,
+    'AGENTS.md has no pinned ruler',
+  )
   assert.match(agents, /\.mcp\.json/, 'AGENTS.md does not mention the MCP pointer')
   // Comparison by text, and not by a regex built on the spot: the path has a dot
   // and a slash, and a badly escaped regex here would match by accident and prove
@@ -333,7 +386,9 @@ test('AGENTS.md speaks of this project, and not only of the framework', () => {
   // missing or boilerplate only" with frequency 5 in 6. Without this test,
   // undoing the gate's decision lights up nothing.
   const agents = ler('AGENTS.md')
-  assert.match(agents, /<!-- rebar:agentes -->/, 'AGENTS.md did not go through the gate')
+  // Anchored at the first line: the generator writes the marker there, and a
+  // marker anywhere else is text somebody typed (the gate no longer trusts it).
+  assert.match(agents, /^<!-- rebar:agentes -->\n/, 'AGENTS.md did not go through the gate')
   // The two anchors the decision promised: where the agent is sent to read, and
   // where the allowlist is that says it does not sign the commit.
   assert.match(agents, /README\.md/, 'AGENTS.md does not point at the README')

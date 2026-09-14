@@ -1,6 +1,16 @@
 # This project's gate. Two steps, and both run the same on your machine:
 #   npm run verificar
-#   npx --yes github:Navesz/rebar .
+#   npx --yes https://codeload.github.com/Navesz/rebar/tar.gz/{{commit-do-rebar}} .
+#
+# REBAR IS PINNED TO ONE COMMIT, the one that generated this project. An
+# unpinned spec runs whatever rebar's default branch holds on the day CI runs,
+# so a change there would change this project's verdict with no diff here. The
+# pin is the COMMIT TARBALL and not the git form with `#<commit>`: measured on
+# 2026-09-13, npm 10.9.3 (the npm of Node 22 on these runners) exits 1 on the
+# git form ("GitFetcher requires an Arborist constructor to pack a tarball"),
+# and npm 10.9.3 and npm 11.6.2 both run the tarball, with both bins. To move
+# the pin, change the 40-hex commit on both lines below together, and the one
+# in AGENTS.md; `.rebar/mcp.mjs` reads it from this file.
 #
 # THE MATRIX EXISTS FOR A MEASURED REASON. The portability defect that killed the
 # previous project — an `execFileSync("npx")` that does not exist as an
@@ -81,7 +91,7 @@ jobs:
       # is the only pass: 1 failed, 2 invalid target, 3 partial slice, 127 the
       # tooling broke — all of them bring the job down.
       - name: régua do rebar
-        run: npx --yes github:Navesz/rebar .
+        run: npx --yes https://codeload.github.com/Navesz/rebar/tar.gz/{{commit-do-rebar}} .
 
       # THE SECURITY RULER, and it is a DIFFERENT binary from the same package —
       # hence the `-p`. Without it npx runs the default bin, which is the format
@@ -90,7 +100,7 @@ jobs:
       # Network is allowed here: it runs once per push, not once per commit. What
       # could not wait for CI is in the hook, written in shell.
       - name: régua de segurança
-        run: npx --yes -p github:Navesz/rebar rebar-security .
+        run: npx --yes -p https://codeload.github.com/Navesz/rebar/tar.gz/{{commit-do-rebar}} rebar-security .
 
   # ─────────────────────────────────────────────────────────────── publishing
   #

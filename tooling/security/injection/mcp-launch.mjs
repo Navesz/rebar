@@ -65,6 +65,7 @@ import { posix } from 'node:path'
 
 import { escaparSaida } from '../texto-seguro.mjs'
 import { lerJsonc, lerToml, lerYaml } from './formats.mjs'
+import { pacotesComoNopt, pacotesComoNpx } from './opcoes-npm.mjs'
 import {
   NOME_DA_ALLOWLIST,
   lerAllowlist,
@@ -521,43 +522,19 @@ export function especNpm(espec) {
   }
 }
 
-/** npm flags that take the next word as their value, so it is not the package. */
-const FLAGS_NPM_COM_VALOR = new Set([
-  '--prefix',
-  '--registry',
-  '--cache',
-  '--userconfig',
-  '--workspace',
-  '-w',
-  '--loglevel',
-])
-
+/**
+ * The package specs an npm-family runner may start for the words after it.
+ * Both parsers are read and united: `npx` (bin/npx-cli.js, where an unknown
+ * option takes the next word) and `npm exec` (nopt, where it is a switch). A
+ * value option missing from a hand-kept list made its value read as the
+ * package, measured: `npx --omit dev github:o/r` was judged as the registry
+ * name `dev`. The option lists are npm's own definitions, in opcoes-npm.mjs.
+ */
 function pacotesNpm(lista) {
   const pacotes = []
-  let executavel = null
-  for (let i = 0; i < lista.length; i++) {
-    const a = lista[i]
-    if (a === '--') {
-      executavel = lista[i + 1] ?? null
-      break
-    }
-    if (a === '-p' || a === '--package') {
-      if (lista[i + 1] !== undefined) pacotes.push(lista[++i])
-      continue
-    }
-    if (a.startsWith('--package=')) {
-      pacotes.push(a.slice('--package='.length))
-      continue
-    }
-    if (a === '-c' || a === '--call' || FLAGS_NPM_COM_VALOR.has(a)) {
-      i++
-      continue
-    }
-    if (a.startsWith('-')) continue
-    executavel = a
-    break
+  for (const p of [...pacotesComoNpx(lista), ...pacotesComoNopt(lista)]) {
+    if (!pacotes.includes(p)) pacotes.push(p)
   }
-  if (!pacotes.length && executavel) pacotes.push(executavel)
   return pacotes
 }
 
@@ -691,12 +668,90 @@ function chavesDeExecutor(base, seg) {
 }
 
 /**
+ * Commands that run the rest of their words as a command, with the options
+ * whose value is the next word and how many plain words come before that
+ * command (`timeout 600 npx ...`). Measured on 2026-09-13: `timeout 600`, `time`,
+ * `exec`, `command`, `sudo` and `cross-env CI=1` in front of `npx
+ * github:Navesz/rebar` hid the runner, because a runner was looked for only in
+ * the first word. `VAR=value` words in front of a command are the shell's own
+ * spelling of the same thing, and `env` without `-S` is one more of them.
+ */
+const PREFIXOS_TRANSPARENTES = {
+  timeout: { comValor: ['-k', '--kill-after', '-s', '--signal'], antes: 1 },
+  time: { comValor: ['-f', '--format', '-o', '--output'] },
+  exec: { comValor: ['-a'] },
+  command: {},
+  builtin: {},
+  nice: { comValor: ['-n', '--adjustment'] },
+  nohup: {},
+  setsid: {},
+  stdbuf: { comValor: ['-i', '-o', '-e'] },
+  ionice: { comValor: ['-c', '-n', '-p', '-P', '-u'] },
+  sudo: {
+    comValor: ['-u', '--user', '-g', '--group', '-h', '--host', '-p', '--prompt', '-C'],
+    atribuicoes: true,
+  },
+  doas: { comValor: ['-u', '-C'] },
+  winpty: {},
+  call: {},
+  corepack: {},
+  xargs: { comValor: ['-I', '-n', '-L', '-P', '-d', '-E', '-s', '-a'] },
+  'cross-env': { atribuicoes: true },
+  dotenv: { comValor: ['-e', '-v', '-c'], atribuicoes: true },
+  env: { comValor: ['-u', '--unset', '-C', '--chdir'], atribuicoes: true },
+}
+
+const ATRIBUICAO = /^[A-Za-z_][A-Za-z0-9_]*=/
+
+/**
+ * The words after a transparent prefix, or null when `seg` does not start with
+ * one. `env -S` is not stripped here: its next word is a command line to split,
+ * which the caller does.
+ */
+function semPrefixo(seg) {
+  if (!seg.length) return null
+  if (ATRIBUICAO.test(seg[0])) {
+    let k = 0
+    while (k < seg.length && ATRIBUICAO.test(seg[k])) k++
+    return seg.slice(k)
+  }
+  const base = baseDe(seg[0])
+  const regra = Object.hasOwn(PREFIXOS_TRANSPARENTES, base) ? PREFIXOS_TRANSPARENTES[base] : null
+  if (!regra) return null
+  const comValor = new Set(regra.comValor || [])
+  let k = 1
+  while (k < seg.length) {
+    const w = seg[k]
+    if (w === '--') {
+      k++
+      break
+    }
+    if (base === 'env' && (w === '-S' || w === '--split-string' || w.startsWith('--split-string=')))
+      return null
+    if (regra.atribuicoes && ATRIBUICAO.test(w)) k++
+    else if (w.startsWith('-') && w.length > 1) k += comValor.has(w) ? 2 : 1
+    else break
+  }
+  k += regra.antes || 0
+  return seg.slice(k)
+}
+
+/**
  * argv -> labels, every word seen (unwrapped shells included) and one record
  * per launcher that downloads code. Shell wrappers are unwrapped up to 3
  * levels, so `cmd /c npx ...` and `bash -c "npx ..."` still expose the runner to
- * the checks that cannot be accepted.
+ * the checks that cannot be accepted. Transparent prefixes (`timeout 600`,
+ * `sudo`, `VAR=1`, ...) are stripped at the same level, any number of them.
+ *
+ * `dividir` splits the command strings a shell wrapper hands over; it defaults
+ * to `palavras`. unpinned-exec also classifies with a POSIX reading, where a
+ * backslash before a letter and `$'...'` quoting spell the word a shell runs.
  */
-export function classificarLancamento(argv, { EXECUTORES_REMOTOS, SINAIS_DE_SHELL }) {
+export function classificarLancamento(
+  argv,
+  { EXECUTORES_REMOTOS, SINAIS_DE_SHELL },
+  { dividir = palavras } = {},
+) {
   exigirTabela('EXECUTORES_REMOTOS', EXECUTORES_REMOTOS)
   exigirTabela('SINAIS_DE_SHELL', SINAIS_DE_SHELL)
   const rotulos = new Set()
@@ -715,7 +770,10 @@ export function classificarLancamento(argv, { EXECUTORES_REMOTOS, SINAIS_DE_SHEL
   const analisar = (lista, profundidade) => {
     if (!lista.length || profundidade > 3) return
     todas.push(...lista)
-    for (const seg of segmentos(lista)) {
+    for (const inteiro of segmentos(lista)) {
+      let seg = inteiro
+      for (let resto = semPrefixo(seg); resto !== null; resto = semPrefixo(seg)) seg = resto
+      if (!seg.length) continue
       const base = baseDe(seg[0])
       if (base === 'env') {
         let k = 1
@@ -723,7 +781,7 @@ export function classificarLancamento(argv, { EXECUTORES_REMOTOS, SINAIS_DE_SHEL
           const w = seg[k]
           if (w === '-u' || w === '--unset') k += 2
           else if (w === '-S' || w === '--split-string') {
-            analisar([...palavras(seg[k + 1] ?? ''), ...seg.slice(k + 2)], profundidade + 1)
+            analisar([...dividir(seg[k + 1] ?? ''), ...seg.slice(k + 2)], profundidade + 1)
             k = seg.length + 1
           } else if (w.startsWith('-') || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w)) k++
           else break
@@ -745,14 +803,14 @@ export function classificarLancamento(argv, { EXECUTORES_REMOTOS, SINAIS_DE_SHEL
           rotulos.add(rotulo)
           if (desembrulhado || k === 0) continue
           let interno = null
-          if (grupo === 'emLinha') interno = palavras(seg[k + 1] ?? '')
+          if (grupo === 'emLinha') interno = dividir(seg[k + 1] ?? '')
           else if (grupo === 'resto') {
             const resto = seg.slice(k + 1)
-            interno = resto.length === 1 ? palavras(resto[0]) : resto
+            interno = resto.length === 1 ? dividir(resto[0]) : resto
           } else if (grupo === 'execucao' && (valor === '-c' || valor === '--call')) {
-            interno = palavras(seg[k + 1] ?? '')
+            interno = dividir(seg[k + 1] ?? '')
           } else if (grupo === 'execucao' && valor.startsWith('--call=')) {
-            interno = palavras(valor.slice('--call='.length))
+            interno = dividir(valor.slice('--call='.length))
           }
           if (interno) {
             desembrulhado = true

@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A branch name after the hash is still a moving target; only a 40-hex commit id cannot move. The fail side pins the git spec to main, the pass side to a 40-hex commit. Whoever accepts any ref as a pin turns the fail side green; whoever refuses a commit ref turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBnaXRodWI6b3duZXItcHJvdmEvcmVwby1wcm92YSNhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIC4K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBnaXRodWI6b3duZXItcHJvdmEvcmVwby1wcm92YSNtYWluIC4K"
+      }
+    ]
+  }
+}

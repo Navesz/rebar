@@ -6,8 +6,8 @@
 #
 # `npm`: this project is NOT zero-dependency — it is a Next with React, Tailwind
 # and shadcn, and CI's `npm ci` installs all of it. The zero-dependency promise
-# belongs to rebar-check, which runs through `npx github:Navesz/rebar` without
-# installing anything.
+# belongs to rebar-check, which runs through the pinned rebar tarball in
+# verificar.yml without installing anything.
 version: 2
 updates:
   - package-ecosystem: 'github-actions'
