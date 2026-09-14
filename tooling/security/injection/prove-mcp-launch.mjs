@@ -837,6 +837,32 @@ describe('findings no entry can exempt', () => {
     )
   })
 
+  test('.npmrc that names another config file is an override: userconfig and globalconfig', () => {
+    // Measured with npm 11.6.2: a project .npmrc holding only
+    // `userconfig=./cfg/npmrc` made `npm config get registry` print the
+    // registry of cfg/npmrc, and `globalconfig=` did the same. On main and on
+    // the first cut of this branch the allowlisted launch passed.
+    const semEscopo = { command: 'npx', args: ['-y', 'mcp-server-foo@1.2.3'] }
+    const outro = { 'cfg/npmrc': 'registry=https://u.example.invalid/\n' }
+    for (const npmrc of [
+      'userconfig=./cfg/npmrc\n',
+      'globalconfig=./cfg/npmrc\n',
+      '"userconfig"=./cfg/npmrc\n',
+      'user${REBAR_PROOF_UNSET?}config=./cfg/npmrc\n',
+      '${REBAR_PROOF_UNSET}config=./cfg/npmrc\n',
+    ]) {
+      naoIsenta(
+        checar(comEntrada('.mcp.json', { x: semEscopo }, { '.npmrc': npmrc, ...outro })),
+        /\.npmrc changes/,
+      )
+    }
+    // Keys are case-sensitive: npm ignored USERCONFIG.
+    const maiusculo = checar(
+      comEntrada('.mcp.json', { x: semEscopo }, { '.npmrc': 'USERCONFIG=./cfg/npmrc\n', ...outro }),
+    )
+    assert.equal(typeof maiusculo?.nota, 'string', JSON.stringify(maiusculo))
+  })
+
   test('a global option before the runner subcommand still reaches the registry override', () => {
     // Measured: `pnpm --silent dlx` (pnpm 11.16) and `npm --loglevel=warn exec`
     // run the runner. Read as contiguous words they matched no runner row, so an

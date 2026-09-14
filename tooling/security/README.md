@@ -93,8 +93,9 @@ selectors after a warning sign, measured on 2026-09-12:
 Agent instruction files and names are judged in strict mode, where only the prose exceptions
 Persian, Arabic and the Indic scripts cannot be written without apply, in their narrowest shape: one
 zero-width non-joiner or joiner with a letter of the same joining script on each side; one joiner
-after a letter and its virama when a letter of that script follows, and one zero-width joiner
-between a letter and a virama of one script (the Bengali ya-phalaa after ra, the Sinhala "Sri");
+after a letter and its virama when a letter of that script follows (the Sinhala "Sri"), and one
+zero-width joiner between a letter and a virama of one script (the Bengali ya-phalaa after ra, the
+Sinhala touching conjuncts);
 and one left-to-right, right-to-left or Arabic letter mark, not next to another invisible, on a
 line that has a right-to-left letter. A word-final legacy chillu or khanda ta still fails there:
 the atomic letters U+0D7A–U+0D7E and U+09CE are the fix. Every other exception, a run of
@@ -154,7 +155,9 @@ files only, never in agent files, code, names, commit messages or the allowlist:
 
 When every remaining finding is a bell, vertical tab or form feed, or a C1 control right after a
 Latin-1 letter (UTF-8 text decoded twice), the message says so instead of claiming the character
-hides text; the verdict is the same.
+hides text; the verdict is the same. Reverse index (U+008D, what a double-decoded I-acute leaves)
+and the sequence introducers after such a letter keep the hiding claim, and the message adds that
+the text may have been decoded twice.
 
 **Allowlist keys:** `{arquivo, oid}` for file findings, `{commit}` for message findings. The
 expected users are vendored bundles that colour their own output: of 26,321 code files measured
@@ -171,7 +174,7 @@ CLI, TOML for Codex, YAML for frontmatter.
 
 | Vendor | Files | Fails | Warns (`⚠`, passes) |
 |---|---|---|---|
-| Claude Code | `.claude/settings.json` and `.claude/settings.local.json`, merged with the local file winning | a helper command that produces credentials, refreshes cloud auth or builds telemetry headers; environment that moves the API endpoint, adds custom headers or a proxy, trusts an extra certificate authority, prefixes every shell command, or moves the config, temp or home directory; a default permission mode that skips prompts; the setting that silences the warning before that mode; an allow rule that grants a whole shell or package runner, or a wildcard that reaches an interpreter's own options or replaces the script it runs (a wildcard after a fixed tracked script stays narrow, and so do these fixed shapes, in Claude Code and Gemini CLI rules: `deno fmt`, `check`, `doc` and `info`; `deno task` with a task name; `pwsh -File` or `powershell -File` with a script, after only `-NoProfile`, `-NoLogo`, `-NonInteractive`, `-NoExit`, `-Sta`, `-Mta` or a value switch such as `-ExecutionPolicy`; `node --run`; and a version or help option first for npm, npx, pnpm, uvx, curl, node, python and bash) | approving every project MCP server; enabling listed servers; plugins and extra marketplaces; the mode that accepts edits without asking; the sandbox turned off, or commands let out of it; hooks; status line and file suggestion commands; a tracked local settings file; a local settings file in a folder spelled with another case, which overrides nothing where the file system tells case apart |
+| Claude Code | `.claude/settings.json` and `.claude/settings.local.json`, merged with the local file winning | a helper command that produces credentials, refreshes cloud auth or builds telemetry headers; environment that moves the API endpoint, adds custom headers or a proxy, trusts an extra certificate authority, prefixes every shell command, or moves the config, temp or home directory; a default permission mode that skips prompts; the setting that silences the warning before that mode; an allow rule that grants a whole shell or package runner, or a wildcard that reaches an interpreter's own options or replaces the script it runs (a wildcard after a fixed tracked script stays narrow, and so do these fixed shapes, in Claude Code and Gemini CLI rules: `deno fmt`, `check`, `doc` and `info`; `deno task` with a task name; `pwsh -File` or `powershell -File` with a script, after only `-NoProfile`, `-NoLogo`, `-NonInteractive`, `-Sta`, `-Mta` or a value switch such as `-ExecutionPolicy` (`-NoExit` runs what stdin holds after the script, and Windows PowerShell 5.1 reads an unknown `-SettingsFile` as the start of `-Command`, so both stay broad); `node --run`; and a version or help option first for npm, npx, pnpm, uvx, curl, node, python and bash) | approving every project MCP server; enabling listed servers; plugins and extra marketplaces; the mode that accepts edits without asking; the sandbox turned off, or commands let out of it; hooks; status line and file suggestion commands; a tracked local settings file; a local settings file in a folder spelled with another case, which overrides nothing where the file system tells case apart |
 | Claude Code agents, skills and commands | `.claude/agents/`, `.claude/skills/`, `.claude/commands/` | a frontmatter permission mode that skips prompts; a whole-shell tool grant | a narrow tool grant; frontmatter hooks or MCP servers; a skill that runs an inline command together with a shell grant; frontmatter that does not parse |
 | Claude Code preview | `.claude/launch.json` | — | every launch, listed by fingerprint |
 | VS Code | `.vscode/settings.json`, `.vscode/tasks.json`, `*.code-workspace` | automatic approval of every tool; a chat permission default that approves everything; a terminal approval entry that matches every command, an interpreter, or an interpreter with its inline-code switch (a regex is also tried on short probe lines); ignoring the default terminal rules; a URL approval entry that matches every address; a task that runs when the folder opens; allowing automatic tasks; workspace trust turned off; a tool-path setting that points at a tracked file | narrower terminal and URL approval entries |
@@ -232,7 +235,9 @@ These fail even with an allowlist entry:
   the folder the server starts in that points away from the public registry, for every package or
   for the scope of the package launched. `.npmrc` is read the way npm's ini parser reads it
   (quoted keys, `key[]` arrays, sections, inline comments), and a key is read as npm expands its
-  environment references; only the https spelling of the public registry is the default.
+  environment references; only the https spelling of the public registry is the default. A
+  `userconfig` or `globalconfig` key is an override whatever it names, because npm then reads the
+  registry from that file.
 
 **Why.** In MCPoison (CVE-2025-54136, Check Point) a server config was swapped after it had been
 approved in Cursor. In Claude Code's non-interactive modes, project servers connect without
@@ -372,10 +377,10 @@ would exempt it, with the exact key that rule compares. It takes one repository 
 (exit `2`), and prints nothing but a message when a rule breaks (exit `127`). The keys are
 written as JSON, so a path with an invisible character comes out as a JSON unicode escape the
 reader decodes back; the output is otherwise the path, the JSON Pointer and the server name
-verbatim, which is why the option is not offered through the MCP server. A key longer than 200
-characters is counted in the first line, not printed. A key the allowlist already holds is left
-out, and a finding no entry can exempt is never listed: run the scoreboard again after adding the
-lines. Placeholder hashes below:
+verbatim, which is why the option is not offered through the MCP server. A key longer than 4096
+characters (Linux's PATH_MAX) is counted in the first line, not printed. A key the allowlist
+already holds is left out, and a finding no entry can exempt is never listed: run the scoreboard
+again after adding the lines. Placeholder hashes below:
 
 ```text
 # 2 line(s) for .rebar-injection-allowlist. Replace every motivo before committing: the reader refuses the placeholder. Findings no entry can exempt are not listed; run the scoreboard again after adding them.
@@ -384,8 +389,8 @@ lines. Placeholder hashes below:
 ```
 
 **The reader refuses that motivo.** A line whose motivo contains the placeholder, whatever its
-spacing or case, is a malformed line, and every injection rule fails on it until a person writes
-why the finding was accepted. A fixed placeholder says why nobody accepted anything.
+spacing, punctuation or case, is a malformed line, and every injection rule fails on it until a
+person writes why the finding was accepted. A fixed placeholder says why nobody accepted anything.
 
 ## What reads what
 

@@ -191,10 +191,17 @@ export const NOME_DA_ALLOWLIST = '.rebar-injection-allowlist'
  * The motivo `--sugerir-allowlist` prints on every line it suggests. The reader
  * refuses any motivo that contains it: a line pasted as printed exempts
  * nothing, because a fixed placeholder says why no person accepted anything.
- * "Contains" and not "equals", so appending a word to it is refused too.
+ * "Contains" and not "equals", so appending a word to it is refused too. The
+ * comparison first drops every space, punctuation mark, symbol and format
+ * character: measured on the first cut, which only collapsed runs of spaces,
+ * the placeholder with the space after its colon deleted was a valid motivo
+ * and exempted two findings.
  */
 export const MOTIVO_A_ESCREVER = 'TODO: write why a person accepted this finding'
-const normalizarMotivo = (s) => String(s).replace(/\s+/g, ' ').trim().toLowerCase()
+const normalizarMotivo = (s) =>
+  String(s)
+    .replace(/[\s\p{P}\p{S}\p{Cf}]+/gu, '')
+    .toLowerCase()
 
 /** See the API block: records a suggested allowlist key when the caller asked for them. */
 export function sugerirEntrada(r, regra, chave) {

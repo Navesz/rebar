@@ -812,14 +812,22 @@ const DENO_ESTREITOS = new Set(['fmt', 'check', 'doc', 'info'])
  * printed MARK (the prefix of -Command took the rest), while `-File t.ps1 ;
  * Write-Output MARK` handed everything after the script to the script, and so
  * did `-File t.ps1 -Command ...` and `-File t.ps1 -EncodedCommand x`.
+ * Two switches are left out because they do change what runs, measured on
+ * Windows PowerShell 5.1.26100 with a script that prints only SCRIPT:
+ * `-NoExit -File t.ps1 < p.txt` (and `-noe`) printed SCRIPT and then ran the
+ * command in p.txt at the prompt it left open, which the same line without
+ * -NoExit did not; and `-SettingsFile x.json -File t.ps1 '; Write-Output MARK'`
+ * printed MARK, because 5.1 has no -SettingsFile and read the whole line as
+ * -Command. pwsh 7 was not installed, so -SettingsFile is not trusted there
+ * either.
  */
 const PS_SEM_VALOR = new Set(
-  j('-noprofile -nop -nologo -nol -noninteractive -noni ', '-noexit -noe -sta -mta').split(' '),
+  j('-noprofile -nop -nologo -nol -noninteractive -noni ', '-sta -mta').split(' '),
 )
 const PS_COM_VALOR = new Set(
   j(
     '-executionpolicy -ep -windowstyle -w -workingdirectory -wd ',
-    '-inputformat -if -outputformat -of -settingsfile',
+    '-inputformat -if -outputformat -of',
   ).split(' '),
 )
 const ARQUIVO_DO_PS = j('-fi', 'le')

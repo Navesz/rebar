@@ -1287,6 +1287,14 @@ describe('broad shell rules', { concurrency: true }, () => {
     ['claude', shell(k('power', 'shell -Comm -File scripts/b.ps1:*')), true],
     ['claude', shell(k('power', 'shell -co -File scripts/b.ps1:*')), true],
     ['claude', shell('pwsh -enc -File scripts/b.ps1:*'), true],
+    // Measured on Windows PowerShell 5.1: -NoExit ran what stdin held after the
+    // script, and -SettingsFile, unknown there, turned the line into -Command.
+    ['claude', shell('pwsh -NoExit -File scripts/b.ps1:*'), true],
+    ['claude', shell(k('power', 'shell -noe -File scripts/b.ps1:*')), true],
+    ['gemini', k('run_shell', '_command(pwsh -NoExit -File scripts/b.ps1)'), true],
+    ['claude', shell(k('power', 'shell -SettingsFile x.json -File scripts/b.ps1:*')), true],
+    ['claude', shell(k('power', 'shell -settingsfile x -File scripts/b.ps1 *')), true],
+    ['claude', shell('pwsh -SettingsFile x.json -File scripts/b.ps1:*'), true],
     // node --run runs a package script, like npm run.
     ['claude', shell('node --run build:*'), false],
     ['claude', shell('node --run:*'), false],

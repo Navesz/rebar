@@ -840,6 +840,11 @@ describe('lerAllowlist', () => {
       `  ${MOTIVO_A_ESCREVER.toUpperCase().replaceAll(' ', '   ')} `,
       MOTIVO_A_ESCREVER.replace('write why', 'write\twhy'),
       `${MOTIVO_A_ESCREVER} - ok`,
+      // Measured on the first cut: with the space after the colon deleted it
+      // was a valid motivo.
+      MOTIVO_A_ESCREVER.replace(': ', ':'),
+      MOTIVO_A_ESCREVER.replaceAll(' ', ''),
+      MOTIVO_A_ESCREVER.replace('TODO: ', 'TODO - ').replace('person', 'per-son'),
     ]
     const texto = [
       ...recusados.map((motivo) => linha({ regra: 'control-bytes', motivo, ...chave })),
@@ -854,7 +859,7 @@ describe('lerAllowlist', () => {
     const lista = lerAllowlist(repositorio([{ caminho: NOME_DA_ALLOWLIST, conteudo: texto }]))
     assert.deepEqual(
       lista.erros.map((e) => e.linha),
-      [1, 2, 3, 4],
+      [1, 2, 3, 4, 5, 6, 7],
     )
     for (const e of lista.erros) {
       assert.equal(
@@ -865,8 +870,8 @@ describe('lerAllowlist', () => {
     assert.deepEqual(
       lista.entradas.map((e) => [e.linha, e.regra]),
       [
-        [5, 'control-bytes'],
-        [6, 'hidden-unicode'],
+        [8, 'control-bytes'],
+        [9, 'hidden-unicode'],
       ],
     )
   })

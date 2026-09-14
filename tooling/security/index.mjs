@@ -847,8 +847,15 @@ function avaliar(dir, filtro, { sugerir = false } = {}) {
 
 // ═════════════════════════════════════════════════════ --sugerir-allowlist
 
-/** The longest file path, JSON pointer or server name a suggested line carries. */
-const LIMITE_DA_CHAVE = 200
+/**
+ * The longest file path, JSON pointer or server name a suggested line carries,
+ * in code points. Linux caps a path at 4096 bytes (PATH_MAX), so every file a
+ * Linux checkout can hold fits. The first cut stopped at 200, which the reader
+ * never required: a longer tracked path (the longest over the 20 repositories
+ * measured was 177) got no line and its user was sent to write a 40-hex oid by
+ * hand. Past this limit the text is a repository's choice, and only counted.
+ */
+const LIMITE_DA_CHAVE = 4096
 
 /**
  * One JSON Lines object with every code unit escaparSaida would label written

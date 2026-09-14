@@ -520,8 +520,8 @@ export function checarControlBytes(r) {
     for (const a of todos) {
       const antes = a.indice > 0 ? e.texto.charCodeAt(a.indice - 1) : -1
       if (SO_AVISO_NA_MENSAGEM.has(a.cp)) classes.add('pagina')
-      else if (a.forma === null && SO_MOJIBAKE[a.cp] && antes >= 0xc2 && antes <= 0xdf) {
-        classes.add('mojibake')
+      else if (a.forma === null && a.cp >= 0x80 && a.cp < 0xa0 && antes >= 0xc2 && antes <= 0xdf) {
+        classes.add(SO_MOJIBAKE[a.cp] ? 'mojibake' : 'mojibakeQueEsconde')
       } else classes.add('esconde')
     }
     if (e.caminho !== NOME_DA_ALLOWLIST) {
@@ -571,19 +571,26 @@ export function checarControlBytes(r) {
     // text. The hiding claim stays whenever any other control is among the
     // findings.
     let porque = ''
+    const esconde =
+      'a terminal acts on it and hides text from the review while a model reads it all; '
+    const duasVezes =
+      'a C1 control right after a Latin-1 letter is UTF-8 text decoded twice, so re-save ' +
+      'the file as UTF-8; '
     if (classes.has('esconde')) {
-      porque = 'a terminal acts on it and hides text from the review while a model reads it all; '
+      porque = esconde
+    } else if (classes.has('mojibakeQueEsconde')) {
+      // I-acute decoded twice leaves RI (U+008D), which also moves the cursor
+      // up. Measured before: INDICE E SECAO with its accents, decoded twice,
+      // was told only that its U+008D, U+0087 and U+0083 hide text, and not
+      // that re-saving the file as UTF-8 removes all three.
+      porque = esconde + duasVezes.replace('is UTF-8', 'can also be UTF-8')
     } else {
       if (classes.has('pagina')) {
         porque +=
           'a page-break or bell control hides no text, and only a form feed alone on its line ' +
           'in a prose or data file is left alone; '
       }
-      if (classes.has('mojibake')) {
-        porque +=
-          'a C1 control right after a Latin-1 letter is UTF-8 text decoded twice, so re-save ' +
-          'the file as UTF-8; '
-      }
+      if (classes.has('mojibake')) porque += duasVezes
     }
     partes.push(
       `${plural(caracteres, 'control character', 'control characters')}: ${resumir(itens)} — ` +

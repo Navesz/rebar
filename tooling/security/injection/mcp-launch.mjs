@@ -919,6 +919,14 @@ const REFERENCIA_DE_AMBIENTE = /(?<!\\)(\\*)\$\{([^${}?]+)(\?)?\}/g
  * as an unscoped override. Measured with `npm config get`:
  * `${UNSET?}registry=`, `regi${UNSET?}stry=` and `@acme${UNSET?}:registry=` all
  * set the registry, and this rule read none of them.
+ * `userconfig` and `globalconfig` count too, as unscoped overrides whatever
+ * their value: they name another config file, which npm then reads for the
+ * registry. Measured with npm 11.6.2 and `npm config get registry` in a folder
+ * whose .npmrc held only `userconfig=./cfg/npmrc` (or `globalconfig=./cfg/g`,
+ * `"userconfig"=`, `user${UNSET?}config=`): each printed the registry written
+ * in the named file, so a tracked file of any name carried the registry past
+ * this rule. `USERCONFIG=` and `userconfig[]=` did not; the second one still
+ * counts here, since lerNpmrc folds `key[]` into `key`.
  * Returns { sim: false } | { sim: true, escopo: string | null }.
  */
 function chaveDeRegistro(chave) {
@@ -945,15 +953,22 @@ function chaveDeRegistro(chave) {
   for (const p of pedacos) semVariavel += p.antes + (p.opcional ? '' : `\${${p.nome}}`)
   semVariavel += resto
   const m = /^(?:(@[^:]+):)?registry$/.exec(semVariavel)
-  if (m) return { sim: true, escopo: m[1] ?? null }
+  if (m) return { sim: true, escopo: m[1] ?? null, registro: true }
+  if (CHAVES_DE_OUTRO_ARQUIVO.includes(semVariavel)) return { sim: true, escopo: null }
   if (!variavel) return { sim: false }
   const inicio = pedacos[0].antes
   const fim = resto
-  const podeComecar = inicio === '' || 'registry'.startsWith(inicio) || inicio.startsWith('@')
+  const nomes = ['registry', ...CHAVES_DE_OUTRO_ARQUIVO]
+  const podeComecar =
+    inicio === '' || inicio.startsWith('@') || nomes.some((n) => n.startsWith(inicio))
   const podeTerminar =
-    fim === '' || 'registry'.endsWith(fim) || ':registry'.endsWith(fim) || fim.endsWith(':registry')
+    fim === '' ||
+    fim.endsWith(':registry') ||
+    ':registry'.endsWith(fim) ||
+    nomes.some((n) => n.endsWith(fim))
   return podeComecar && podeTerminar ? { sim: true, escopo: null } : { sim: false }
 }
+const CHAVES_DE_OUTRO_ARQUIVO = ['userconfig', 'globalconfig']
 
 /**
  * The top-level entries of a .npmrc, in file order, as ini@5.0.0 `decode()`
@@ -1027,7 +1042,8 @@ function sobrescritasDeRegistro(indice) {
       else {
         for (const { chave, valor } of lerNpmrc(e.texto)) {
           const registro = chaveDeRegistro(chave)
-          const padrao = typeof valor === 'string' && REGISTRO_PADRAO.test(valor)
+          const padrao =
+            registro.registro === true && typeof valor === 'string' && REGISTRO_PADRAO.test(valor)
           if (registro.sim && !padrao) {
             empurrar(registro.escopo ? escopoNormal(registro.escopo) : null)
           }

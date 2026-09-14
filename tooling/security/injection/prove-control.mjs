@@ -518,13 +518,22 @@ describe('control-bytes: page breaks and visible colour in prose and data files'
     assert.match(atencao, /<U\+0087>/)
     assert.match(atencao, /UTF-8 text decoded twice, so re-save the file as UTF-8; remove it/)
     assert.doesNotMatch(atencao, /hides text/)
-    // I-acute leaves RI, U+008D, which moves the cursor up: that is no page
-    // accident, and the hiding claim stays.
+    // I-acute leaves RI, U+008D, which moves the cursor up: the hiding claim
+    // stays, and the remedy also says the text was decoded twice. Measured on
+    // the first cut of this remedy: only the hiding claim was printed.
     const indice = reprovou(
-      controle(repositorio([{ caminho: 'docs/b.md', conteudo: duasVezes(`${cp(0xcd)}NDICE\n`) }])),
+      controle(
+        repositorio([
+          {
+            caminho: 'docs/b.md',
+            conteudo: duasVezes(`${cp(0xcd)}NDICE E SE${cp(0xc7, 0xc3)}O\n`),
+          },
+        ]),
+      ),
     )
     assert.match(indice, /<U\+008D>/)
     assert.match(indice, /hides text from the review/)
+    assert.match(indice, /can also be UTF-8 text decoded twice, so re-save the file as UTF-8/)
     // A double-encoded letter before a real CSI still hides text.
     const csi = reprovou(
       controle(repositorio([{ caminho: 'docs/c.md', conteudo: `${cp(0xc2, 0x9b)}8mx\n` }])),

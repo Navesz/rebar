@@ -403,18 +403,27 @@ describe('--sugerir-allowlist', () => {
     assert.ok(!r.stdout.includes(primeira.slice(0, 40)), r.stdout)
   })
 
-  test('a key longer than 200 characters is counted, not printed; --rule narrows; wrong calls exit 2', () => {
-    const longo = `docs/${'a'.repeat(200)}${cp(0x200b)}.md`
-    const dir = repositorio([{ caminho: longo, bytes: Buffer.from('# x\n', 'utf8') }, arquivos[0]])
+  test('a key longer than 4096 characters is counted, not printed; --rule narrows; wrong calls exit 2', () => {
+    // A 300-character path is printed: the first cut withheld every key over
+    // 200 characters, though the reader accepts any length.
+    const medio = `docs/${'b'.repeat(300)}${cp(0x200b)}.md`
+    const longo = `docs/${'a'.repeat(4100)}${cp(0x200b)}.md`
+    const dir = repositorio([
+      { caminho: longo, bytes: Buffer.from('# x\n', 'utf8') },
+      { caminho: medio, bytes: Buffer.from('# y\n', 'utf8') },
+      arquivos[0],
+    ])
     const r = cli('--sugerir-allowlist', dir)
     assert.equal(r.status, 0, r.stderr)
     assert.match(
       r.stdout,
-      /^# 1 line\(s\) .* 1 finding\(s\) with a key longer than 200 characters: write that line by hand\.\n/,
+      /^# 2 line\(s\) .* 1 finding\(s\) with a key longer than 4096 characters: write that line by hand\.\n/,
     )
-    assert.ok(!r.stdout.includes('a'.repeat(200)), 'the long name was printed')
+    assert.ok(!r.stdout.includes('a'.repeat(4100)), 'the long name was printed')
+    const barra = String.fromCharCode(92)
+    assert.ok(r.stdout.includes(`"arquivo":"docs/${'b'.repeat(300)}${barra}u200b.md"`), r.stdout)
     const soUma = cli('--sugerir-allowlist', '--rule=hidden-unicode', dir)
-    assert.match(soUma.stdout, /^# 0 line\(s\) .* 1 finding\(s\) with a key longer/)
+    assert.match(soUma.stdout, /^# 1 line\(s\) .* 1 finding\(s\) with a key longer/)
 
     const comJson = cli('--json', '--sugerir-allowlist', dir)
     assert.equal(comJson.status, 2)

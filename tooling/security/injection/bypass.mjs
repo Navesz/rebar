@@ -1761,12 +1761,30 @@ const ALIASES_DE_RUN = new Set(['run', 'run-script', 'rum', 'urn'])
  * path passed a hook calling a script that starts an agent CLI with its
  * approval switch off, with only a warning. An option this table does not know
  * is read as a switch, so the word after it can be taken as the script name,
- * which then names nothing: a missed call, never an invented one.
+ * which then names nothing.
+ *
+ * Each line is read twice and the calls of both readings are kept. The first
+ * reading cuts at the shell's separators outside quotes. The second one ignores
+ * quotes, cuts also at `(`, `)` and a backtick, and blanks every quote and
+ * backslash: a subshell, a command substitution (inside double quotes too) and
+ * a quoted `sh -c` body are commands, and the words of the first reading keep
+ * `(npm` and `ai)` glued. Measured with the first reading alone, over 26 hook
+ * lines: 12 that main's quote-blind regular expression followed passed with a
+ * warning, among them `(npm run ai)`, `x=$(npm run ai)`, `echo "$(npm run ai)"`,
+ * `(cd . && npm run ai)`, `cat <(npm run ai)` and `sh -c 'x;npm run ai'`. The
+ * second reading can name a script inside an echoed string, as main did; it
+ * only makes the rule follow a script, which still fails only when it starts an
+ * agent CLI with its approval switch off.
  */
 function chamadasDeScript(comando) {
   const saida = []
+  const vistas = new Set()
   for (const linha of String(comando).split(/\r?\n/)) {
-    for (const { texto } of comandosDe(linha, 'posix')) {
+    const textos = [
+      ...comandosDe(linha, 'posix').map((c) => c.texto),
+      ...linha.replace(/["'\\]/g, ' ').split(/[;&|()`]/),
+    ]
+    for (const texto of textos) {
       const w = palavrasDoShell(texto)
       for (let i = 0; i < w.length; i++) {
         const programa = w[i]
@@ -1807,7 +1825,9 @@ function chamadasDeScript(comando) {
             passouRun = true
             continue
           }
-          saida.push({ nome: p, pasta, pacote, raiz })
+          const chave = JSON.stringify([p, pasta, pacote, raiz])
+          if (!vistas.has(chave)) saida.push({ nome: p, pasta, pacote, raiz })
+          vistas.add(chave)
           break
         }
         i = k
