@@ -1,0 +1,24 @@
+{
+  "rule": "hidden-unicode",
+  "why": "UTS #39 section 3.1.1.1 (rules A2 and B) and RFC 5892 CONTEXTJ allow a joiner right after a virama that sits on a letter, and Malayalam text written before Unicode 5.1 ends a word with the legacy chillu, consonant plus virama plus ZWJ, before a space. The pass side is docs/ml.md with that word-final chillu in prose, plus an AGENTS.md with the Sinhala conjunct SHA, AL-LAKUNA, ZWJ, RA, II, where a letter of the same script follows the joiner. The fail side is an AGENTS.md whose legacy chillu is followed by a space and a Latin letter. Without the exemption the pass side goes red; extending it to a word-final joiner in agent files turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "docs/ml.md",
+        "base64": "4LSF4LS14LSo4LWN4oCNIOC0teC0qOC1jeC0qOC1gS4K"
+      },
+      {
+        "caminho": "AGENTS.md",
+        "base64": "4LeB4LeK4oCN4La74LeTIOC2veC2guC2muC3jwo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "4LSF4LS14LSo4LWN4oCNIHgK"
+      }
+    ]
+  }
+}

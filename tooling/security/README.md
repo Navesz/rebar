@@ -15,6 +15,7 @@ reviewer does not see, and configuration an agent client or an editor acts on by
 node tooling/security/index.mjs .                          # the scoreboard
 node tooling/security/index.mjs --rule=hidden-unicode .    # one rule
 node tooling/security/index.mjs --heuristics --json .      # heuristics fail too
+node tooling/security/index.mjs --sugerir-allowlist .      # ready allowlist lines, to edit
 ```
 
 ## The rules
@@ -81,14 +82,24 @@ selectors after a warning sign, measured on 2026-09-12:
   in 21 dependency files);
 - in a commit message only, one zero-width space between `@` and a letter or digit: GitHub writes
   it when it quotes release notes into a Dependabot pull request, so nobody is mentioned, and a
-  squash merge keeps it in history (measured: all 145 in one honest repository's history).
+  squash merge keeps it in history (measured: all 145 in one honest repository's history);
+- a zero-width joiner or non-joiner right after a virama that sits on a letter of the same joining
+  script (one nukta between them allowed), in prose, data and commit messages: UTS #39 section
+  3.1.1.1 and RFC 5892 allow exactly this context, and the Malayalam chillu written before Unicode
+  5.1 and the Bengali khanda ta written before 4.1 end a word this way, before a space or
+  punctuation. Code keeps the older verdict, because a joiner is legal inside a JavaScript
+  identifier and a word-final one makes a second name that looks like the first.
 
-Agent instruction files and names are judged in strict mode, where only two of the prose exceptions
-apply, in their narrowest shape, because Persian and Arabic cannot be written without them: one
-zero-width non-joiner or joiner with a letter of the same joining script on each side, and one
-left-to-right, right-to-left or Arabic letter mark, not next to another invisible, on a line that
-has a right-to-left letter. Every other exception, a run of invisibles and a zero-width space still
-fail there. A byte-order mark left in the text after decoding (one leading byte-order mark of a file or
+Agent instruction files and names are judged in strict mode, where only the prose exceptions
+Persian, Arabic and the Indic scripts cannot be written without apply, in their narrowest shape: one
+zero-width non-joiner or joiner with a letter of the same joining script on each side; one joiner
+after a letter and its virama when a letter of that script follows (the Sinhala "Sri"), and one
+zero-width joiner between a letter and a virama of one script (the Bengali ya-phalaa after ra, the
+Sinhala touching conjuncts);
+and one left-to-right, right-to-left or Arabic letter mark, not next to another invisible, on a
+line that has a right-to-left letter. A word-final legacy chillu or khanda ta still fails there:
+the atomic letters U+0D7A–U+0D7E and U+09CE are the fix. Every other exception, a run of
+invisibles and a zero-width space still fail there. A byte-order mark left in the text after decoding (one leading byte-order mark of a file or
 of a commit message is consumed) fails everywhere else. The braille blank, the private-use areas,
 the interlinear annotation characters and the noncharacters only warn (`⚠`).
 
@@ -124,7 +135,29 @@ file in a terminal, a reviewer can be shown a hidden line, a line rewritten afte
 or a payload coloured invisible, while the agent reads every byte.
 
 **What stays legal.** TAB, LF and CRLF. Bytes that are not valid UTF-8 (a cp1252 file with
-Portuguese text, say) are counted in a nota outside agent files and never fail.
+Portuguese text, say) are counted in a nota outside agent files and never fail. In prose and data
+files only, never in agent files, code, names, commit messages or the allowlist:
+
+- a form feed alone on its line (after LF or at the start, before LF, CRLF or the end). GNU license
+  files, Emacs Lisp and Python separate pages this way, and a terminal treats a form feed like a
+  line feed. Measured: 90 of the 101 form feeds in the licenses and libraries Git for Windows and
+  Python 3.12 install sit alone on their line. A run of them, or one inside a line, still fails;
+- a colour sequence (the select-graphic-rendition form, digits and semicolons only, at most 40)
+  whose every parameter is one of: reset, bold, dim, italic, underline, reverse, strike-through,
+  their resets, the foreground colours red to cyan and their bright forms, and the default
+  foreground. That is what a CLI test snapshot or a golden file records. Concealed text (parameter
+  8), black, white, grey, bright white, every background colour, 256-colour and true-colour
+  selections, colon sub-parameters, cursor movement, erasing and hyperlinks still fail: git pages a
+  diff through `less -R`, which passes these sequences raw, and a theme can paint text in its own
+  background colour (Solarized Dark's background is bright black, Solarized Light's is bright
+  white). Snapshot and golden files are judged by what they hold, never by where they are: a path
+  exemption would be a place to hide text an agent opens when a test fails.
+
+When every remaining finding is a bell, vertical tab or form feed, or a C1 control right after a
+Latin-1 letter (UTF-8 text decoded twice), the message says so instead of claiming the character
+hides text; the verdict is the same. Reverse index (U+008D, what a double-decoded I-acute leaves)
+and the sequence introducers after such a letter keep the hiding claim, and the message adds that
+the text may have been decoded twice.
 
 **Allowlist keys:** `{arquivo, oid}` for file findings, `{commit}` for message findings. The
 expected users are vendored bundles that colour their own output: of 26,321 code files measured
@@ -141,11 +174,11 @@ CLI, TOML for Codex, YAML for frontmatter.
 
 | Vendor | Files | Fails | Warns (`⚠`, passes) |
 |---|---|---|---|
-| Claude Code | `.claude/settings.json` and `.claude/settings.local.json`, merged with the local file winning | a helper command that produces credentials, refreshes cloud auth or builds telemetry headers; environment that moves the API endpoint, adds custom headers or a proxy, trusts an extra certificate authority, prefixes every shell command, or moves the config, temp or home directory; a default permission mode that skips prompts; the setting that silences the warning before that mode; an allow rule that grants a whole shell or package runner, or a wildcard that reaches an interpreter's own options or replaces the script it runs (a wildcard after a fixed tracked script stays narrow) | approving every project MCP server; enabling listed servers; plugins and extra marketplaces; the mode that accepts edits without asking; the sandbox turned off, or commands let out of it; hooks; status line and file suggestion commands; a tracked local settings file; a local settings file in a folder spelled with another case, which overrides nothing where the file system tells case apart |
+| Claude Code | `.claude/settings.json` and `.claude/settings.local.json`, merged with the local file winning | a helper command that produces credentials, refreshes cloud auth or builds telemetry headers; environment that moves the API endpoint, adds custom headers or a proxy, trusts an extra certificate authority, prefixes every shell command, or moves the config, temp or home directory; a default permission mode that skips prompts; the setting that silences the warning before that mode; an allow rule that grants a whole shell or package runner, or a wildcard that reaches an interpreter's own options or replaces the script it runs (a wildcard after a fixed tracked script stays narrow, and so do these fixed shapes, in Claude Code and Gemini CLI rules: `deno fmt`, `check`, `doc` and `info`; `deno task` with a task name; `pwsh -File` or `powershell -File` with a script, after only `-NoProfile`, `-NoLogo`, `-NonInteractive`, `-Sta`, `-Mta` or a value switch such as `-ExecutionPolicy` (`-NoExit` runs what stdin holds after the script, and Windows PowerShell 5.1 reads an unknown `-SettingsFile` as the start of `-Command`, so both stay broad); `node --run`; and a version or help option first for npm, npx, pnpm, uvx, curl, node, python and bash) | approving every project MCP server; enabling listed servers; plugins and extra marketplaces; the mode that accepts edits without asking; the sandbox turned off, or commands let out of it; hooks; status line and file suggestion commands; a tracked local settings file; a local settings file in a folder spelled with another case, which overrides nothing where the file system tells case apart |
 | Claude Code agents, skills and commands | `.claude/agents/`, `.claude/skills/`, `.claude/commands/` | a frontmatter permission mode that skips prompts; a whole-shell tool grant | a narrow tool grant; frontmatter hooks or MCP servers; a skill that runs an inline command together with a shell grant; frontmatter that does not parse |
 | Claude Code preview | `.claude/launch.json` | — | every launch, listed by fingerprint |
 | VS Code | `.vscode/settings.json`, `.vscode/tasks.json`, `*.code-workspace` | automatic approval of every tool; a chat permission default that approves everything; a terminal approval entry that matches every command, an interpreter, or an interpreter with its inline-code switch (a regex is also tried on short probe lines); ignoring the default terminal rules; a URL approval entry that matches every address; a task that runs when the folder opens; allowing automatic tasks; workspace trust turned off; a tool-path setting that points at a tracked file | narrower terminal and URL approval entries |
-| Dev Containers | `.devcontainer/devcontainer.json`, `.devcontainer.json` | the VS Code settings it writes into the container (`customizations.vscode.settings`), judged as in `.vscode/settings.json` | lifecycle commands (initialize, on-create, update-content, post-create, post-start, post-attach), listed by fingerprint |
+| Dev Containers | `.devcontainer/devcontainer.json`, `.devcontainer/<folder>/devcontainer.json` one folder deep, `.devcontainer.json` | the VS Code settings it writes into the container (`customizations.vscode.settings`), judged as in `.vscode/settings.json` | lifecycle commands (initialize, on-create, update-content, post-create, post-start, post-attach), listed by fingerprint |
 | Cursor | `.cursor/hooks.json`, `.cursor/cli.json` | an allow rule that grants a whole shell | hooks |
 | OpenAI Codex | `.codex/config.toml`, `.codex/hooks.json`, `.env` | an approval policy that never asks and the sandbox mode with full access, at the top level or in any profile; a Codex home in `.env` that is relative to the repository | a Codex home that is absolute; the HTTP headers helper; hooks |
 | Gemini CLI | `.gemini/settings.json`, `.gemini/.env` | a trusted MCP server; an allowed tool that grants a whole shell | hooks |
@@ -200,7 +233,11 @@ These fail even with an allowlist entry:
   package it starts, or a folder of dependency executables, global options before the runner's
   subcommand included. An override is npm, Yarn or Bun configuration at the repository root or in
   the folder the server starts in that points away from the public registry, for every package or
-  for the scope of the package launched.
+  for the scope of the package launched. `.npmrc` is read the way npm's ini parser reads it
+  (quoted keys, `key[]` arrays, sections, inline comments), and a key is read as npm expands its
+  environment references; only the https spelling of the public registry is the default. A
+  `userconfig` or `globalconfig` key is an override whatever it names, because npm then reads the
+  registry from that file.
 
 **Why.** In MCPoison (CVE-2025-54136, Check Point) a server config was swapped after it had been
 approved in Cursor. In Claude Code's non-interactive modes, project servers connect without
@@ -235,7 +272,7 @@ runs without a person choosing to run it.
 | Where the switch is | Verdict |
 |---|---|
 | npm lifecycle scripts (install, prepare, pack and publish hooks) and the tracked files they run, one level deep | fails |
-| git hooks: anything under `.husky/` or `.githooks/`, a hook-named file inside a `hooks` folder, and the hook commands `simple-git-hooks` and husky before v5 keep in `package.json`; the tracked files and the package scripts they start | fails |
+| git hooks: anything under `.husky/` or `.githooks/`, a hook-named file inside a `hooks` folder, and the hook commands `simple-git-hooks` and husky before v5 keep in `package.json`; the tracked files and the package scripts they start, also with runner options before or after `run` (`--silent`, `--prefix`, a workspace or filter by folder or package name, pnpm's workspace root), a runner called by full path, and a runner behind another command | fails |
 | commands that run by themselves: tasks that run when the folder opens, dev container lifecycle commands, agent hook commands; the tracked files and the package scripts they start | fails |
 | agent instruction files, fenced code included | fails |
 | GitHub workflows, whatever triggers them, except GitHub Agentic Workflows lock files | fails |
@@ -332,6 +369,29 @@ nota. The hashes below are placeholders.
   its own line. Only a ruleset that requires a second person's review closes that, and it lives
   outside the gate, at N4s.
 
+### Writing the lines: `--sugerir-allowlist`
+
+`node tooling/security/index.mjs --sugerir-allowlist <repository>` runs the six injection rules
+(or the one `--rule=` names) and prints, for every finding an entry can exempt, the line that
+would exempt it, with the exact key that rule compares. It takes one repository and no `--json`
+(exit `2`), and prints nothing but a message when a rule breaks (exit `127`). The keys are
+written as JSON, so a path with an invisible character comes out as a JSON unicode escape the
+reader decodes back; the output is otherwise the path, the JSON Pointer and the server name
+verbatim, which is why the option is not offered through the MCP server. A key longer than 4096
+characters (Linux's PATH_MAX) is counted in the first line, not printed. A key the allowlist
+already holds is left out, and a finding no entry can exempt is never listed: run the scoreboard
+again after adding the lines. Placeholder hashes below:
+
+```text
+# 2 line(s) for .rebar-injection-allowlist. Replace every motivo before committing: the reader refuses the placeholder. Findings no entry can exempt are not listed; run the scoreboard again after adding them.
+{"regra":"control-bytes","arquivo":"vendor/cli.min.js","oid":"0000000000000000000000000000000000000000","motivo":"TODO: write why a person accepted this finding"}
+{"regra":"mcp-server-launch","arquivo":".mcp.json","servidor":"docs","sha256":"0000000000000000000000000000000000000000000000000000000000000000","motivo":"TODO: write why a person accepted this finding"}
+```
+
+**The reader refuses that motivo.** A line whose motivo contains the placeholder, whatever its
+spacing, punctuation or case, is a malformed line, and every injection rule fails on it until a
+person writes why the finding was accepted. A fixed placeholder says why nobody accepted anything.
+
 ## What reads what
 
 - **The index, not the disk.** Every rule reads the stage-0 entries of the git index as blobs. In
@@ -402,6 +462,10 @@ Saying where the limit is is worth more than pretending to check.
 | A local MCP server script that changes its code while its launch stays the same | the fingerprint covers the launch, not the script it starts | file integrity, a later phase |
 | A switch whose value is attached to its short option or grouped with other short options, where the CLI's parser allows it | a value switch is matched only as a separate word or with `=`; the attached and grouped forms were not measured against each vendor parser | review; a later phase |
 | Agent CLIs that approve by default and need no switch, a CLI whose binary name is too generic to match, a switch that only exists on a tag or in something downloaded at build time | there is no trace in the tree | pin dependencies; review release artifacts |
-| Low-capacity channels the exceptions leave open: one joiner between letters of a joining script, a variation selector after a Han character, alternating emoji selectors | real text needs those exceptions | a warning at most |
+| Low-capacity channels the exceptions leave open: one joiner between letters of a joining script, one joiner after a virama, a form feed alone on its line, a variation selector after a Han character, alternating emoji selectors | real text needs those exceptions | a warning at most |
+| Colour a terminal theme can match: the visible set assumes no theme paints its background red, green, yellow, blue, magenta or cyan | those six are what test snapshots record; no theme with such a background was looked for | review in a web diff, which shows the sequence as text |
+| Colour a word-colour diff uses as its only marker: red and green in `git diff --word-diff=color` can make added text look removed in a terminal review | a snapshot records exactly those colours, so excluding them would undo the snapshot exemption; not measured | review in a web diff, which shows the sequence as text |
+| A package script started through a workspace glob, a recursive run over every workspace, or a runner named by a variable | the rule follows a script name to the package a folder, a workspace or a package name selects, one at a time | review of the hook |
+| Cursor permission rules in the narrow shapes Claude Code and Gemini CLI rules get (a fixed `deno` subcommand, `pwsh -File`, `node --run`, a version option) | Cursor's command-base matching was not measured, so its rules keep the older, broader reading | review |
 | Homoglyphs and confusable identifiers | they need a confusables table and a measured false-positive rate | a heuristic, a later phase |
 | An adaptive attack against these signatures | the list is public, and the attacker plays after reading it | defence in depth; the rules promise only "no known signature" |

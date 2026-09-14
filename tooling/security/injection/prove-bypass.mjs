@@ -778,6 +778,142 @@ test('what a git hook, a devcontainer or a folder-open task starts by name fails
   assert.ok(avisa(veredito({ '.husky/pre-commit': 'npm test\n', 'package.json': setup })))
 })
 
+test('a git hook reaches a package script through runner options, a full path and another command', () => {
+  // Backlog 5. Measured on main: every form in the first list passed with only a
+  // warning, because a regular expression read the options as the script name
+  // or missed a runner behind a path; `npm run ai` itself failed.
+  const ai = `${GE} ${Y} -p x`
+  const raiz = pacote({ ai, lint: 'eslint .' })
+  for (const linha of [
+    'npm run ai',
+    'npm run --silent ai',
+    'npm run -s ai',
+    'npm run --if-present ai',
+    'npm --prefix . run ai',
+    'npm --prefix=. run ai',
+    '/usr/local/bin/npm run ai',
+    'npm.cmd run ai',
+    'pnpm -s ai',
+    'npx --no -- npm run ai',
+    'cross-env CI=1 npm run ai',
+    'bun run --silent ai',
+    // pnpm -w is --workspace-root, a switch: the script is the root's.
+    'pnpm -w run ai',
+    'pnpm -w ai',
+  ]) {
+    const v = veredito({ '.husky/pre-commit': `${linha}\n`, 'package.json': raiz })
+    assert.ok(reprova(v), `${linha}: ${JSON.stringify(v)}`)
+    assert.match(v, /script ai called by git hook \.husky\/pre-commit/, linha)
+  }
+  // A workspace or a folder option points at another package.json, by folder
+  // or by name.
+  const membro = JSON.stringify({ name: '@acme/x', version: '1.0.0', scripts: { ai } }, null, 2)
+  const espaco = {
+    'package.json': JSON.stringify({ name: 'root', private: true, workspaces: ['packages/*'] }),
+    'packages/x/package.json': membro,
+  }
+  for (const linha of [
+    'npm -w packages/x run ai',
+    'npm --workspace=@acme/x run ai',
+    'npm --prefix packages/x run ai',
+    'pnpm --filter @acme/x run ai',
+    'pnpm -C packages/x ai',
+    'yarn workspace @acme/x run ai',
+    'yarn --cwd packages/x ai',
+    'bun --filter @acme/x run ai',
+  ]) {
+    const v = veredito({ ...espaco, '.husky/pre-commit': `${linha}\n` })
+    assert.ok(reprova(v), `${linha}: ${JSON.stringify(v)}`)
+    assert.ok(v.includes('packages/x/package.json:'), `${linha}: ${v}`)
+  }
+  // pnpm's workspace root is the folder of pnpm-workspace.yaml.
+  const pnpmRaiz = veredito({
+    'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+    'package.json': raiz,
+    'packages/x/package.json': pacote({ lint: 'eslint .' }),
+    'packages/x/.githooks/pre-push': 'pnpm -w run ai\n',
+  })
+  assert.ok(reprova(pnpmRaiz), JSON.stringify(pnpmRaiz))
+  // A hook-manager string in package.json with an option still calls its own script.
+  const simples = veredito({
+    'package.json': JSON.stringify(
+      { name: 'x', scripts: { ai }, 'simple-git-hooks': { 'pre-commit': 'npm run --silent ai' } },
+      null,
+      2,
+    ),
+  })
+  assert.ok(reprova(simples), JSON.stringify(simples))
+  assert.match(simples, /script ai called by git hook pre-commit in simple-git-hooks/)
+  // The controls: another script is called, or no script name at all.
+  const lint = veredito({ '.husky/pre-commit': 'npm run --silent lint\n', 'package.json': raiz })
+  assert.ok(avisa(lint), JSON.stringify(lint))
+  const semNome = veredito({ '.husky/pre-commit': 'npm run --silent\n', 'package.json': raiz })
+  assert.ok(avisa(semNome), JSON.stringify(semNome))
+  // A workspace option that names another package does not call the root's script.
+  const outro = veredito({
+    ...espaco,
+    'package.json': JSON.stringify({ name: 'root', private: true, scripts: { ai } }),
+    'packages/x/package.json': pacote({ lint: 'eslint .' }),
+    '.husky/pre-commit': 'npm -w packages/x run ai\n',
+  })
+  assert.ok(avisa(outro), JSON.stringify(outro))
+})
+
+test('a script called inside a subshell, a command substitution or a quoted sh -c body is followed', () => {
+  // Measured on the first cut of the runner-option parser: the shell words kept
+  // `(npm` and `ai)` glued, so 12 of 26 hook lines that main's regular
+  // expression followed passed with a warning, in hooks, lifecycle scripts,
+  // hook-manager strings, folder-open tasks and devcontainer commands alike.
+  const ai = `${GE} ${Y} -p x`
+  const raiz = pacote({ ai, lint: 'eslint .' })
+  for (const linha of [
+    '(npm run ai)',
+    'x=$(npm run ai)',
+    'echo "$(npm run ai)"',
+    '(cd . && npm run ai)',
+    'if [ -f x ]; then (npm run ai); fi',
+    'cat <(npm run ai)',
+    'echo $(echo $(npm run ai))',
+    "sh -c 'x;npm run ai'",
+    "sh -c 'npm run --silent ai'",
+    'x=`npm run ai`',
+  ]) {
+    const v = veredito({ '.husky/pre-commit': `${linha}\n`, 'package.json': raiz })
+    assert.ok(reprova(v), `${linha}: ${JSON.stringify(v)}`)
+    assert.match(v, /script ai called by git hook \.husky\/pre-commit/, linha)
+  }
+  const ciclo = veredito({ 'package.json': pacote({ ai, postinstall: '(cd . && npm run ai)' }) })
+  assert.ok(reprova(ciclo), JSON.stringify(ciclo))
+  const simples = veredito({
+    'package.json': JSON.stringify(
+      { name: 'x', scripts: { ai }, 'simple-git-hooks': { 'pre-commit': 'x=$(npm run ai)' } },
+      null,
+      2,
+    ),
+  })
+  assert.ok(reprova(simples), JSON.stringify(simples))
+  const tarefa = JSON.stringify({
+    version: '2.0.0',
+    tasks: [
+      { label: 's', type: 'shell', command: '(npm run ai)', runOptions: { runOn: 'folderOpen' } },
+    ],
+  })
+  const tarefas = veredito({ '.vscode/tasks.json': tarefa, 'package.json': raiz })
+  assert.ok(reprova(tarefas), JSON.stringify(tarefas))
+  const dev = JSON.stringify({ image: 'x', postCreateCommand: '(npm run ai)' })
+  const devcontainer = veredito({ '.devcontainer/devcontainer.json': dev, 'package.json': raiz })
+  assert.ok(reprova(devcontainer), JSON.stringify(devcontainer))
+  // The controls: another script in a subshell, and a folder option inside it.
+  const lint = veredito({ '.husky/pre-commit': '(npm run lint)\n', 'package.json': raiz })
+  assert.ok(avisa(lint), JSON.stringify(lint))
+  const outro = veredito({
+    'package.json': JSON.stringify({ name: 'root', private: true, scripts: { ai } }),
+    'packages/x/package.json': pacote({ lint: 'eslint .' }),
+    '.husky/pre-commit': 'x=$(npm --prefix packages/x run ai)\n',
+  })
+  assert.ok(avisa(outro), JSON.stringify(outro))
+})
+
 test('spellings the target parsers accept: short groups, yargs camelCase, argparse prefixes', () => {
   const QW = j('qw', 'en')
   const AI = j('ai', 'der')

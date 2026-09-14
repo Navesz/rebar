@@ -27,6 +27,27 @@
 // A file whose line endings are ALL bare CR is legacy, not an overwrite trick,
 // and nobody measured how common it is, so in code it is a nota.
 //
+// Two shapes pass in prose and data files (never in agent files, code, names,
+// commit messages or the allowlist), each because it hides nothing:
+//   - a form feed alone on its line. xterm treats FF the same as LF, and less
+//     shows a control it does not pass as ^L; the GNU Coding Standards (5.1)
+//     put every page break alone on its line and PEP 8 allows them. Measured:
+//     90 of the 101 FF in 16 files of Git for Windows' share and Python 3.12's
+//     Lib sit alone on their line (COPYING.LIB, a man page, a Perl module); the
+//     other 11 are in PDFs, an ONNX model and a TOML file invalid on purpose.
+//     Main failed a GNU COPYING, Emacs Lisp files and the real LGPL COPYING.LIB.
+//   - a colour sequence whose every parameter keeps text visible (SGR_VISIVEL):
+//     the snapshot and golden files of CLI tests carry the red, green, bold and
+//     dim a program printed. What stays out is what hides text on some
+//     terminal: SGR 8 is "Invisible" in xterm's ctlseqs, and less -R (git's
+//     pager, LESS=FRX) passes SGR raw, so black (30), white (37), grey (90) and
+//     bright white (97) fail, because a theme can paint text in its background
+//     colour (Solarized Dark's base03 is bright black, Solarized Light's base3
+//     bright white), as do every background colour and 256 or true colour.
+//     Cursor movement, erase and OSC 8 links fail too. The exemption reads the
+//     CONTENT, never the path: a __snapshots__/ or testdata/ exemption would be
+//     a place to hide an instruction an agent reads when a test fails.
+//
 // Raw bytes are not how the attack reaches JSON, YAML or TOML: JSON.parse and
 // js-yaml refuse a raw ESC. What gets through is the format's OWN escape, which
 // the parser turns back into the control. So every tracked .json/.jsonc/.json5/
@@ -71,6 +92,7 @@ import {
   posicao,
   problemasDeLeitura,
   resumir,
+  sugerirEntrada,
 } from './reader.mjs'
 
 /** "Not applicable": the class leaves the denominator (invariant I4). */
@@ -183,6 +205,54 @@ for (const c of [0x00, 0x08, 0x1b, 0x8d, 0x90, 0x98, 0x9b, 0x9d, 0x9e, 0x9f]) FA
  */
 const SO_AVISO_NA_MENSAGEM = new Set([0x07, 0x0b, 0x0c])
 
+/**
+ * The C1 controls a UTF-8 letter decoded twice leaves behind: U+00C3 U+0087 is
+ * the second read of the two bytes of a c-cedilla. They keep the finding (the
+ * byte is a control either way) and change only the remedy. Left out are RI
+ * (U+008D, which moves the cursor up so later text overwrites), DCS, SOS, CSI,
+ * OSC, PM and APC: the introducers FALHA_EM_CODIGO lists, which open a sequence
+ * whatever letter came before them, so they keep saying that they hide text.
+ */
+const SO_MOJIBAKE = new Uint8Array(LIMITE_DE_CONTROLE)
+for (let c = 0x80; c < LIMITE_DE_CONTROLE; c++) SO_MOJIBAKE[c] = FALHA_EM_CODIGO[c] ? 0 : 1
+
+/**
+ * The SGR parameters that leave text visible on the themes named in the header: reset,
+ * bold, dim, italic, underline, reverse, strike, their resets, the six colours
+ * from red to cyan and their bright forms, and the default foreground. See the
+ * header for why 8, 30, 37, 90, 97, backgrounds and extended colour are out.
+ */
+const SGR_VISIVEL = new Set([
+  0, 1, 2, 3, 4, 7, 9, 21, 22, 23, 24, 27, 29, 31, 32, 33, 34, 35, 36, 39, 91, 92, 93, 94, 95, 96,
+])
+/** The longest parameter string a visible colour sequence may carry. */
+const LIMITE_DE_PARAMETROS = 40
+
+/**
+ * The length of the colour sequence that starts with the ESC at `k` when every
+ * parameter is in SGR_VISIVEL, else 0. Only digits and semicolons may sit
+ * between the bracket and the final letter (an empty parameter is 0): a colon
+ * sub-parameter, a private marker or any other byte is judged as a plain ESC.
+ */
+function sgrVisivel(texto, k) {
+  if (texto.charCodeAt(k + 1) !== 0x5b) return 0
+  const parametros = []
+  let numero = ''
+  const fim = Math.min(texto.length, k + 2 + LIMITE_DE_PARAMETROS + 1)
+  for (let j = k + 2; j < fim; j++) {
+    const c = texto.charCodeAt(j)
+    if (c >= 0x30 && c <= 0x39) numero += String.fromCharCode(c)
+    else if (c === 0x3b) {
+      parametros.push(numero === '' ? 0 : Number(numero))
+      numero = ''
+    } else if (c === 0x6d) {
+      parametros.push(numero === '' ? 0 : Number(numero))
+      return parametros.every((p) => SGR_VISIVEL.has(p)) ? j - k + 1 : 0
+    } else return 0
+  }
+  return 0
+}
+
 /** A decoded format escape fails when it yields C0 other than TAB/LF, DEL or C1. */
 const escapeFalha = (cp) => (cp < 0x20 && cp !== 0x09 && cp !== 0x0a) || (cp >= 0x7f && cp <= 0x9f)
 
@@ -224,8 +294,11 @@ function realDe(e, indice) {
  * Raw controls of one decoded text. Returns the failing positions and whether
  * the file is a CR-only code file. Iterates UTF-16 units: every code point
  * judged here is below U+00A0, so a surrogate is never one of them.
+ * `quebraDePagina`: a form feed alone on its line is no finding. `corVisivel`:
+ * a colour sequence of visible parameters is no finding. Both for prose and
+ * data files only (see the header).
  */
-function varrerBrutos(texto, codigo) {
+function varrerBrutos(texto, codigo, { quebraDePagina = false, corVisivel = false } = {}) {
   const tabela = codigo ? FALHA_EM_CODIGO : FALHA_EM_TEXTO
   const achados = []
   const crSoltos = []
@@ -233,6 +306,23 @@ function varrerBrutos(texto, codigo) {
   for (let k = 0; k < texto.length; k++) {
     const u = texto.charCodeAt(k)
     if (u >= LIMITE_DE_CONTROLE || (u >= 0x20 && u < 0x7f)) continue
+    if (u === 0x1b && corVisivel) {
+      const tamanho = sgrVisivel(texto, k)
+      if (tamanho) {
+        k += tamanho - 1
+        continue
+      }
+    }
+    if (
+      u === 0x0c &&
+      quebraDePagina &&
+      (k === 0 || texto.charCodeAt(k - 1) === 0x0a) &&
+      (k + 1 === texto.length ||
+        texto.charCodeAt(k + 1) === 0x0a ||
+        (texto.charCodeAt(k + 1) === 0x0d && texto.charCodeAt(k + 2) === 0x0a))
+    ) {
+      continue
+    }
     if (u === 0x0a) temLf = true
     else if (u === 0x0d) {
       if (texto.charCodeAt(k + 1) !== 0x0a) crSoltos.push(k)
@@ -330,9 +420,10 @@ export function checarControlBytes(r) {
   const problemas = []
   const nomes = []
   const notas = { truncados: [], invalidos: [], soCr: [], ausentes: [], mensagens: [] }
-  // Every code point a file finding reports: the remedy says a control hides
-  // text only when one of them can.
-  const pontosDeArquivo = new Set()
+  // What the file findings are: 'pagina' (a bell, vertical tab or form feed),
+  // 'mojibake' (a C1 control right after a UTF-8 lead byte read as Latin-1), or
+  // 'esconde'. The remedy says a control hides text only when one of them can.
+  const classes = new Set()
   let usouAlguma = false
   let lidos = 0
   let reaisComBlob = 0
@@ -373,8 +464,13 @@ export function checarControlBytes(r) {
     }
 
     // An agent file gets the prose set even with a code extension: what an
-    // agent loads is held to the strictest reading.
-    const { achados, soCr } = varrerBrutos(e.texto, e.tipo === 'codigo')
+    // agent loads is held to the strictest reading. The allowlist is data, and
+    // still gets no exemption: nothing in it may make a reviewer skip a line.
+    const livre = (e.tipo === 'prosa' || e.tipo === 'dados') && e.caminho !== NOME_DA_ALLOWLIST
+    const { achados, soCr } = varrerBrutos(e.texto, e.tipo === 'codigo', {
+      quebraDePagina: livre,
+      corVisivel: livre,
+    })
     if (soCr) notas.soCr.push(escaparSaida(e.caminho))
     // One escape may decode under two dialects (a JSON unicode escape is also a
     // YAML one): it counts once, under the first path that reads it.
@@ -421,8 +517,17 @@ export function checarControlBytes(r) {
       itens.push(`${onde(e.caminho, linha, coluna)} ${rotulo(g.cp)}${forma}${resto}`)
     }
     caracteres += todos.length
-    for (const a of todos) pontosDeArquivo.add(a.cp)
-    if (e.caminho !== NOME_DA_ALLOWLIST) arquivoIsentavel = true
+    for (const a of todos) {
+      const antes = a.indice > 0 ? e.texto.charCodeAt(a.indice - 1) : -1
+      if (SO_AVISO_NA_MENSAGEM.has(a.cp)) classes.add('pagina')
+      else if (a.forma === null && a.cp >= 0x80 && a.cp < 0xa0 && antes >= 0xc2 && antes <= 0xdf) {
+        classes.add(SO_MOJIBAKE[a.cp] ? 'mojibake' : 'mojibakeQueEsconde')
+      } else classes.add('esconde')
+    }
+    if (e.caminho !== NOME_DA_ALLOWLIST) {
+      arquivoIsentavel = true
+      sugerirEntrada(r, 'control-bytes', { arquivo: e.caminho, oid: e.oid })
+    }
   }
 
   for (const c of commits) {
@@ -438,6 +543,7 @@ export function checarControlBytes(r) {
     if (achados.some((a) => !SO_AVISO_NA_MENSAGEM.has(a.cp))) {
       nomes.push(item)
       commitIsentavel = true
+      sugerirEntrada(r, 'control-bytes', { commit: c.id })
     } else {
       notas.mensagens.push(item)
     }
@@ -459,15 +565,36 @@ export function checarControlBytes(r) {
   if (itens.length) {
     // A bell, vertical tab or form feed rings or moves the cursor and hides
     // nothing: telling a maintainer that the form feed of a license file hides
-    // text from the review misleads them about the risk. The hiding claim stays
-    // whenever any other control is among the findings.
-    const soPaginaOuCampainha = [...pontosDeArquivo].every((cp) => SO_AVISO_NA_MENSAGEM.has(cp))
+    // text from the review misleads them about the risk. Nor does a C1 control
+    // that a double decode left after a Latin-1 letter: measured, a Portuguese
+    // heading saved through UTF-8 twice was told its U+0087 and U+0083 hide
+    // text. The hiding claim stays whenever any other control is among the
+    // findings.
+    let porque = ''
+    const esconde =
+      'a terminal acts on it and hides text from the review while a model reads it all; '
+    const duasVezes =
+      'a C1 control right after a Latin-1 letter is UTF-8 text decoded twice, so re-save ' +
+      'the file as UTF-8; '
+    if (classes.has('esconde')) {
+      porque = esconde
+    } else if (classes.has('mojibakeQueEsconde')) {
+      // I-acute decoded twice leaves RI (U+008D), which also moves the cursor
+      // up. Measured before: INDICE E SECAO with its accents, decoded twice,
+      // was told only that its U+008D, U+0087 and U+0083 hide text, and not
+      // that re-saving the file as UTF-8 removes all three.
+      porque = esconde + duasVezes.replace('is UTF-8', 'can also be UTF-8')
+    } else {
+      if (classes.has('pagina')) {
+        porque +=
+          'a page-break or bell control hides no text, and only a form feed alone on its line ' +
+          'in a prose or data file is left alone; '
+      }
+      if (classes.has('mojibake')) porque += duasVezes
+    }
     partes.push(
       `${plural(caracteres, 'control character', 'control characters')}: ${resumir(itens)} — ` +
-        (soPaginaOuCampainha
-          ? 'a page-break or bell control, which a terminal acts on while a model reads the ' +
-            'file whole; '
-          : 'a terminal acts on it and hides text from the review while a model reads it all; ') +
+        porque +
         'remove it, or in code write the escape sequence as source text' +
         (arquivoIsentavel
           ? '; for a generated or vendored file add {regra, motivo, arquivo, oid} to ' +
@@ -663,6 +790,9 @@ export function checarMcpAnsiEscape(
     ) {
       usouAlguma = true
       continue
+    }
+    if (e.caminho !== NOME_DA_ALLOWLIST) {
+      sugerirEntrada(r, 'mcp-ansi-escape', { arquivo: e.caminho, oid: e.oid })
     }
     // Positions come from the stripped code, which keeps every line break, so
     // the line is exact; a block comment earlier on the same line shifts the

@@ -6,6 +6,7 @@
 //   node tooling/security/index.mjs --json <dir>       for CI
 //   node tooling/security/index.mjs --rule=<id> <dir>  one rule only
 //   node tooling/security/index.mjs --heuristics <dir> heuristics fail too
+//   node tooling/security/index.mjs --sugerir-allowlist <dir>   ready allowlist lines
 //
 // EXIT CODES — the same as rebar-check's, and for the same reason:
 //   0    everything that applies passed
@@ -83,8 +84,15 @@ import {
   checarMcpAnsiEscape,
 } from './injection/control.mjs'
 import { EXECUTORES_REMOTOS, SINAIS_DE_SHELL, checarMcpLaunch } from './injection/mcp-launch.mjs'
+import {
+  FORMAS_DE_CHAVE,
+  MOTIVO_A_ESCREVER,
+  NOME_DA_ALLOWLIST,
+  REGRAS_DA_ALLOWLIST,
+  lerAllowlist,
+} from './injection/reader.mjs'
 import { checarHiddenUnicode } from './injection/unicode.mjs'
-import { escaparSaida } from './texto-seguro.mjs'
+import { CONTROLES, ESCAPAR_TAMBEM, IGNORAVEIS, escaparSaida, naFaixa } from './texto-seguro.mjs'
 
 // ─────────────────────────────────────── the prompt-injection signature tables
 //
@@ -624,10 +632,14 @@ export const REGRAS = [
      *
      * The exemptions exist because a measurement demanded each one: RGI emoji
      * sequences (rebar's own docs carry 25 warning signs with a presentation
-     * selector), script joiners in the scripts that write words with them,
-     * right-to-left marks on lines that are already right-to-left. Agent files
-     * and names keep only the joiner between two letters of one script and the
-     * lone mark on a right-to-left line, which Persian and Arabic need. What is
+     * selector), script joiners in the scripts that write words with them, a
+     * joiner right after a virama on a letter of its script outside code (the
+     * Unicode security profile allows that context, and legacy Malayalam and
+     * Bengali end words with it), right-to-left marks on lines that are already
+     * right-to-left. Agent files and names keep only the joiner between two
+     * letters of one script, the Indic conjunct joiners around a virama, and the
+     * lone mark on a right-to-left line, which Persian, Arabic and the Indic
+     * scripts need. What is
      * left in a repository goes into
      * `.rebar-injection-allowlist` by blob id or commit id.
      *
@@ -654,7 +666,11 @@ export const REGRAS = [
      * rebar-site and bookkeep: the only raw control was rebar's own colour
      * helper, 2 bytes on one line. Code keeps a narrower set, because honest
      * sources carry sentinels (a YAML plugin, a PNG magic), and a file whose line
-     * endings are all bare carriage returns is a warning, not a finding.
+     * endings are all bare carriage returns is a warning, not a finding. In prose
+     * and data files a form feed alone on its line (a license page break) and a
+     * colour sequence whose parameters all keep text visible (a test snapshot)
+     * pass, because neither hides anything; concealing, background and cursor
+     * sequences still fail.
      *
      * JSON and YAML parsers refuse a raw control, so the attack reaches them as
      * the format's own escape. Those escapes go through the same decoder
@@ -780,12 +796,24 @@ export const REGRAS = [
 
 // ═══════════════════════════════════════════════════════════════ the executor
 
-function avaliar(dir, filtro) {
+function avaliar(dir, filtro, { sugerir = false } = {}) {
   if (!existsSync(dir)) return { dir, nome: basename(dir) || dir, erro: 'path does not exist' }
   const r = lerRepo(dir)
   if (r.erro) return { dir, nome: basename(dir) || dir, erro: r.erro }
+  // The injection engines record here the allowlist key of every finding an
+  // entry could exempt (sugerirEntrada in injection/reader.mjs). Only
+  // --sugerir-allowlist asks, so a scoreboard run carries no list.
+  if (sugerir) r.sugestoesDaAllowlist = []
 
-  const aRodar = filtro ? REGRAS.filter((x) => x.id === filtro) : REGRAS
+  // --sugerir-allowlist runs only the rules the allowlist serves: a rule it
+  // cannot write a line for would only cost time, and one that breaks on the
+  // target (hardcoded-secret reads the disk, and breaks on an index-only
+  // repository) would withhold every line for nothing.
+  const aRodar = filtro
+    ? REGRAS.filter((x) => x.id === filtro)
+    : sugerir
+      ? REGRAS.filter((x) => REGRAS_DA_ALLOWLIST.includes(x.id))
+      : REGRAS
   // `passou` · `reprovou` · `na` · `quebrou` are the state VALUES the `--json`
   // carries, and `tooling/rebar-check/proofs/prove.mjs` compares them literally
   // against what each proof case declares. They stay in Portuguese: translated,
@@ -812,7 +840,99 @@ function avaliar(dir, filtro) {
       return { ...base, estado: 'passou', nota: String(saida.nota) }
     return { ...base, estado: 'reprovou', motivo: String(saida) }
   })
-  return { dir, nome: r.nome, resultados }
+  return sugerir
+    ? { dir, nome: r.nome, resultados, sugestoes: r.sugestoesDaAllowlist }
+    : { dir, nome: r.nome, resultados }
+}
+
+// ═════════════════════════════════════════════════════ --sugerir-allowlist
+
+/**
+ * The longest file path, JSON pointer or server name a suggested line carries,
+ * in code points. Linux caps a path at 4096 bytes (PATH_MAX), so every file a
+ * Linux checkout can hold fits. The first cut stopped at 200, which the reader
+ * never required: a longer tracked path (the longest over the 20 repositories
+ * measured was 177) got no line and its user was sent to write a 40-hex oid by
+ * hand. Past this limit the text is a repository's choice, and only counted.
+ */
+const LIMITE_DA_CHAVE = 4096
+
+/**
+ * One JSON Lines object with every code unit escaparSaida would label written
+ * as a JSON unicode escape. Not the `<U+XXXX>` of every other output: this line
+ * is data the allowlist reader JSON-decodes back into the exact path, so a
+ * label would name a file that does not exist. JSON.stringify leaves DEL, C1,
+ * the ignorables, the line separators and private use raw; each goes out as
+ * its UTF-16 units (a tag character as both halves of its pair). The allowlist
+ * has no format extension, so no rule decodes those escapes there.
+ */
+function jsonSeguro(valor) {
+  const barra = String.fromCharCode(92)
+  let saida = ''
+  for (const ch of JSON.stringify(valor)) {
+    const cp = ch.codePointAt(0)
+    const perigoso =
+      !(cp >= 0x20 && cp < 0x7f) &&
+      (naFaixa(cp, CONTROLES) || naFaixa(cp, IGNORAVEIS) || naFaixa(cp, ESCAPAR_TAMBEM))
+    if (!perigoso) {
+      saida += ch
+      continue
+    }
+    for (let k = 0; k < ch.length; k++) {
+      saida += `${barra}u${ch.charCodeAt(k).toString(16).padStart(4, '0')}`
+    }
+  }
+  return saida
+}
+
+/**
+ * The allowlist lines for what failed: one per distinct key, rules in
+ * REGRAS_DA_ALLOWLIST order, keys in the order the engines found them, fields
+ * in FORMAS_DE_CHAVE order and motivo last. A key the allowlist already holds
+ * for that rule is left out: a malformed line makes agent-config-exec and
+ * agent-bypass-invocation release nothing, so their findings come back even
+ * where an entry with a real motivo exists. A key whose path, pointer or
+ * server name is longer than LIMITE_DA_CHAVE is counted, not printed: a
+ * suggestion has to carry that text whole to match, and a repository chooses it.
+ */
+function linhasSugeridas(avaliacao) {
+  const allowlist = lerAllowlist(avaliacao.dir)
+  const reprovadas = new Set(
+    avaliacao.resultados.filter((x) => x.estado === 'reprovou').map((x) => x.id),
+  )
+  const vistas = new Set()
+  const longas = new Set()
+  const linhas = []
+  for (const regra of REGRAS_DA_ALLOWLIST) {
+    if (!reprovadas.has(regra)) continue
+    for (const { regra: dona, chave } of avaliacao.sugestoes) {
+      if (dona !== regra || !chave || typeof chave !== 'object') continue
+      const campos = Object.keys(chave)
+      const forma = FORMAS_DE_CHAVE.find(
+        (f) => f.length === campos.length && f.every((k) => typeof chave[k] === 'string'),
+      )
+      if (!forma) continue
+      const objeto = { regra }
+      for (const k of forma) objeto[k] = chave[k]
+      objeto.motivo = MOTIVO_A_ESCREVER
+      const linha = jsonSeguro(objeto)
+      if (vistas.has(linha)) continue
+      vistas.add(linha)
+      const livre = ['arquivo', 'ponteiro', 'servidor'].filter((k) => forma.includes(k))
+      if (livre.some((k) => [...chave[k]].length > LIMITE_DA_CHAVE)) {
+        longas.add(linha)
+        continue
+      }
+      const existe = allowlist.entradas.some(
+        (e) =>
+          e.regra === regra &&
+          e.forma.length === forma.length &&
+          forma.every((k) => e[k] === chave[k]),
+      )
+      if (!existe) linhas.push(linha)
+    }
+  }
+  return { linhas, longas: longas.size, malformadas: allowlist.erros.length }
 }
 
 const c = process.stdout.isTTY && !process.env.NO_COLOR
@@ -896,7 +1016,10 @@ function principal(argv) {
   const regraArg = argv.find((a) => a.startsWith('--rule='))
   const filtro = regraArg ? regraArg.slice('--rule='.length) : null
 
-  const desconhecida = argv.find((a) => a.startsWith('--') && !/^--(json|heuristics|rule=)/.test(a))
+  const sugerir = argv.includes('--sugerir-allowlist')
+  const desconhecida = argv.find(
+    (a) => a.startsWith('--') && !/^--(json|heuristics|rule=|sugerir-allowlist$)/.test(a),
+  )
   if (desconhecida) {
     console.error(`rebar-security: unknown option: ${escaparSaida(desconhecida)}`)
     process.exit(2)
@@ -914,6 +1037,40 @@ function principal(argv) {
   }
 
   const alvos = argv.filter((a) => !a.startsWith('--'))
+  if (sugerir) {
+    // One repository, because the lines name its paths and blob ids; no --json,
+    // because the output already is JSON Lines. Not offered through the MCP
+    // server: an agent reading an answer is not handed ready exemptions.
+    if (json || alvos.length !== 1) {
+      console.error('rebar-security: --sugerir-allowlist takes one repository and no --json')
+      return 2
+    }
+    const a = avaliar(alvos[0], filtro, { sugerir: true })
+    if (a.erro) {
+      console.error(`rebar-security: ${escaparSaida(a.erro)}`)
+      return 2
+    }
+    if (a.resultados.some((x) => x.estado === 'quebrou')) {
+      console.error('rebar-security: a rule broke, so no allowlist line is suggested')
+      return 127
+    }
+    const { linhas, longas, malformadas } = linhasSugeridas(a)
+    let cabecalho =
+      `# ${linhas.length} line(s) for ${NOME_DA_ALLOWLIST}. Replace every motivo before ` +
+      'committing: the reader refuses the placeholder. Findings no entry can exempt are not ' +
+      'listed; run the scoreboard again after adding them.'
+    if (malformadas) {
+      cabecalho += ` ${malformadas} malformed line(s) in the allowlist: fix them first.`
+    }
+    if (longas) {
+      cabecalho +=
+        ` ${longas} finding(s) with a key longer than ${LIMITE_DA_CHAVE} characters: write ` +
+        'that line by hand.'
+    }
+    console.log(cabecalho)
+    for (const linha of linhas) console.log(linha)
+    return 0
+  }
   if (!alvos.length) alvos.push('.')
 
   const avaliacoes = alvos.map((d) => avaliar(d, filtro))

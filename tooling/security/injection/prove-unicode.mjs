@@ -467,11 +467,14 @@ describe('strict mode keeps what Persian and Arabic are written with, and nothin
       'nome',
       'reprova',
     ],
+    // Main failed this one: the virama is a mark, not a letter, so the joiner
+    // had no letter on its left. UTS #39 3.1.1.1 rule A2 names exactly this
+    // context, and the "joiner after a virama" block below proves why it passes.
     [
-      'ZWNJ after a Devanagari virama (a mark, not a letter) in an agent file',
+      'ZWNJ after a Devanagari virama between two Devanagari letters in an agent file',
       cp(0x0915, 0x094d, 0x200c, 0x0937),
       'agente',
-      'reprova',
+      'limpo',
     ],
     [
       'ZWSP between Persian letters in an agent file',
@@ -604,6 +607,201 @@ describe('strict mode keeps what Persian and Arabic are written with, and nothin
           assert.ok(marca.test(cp(c)), `U+${c.toString(16)} is not a mark`)
       }
     }
+  })
+})
+
+describe('a joiner after a virama: the Indic contexts of UTS #39 3.1.1.1 and RFC 5892', () => {
+  // UTS #39 rev 32 rule A2 is letter, marks, virama, ZWNJ, letter and rule B is
+  // letter, marks, virama, ZWJ; RFC 5892 A.1 and A.2 say the same with
+  // "Before(cp) is a Virama". Main exempted a joiner only between two letters of
+  // one joining script, and no virama but Thai phinthu is Alphabetic, so every
+  // conjunct failed in strict mode (the Sinhala "Sri" of Sri Lanka, the Bengali
+  // ya-phalaa after ra in a name) and every word-final legacy form failed
+  // everywhere: the Malayalam chillu written <consonant, virama, ZWJ> before
+  // Unicode 5.1 (TUS 17 table 12-42) and the Bengali khanda ta written
+  // <TA, VIRAMA, ZWJ> before 4.1. date-fns and zod carry 13 Kannada
+  // KA, VIRAMA, ZWNJ, letter joiners in their kn locales.
+  const casos = [
+    // What passes now.
+    [
+      'legacy Malayalam chillu N before a space in prose',
+      cp(0x0d05, 0x0d35, 0x0d28, 0x0d4d, 0x200d, 0x20),
+      'prosa',
+      'limpo',
+    ],
+    [
+      'ZWNJ after a Malayalam virama before a full stop in prose',
+      cp(0x0d15, 0x0d4d, 0x200c, 0x2e),
+      'prosa',
+      'limpo',
+    ],
+    [
+      'pre-4.1 Bengali khanda ta before a space in prose',
+      cp(0x09a4, 0x09cd, 0x200d, 0x20),
+      'prosa',
+      'limpo',
+    ],
+    [
+      'legacy chillu at the end of a line of a data file',
+      cp(0x0d28, 0x0d4d, 0x200d, 0x0a),
+      'dados',
+      'limpo',
+    ],
+    ['legacy chillu at the end of a commit message', cp(0x0d28, 0x0d4d, 0x200d), 'commit', 'limpo'],
+    [
+      'Sinhala shri in an agent file',
+      cp(0x0dc1, 0x0dca, 0x200d, 0x0dbb, 0x0dd3),
+      'agente',
+      'limpo',
+    ],
+    [
+      'Devanagari eyelash ra conjunct in an agent file',
+      cp(0x0930, 0x094d, 0x200d, 0x092f),
+      'agente',
+      'limpo',
+    ],
+    [
+      'a nukta between the letter and its virama in an agent file',
+      cp(0x0915, 0x093c, 0x094d, 0x200d, 0x0937),
+      'agente',
+      'limpo',
+    ],
+    [
+      'Bengali ya-phalaa after ra, ZWJ before the virama, in a name',
+      cp(0x09b0, 0x200d, 0x09cd, 0x09af),
+      'nome',
+      'limpo',
+    ],
+    [
+      'the date-fns Kannada shape in an agent file',
+      cp(0x0ca1, 0x0ccd, 0x200c, 0x0c97),
+      'agente',
+      'limpo',
+    ],
+    [
+      'a Devanagari conjunct in code keeps the script-joiner verdict',
+      cp(0x0915, 0x094d, 0x200d, 0x0937),
+      'codigo',
+      'limpo',
+    ],
+    // What still fails.
+    [
+      'word-final legacy chillu in an agent file',
+      cp(0x0d28, 0x0d4d, 0x200d, 0x20),
+      'agente',
+      'reprova',
+    ],
+    [
+      'word-final legacy chillu in a name',
+      `docs/${cp(0x0d28, 0x0d4d, 0x200d)}.md`,
+      'nome',
+      'reprova',
+    ],
+    [
+      'word-final joiner after a virama in code',
+      cp(0x0915, 0x094d, 0x200d, 0x3d),
+      'codigo',
+      'reprova',
+    ],
+    ['a virama on an ASCII letter in prose', cp(0x61, 0x094d, 0x200d, 0x62), 'prosa', 'reprova'],
+    [
+      'two joiners in a row after a virama in prose',
+      cp(0x0915, 0x094d, 0x200d, 0x200c, 0x0937),
+      'prosa',
+      'reprova',
+    ],
+    [
+      'a virama and a joiner before a Latin letter in an agent file',
+      cp(0x0915, 0x094d, 0x200d, 0x61),
+      'agente',
+      'reprova',
+    ],
+    [
+      'ZWNJ before a virama in an agent file',
+      cp(0x09b0, 0x200c, 0x09cd, 0x09af),
+      'agente',
+      'reprova',
+    ],
+    // The Script Restriction of UTS #39: one script for letter, virama and letter.
+    [
+      'a Devanagari virama on a Latin e-acute in an agent file',
+      cp(0xe9, 0x094d, 0x200d, 0x0915),
+      'agente',
+      'reprova',
+    ],
+    [
+      'a Devanagari virama on a Malayalam letter in a name',
+      cp(0x0d28, 0x094d, 0x200c, 0x0915),
+      'nome',
+      'reprova',
+    ],
+    [
+      'a Devanagari virama on a Cyrillic letter in prose',
+      cp(0x0436, 0x094d, 0x200d, 0x20),
+      'prosa',
+      'reprova',
+    ],
+    [
+      'Bengali ra, ZWJ, virama and a Devanagari ya in a name',
+      cp(0x09b0, 0x200d, 0x09cd, 0x092f),
+      'nome',
+      'reprova',
+    ],
+  ]
+  for (const [nome, texto, tipo, esperado] of casos) {
+    test(`${nome} [${tipo}] -> ${esperado}`, () => {
+      assert.equal(pior(texto, tipo), esperado, motivos(texto, tipo).join(', '))
+    })
+  }
+
+  test('VIRAMA holds the 69 code points of ccc 9 and NUKTA the 27 of ccc 7, sorted and disjoint', () => {
+    const pontos = (faixas) => faixas.reduce((n, [a, b]) => n + b - a + 1, 0)
+    assert.equal(pontos(TABELAS.VIRAMA), 69)
+    assert.equal(TABELAS.VIRAMA.length, 58)
+    assert.equal(pontos(TABELAS.NUKTA), 27)
+    assert.equal(TABELAS.NUKTA.length, 26)
+    for (const c of [0x094d, 0x0d4d, 0x0dca, 0x1612f]) {
+      assert.ok(naFaixa(c, TABELAS.VIRAMA), `U+${c.toString(16)} is a virama`)
+      assert.ok(!naFaixa(c, TABELAS.NUKTA), `U+${c.toString(16)} is no nukta`)
+    }
+    assert.ok(naFaixa(0x093c, TABELAS.NUKTA))
+    assert.ok(!naFaixa(0x093c, TABELAS.VIRAMA))
+    for (const [a, b] of TABELAS.NUKTA) {
+      for (let c = a; c <= b; c++)
+        assert.ok(!naFaixa(c, TABELAS.VIRAMA), `U+${c.toString(16)} in both`)
+    }
+    // Every assigned virama and nukta is a combining mark in this Node, so
+    // neither table can hand a letter to the context test.
+    const marca = /^\p{M}$/u
+    for (const faixas of [TABELAS.VIRAMA, TABELAS.NUKTA]) {
+      for (const [a, b] of faixas) {
+        for (let c = a; c <= b; c++) {
+          if (/^\p{Assigned}$/u.test(cp(c)))
+            assert.ok(marca.test(cp(c)), `U+${c.toString(16)} is not a mark`)
+        }
+      }
+    }
+  })
+
+  test('the whole rule: a Malayalam doc and a Sinhala AGENTS.md pass, a word-final chillu in AGENTS.md fails', () => {
+    const { dir } = repositorio([
+      {
+        caminho: 'docs/ml.md',
+        conteudo: `${cp(0x0d05, 0x0d35, 0x0d28, 0x0d4d, 0x200d, 0x20, 0x0d35, 0x0d28, 0x0d4d, 0x0d28, 0x0d41, 0x2e)}\n`,
+      },
+      {
+        caminho: 'AGENTS.md',
+        conteudo: `${cp(0x0dc1, 0x0dca, 0x200d, 0x0dbb, 0x0dd3, 0x20, 0x0dbd, 0x0d82, 0x0d9a, 0x0dcf)}\n`,
+      },
+    ])
+    assert.equal(checarHiddenUnicode({ dir }), null)
+    const sujo = repositorio([
+      { caminho: 'AGENTS.md', conteudo: `${cp(0x0d05, 0x0d35, 0x0d28, 0x0d4d, 0x200d, 0x20)}x\n` },
+    ])
+    const saida = checarHiddenUnicode({ dir: sujo.dir })
+    assert.equal(typeof saida, 'string', JSON.stringify(saida))
+    semInvisivel(saida)
+    assert.ok(saida.includes('AGENTS.md:1:5 <U+200D> zero-width-joiner'), saida)
   })
 })
 

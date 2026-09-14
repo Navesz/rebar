@@ -1,0 +1,24 @@
+{
+  "rule": "control-bytes",
+  "why": "GNU license files, Emacs Lisp and Python put a form feed alone on its line as a page break (GNU Coding Standards 5.1, PEP 8), and xterm treats FF like LF: it hides no text. Measured, 90 of 101 form feeds in the licenses and libraries of Git for Windows and Python 3.12 sit alone on their line. The pass side is a COPYING with one on its own LF line and a docs/LICENSE.txt with one on its own CRLF line. The fail side is a README.md with a form feed in the middle of a line. Without the exemption the pass side goes red; exempting every form feed in prose turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "COPYING",
+        "base64": "cGFydCAxCgwKcGFydCAyCg=="
+      },
+      {
+        "caminho": "docs/LICENSE.txt",
+        "base64": "YQ0KDA0KYg0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "c2VlDHRoaXMK"
+      }
+    ]
+  }
+}

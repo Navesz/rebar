@@ -191,7 +191,7 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->125<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->132<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 

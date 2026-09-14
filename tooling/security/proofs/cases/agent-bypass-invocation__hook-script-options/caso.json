@@ -1,0 +1,28 @@
+{
+  "rule": "agent-bypass-invocation",
+  "why": "A git hook runs with no dialog, and so does a package script it calls by name. Main found the name with a regular expression that took an option after run as the script name, so .husky/pre-commit with npm run --silent ai left the ai script, which starts an agent CLI with its approval switch off, a warning; npm run ai failed. Both sides track the same package.json, whose ai script is that invocation and whose lint script is not. The pass side hook runs npm run --silent lint, so ai stays a warning; the fail side hook runs npm run --silent ai. Reading the option as the name turns the fail side green; following every script of a package a hook touches turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".husky/pre-commit",
+        "base64": "bnBtIHJ1biAtLXNpbGVudCBsaW50Cg=="
+      },
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImFwcCIsCiAgInByaXZhdGUiOiB0cnVlLAogICJzY3JpcHRzIjogewogICAgImxpbnQiOiAiZXNsaW50IC4iLAogICAgImFpIjogImdlbWluaSAtcCByZXZpZXcgLS15b2xvIgogIH0KfQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".husky/pre-commit",
+        "base64": "bnBtIHJ1biAtLXNpbGVudCBhaQo="
+      },
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogImFwcCIsCiAgInByaXZhdGUiOiB0cnVlLAogICJzY3JpcHRzIjogewogICAgImxpbnQiOiAiZXNsaW50IC4iLAogICAgImFpIjogImdlbWluaSAtcCByZXZpZXcgLS15b2xvIgogIH0KfQo="
+      }
+    ]
+  }
+}

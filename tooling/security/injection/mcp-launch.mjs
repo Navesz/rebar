@@ -68,6 +68,7 @@ import { lerJsonc, lerToml, lerYaml } from './formats.mjs'
 import {
   NOME_DA_ALLOWLIST,
   lerAllowlist,
+  sugerirEntrada,
   lerIndice,
   onde,
   problemasDeLeitura,
@@ -863,9 +864,136 @@ function versaoAbaixoDe0116(texto) {
  * The public registries a runner uses when nothing overrides it. A config line
  * that names one of them points the runner at the default, never away from it.
  * Measured before: `registry=https://registry.npmjs.org/` in a project .npmrc
- * made every allowlisted npx server unexemptable.
+ * made every allowlisted npx server unexemptable. Only the https spelling is
+ * the default: npm 11.6.2 keeps `http://registry.npmjs.org/` as http and
+ * `//registry.npmjs.org/` verbatim (`npm config get registry`), so both are
+ * a different registry, and both passed here before.
  */
-const REGISTRO_PADRAO = /^(?:https?:)?\/\/registry\.(?:npmjs\.org|yarnpkg\.com)\/?$/i
+const REGISTRO_PADRAO = /^https:\/\/registry\.(?:npmjs\.org|yarnpkg\.com)\/?$/i
+
+/**
+ * A key or value as npm's ini parser reads it: `unsafe()` of ini@5.0.0
+ * (lib/ini.js, the version npm 11.6.2 bundles). Trimmed; a text wrapped in
+ * matching double or single quotes is JSON-parsed (single quotes stripped
+ * first), keeping the text when that fails; otherwise it is cut at the first
+ * `;` or `#` that no backslash escapes, and `\;`, `\#`, `\\` unescape.
+ */
+function desfazerIni(bruto) {
+  let v = String(bruto ?? '').trim()
+  const aspas = (q) => v.startsWith(q) && v.endsWith(q)
+  if (aspas('"') || aspas("'")) {
+    if (v.startsWith("'")) v = v.slice(1, -1)
+    try {
+      return JSON.parse(v)
+    } catch {
+      return v
+    }
+  }
+  let saida = ''
+  let escape = false
+  for (const c of v) {
+    if (escape) {
+      saida += ';#\\'.includes(c) ? c : `\\${c}`
+      escape = false
+    } else if (c === ';' || c === '#') break
+    else if (c === '\\') escape = true
+    else saida += c
+  }
+  if (escape) saida += '\\'
+  return saida.trim()
+}
+
+/**
+ * The ${NAME} and ${NAME?} references npm expands in every .npmrc key before
+ * using it (@npmcli/config lib/index.js:585, `envReplace(key, this.env)`, and
+ * lib/env-replace.js): an odd run of backslashes before one keeps it literal.
+ */
+const REFERENCIA_DE_AMBIENTE = /(?<!\\)(\\*)\$\{([^${}?]+)(\?)?\}/g
+
+/**
+ * Whether a .npmrc key can be a registry key once npm expands it, and for
+ * which scope. First the expansion on a machine where the variable is unset (a
+ * `${NAME?}` becomes empty, a `${NAME}` stays as written), which is what a
+ * repository can count on; then, since any variable may hold any text, a key
+ * whose literal ends could still spell `registry` or `@scope:registry` counts
+ * as an unscoped override. Measured with `npm config get`:
+ * `${UNSET?}registry=`, `regi${UNSET?}stry=` and `@acme${UNSET?}:registry=` all
+ * set the registry, and this rule read none of them.
+ * `userconfig` and `globalconfig` count too, as unscoped overrides whatever
+ * their value: they name another config file, which npm then reads for the
+ * registry. Measured with npm 11.6.2 and `npm config get registry` in a folder
+ * whose .npmrc held only `userconfig=./cfg/npmrc` (or `globalconfig=./cfg/g`,
+ * `"userconfig"=`, `user${UNSET?}config=`): each printed the registry written
+ * in the named file, so a tracked file of any name carried the registry past
+ * this rule. `USERCONFIG=` and `userconfig[]=` did not; the second one still
+ * counts here, since lerNpmrc folds `key[]` into `key`.
+ * Returns { sim: false } | { sim: true, escopo: string | null }.
+ */
+function chaveDeRegistro(chave) {
+  const texto = String(chave)
+  const pedacos = []
+  let resto = ''
+  let variavel = false
+  let desde = 0
+  for (const m of texto.matchAll(REFERENCIA_DE_AMBIENTE)) {
+    const [inteira, barras, nome, opcional] = m
+    resto += texto.slice(desde, m.index)
+    desde = m.index + inteira.length
+    if (barras.length % 2) {
+      resto += inteira.slice((barras.length + 1) / 2)
+      continue
+    }
+    resto += barras.slice(barras.length / 2)
+    pedacos.push({ antes: resto, nome, opcional: Boolean(opcional) })
+    resto = ''
+    variavel = true
+  }
+  resto += texto.slice(desde)
+  let semVariavel = ''
+  for (const p of pedacos) semVariavel += p.antes + (p.opcional ? '' : `\${${p.nome}}`)
+  semVariavel += resto
+  const m = /^(?:(@[^:]+):)?registry$/.exec(semVariavel)
+  if (m) return { sim: true, escopo: m[1] ?? null, registro: true }
+  if (CHAVES_DE_OUTRO_ARQUIVO.includes(semVariavel)) return { sim: true, escopo: null }
+  if (!variavel) return { sim: false }
+  const inicio = pedacos[0].antes
+  const fim = resto
+  const nomes = ['registry', ...CHAVES_DE_OUTRO_ARQUIVO]
+  const podeComecar =
+    inicio === '' || inicio.startsWith('@') || nomes.some((n) => n.startsWith(inicio))
+  const podeTerminar =
+    fim === '' ||
+    fim.endsWith(':registry') ||
+    ':registry'.endsWith(fim) ||
+    nomes.some((n) => n.endsWith(fim))
+  return podeComecar && podeTerminar ? { sim: true, escopo: null } : { sim: false }
+}
+const CHAVES_DE_OUTRO_ARQUIVO = ['userconfig', 'globalconfig']
+
+/**
+ * The top-level entries of a .npmrc, in file order, as ini@5.0.0 `decode()`
+ * yields them: lines split on CR and LF, blank and `;` or `#` comment lines
+ * skipped, and a `[section]` header ends the top level for the rest of the
+ * file (npm reads no key inside a section). A `key[]` is the array form of
+ * `key`. Measured with npm 11.6.2: `"registry"=`, `'registry' =`, `registry[]=`
+ * and `"@acme:registry"=` all set the registry, while `REGISTRY=` (keys are
+ * case-sensitive), a key after `[x]` and `registry\=x=` do not, and
+ * `registry=https://registry.npmjs.org/ ; comment` is the default.
+ */
+function lerNpmrc(texto) {
+  const saida = []
+  for (const linha of String(texto).split(/[\r\n]+/)) {
+    if (!linha || /^\s*[;#]/.test(linha) || /^\s*$/.test(linha)) continue
+    if (/^\[[^\]]*\]\s*$/.test(linha)) break
+    const m = /^([^=]+)(=(.*))?$/.exec(linha)
+    if (!m) continue
+    let chave = desfazerIni(m[1])
+    if (typeof chave === 'string' && chave.length > 2 && chave.endsWith('[]'))
+      chave = chave.slice(0, -2)
+    saida.push({ chave: String(chave), valor: m[2] ? desfazerIni(m[3]) : true })
+  }
+  return saida
+}
 
 /** Whether a registry value from a config (a string, or bun's `{ url }`) is a default one. */
 function ehRegistroPadrao(valor) {
@@ -912,9 +1040,13 @@ function sobrescritasDeRegistro(indice) {
     if (nome === '.npmrc') {
       if (e.texto === null) empurrar(null)
       else {
-        for (const linha of e.texto.split('\n')) {
-          const m = /^\s*(?:(@[^:=\s]+):)?registry\s*=(.*)$/i.exec(linha)
-          if (m && !ehRegistroPadrao(m[2])) empurrar(m[1] ? escopoNormal(m[1]) : null)
+        for (const { chave, valor } of lerNpmrc(e.texto)) {
+          const registro = chaveDeRegistro(chave)
+          const padrao =
+            registro.registro === true && typeof valor === 'string' && REGISTRO_PADRAO.test(valor)
+          if (registro.sim && !padrao) {
+            empurrar(registro.escopo ? escopoNormal(registro.escopo) : null)
+          }
         }
       }
     } else if (nome === '.yarnrc.yml') {
@@ -1121,6 +1253,7 @@ export function checarMcpLaunch(r, { EXECUTORES_REMOTOS, SINAIS_DE_SHELL, molde 
       itensDuros.push(`${cabeca} — ${razoes.join('; ')} (not exemptable)`)
     } else if (!doMolde && !porEntrada) {
       itensSemAceite.push(cabeca)
+      sugerirEntrada(r, REGRA, { arquivo: s.arquivo, servidor: s.nome, sha256: s.impressao })
     } else if (porEntrada) {
       aceitosPorEntrada++
     }

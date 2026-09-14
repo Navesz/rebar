@@ -25,6 +25,7 @@ import test, { after, describe } from 'node:test'
 import { CONTROLES, ESCAPAR_TAMBEM, IGNORAVEIS, naFaixa } from '../texto-seguro.mjs'
 import {
   LIMITE_DE_BLOB,
+  MOTIVO_A_ESCREVER,
   NOME_DA_ALLOWLIST,
   PROBLEMAS_DO_CAMINHO,
   decodificarBlob,
@@ -37,6 +38,7 @@ import {
   posicao,
   problemasDeLeitura,
   resumir,
+  sugerirEntrada,
   textosNoDisco,
   tipoDoCaminho,
 } from './reader.mjs'
@@ -715,6 +717,9 @@ describe('tipoDoCaminho', () => {
       '.github/instructions/a.instructions.md': 'agente',
       '.vscode/tasks.json': 'agente',
       '.devcontainer/devcontainer.json': 'agente',
+      // One folder deeper is a Dev Container config too (containers.dev spec); two is not.
+      '.devcontainer/python/devcontainer.json': 'agente',
+      '.devcontainer/a/b/devcontainer.json': 'dados',
       'x.code-workspace': 'agente',
       '.mcp.json': 'agente',
       '.rebar/mcp.mjs': 'agente',
@@ -824,6 +829,62 @@ describe('lerAllowlist', () => {
       2,
       'every call starts with fresh counters',
     )
+  })
+
+  test('the placeholder motivo --sugerir-allowlist prints is refused, spaced, cased or extended', () => {
+    // A line pasted as printed would exempt a finding no person looked at. The
+    // refusal is the malformed-line path, so every injection rule fails on it.
+    const chave = { arquivo: 'a.js', oid }
+    const recusados = [
+      MOTIVO_A_ESCREVER,
+      `  ${MOTIVO_A_ESCREVER.toUpperCase().replaceAll(' ', '   ')} `,
+      MOTIVO_A_ESCREVER.replace('write why', 'write\twhy'),
+      `${MOTIVO_A_ESCREVER} - ok`,
+      // Measured on the first cut: with the space after the colon deleted it
+      // was a valid motivo.
+      MOTIVO_A_ESCREVER.replace(': ', ':'),
+      MOTIVO_A_ESCREVER.replaceAll(' ', ''),
+      MOTIVO_A_ESCREVER.replace('TODO: ', 'TODO - ').replace('person', 'per-son'),
+    ]
+    const texto = [
+      ...recusados.map((motivo) => linha({ regra: 'control-bytes', motivo, ...chave })),
+      linha({ regra: 'control-bytes', motivo: 'generated table, reviewed by the owner', ...chave }),
+      // A motivo that only shares words with the placeholder is a real reason.
+      linha({
+        regra: 'hidden-unicode',
+        motivo: 'TODO list file: why a person accepted it is in docs',
+        ...chave,
+      }),
+    ].join('\n')
+    const lista = lerAllowlist(repositorio([{ caminho: NOME_DA_ALLOWLIST, conteudo: texto }]))
+    assert.deepEqual(
+      lista.erros.map((e) => e.linha),
+      [1, 2, 3, 4, 5, 6, 7],
+    )
+    for (const e of lista.erros) {
+      assert.equal(
+        e.mensagem,
+        'motivo is the placeholder --sugerir-allowlist prints: write why a person accepted it',
+      )
+    }
+    assert.deepEqual(
+      lista.entradas.map((e) => [e.linha, e.regra]),
+      [
+        [8, 'control-bytes'],
+        [9, 'hidden-unicode'],
+      ],
+    )
+  })
+
+  test('sugerirEntrada records only when the caller asked, and never throws otherwise', () => {
+    const r = { dir: '.', sugestoesDaAllowlist: [] }
+    sugerirEntrada(r, 'control-bytes', { commit })
+    assert.deepEqual(r.sugestoesDaAllowlist, [{ regra: 'control-bytes', chave: { commit } }])
+    const semPedido = { dir: '.' }
+    sugerirEntrada(semPedido, 'control-bytes', { commit })
+    assert.deepEqual(semPedido, { dir: '.' })
+    sugerirEntrada('.', 'control-bytes', { commit })
+    sugerirEntrada(null, 'control-bytes', { commit })
   })
 
   test('only the INDEX copy counts: a disk-only copy is naoRastreada and ignored', () => {

@@ -1059,6 +1059,21 @@ describe('the editors', { concurrency: true }, () => {
       'an ordinary devcontainer setting',
     )
   })
+
+  test('devcontainer: a config one folder deep is read, two folders deep is not a config', async () => {
+    // containers.dev: `.devcontainer/<folder>/devcontainer.json` "where <folder>
+    // is a single level deep subfolder". Measured before: this was not applicable.
+    const corpo = (valor) =>
+      J({ customizations: { vscode: { settings: { [CH.autoApproveGlobal]: valor } } } })
+    const sub = k(DOT, 'devcontainer/python/devcontainer.json')
+    espera(await avaliar({ [sub]: corpo(true) }), 'reprovou', 'subfolder config')
+    espera(await avaliar({ [sub]: corpo(false) }), 'passou', 'subfolder config, off')
+    espera(
+      await avaliar({ [k(DOT, 'devcontainer/a/b/devcontainer.json')]: corpo(true) }),
+      'na',
+      'two folders deep',
+    )
+  })
 })
 
 describe('the other clients', { concurrency: true }, () => {
@@ -1208,6 +1223,91 @@ describe('broad shell rules', { concurrency: true }, () => {
     ['gemini', k('run_shell', '_command(npm test)'), false],
     ['cursor', k('She', 'll(curl:*)'), true],
     ['cursor', k('She', 'll(ls)'), false],
+    // Narrow runners (backlog 7 and 17). Measured on main: every row below marked
+    // false was broad, while the npm, python and bash equivalents passed.
+    // An informational option first prints and exits, whatever follows.
+    ['claude', shell('npm --version:*'), false],
+    ['claude', shell('npm -v *'), false],
+    ['claude', shell('npx --help:*'), false],
+    ['claude', shell('pnpm -h:*'), false],
+    ['claude', shell('uvx --version:*'), false],
+    ['claude', shell(k('cu', 'rl --version:*')), false],
+    ['claude', shell(k('cu', 'rl -V:*')), false],
+    ['claude', shell('node --version:*'), false],
+    ['claude', shell(k('pyt', 'hon3 -V:*')), false],
+    ['claude', shell(k('ba', 'sh --version:*')), false],
+    ['gemini', k('run_shell', '_command(npm --version)'), false],
+    ['gemini', k('run_shell', '_command(', 'cu', 'rl --version)'), false],
+    ['gemini', k('run_shell', '_command(node --version)'), false],
+    // Verbose, not version, and what was not measured, keep the old reading.
+    ['claude', shell(k('cu', 'rl -v:*')), true],
+    ['claude', shell('uvx -v:*'), true],
+    ['claude', shell(k('ba', 'sh -v:*')), true],
+    ['gemini', k('run_shell', '_command(uvx -v)'), true],
+    ['claude', shell('npm --versionX *'), true],
+    ['claude', shell('yarn --version *'), true],
+    ['claude', shell('bunx --version *'), true],
+    // deno: the subcommands that run no user code, and a task by name.
+    ['claude', shell(k('de', 'no fmt:*')), false],
+    ['claude', shell(k('de', 'no fmt --check:*')), false],
+    ['claude', shell(k('de', 'no check:*')), false],
+    ['claude', shell(k('de', 'no doc:*')), false],
+    ['claude', shell(k('de', 'no info:*')), false],
+    ['claude', shell(k('de', 'no task build:*')), false],
+    ['gemini', k('run_shell', '_command(', 'de', 'no fmt)'), false],
+    ['gemini', k('run_shell', '_command(', 'de', 'no task build)'), false],
+    // An exact Claude rule approves that one command, whatever it is.
+    ['claude', shell(k('de', 'no task')), false],
+    ['claude', shell(k('de', 'no task --eval echo')), false],
+    ['claude', shell(k('de', 'no task:*')), true],
+    ['claude', shell(k('de', 'no task *')), true],
+    ['claude', shell(k('de', 'no task --eval *')), true],
+    ['claude', shell(k('de', 'no task --config x build:*')), true],
+    ['claude', shell(k('de', 'no lint:*')), true],
+    ['claude', shell(k('de', 'no test:*')), true],
+    ['claude', shell(k('de', 'no -A fmt:*')), true],
+    ['claude', shell(k('de', 'no *')), true],
+    ['gemini', k('run_shell', '_command(', 'de', 'no task)'), true],
+    ['gemini', k('run_shell', '_command(', 'de', 'no)'), true],
+    ['gemini', k('run_shell', '_command(npm)'), true],
+    // PowerShell: -File and a script, after switches that change no code.
+    ['claude', shell('pwsh -File scripts/build.ps1:*'), false],
+    ['claude', shell('pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1:*'), false],
+    ['claude', k('Power', 'Shell(', 'power', 'shell.exe -File scripts/b.ps1:*)'), false],
+    ['claude', shell('pwsh -File scripts/b.ps1 -Command x:*'), false],
+    ['gemini', k('run_shell', '_command(pwsh -File scripts/b.ps1)'), false],
+    ['claude', shell('pwsh -File *'), true],
+    ['claude', shell('pwsh -File -:*'), true],
+    ['claude', shell('pwsh -File scripts/*.ps1:*'), true],
+    ['claude', shell('pwsh -Command x -File scripts/b.ps1:*'), true],
+    ['claude', shell('pwsh scripts/b.ps1:*'), true],
+    ['claude', shell('pwsh -f scripts/b.ps1:*'), true],
+    ['claude', shell('pwsh -ExecutionPolicy * -File scripts/b.ps1:*'), true],
+    // Abbreviations of -Command before -File: measured, they ran the rest as code.
+    ['claude', shell(k('power', 'shell -Comm -File scripts/b.ps1:*')), true],
+    ['claude', shell(k('power', 'shell -co -File scripts/b.ps1:*')), true],
+    ['claude', shell('pwsh -enc -File scripts/b.ps1:*'), true],
+    // Measured on Windows PowerShell 5.1: -NoExit ran what stdin held after the
+    // script, and -SettingsFile, unknown there, turned the line into -Command.
+    ['claude', shell('pwsh -NoExit -File scripts/b.ps1:*'), true],
+    ['claude', shell(k('power', 'shell -noe -File scripts/b.ps1:*')), true],
+    ['gemini', k('run_shell', '_command(pwsh -NoExit -File scripts/b.ps1)'), true],
+    ['claude', shell(k('power', 'shell -SettingsFile x.json -File scripts/b.ps1:*')), true],
+    ['claude', shell(k('power', 'shell -settingsfile x -File scripts/b.ps1 *')), true],
+    ['claude', shell('pwsh -SettingsFile x.json -File scripts/b.ps1:*'), true],
+    // node --run runs a package script, like npm run.
+    ['claude', shell('node --run build:*'), false],
+    ['claude', shell('node --run:*'), false],
+    ['claude', shell('node --run *'), false],
+    ['claude', shell('node --run=build:*'), false],
+    ['gemini', k('run_shell', '_command(node --run build)'), false],
+    ['claude', shell('node --run=*'), true],
+    ['claude', shell('node --import x.mjs app.js:*'), true],
+    ['claude', shell('node --watch app.js:*'), true],
+    // Cursor matching was not measured: it keeps main's reading.
+    ['cursor', k('She', 'll(npm --version)'), true],
+    ['cursor', k('She', 'll(', 'de', 'no fmt)'), true],
+    ['cursor', k('She', 'll(npm:--version)'), true],
   ]
   for (const [dialeto, regra, amplo] of casos) {
     test(`${dialeto} ${regra} ${amplo ? 'is' : 'is not'} broad`, async () => {

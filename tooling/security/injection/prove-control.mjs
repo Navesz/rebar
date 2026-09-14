@@ -231,9 +231,9 @@ describe('control-bytes: the 15 proofs measured in phase 1', () => {
   })
 
   test('fail: a raw ESC in a README, reported at line:column', () => {
-    const dir = repositorio([
-      { caminho: 'README.md', conteudo: `line one\nabc${ESC}[31m marker\n` },
-    ])
+    // SGR 8 conceals: a visible colour in prose passes now (see "page breaks and
+    // visible colour" below), so the prototype's red became the concealing form.
+    const dir = repositorio([{ caminho: 'README.md', conteudo: `line one\nabc${ESC}[8m marker\n` }])
     assert.match(reprovou(controle(dir)), /^1 control character: README\.md:2:4 <U\+001B> — /)
   })
 
@@ -403,6 +403,168 @@ describe('control-bytes: which set a file gets', () => {
   })
 })
 
+describe('control-bytes: page breaks and visible colour in prose and data files', () => {
+  // Two false positives of main, each a shape that hides nothing. A form feed
+  // alone on its line is how GNU license files, Emacs Lisp and Python separate
+  // pages (xterm treats FF like LF, less prints ^L). A colour sequence of
+  // visible parameters is what a CLI test snapshot records. Everything around
+  // them keeps failing: the reason is in control.mjs's header.
+  const VT = cp(0x0b)
+  const snap = (corpo) => ({
+    caminho: 'src/__snapshots__/cli.test.js.snap',
+    conteudo: `exports[\`e 1\`] = \`"${corpo}"\`;\n`,
+  })
+
+  test('a form feed alone on its line passes in prose and data, with LF or CRLF, at either end', () => {
+    const dir = repositorio([
+      { caminho: 'COPYING', conteudo: `part 1\n${FF}\npart 2\n` },
+      { caminho: 'docs/LICENSE.txt', conteudo: `a\r\n${FF}\r\nb\r\n` },
+      { caminho: 'lisp/my-mode.el', conteudo: `${FF}\n;;; Code:\n${FF}` },
+    ])
+    assert.equal(controle(dir), null)
+  })
+
+  test('a form feed fails in an agent file, in a run, mid-line, in the allowlist and as an escape', () => {
+    const casos = [
+      [{ caminho: 'AGENTS.md', conteudo: `# a\n${FF}\nb\n` }, /AGENTS\.md:2:1 <U\+000C>/],
+      [
+        { caminho: 'README.md', conteudo: `a\n${FF}${FF}\nb\n` },
+        /README\.md:2:1 <U\+000C> \(\+1 more\)/,
+      ],
+      [{ caminho: 'docs/a.md', conteudo: `see${FF}this\n` }, /docs\/a\.md:1:4 <U\+000C>/],
+      [{ caminho: 'docs/a.md', conteudo: `see\n${FF} this\n` }, /docs\/a\.md:2:1 <U\+000C>/],
+      [{ caminho: 'docs/a.md', conteudo: `a\n${VT}\nb\n` }, /docs\/a\.md:2:1 <U\+000B>/],
+      [{ caminho: 'docs/a.md', conteudo: `a\n${BEL}\nb\n` }, /docs\/a\.md:2:1 <U\+0007>/],
+      [
+        { caminho: 'cfg/a.json', conteudo: `{"a": "x${B}f"}\n` },
+        /cfg\/a\.json:1:\d+ <U\+000C> as a json/,
+      ],
+    ]
+    for (const [arquivo, esperado] of casos) {
+      assert.match(reprovou(controle(repositorio([arquivo]))), esperado, arquivo.caminho)
+    }
+    const allowlist = repositorio([{ caminho: NOME_DA_ALLOWLIST, conteudo: `# a\n${FF}\n` }])
+    const r = reprovou(controle(allowlist))
+    assert.match(r, /\.rebar-injection-allowlist:2:1 <U\+000C>/)
+    assert.doesNotMatch(r, /add \{regra, motivo, arquivo, oid\}/)
+  })
+
+  test('a snapshot and a golden file with visible colours pass', () => {
+    const dir = repositorio([
+      snap(
+        `${ESC}[31mError:${ESC}[39m ${ESC}[2mdim${ESC}[22m ${ESC}[1mbold${ESC}[22m ${ESC}[32mok${ESC}[39m`,
+      ),
+      {
+        caminho: 'testdata/x.golden',
+        conteudo: `${ESC}[1mTitle${ESC}[0m\n${ESC}[36mitem${ESC}[m\n${ESC}[1;4;91mx${ESC}[;0m\n`,
+      },
+    ])
+    assert.equal(controle(dir), null)
+  })
+
+  test('what conceals, matches a theme background, moves the cursor or links fails in a snapshot', () => {
+    const casos = [
+      ['conceal', `ok${ESC}[8m hidden ${ESC}[28m`],
+      ['black', `${ESC}[30mx${ESC}[0m`],
+      ['bright black (Solarized Dark background)', `${ESC}[90mx${ESC}[0m`],
+      ['bright white (Solarized Light background)', `${ESC}[97mx${ESC}[0m`],
+      ['white', `${ESC}[37mx${ESC}[0m`],
+      ['a background colour', `${ESC}[41mx${ESC}[0m`],
+      ['a 256-colour foreground', `${ESC}[38;5;1mx${ESC}[0m`],
+      ['a visible and a concealing parameter together', `${ESC}[1;8mx${ESC}[0m`],
+      ['cursor up', `line${ESC}[1Areplaced`],
+      ['erase line', `line${ESC}[2Kreplaced`],
+      ['an OSC 8 link', `${ESC}]8;;https://example.invalid${ESC}${B}text${ESC}]8;;${ESC}${B}`],
+      ['a colon sub-parameter', `${ESC}[38:2:0:0:0mx${ESC}[0m`],
+      ['a private marker', `${ESC}[?31mx`],
+      ['a parameter string past 40 characters', `${ESC}[${'1;'.repeat(20)}1mx`],
+      ['an ESC with no sequence at the end of the file', `x${ESC}`],
+      ['the one-byte CSI', `${CSI}31mx`],
+    ]
+    for (const [nome, corpo] of casos) {
+      const r = reprovou(controle(repositorio([snap(corpo)])))
+      assert.match(r, /src\/__snapshots__\/cli\.test\.js\.snap:1:\d+ <U\+00(?:1B|9B)>/, nome)
+    }
+  })
+
+  test('a visible colour still fails in an agent file, code, a name, a commit message and the allowlist', () => {
+    const dir = repositorio(
+      [
+        { caminho: 'AGENTS.md', conteudo: `${ESC}[31mred${ESC}[0m\n` },
+        { caminho: 'src/a.mjs', conteudo: `console.log('${ESC}[31mred${ESC}[0m')\n` },
+        { caminho: `docs/a${ESC}[31m.md`, conteudo: 'fine\n' },
+        { caminho: NOME_DA_ALLOWLIST, conteudo: `# ${ESC}[31mred${ESC}[0m\n` },
+      ],
+      { mensagens: [`subject ${ESC}[32mgreen${ESC}[0m\n`] },
+    )
+    const r = reprovou(controle(dir))
+    assert.match(r, /AGENTS\.md:1:1 <U\+001B>/)
+    assert.match(r, /src\/a\.mjs:1:14 <U\+001B>/)
+    assert.match(r, /\.rebar-injection-allowlist:1:3 <U\+001B>/)
+    assert.match(r, /name docs\/a<U\+001B>\[31m\.md <U\+001B>/)
+    assert.match(r, /commit [0-9a-f]{12} message <U\+001B>/)
+  })
+
+  test('the remedy: mojibake is UTF-8 decoded twice, but RI and the introducers still hide text', () => {
+    // A Portuguese heading saved through UTF-8 twice: c-cedilla and a-tilde
+    // become U+00C3 plus U+0087 and U+00C3 plus U+0083. Measured on main:
+    // "<U+0087> · <U+0083> — a terminal acts on it and hides text".
+    const duasVezes = (s) => Buffer.from(Buffer.from(s, 'utf8').toString('latin1'), 'utf8')
+    const atencao = reprovou(
+      controle(
+        repositorio([{ caminho: 'docs/a.md', conteudo: duasVezes(`ATEN${cp(0xc7, 0xc3)}O\n`) }]),
+      ),
+    )
+    assert.match(atencao, /<U\+0087>/)
+    assert.match(atencao, /UTF-8 text decoded twice, so re-save the file as UTF-8; remove it/)
+    assert.doesNotMatch(atencao, /hides text/)
+    // I-acute leaves RI, U+008D, which moves the cursor up: the hiding claim
+    // stays, and the remedy also says the text was decoded twice. Measured on
+    // the first cut of this remedy: only the hiding claim was printed.
+    const indice = reprovou(
+      controle(
+        repositorio([
+          {
+            caminho: 'docs/b.md',
+            conteudo: duasVezes(`${cp(0xcd)}NDICE E SE${cp(0xc7, 0xc3)}O\n`),
+          },
+        ]),
+      ),
+    )
+    assert.match(indice, /<U\+008D>/)
+    assert.match(indice, /hides text from the review/)
+    assert.match(indice, /can also be UTF-8 text decoded twice, so re-save the file as UTF-8/)
+    // A double-encoded letter before a real CSI still hides text.
+    const csi = reprovou(
+      controle(repositorio([{ caminho: 'docs/c.md', conteudo: `${cp(0xc2, 0x9b)}8mx\n` }])),
+    )
+    assert.match(csi, /hides text from the review/)
+    // Mojibake next to a concealing sequence: the hiding claim wins.
+    const junto = reprovou(
+      controle(
+        repositorio([
+          { caminho: 'docs/a.md', conteudo: duasVezes(`ATEN${cp(0xc7, 0xc3)}O\n`) },
+          { caminho: 'docs/d.md', conteudo: `${ESC}[8mx\n` },
+        ]),
+      ),
+    )
+    assert.match(junto, /hides text from the review/)
+    assert.doesNotMatch(junto, /decoded twice/)
+    // A page break and mojibake together get both reasons, and no hiding claim.
+    const ambos = reprovou(
+      controle(
+        repositorio([
+          { caminho: 'docs/a.md', conteudo: duasVezes(`ATEN${cp(0xc7, 0xc3)}O\n`) },
+          { caminho: 'docs/e.md', conteudo: `a${FF}b\n` },
+        ]),
+      ),
+    )
+    assert.match(ambos, /hides no text/)
+    assert.match(ambos, /decoded twice/)
+    assert.doesNotMatch(ambos, /hides text/)
+  })
+})
+
 describe('control-bytes: format escapes', () => {
   test('backslash parity, the escapes left out, and Markdown without frontmatter', () => {
     const dir = repositorio([
@@ -519,13 +681,14 @@ describe('control-bytes: names, link targets and commit messages', () => {
   test('in a file, the remedy says a form feed or a bell is a page-break or bell control, not hidden text', () => {
     // Measured before: a license file with a form feed on its own line was told
     // its control "hides text from the review", which misleads a maintainer
-    // about tampering. The verdict for prose does not change.
+    // about tampering. That form feed passes now, so the one that still fails
+    // sits in the middle of a line.
     const pagina = reprovou(
-      controle(repositorio([{ caminho: 'COPYING.LIB', conteudo: `part 1\n${FF}\npart 2\n` }])),
+      controle(repositorio([{ caminho: 'COPYING.LIB', conteudo: `part 1${FF}part 2\n` }])),
     )
     assert.match(
       pagina,
-      /^1 control character: COPYING\.LIB:2:1 <U\+000C> — a page-break or bell control/,
+      /^1 control character: COPYING\.LIB:1:7 <U\+000C> — a page-break or bell control hides no text, and only a form feed alone on its line in a prose or data file is left alone; remove it/,
     )
     assert.doesNotMatch(pagina, /hides text/)
     // With an ESC among the findings the hiding claim is true, and it stays.
