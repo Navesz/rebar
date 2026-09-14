@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "An MCP server launched from a GitHub package with no commit changes what every session starts whenever that branch moves, and an allowlist fingerprint pins only the launch text. The fail side launches the package by its bare spec; the pass side launches it by a 40-hex commit. Whoever reads only workflows turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInByb3ZhIjogewogICAgICAiY29tbWFuZCI6ICJucHgiLAogICAgICAiYXJncyI6IFsKICAgICAgICAiLXkiLAogICAgICAgICJnaXRodWI6b3duZXItcHJvdmEvc2Vydmlkb3ItcHJvdmEjYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIKICAgICAgXQogICAgfQogIH0KfQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInByb3ZhIjogewogICAgICAiY29tbWFuZCI6ICJucHgiLAogICAgICAiYXJncyI6IFsKICAgICAgICAiLXkiLAogICAgICAgICJnaXRodWI6b3duZXItcHJvdmEvc2Vydmlkb3ItcHJvdmEiCiAgICAgIF0KICAgIH0KICB9Cn0K"
+      }
+    ]
+  }
+}

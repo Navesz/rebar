@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A package.json script runs on npm run with no one retyping it, so an unpinned remote package there moves with the branch. The fail side has a script that runs a GitHub package with no ref; the pass side runs a registry package by exact version, which this rule does not judge. Whoever skips package scripts turns the fail side green; whoever judges registry versions as git specs turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogInByb3ZhIiwKICAic2NyaXB0cyI6IHsKICAgICJyZWd1YSI6ICJucHggc29tZS1wYWNrYWdlQDEuMi4zIC4iCiAgfQp9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "package.json",
+        "base64": "ewogICJuYW1lIjogInByb3ZhIiwKICAic2NyaXB0cyI6IHsKICAgICJyZWd1YSI6ICJucHggLS15ZXMgZ2l0aHViOm93bmVyLXByb3ZhL3JlcG8tcHJvdmEgLiIKICB9Cn0K"
+      }
+    ]
+  }
+}

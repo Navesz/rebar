@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A folded YAML scalar joins its lines into one command, so the runner and its package may sit on different lines of the file. The fail side folds an unpinned run over two lines; the pass side folds the pinned tarball. Whoever judges each line apart turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46ID4KICAgICAgICAgIG5weCAtLXllcwogICAgICAgICAgaHR0cHM6Ly9jb2RlbG9hZC5naXRodWIuY29tL293bmVyLXByb3ZhL3JlcG8tcHJvdmEvdGFyLmd6L2FhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEgLgo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46ID4KICAgICAgICAgIG5weCAtLXllcwogICAgICAgICAgZ2l0aHViOm93bmVyLXByb3ZhL3JlcG8tcHJvdmEgLgo="
+      }
+    ]
+  }
+}

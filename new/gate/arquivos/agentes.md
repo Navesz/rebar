@@ -16,7 +16,7 @@ the rest: `rebar_porque`, `rebar_decidir`, `rebar_portao` and `rebar_verificar`.
 > at the gate. Turn the `rebar` server on in your AI client — in Claude Code:
 > restart at the project root, approve the `.mcp.json` and check with `/mcp` —
 > and call me again. Meanwhile I go by the command-line ruler, which gives the
-> same verdict: `npx --yes github:Navesz/rebar .`
+> same verdict: `npx --yes https://codeload.github.com/Navesz/rebar/tar.gz/{{commit-do-rebar}} .`
 
 The `.mcp.json` is already written and points to `{{lancador}}`. You are not the
 one who creates it: the client has to load it, and that is the user's decision,

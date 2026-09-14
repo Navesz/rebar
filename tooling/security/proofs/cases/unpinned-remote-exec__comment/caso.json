@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A commented line does not execute. The pass side keeps the unpinned step as a YAML comment above a pinned run; the fail side has the same step uncommented. Whoever reads the raw text of a workflow turns the pass side red.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgIyAtIHJ1bjogbnB4IC0teWVzIGdpdGh1Yjpvd25lci1wcm92YS9yZXBvLXByb3ZhIC4KICAgICAgLSBydW46IG5weCAtLXllcyBodHRwczovL2NvZGVsb2FkLmdpdGh1Yi5jb20vb3duZXItcHJvdmEvcmVwby1wcm92YS90YXIuZ3ovYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSAuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBnaXRodWI6b3duZXItcHJvdmEvcmVwby1wcm92YSAuCiAgICAgIC0gcnVuOiBucHggLS15ZXMgaHR0cHM6Ly9jb2RlbG9hZC5naXRodWIuY29tL293bmVyLXByb3ZhL3JlcG8tcHJvdmEvdGFyLmd6L2FhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEgLgo="
+      }
+    ]
+  }
+}

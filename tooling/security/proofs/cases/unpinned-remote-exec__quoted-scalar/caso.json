@@ -1,0 +1,20 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "A run step written as a quoted YAML scalar is the same command: measured, a line reader split it into one word and saw no runner. The fail side quotes an unpinned run; the pass side quotes the pinned tarball. Whoever reads workflows line by line instead of parsing the scalar turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46ICJucHggLS15ZXMgaHR0cHM6Ly9jb2RlbG9hZC5naXRodWIuY29tL293bmVyLXByb3ZhL3JlcG8tcHJvdmEvdGFyLmd6L2FhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEgLiIK"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46ICJucHggLS15ZXMgZ2l0aHViOm93bmVyLXByb3ZhL3JlcG8tcHJvdmEgLiIK"
+      }
+    ]
+  }
+}

@@ -923,6 +923,7 @@ const RUNTIME_DO_REBAR_SECURITY = [
   'tooling/security/injection/control.mjs',
   'tooling/security/injection/agent-config.mjs',
   'tooling/security/injection/mcp-launch.mjs',
+  'tooling/security/injection/opcoes-npm.mjs',
   'tooling/security/injection/bypass.mjs',
   'tooling/security/injection/workflow.mjs',
   'tooling/security/injection/instrucoes.mjs',
@@ -932,6 +933,11 @@ const RUNTIME_DO_REBAR_SECURITY = [
   'tooling/security/injection/escritas.mjs',
   'tooling/security/injection/escritas-tabelas.mjs',
   'tooling/security/injection/exec-indireto.mjs',
+  'tooling/security/injection/mcp-integrity.mjs',
+  'tooling/security/injection/unpinned-exec.mjs',
+  // Not an import: mcp-integrity reads the table next to it by URL. Without it
+  // the rule breaks, which is tooling missing, not a repository that failed.
+  'tooling/security/injection/modelos-mcp.json',
 ]
 
 // The node:test files of the prompt-injection rules: one per family, the proof
@@ -952,6 +958,8 @@ const PROVAS_DE_INJECAO = [
   'tooling/security/injection/prove-proveniencia.mjs',
   'tooling/security/injection/prove-escritas.mjs',
   'tooling/security/injection/prove-exec-indireto.mjs',
+  'tooling/security/injection/prove-mcp-integrity.mjs',
+  'tooling/security/injection/prove-unpinned-exec.mjs',
   'tooling/rebar-check/proofs/prove-gerados.mjs',
   'tooling/security/prove-injection.mjs',
 ]
@@ -1404,10 +1412,26 @@ export default [
     // the gate armed? `core.hooksPath` is a free string, git writes it without
     // checking anything, and whoever reads only the value announces a closed
     // gate over a gate wide open. Five states, five cases.
+    //
+    // Since 2026-09-13 it also holds the template to what it now promises: a
+    // generic or catastrophic SENTINELA is refused, project and process text
+    // comes back escaped, `regua: true` runs only the one commit the workflow
+    // pins, a `git` planted in the project never runs, the sanitizer block is
+    // proved equal to tooling/security/texto-seguro.mjs, and the version table
+    // mcp-integrity reads (tooling/security/injection/modelos-mcp.json) knows the
+    // template on disk and every version in history. That last check is the
+    // table's freshness gate, here and not in a step of its own, because it
+    // fails for the same edit this step already watches.
     nome: 'mcp-template',
     comando: node('new/gate/prove-mcp-template.mjs', '--curto'),
-    exige: ['new/gate/prove-mcp-template.mjs', 'new/gate/arquivos/mcp-rebar.mjs'],
-    dica: 'The MCP the generator writes stopped answering, or started lying about the state of the gate. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole JSON-RPC exchange.',
+    exige: [
+      'new/gate/prove-mcp-template.mjs',
+      'new/gate/arquivos/mcp-rebar.mjs',
+      'tooling/security/texto-seguro.mjs',
+      'tooling/security/injection/modelos-mcp.json',
+      'new/gate/modelos-mcp.mjs',
+    ],
+    dica: 'The MCP the generator writes stopped answering, started lying about the state of the gate, or drifted from what rebar-security knows of it. A sanitizer difference means the block between the @texto-seguro markers no longer equals tooling/security/texto-seguro.mjs. A stale table means the template changed, or an entry is not a version in the history of HEAD (a hand edit, or a branch version a squash merge dropped): run `node new/gate/modelos-mcp.mjs --escrever`, then `npm run format`, and commit tooling/security/injection/modelos-mcp.json with it. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole exchange.',
     extrair: /^\s*FALHA/,
     tempoLimite: 2 * MINUTO,
   },
@@ -1467,17 +1491,20 @@ export default [
   {
     // THE PROMPT-INJECTION RULES, as one step.
     //
-    // Eleven rules of rebar-security look for known prompt-injection signatures
+    // Thirteen rules of rebar-security look for known prompt-injection signatures
     // in what git tracks: hidden Unicode, terminal controls, agent settings that
     // run commands, MCP server launches, agent CLIs with approval switched off,
     // AI agent steps that outside text reaches in a workflow, escaped controls
-    // in MCP server source, and the four heuristics of the third phase (hidden
-    // Markdown addressed to an agent, a false generator marker, a token mixing
-    // writing systems, an indirect execution change). Each family has a
+    // in MCP server source, an MCP server file that is not a version rebar
+    // generated, a git or tarball package run with no commit pin (the generated
+    // sites ran rebar itself that way), and the four heuristics of the third
+    // phase (hidden Markdown addressed to an agent, a false generator marker, a
+    // token mixing writing systems, an indirect execution change). Each family has a
     // node:test file of its own, and `gerados` in the proof runner has one too;
     // prove-injection.mjs adds the proofs no family can own: what `rebar new`
-    // generates passes every injection rule (its CI runs rebar-security
-    // unpinned, so a failure there turns every generated project red on merge),
+    // generates passes every injection rule (its CI runs rebar-security pinned
+    // to a commit, so a failure there turns every project red on its next pin
+    // bump),
     // no proof case tracks a real agent file, rebar passes its own injection
     // rules with heuristics on and no warning, and this step and its `exige`
     // still name every proof file and every engine.
@@ -1518,13 +1545,15 @@ export default [
     // The four phase-3 heuristics brought four more files, 14 in all: the step
     // took 105.0 s on 2026-09-13 on this machine while four other worktrees ran
     // their own gates on it (35% of the limit). ai-workflow-untrusted-input
-    // brought prove-workflow.mjs, 15 in all.
+    // brought prove-workflow.mjs, 15 in all; mcp-integrity and unpinned-remote-exec
+    // brought prove-mcp-integrity.mjs and prove-unpinned-exec.mjs, 17 in all.
     nome: 'security-injection',
     comando: node('--test', `--test-concurrency=${PROVAS_DE_INJECAO.length}`, ...PROVAS_DE_INJECAO),
     // `exige` lists what the step loads: every proof file, the checker they
-    // spawn and every engine it imports, the runner `gerados` proves, and the two
-    // generator templates test (d) renders. A missing one is missing tooling
-    // (127), not a repository that failed (1).
+    // spawn and every engine it imports, the runner `gerados` proves, and the
+    // generator templates test (d) renders (AGENTS.md and the README come from
+    // aplicar.mjs, the workflow through its commit marker, the server raw). A
+    // missing one is missing tooling (127), not a repository that failed (1).
     exige: [
       ...PROVAS_DE_INJECAO,
       ...RUNTIME_DO_REBAR_SECURITY,
@@ -1535,6 +1564,7 @@ export default [
       // prove-proveniencia.mjs renders the AGENTS.md template and runs this CLI.
       'new/gate/arquivos/agentes.md',
       'tooling/security/injection/gravar-moldes.mjs',
+      'new/gate/arquivos/mcp-rebar.mjs',
     ],
     dica: 'An injection rule changed behaviour, the index reader or a format decoder changed what it reads, what `rebar new` generates stopped passing the injection rules, a proof case started tracking an agent file, or rebar itself carries a signature. These rules read the git INDEX: a fix only in the working tree counts once it is staged.',
     extrair: /^\s*(✖|not ok|AssertionError)/i,
@@ -1551,7 +1581,7 @@ export default [
     // It is the mirror of the `self` step, which exists for the same reason for
     // rebar-check. The security ruler did not have its own.
     //
-    // Since the prompt-injection rules it also reads the git INDEX for eleven of its
+    // Since the prompt-injection rules it also reads the git INDEX for thirteen of its
     // rules, so locally a fix counts once it is staged; in CI the index is the
     // commit.
     nome: 'security-self',

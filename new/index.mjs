@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// THE GENERATOR.  npx github:Navesz/rebar new <nome>
+// THE GENERATOR.  npx --yes https://codeload.github.com/Navesz/rebar/tar.gz/<commit> new <nome>
 //
 // IT DOES NOT WRITE THE APPLICATION, and that is the decision that governs the
 // whole file. The scaffold is delegated to `shadcn create`, which already
@@ -24,12 +24,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   aplicarPortao,
+  conferirIntegridadeMcp,
   marcarExecutaveis,
   normalizarFormato,
   PASTA_HOOKS,
   REGISTRO_REMOTO,
+  SEM_COMMIT,
 } from './gate/aplicar.mjs'
-import { ambienteDeIdentidade } from './identidade.mjs'
+import { ambienteDeIdentidade, commitDoRebar } from './identidade.mjs'
 
 // fileURLToPath, not .pathname: on Windows the pathname comes out as
 // "/C:/Users/...", with a slash before the drive letter, and every join from it
@@ -197,24 +199,24 @@ function configGit(cwd, chave) {
 /**
  * Runs rebar-check on the generated project and returns the exit code.
  *
- * It prefers the checker from the local checkout — it is the same code that
- * `npx github:Navesz/rebar` would download, with no network and no stale cache
- * in between. The network only comes in if this file is running from a place
- * where `tooling/` did not come along, which should not happen and is announced
- * for that reason.
+ * The checker of THIS rebar, the code that is running: it is the commit the
+ * project was just pinned to. Until 2026-09-13 a missing local checker fell back
+ * to `npx github:Navesz/rebar` — unpinned, and through `shell: true` when npx
+ * was not found — which judged the project with whatever rebar's default branch
+ * held. Both measured install layouts (a git checkout, and npx over the commit
+ * tarball) ship `tooling/`, so the fallback guarded a case that does not happen
+ * with the one ruler this generator must not use.
  */
 function rodarRegua(destino) {
   const local = join(RAIZ_REBAR, 'tooling', 'rebar-check', 'index.mjs')
   if (existsSync(local)) {
     return spawnSync(process.execPath, [local, destino], { stdio: 'inherit' }).status
   }
-  eco('  WARNING: did not find the local rebar-check; fetching via npx (needs network).')
-  const npx = resolverNpx()
-  const args = ['--yes', 'github:Navesz/rebar', destino]
-  const r = npx
-    ? spawnSync(process.execPath, [npx, ...args], { stdio: 'inherit' })
-    : spawnSync('npx', args, { stdio: 'inherit', shell: true })
-  return r.status
+  console.error(
+    '\n  tooling/rebar-check/index.mjs is missing from this rebar — the generator does not run a ' +
+      'remote ruler in its place\n',
+  )
+  return 127
 }
 
 /**
@@ -268,14 +270,16 @@ function avisarPortaoRemoto(destino, avisos) {
 async function main(argv) {
   // Accepts both invocation forms, because both will exist:
   //   node new/index.mjs <nome>                (from the checkout)
-  //   npx github:Navesz/rebar new <nome>       (with the bin wired to dispatch)
+  //   npx --yes <rebar commit tarball> new <nome>   (with the bin wired to dispatch)
   const args = argv[0] === 'new' ? argv.slice(1) : argv
   const nome = args[0]
 
   const erroNome = validarNome(nome)
   if (erroNome) {
     console.error(`\n  ${erroNome}\n`)
-    console.error('  usage: npx github:Navesz/rebar new <name> [domain[/path]]\n')
+    console.error(
+      '  usage: npx --yes https://codeload.github.com/Navesz/rebar/tar.gz/<commit> new <name> [domain[/path]]\n',
+    )
     return 2
   }
 
@@ -400,12 +404,41 @@ async function main(argv) {
     }
   }
 
+  // THE COMMIT EVERY REFERENCE TO REBAR IS PINNED TO. See commitDoRebar in
+  // new/identidade.mjs for how it is learned, and MARCA_DO_COMMIT in
+  // new/gate/aplicar.mjs for what happens when it cannot be.
+  const commit = commitDoRebar(RAIZ_REBAR)
+  eco(`       rebar pinned → ${commit.sha ?? SEM_COMMIT} (${commit.fonte ?? commit.motivo})`)
+  if (!commit.sha) {
+    avisosSite.push(
+      `could not learn which rebar commit is running (${commit.motivo}) — ` +
+        '.github/workflows/verificar.yml, AGENTS.md and README.md came out with ' +
+        `${SEM_COMMIT} in place of the pin: CI fails on it and the MCP refuses regua:true until ` +
+        'you write the 40-hex commit of the rebar you trust',
+    )
+  } else {
+    const sha7 = commit.sha.slice(0, 7)
+    if (commit.sujo) {
+      avisosSite.push(
+        'generated from a rebar checkout with uncommitted changes under new/ or tooling/ — the ' +
+          `project pins ${sha7}, which does not contain what was written here`,
+      )
+    }
+    if (commit.fonte === 'git' && !commit.noRemoto) {
+      avisosSite.push(
+        `the pinned rebar commit ${sha7} is on no remote-tracking branch — codeload.github.com ` +
+          "serves only pushed commits, so the project's CI cannot download the ruler until it is pushed",
+      )
+    }
+  }
+
   const { escritos, avisos, elos, exportEstatico } = aplicarPortao({
     destino,
     nome,
     raizRebar: RAIZ_REBAR,
     dono,
     email,
+    commit: commit.sha,
   })
   avisos.unshift(...avisosSite)
   for (const a of escritos) eco(`       + ${a}`)
@@ -418,6 +451,9 @@ async function main(argv) {
   // failing the `format-check` link the same gate just put in its chain — the
   // generator approving the debt it manufactured. See `normalizarFormato`.
   eco(`       prettier --write . → ${normalizarFormato(destino, avisos)}`)
+  // After the formatter pass, which is the one step that could rewrite the
+  // server rebar-security's mcp-integrity judges by its bytes.
+  eco(`       .rebar/mcp.mjs vs template → ${conferirIntegridadeMcp(destino, avisos)}`)
   eco(`       remote gate → ${avisarPortaoRemoto(destino, avisos)}`)
 
   eco('\n▸ 4/6  git: init, hooks, first commit')

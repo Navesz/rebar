@@ -86,6 +86,7 @@ import {
 import { checarMixedScript } from './injection/escritas.mjs'
 import { checarIndirectExec } from './injection/exec-indireto.mjs'
 import { checarHiddenMarkdown } from './injection/markdown-oculto.mjs'
+import { checarMcpIntegrity } from './injection/mcp-integrity.mjs'
 import { EXECUTORES_REMOTOS, SINAIS_DE_SHELL, checarMcpLaunch } from './injection/mcp-launch.mjs'
 import { checarProvenance } from './injection/proveniencia.mjs'
 import {
@@ -96,6 +97,7 @@ import {
   lerAllowlist,
 } from './injection/reader.mjs'
 import { checarHiddenUnicode } from './injection/unicode.mjs'
+import { checarUnpinnedExec } from './injection/unpinned-exec.mjs'
 import {
   ACOES_DE_AGENTE,
   CAMPOS_DO_EVENTO,
@@ -108,7 +110,8 @@ import { CONTROLES, ESCAPAR_TAMBEM, IGNORAVEIS, escaparSaida, naFaixa } from './
 //
 // The injection rules keep their engines AND their pattern tables in
 // `./injection/*.mjs`, one file per family, and this file only re-exports each
-// table by name. Two readers depend on that
+// table by name (mcp-integrity has no table; unpinned-remote-exec reuses the two
+// launch tables of mcp-server-launch). Two readers depend on that
 // shape: `mcp/generate.mjs` walks this module's exports for `[RegExp, string]`
 // tables and hands each one to the rule whose `checar` NAMES it, so a table
 // passed any other way would leave the MCP artifact without its vocabulary; and
@@ -970,6 +973,62 @@ export const REGRAS = [
      * scripts can hold a module named like the standard library on purpose.
      */
     checar: (r) => checarIndirectExec(r),
+    id: 'mcp-integrity',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo: 'the rebar MCP server a tracked config launches is a version rebar shipped',
+    /**
+     * The client starts `.rebar/mcp.mjs` on every session, and headless sessions
+     * start project servers without asking. mcp-server-launch pins the launch
+     * text, `node .rebar/mcp.mjs`, and nothing pinned the file it names: an edit
+     * to the server walked past every rule while the launch never changed.
+     *
+     * So the tracked blob must be byte for byte a version of the template rebar
+     * generates, looked up by sha256 in a table derived from rebar's git history.
+     * A table and not the running template, because rebar-site tracks version 2
+     * (blob 8bc5d7f) and assay and navesz-portfolio track version 6 (blob
+     * ea75237): all three would fail against the current file for code rebar
+     * wrote. The current version passes, an older one passes with a note on how
+     * to update, an unknown one fails. Version 1 fails too although rebar
+     * shipped it: it runs npx --yes github:Navesz/rebar --mcp, unpinned, every
+     * time the client starts it, and a review measured a downgrade to it passing
+     * every rule.
+     *
+     * No allowlist entry, because the honest way to run a modified server
+     * already exists: launch it under another file name and accept that launch
+     * by fingerprint.
+     */
+    checar: (r) => checarMcpIntegrity(r),
+  },
+
+  {
+    id: 'unpinned-remote-exec',
+    classe: 'determinística',
+    nivel: 'N4',
+    titulo:
+      'no workflow, MCP config, package script or agent instruction runs a git or tarball package without a commit pin',
+    /**
+     * A branch, a tag or no ref at all runs whatever the remote repository holds
+     * at the instant the job starts, so a push there changes what this
+     * repository executes with no diff here. rebar's own generated projects ran
+     * the ruler that way until 2026-09-13, three sites at once.
+     *
+     * The fix has to be a spelling the runner accepts. Measured on 2026-09-13:
+     * npm 10.9.3, the npm of Node 22 on the CI runners, exits 1 on a git spec
+     * with a commit ref, and npm 10.9.3 and npm 11.6.2 both run the commit
+     * tarball from codeload. So a 40-hex commit passes as a git ref or as a
+     * codeload or archive tarball, and so does a registry tarball with an exact
+     * version.
+     *
+     * Workflows, MCP launches, package.json scripts and agent instruction files
+     * are judged, because each runs a command no person retypes; an agent
+     * executes what its instructions tell it to. Prose is not: rebar's README
+     * carries 5 command lines that run rebar unpinned for the people who read
+     * it (measured on 2026-09-13). No allowlist entry,
+     * because an entry would pin the text and the text keeps running whatever
+     * the branch holds next.
+     */
+    checar: (r) => checarUnpinnedExec(r, { EXECUTORES_REMOTOS, SINAIS_DE_SHELL }),
   },
 ]
 

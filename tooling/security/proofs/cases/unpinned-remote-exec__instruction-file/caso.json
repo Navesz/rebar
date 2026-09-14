@@ -1,0 +1,24 @@
+{
+  "rule": "unpinned-remote-exec",
+  "why": "An agent runs the command its instruction file tells it to run, and a README command is read by a person before it is typed. The fail side puts an unpinned run in a fenced block of AGENTS.md; the pass side puts the same fenced block in README.md, next to a pinned workflow. Whoever judges prose turns the pass side red, and rebar's own README, whose quick start runs rebar unpinned on 5 lines, with it; whoever skips instruction files turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBwcm92YQoKYGBgc2gKbnB4IC0teWVzIGdpdGh1Yjpvd25lci1wcm92YS9yZXBvLXByb3ZhIC4KYGBgCg=="
+      },
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "b246IHB1c2gKam9iczoKICB2ZXJpZmljYXI6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSBydW46IG5weCAtLXllcyBodHRwczovL2NvZGVsb2FkLmdpdGh1Yi5jb20vb3duZXItcHJvdmEvcmVwby1wcm92YS90YXIuZ3ovYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSAuCg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "AGENTS.md",
+        "base64": "IyBwcm92YQoKYGBgc2gKbnB4IC0teWVzIGdpdGh1Yjpvd25lci1wcm92YS9yZXBvLXByb3ZhIC4KYGBgCg=="
+      }
+    ]
+  }
+}

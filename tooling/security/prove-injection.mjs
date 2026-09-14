@@ -1,13 +1,14 @@
 // THE PROMPT-INJECTION RULES, PROVED AS ONE GATE STEP
 //
-// rebar-security gained eleven rules that look for known prompt-injection
+// rebar-security gained thirteen rules that look for known prompt-injection
 // signatures in what git tracks: hidden Unicode, terminal controls, agent
 // settings that run commands, MCP server launches, agent CLIs started with their
 // approval switch off, AI agent steps that outside text reaches in a GitHub
-// workflow, and escaped controls in MCP server source; and four heuristics of the
-// third phase: hidden Markdown addressed to an agent, an AGENTS.md that falsely
-// claims the rebar generator, a URL or name mixing writing systems, and a change
-// that makes an obedient agent run something new. Their engines
+// workflow, escaped controls in MCP server source, an MCP server file that is not
+// a version rebar shipped, and a remote package run without a commit pin; and four
+// heuristics of the third phase: hidden Markdown addressed to an agent, an
+// AGENTS.md that falsely claims the rebar generator, a URL or name mixing writing
+// systems, and a change that makes an obedient agent run something new. Their engines
 // live in `./injection/`, one file per family, and each family has its own
 // node:test file. The proof runner learned to build index-only fixtures for them
 // (`gerados` in tooling/rebar-check/proofs/prove.mjs), and that runner has its
@@ -22,15 +23,15 @@
 // which is how the step once took 198 s of its 5 min. Given each file, `node
 // --test` runs one process per file, in parallel.
 //
-// This file keeps a lock on the order of the eleven rules in index.mjs, a lock on
+// This file keeps a lock on the order of the thirteen rules in index.mjs, a lock on
 // the step itself (it still names every proof file, and every step that starts
 // the checker still requires every engine the checker imports), and the three
 // tests no single family can own, because they judge the rules together:
 //
 //   (d) what rebar GENERATES passes them. Generated projects run rebar-security
-//       unpinned in CI, so an injection rule that failed the generated AGENTS.md,
-//       `.mcp.json` or CI workflow would turn every downstream CI red on the day
-//       it merged.
+//       in CI, pinned to the commit that generated them, so an injection rule
+//       that failed the generated AGENTS.md, `.mcp.json`, `.rebar/mcp.mjs`,
+//       workflow or README would turn every project red on its next pin bump.
 //   (e) the proof cases do not smuggle a real agent file into rebar's own tree.
 //       Claude Code loads nested instruction files on demand, so a static
 //       AGENTS.md fixture under a case folder would instruct the agents that
@@ -63,7 +64,7 @@ import { join, posix } from 'node:path'
 import test, { after, describe } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { moldeAgents } from '../../new/gate/aplicar.mjs'
+import { moldeAgents, moldeReadme, renderizarCommit } from '../../new/gate/aplicar.mjs'
 import { REGRAS } from './index.mjs'
 import { alvoDeConfig } from './injection/agent-config.mjs'
 import { FORMAS_DE_CHAVE, MOTIVO_A_ESCREVER, tipoDoCaminho } from './injection/reader.mjs'
@@ -71,7 +72,11 @@ import { FORMAS_DE_CHAVE, MOTIVO_A_ESCREVER, tipoDoCaminho } from './injection/r
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url))
 const CLI = fileURLToPath(new URL('./index.mjs', import.meta.url))
 const MOLDE_MCP = fileURLToPath(new URL('../../new/gate/arquivos/mcp.json', import.meta.url))
+const MOLDE_SERVIDOR = fileURLToPath(
+  new URL('../../new/gate/arquivos/mcp-rebar.mjs', import.meta.url),
+)
 const MOLDE_CI = fileURLToPath(new URL('../../new/gate/arquivos/verificar.yml', import.meta.url))
+const COMMIT = 'a'.repeat(40)
 
 /** The injection rule ids this file is about, in the order index.mjs declares them. */
 const INJECAO = [
@@ -86,6 +91,8 @@ const INJECAO = [
   'instruction-provenance',
   'mixed-script-token',
   'indirect-exec-change',
+  'mcp-integrity',
+  'unpinned-remote-exec',
 ]
 
 const criados = []
@@ -182,10 +189,23 @@ describe('the injection rules, judged together', () => {
     // them. The template launch is accepted only because the running rebar
     // ships it, and no rule maps template paths to generated ones: the
     // files are judged under the paths they have in a generated project.
+    // Since the pin, also the workflow, the server file and the README: with a
+    // commit in place of the marker, the workflow and AGENTS.md must pass
+    // unpinned-remote-exec, and the server bytes must be the current version for
+    // mcp-integrity. The bytes of mcp-rebar.mjs go in raw, as the generator
+    // copies them.
     const dir = repositorio([
-      { caminho: 'AGENTS.md', bytes: Buffer.from(moldeAgents('proof', null), 'utf8') },
+      { caminho: 'AGENTS.md', bytes: Buffer.from(moldeAgents('proof', null, COMMIT), 'utf8') },
       { caminho: '.mcp.json', bytes: readFileSync(MOLDE_MCP) },
-      { caminho: '.github/workflows/verificar.yml', bytes: readFileSync(MOLDE_CI) },
+      { caminho: '.rebar/mcp.mjs', bytes: readFileSync(MOLDE_SERVIDOR) },
+      {
+        caminho: '.github/workflows/verificar.yml',
+        bytes: Buffer.from(renderizarCommit(readFileSync(MOLDE_CI, 'utf8'), COMMIT), 'utf8'),
+      },
+      {
+        caminho: 'README.md',
+        bytes: Buffer.from(moldeReadme('proof', 'Prova', 2026, COMMIT), 'utf8'),
+      },
     ])
     const vistos = []
     for (const id of INJECAO) {
@@ -204,6 +224,9 @@ describe('the injection rules, judged together', () => {
     const workflow = vistos.find((x) => x.id === 'ai-workflow-untrusted-input')
     assert.equal(workflow.estado, 'na')
     assert.match(workflow.motivo, /no known AI agent step in 1 workflow/)
+    // The same for the server bytes and the pin: both rules had something to read.
+    assert.equal(vistos.find((x) => x.id === 'mcp-integrity').estado, 'passou')
+    assert.equal(vistos.find((x) => x.id === 'unpinned-remote-exec').estado, 'passou')
   })
 
   test('(e) no proof case tracks an agent file, and every caso.json is printable ASCII', () => {

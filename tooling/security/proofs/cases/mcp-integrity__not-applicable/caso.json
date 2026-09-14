@@ -1,0 +1,25 @@
+{
+  "rule": "mcp-integrity",
+  "why": "A tracked .rebar/mcp.mjs that no MCP configuration launches is a file no client starts, so the rule has nothing to judge and must say not applicable (invariant I4). The pass side tracks only an unknown server file with no config and must be na; the fail side is the base failing tree, a config launching unknown bytes. Whoever judges every tracked .rebar/mcp.mjs turns the pass side red.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": ".rebar/mcp.mjs",
+        "base64": "Ly8gcHJvdmEK"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgInJlYmFyIjogewogICAgICAidHlwZSI6ICJzdGRpbyIsCiAgICAgICJjb21tYW5kIjogIm5vZGUiLAogICAgICAiYXJncyI6IFsiLnJlYmFyL21jcC5tanMiXQogICAgfQogIH0KfQo="
+      },
+      {
+        "caminho": ".rebar/mcp.mjs",
+        "base64": "Ly8gcHJvdmEK"
+      }
+    ]
+  }
+}
