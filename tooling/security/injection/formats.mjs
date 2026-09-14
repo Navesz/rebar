@@ -47,16 +47,23 @@
  *   their RAW TEXT (a string). Redefining a key or a table is a duplicate;
  *   anything else outside that subset is `erro`.
  *
- * lerYaml(texto) -> { valor, duplicatas: Duplicata[], erro: ErroDeFormato | null, posicoes: Map<string, Posicao> }
+ * lerYaml(texto, { ancoras = false } = {}) -> { valor, duplicatas: Duplicata[], erro: ErroDeFormato | null, posicoes: Map<string, Posicao> }
  *   A YAML subset: block mappings and sequences, flow collections (multi-line
  *   too), plain, single- and double-quoted scalars (multi-line too), block
  *   scalars `|` `>` with chomping and indentation indicators, comments. Plain
- *   scalars follow the core schema (null, booleans, numbers). Anchors, aliases,
- *   tags, merge keys, complex keys, directives and a second document are
- *   `erro`, never a guess. A repeated mapping key is recorded in `duplicatas`
- *   the way lerJsonc records it, and `valor` keeps the last one: lenient
- *   loaders do the same, so the order of the keys decides what those clients
- *   read. It is NOT the workflow reader (that is phase 2).
+ *   scalars follow the core schema (null, booleans, numbers). Tags, merge
+ *   keys, complex keys, directives and a second document are `erro`, never a
+ *   guess. Anchors and aliases are `erro` too unless `ancoras: true`: then
+ *   `&name` before a node and `*name` as a whole node are read, the alias
+ *   becoming a deep copy of the last node anchored with that name. An unknown
+ *   alias, an alias inside its own anchor, an anchor on a mapping key and more
+ *   than 100,000 nodes copied through aliases stay `erro`, and `posicoes`
+ *   holds only the alias node's own pointer, not the copied children. GitHub
+ *   documents anchors and aliases for workflows (and not merge keys): 6 of
+ *   3,231 real workflows use them, and 2 of those hide an agent step behind
+ *   one. A repeated mapping key is recorded in `duplicatas` the way lerJsonc
+ *   records it, and `valor` keeps the last one: lenient loaders do the same,
+ *   so the order of the keys decides what those clients read.
  *
  * lerFrontmatter(texto)
  *   -> { presente: boolean, valor: any, duplicatas: Duplicata[], erro: ErroDeFormato | null, posicoes: Map<string, Posicao>, yaml: string, indice: number }
@@ -88,6 +95,14 @@
 // injection rules export is proven not to match this source.
 
 const PROFUNDIDADE_MAXIMA = 512
+
+/**
+ * Nodes the aliases of one YAML document may copy. An alias is a copy, so nine
+ * levels of ten aliases would build 10^9 nodes from a file of ten lines. The
+ * largest of 3,292 real workflows measured on 2026-09-13 parses to 5,374
+ * nodes, aliases included, so the cap sits almost twenty times above it.
+ */
+const LIMITE_DE_COPIA = 100000
 
 /**
  * Which escape dialect a tracked file's extension (reader.mjs extensaoDe) is
@@ -820,10 +835,17 @@ function resolverPlano(s) {
  * Parses `fonte.slice(inicio, fim)` as one YAML document of the subset, with
  * every position and error in `fonte` coordinates.
  */
-function lerYamlEm(fonte, inicio, fim) {
+function lerYamlEm(fonte, inicio, fim, { ancoras = false } = {}) {
   const inicios = inicioDasLinhas(fonte)
   const onde = (k) => posicaoEm(fonte, inicios, k)
   const posicoes = new Map()
+  // Anchors, when the caller asks for them: the last node each name anchored,
+  // the names whose node is still being read, and how many nodes the aliases
+  // have copied so far (the cap is what stops a billion laughs: 9 levels of
+  // 10 aliases would copy 10^9 nodes).
+  const ancorados = new Map()
+  const abertas = new Map()
+  let copiados = 0
   // A repeated key is recorded, not refused: lenient loaders keep the last
   // value, strict ones refuse the file, so the caller must judge every
   // occurrence, and the repetition itself is a failure.
@@ -871,6 +893,49 @@ function lerYamlEm(fonte, inicio, fim) {
   const restoVazio = (t, k) => {
     while (t[k] === ' ' || t[k] === '\t') k++
     return k >= t.length || t[k] === '#'
+  }
+
+  const SEM_SUPORTE = 'anchors, aliases and tags are not supported'
+  /** The name after the `&` or `*` at column k of t, or erro. */
+  const nomeDeAncora = (t, k, linha) => {
+    const m = /^[^\s,[\]{}]+/.exec(t.slice(k + 1))
+    if (!m) falhar('an anchor or alias needs a name', linha, k)
+    return m[0]
+  }
+  /** A deep copy of an anchored node, counted against the expansion cap. */
+  const copiar = (v, linha, coluna, profundidade = 0) => {
+    if (++copiados > LIMITE_DE_COPIA) falhar('alias expansion too large', linha, coluna)
+    if (profundidade > PROFUNDIDADE_MAXIMA) {
+      falhar(`nesting deeper than ${PROFUNDIDADE_MAXIMA}`, linha, coluna)
+    }
+    if (Array.isArray(v)) return v.map((x) => copiar(x, linha, coluna, profundidade + 1))
+    if (ehTabela(v)) {
+      const copia = Object.create(null)
+      for (const k of Object.keys(v)) copia[k] = copiar(v[k], linha, coluna, profundidade + 1)
+      return copia
+    }
+    return v
+  }
+  /** The node `*nome` at (linha, coluna) stands for. */
+  const aliasDe = (nome, linha, coluna) => {
+    if (abertas.get(nome)) falhar('alias inside its own anchor', linha, coluna)
+    if (!ancorados.has(nome)) falhar('unknown alias', linha, coluna)
+    return copiar(ancorados.get(nome), linha, coluna)
+  }
+  /** Reads the node an anchor names and records it under that name, the last one winning. */
+  const ancorar = (nome, ler) => {
+    abertas.set(nome, (abertas.get(nome) || 0) + 1)
+    const v = ler()
+    abertas.set(nome, abertas.get(nome) - 1)
+    ancorados.set(nome, v)
+    return v
+  }
+  /** The column after `&nome` and its blanks; another property or an alias there is erro. */
+  const depoisDaAncora = (t, k, nome, linha) => {
+    let d = k + 1 + nome.length
+    while (t[d] === ' ' || t[d] === '\t') d++
+    if (d < t.length && '&*!'.includes(t[d])) falhar(SEM_SUPORTE, linha, d)
+    return d
   }
 
   const lerEscapeYaml = (t, k, linha) => {
@@ -1042,7 +1107,14 @@ function lerYamlEm(fonte, inicio, fim) {
       if (t[k] === ':' && (k + 1 >= t.length || t[k + 1] === ' ' || t[k + 1] === '\t')) {
         const chave = t.slice(c, k).trimEnd()
         if (chave === '') return null
-        if ('&*!'.includes(chave[0])) falhar('anchors, aliases and tags are not supported', l, c)
+        // `* name:` is no alias but a broken line (a Markdown bullet pasted
+        // into a workflow, measured once in 3,292): invalid YAML, not a
+        // feature this subset lacks.
+        if (ancoras && /^[&*](?:\s|$)/.test(chave)) falhar('an anchor or alias needs a name', l, c)
+        if (ancoras && chave[0] === '&') {
+          falhar('an anchor on a mapping key is not supported', l, c)
+        }
+        if ('&*!'.includes(chave[0])) falhar(SEM_SUPORTE, l, c)
         return { chave, depois: k + 1 }
       }
     }
@@ -1084,20 +1156,61 @@ function lerYamlEm(fonte, inicio, fim) {
       if ('&*!'.includes(c)) falhar('anchors, aliases and tags are not supported', li, k)
       if (c === '@' || c === '`')
         falhar('a plain scalar cannot start with a reserved indicator', li, k)
-      const inicio = k
-      while (k < t.length) {
-        const d = t[k]
-        if (d === ',' || d === '[' || d === ']' || d === '{' || d === '}') break
-        if (d === ':' && (k + 1 >= t.length || ' \t,[]{}'.includes(t[k + 1]))) break
-        if (comentarioComeca(t, k)) break
-        k++
+      // A plain scalar in a flow collection may go on over more lines, which
+      // fold into one space, or a line break per blank line (YAML 1.2 example
+      // 7.14). Measured before: a branch list wrapped across two lines read as
+      // invalid YAML, which lowered a failing agent workflow to a note.
+      const fimDoIndicador = (linha, p) =>
+        linha[p] === ',' ||
+        linha[p] === '[' ||
+        linha[p] === ']' ||
+        linha[p] === '{' ||
+        linha[p] === '}' ||
+        (linha[p] === ':' && (p + 1 >= linha.length || ' \t,[]{}'.includes(linha[p + 1])))
+      let linhaAtual = t
+      let inicio = k
+      let s = ''
+      for (;;) {
+        while (k < linhaAtual.length) {
+          if (fimDoIndicador(linhaAtual, k) || comentarioComeca(linhaAtual, k)) break
+          k++
+        }
+        s += linhaAtual.slice(inicio, k).trim()
+        if (k < linhaAtual.length) break
+        let proxima = li + 1
+        let vazias = 0
+        while (proxima < total && linhas[proxima].texto.trim() === '') {
+          proxima++
+          vazias++
+        }
+        if (proxima >= total) break
+        const t2 = linhas[proxima].texto
+        let k2 = 0
+        while (t2[k2] === ' ' || t2[k2] === '\t') k2++
+        if (fimDoIndicador(t2, k2) || t2[k2] === '#' || marcaDeDocumento(t2)) break
+        s += vazias ? '\n'.repeat(vazias) : ' '
+        li = proxima
+        k = k2
+        inicio = k2
+        linhaAtual = t2
       }
-      return resolverPlano(t.slice(inicio, k).trim())
+      return resolverPlano(s)
     }
     const noDeFluxo = (p, prof) => {
       if (prof > PROFUNDIDADE_MAXIMA) falhar(`nesting deeper than ${PROFUNDIDADE_MAXIMA}`, li, k)
       pular()
       const c = atual()
+      if (ancoras && (c === '&' || c === '*')) {
+        const t = linhas[li].texto
+        const nome = nomeDeAncora(t, k, li)
+        if (c === '*') {
+          const coluna = k
+          k += 1 + nome.length
+          return aliasDe(nome, li, coluna)
+        }
+        k = depoisDaAncora(t, k, nome, li)
+        return ancorar(nome, () => noDeFluxo(p, prof))
+      }
       if (c === '[') {
         k++
         const lista = []
@@ -1196,7 +1309,22 @@ function lerYamlEm(fonte, inicio, fim) {
       l = r.linha + 1
       return r.valor
     }
-    if ('&*!'.includes(c)) falhar('anchors, aliases and tags are not supported', l, coluna)
+    if (ancoras && c === '*') {
+      const nome = nomeDeAncora(t, coluna, l)
+      exigirFimDeLinha(l, coluna + 1 + nome.length)
+      const v = aliasDe(nome, l, coluna)
+      l++
+      return v
+    }
+    if (ancoras && c === '&') {
+      const nome = nomeDeAncora(t, coluna, l)
+      const depois = depoisDaAncora(t, coluna, nome, l)
+      // An anchor alone on its line belongs to a block node below it, which
+      // only a key or a sequence item may introduce here.
+      if (restoVazio(t, depois)) falhar(SEM_SUPORTE, l, coluna)
+      return ancorar(nome, () => escalarEmLinha(depois, recuoMinimo, ponteiro, profundidade))
+    }
+    if ('&*!'.includes(c)) falhar(SEM_SUPORTE, l, coluna)
     if (c === '@' || c === '`' || c === '%') {
       falhar('a plain scalar cannot start with a reserved indicator', l, coluna)
     }
@@ -1254,7 +1382,15 @@ function lerYamlEm(fonte, inicio, fim) {
         return sequencia(r2, ponteiro, profundidade)
       return null
     }
-    if ('&*!'.includes(t[j])) falhar('anchors, aliases and tags are not supported', l, j)
+    if (ancoras && t[j] === '&') {
+      // `key: &name` then a value on this line, a block scalar, or a block node
+      // on the lines below: the value is read exactly as without the anchor.
+      const nome = nomeDeAncora(t, j, l)
+      const depois = depoisDaAncora(t, j, nome, l)
+      return ancorar(nome, () => valorDaChave(t, depois, recuoChave, ponteiro, profundidade))
+    }
+    if (ancoras && t[j] === '*') return escalarEmLinha(j, recuoChave, ponteiro, profundidade)
+    if ('&*!'.includes(t[j])) falhar(SEM_SUPORTE, l, j)
     if (t[j] === '|' || t[j] === '>') return blocoLiteral(t, j, recuoChave)
     return escalarEmLinha(j, recuoChave, ponteiro, profundidade)
   }
@@ -1305,7 +1441,33 @@ function lerYamlEm(fonte, inicio, fim) {
         lista.push(l < total && recuo(l) > r ? no(r, p, profundidade + 1) : null)
         continue
       }
-      if ('&*!'.includes(t[j])) falhar('anchors, aliases and tags are not supported', l, j)
+      if (ancoras && t[j] === '*') {
+        lista.push(escalarEmLinha(j, r, p, profundidade + 1))
+        continue
+      }
+      if (ancoras && t[j] === '&') {
+        const nome = nomeDeAncora(t, j, l)
+        const d = depoisDaAncora(t, j, nome, l)
+        if (restoVazio(t, d)) {
+          l++
+          pularVazias()
+          lista.push(
+            ancorar(nome, () => (l < total && recuo(l) > r ? no(r, p, profundidade + 1) : null)),
+          )
+          continue
+        }
+        if (t[d] === '|' || t[d] === '>') {
+          lista.push(ancorar(nome, () => blocoLiteral(t, d, r)))
+          continue
+        }
+        // `- &name key: v` anchors the KEY (js-yaml reads it so), which this
+        // subset refuses; `- &name - v` would anchor a nested sequence.
+        if (chaveDaLinha(t, d)) falhar('an anchor on a mapping key is not supported', l, j)
+        if (ehItem(t, d)) falhar(SEM_SUPORTE, l, j)
+        lista.push(ancorar(nome, () => escalarEmLinha(d, r, p, profundidade + 1)))
+        continue
+      }
+      if ('&*!'.includes(t[j])) falhar(SEM_SUPORTE, l, j)
       if (t[j] === '|' || t[j] === '>') {
         lista.push(blocoLiteral(t, j, r))
         continue
@@ -1369,10 +1531,10 @@ function lerYamlEm(fonte, inicio, fim) {
   }
 }
 
-export function lerYaml(texto) {
+export function lerYaml(texto, { ancoras = false } = {}) {
   const fonte = String(texto)
   const inicio = fonte.charCodeAt(0) === 0xfeff ? 1 : 0
-  return lerYamlEm(fonte, inicio, fonte.length)
+  return lerYamlEm(fonte, inicio, fonte.length, { ancoras })
 }
 
 export function lerFrontmatter(texto) {

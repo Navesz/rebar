@@ -55,12 +55,15 @@
  *                     call, or a command word followed by a dash argument. Used
  *                     for the 3-line window in code.
  *
- * checarBypass(r, { FLAGS_FORTES, FLAGS_AMBIGUAS, PARES_DE_FLAG, BINARIOS_DE_AGENTE })
+ * checarBypass(r, { FLAGS_FORTES, FLAGS_AMBIGUAS, PARES_DE_FLAG, BINARIOS_DE_AGENTE, ACOES_DE_AGENTE })
  *   -> string (reprova) | { nota } | null | { na: 'no tracked text file' }
  *   Reads the index of `r.dir` (lerIndice) and `.rebar-injection-allowlist`
  *   (`{arquivo, oid}` entries). A malformed allowlist reprova and exempts nothing.
+ *   ACOES_DE_AGENTE is the vendor action table of workflow.mjs: the approval
+ *   inputs of those actions in a workflow or action file are read as the
+ *   command the action runs (see segmentosDeEntradas).
  *
- * achadosDoIndice(indice, tabelas)
+ * achadosDoIndice(indice, tabelas)  (tabelas as for checarBypass)
  *   -> { achados: Achado[], lidos, ausentes, naoLidos }
  *   Achado = { caminho, oid, linha, coluna, id, texto, severidade: 'reprova'|'avisa', rotulo }
  *   `indice` needs `entradas` and `porCaminho` shaped like lerIndice's; the
@@ -76,6 +79,21 @@
  *   shell reads the text with (DIALETOS: 'texto', 'posix', 'pwsh'), a list of
  *   them, or for varrerShell a function of the 0-based physical line; with
  *   more than one, a switch counts when any of them reads it as an argument.
+ *
+ * For ai-workflow-untrusted-input (workflow.mjs imports these; this file never
+ * imports it):
+ * comandosDoShell(texto, dialeto = 'posix') -> Array<{ linha, palavras: string[] }>
+ *   here-document bodies skipped unless a shell reads them
+ * invocacaoDoComando(palavras) -> { agente, palavras } | null   through sh -c and eval
+ * invocacoesDeAgente(texto) -> Array<{ agente, palavras }>
+ * agenteDoComando(palavras) -> CLI id | null
+ * palavrasDosArgs(valor) -> string[]            a CLI-arguments input split as a shell splits it
+ * settingsDasPalavras(palavras) -> object[]     inline JSON `--settings` values of Claude Code
+ * lockDoGhAw(texto, caminho) -> null | { papeis: string[] }   a gh-aw lock file by its structure
+ * ehLockDoGhAw(texto, caminho) -> boolean
+ * caminhoDoUses(uses) -> string          the action path a `uses` names, as the runner splits it
+ * acaoDoUses(uses, ACOES_DE_AGENTE) -> { explicacao, dados } | null
+ * validarAcoesDeAgente(tabela) -> tabela, or throws
  */
 
 import { posix } from 'node:path'
@@ -83,6 +101,7 @@ import { posix } from 'node:path'
 import { semComentarioNemImport } from '../../rebar-check/index.mjs'
 import { escaparSaida } from '../texto-seguro.mjs'
 import { lerJsonc, lerYaml } from './formats.mjs'
+import { palavras as palavrasDeLancamento } from './mcp-launch.mjs'
 import {
   NOME_DA_ALLOWLIST,
   lerAllowlist,
@@ -238,6 +257,23 @@ const CLIS = [
       [dupla('ask-', 'for-', 'approval'), 'never', 'never asks before running a command'],
       [traco('a'), 'never', 'never asks before running a command'],
     ],
+    // `-c key=value` and `--config key=value` override a key of the Codex config
+    // file for one run (codex-rs utils/cli config_override.rs parses the value as
+    // TOML, and falls back to the raw string). Only the two keys that take the
+    // sandbox away are rows. The approval key set to its never-ask value is
+    // deliberately NOT one: Codex's config reference recommends it for
+    // non-interactive runs and `exec` has no approval option at all, and over
+    // 1,590 fetched repositories that row added 4 failures, all one SKILL.md
+    // documenting exactly that default, while the two sandbox rows added 14
+    // warnings in shell scripts and no failure.
+    configs: [
+      [j('sandbox', '_mode'), j('danger-', 'full-', 'access'), 'runs with no sandbox at all'],
+      [
+        j('default', '_permissions'),
+        j(':danger-', 'full-', 'access'),
+        'runs with no sandbox at all',
+      ],
+    ],
   },
   {
     id: 'amazon-q',
@@ -380,6 +416,18 @@ const flagComValor = (flag, valor, cli) =>
   `${ENTRE_FLAG_E_VALOR}${escapar(valor)}${DEPOIS_DO_VALOR}`
 const noComando = (cli, resto) =>
   `${ANTES_DO_BINARIO}${binarioDe(cli)}${CAUDA_DO_BINARIO}${DEPOIS_DO_BINARIO}${MESMO_COMANDO}${resto}`
+// A config override with its key and value: `-c k=v`, `--config k="v"`,
+// `--config 'k="v"'`, `--config=k=v`, `-c 'k = "v"'`, and the same key under a
+// profile (`profiles.<name>.k`), which `--profile <name>` selects. Up to four
+// quote or backslash characters may sit around the key and the value, which
+// covers a TOML string inside a shell string inside a JSON or YAML one. The
+// short option also takes its value glued (`-ck=v`, clap), and codex trims the
+// key (config_override.rs, `k.trim()`), so blanks may sit before it: measured
+// before, `-c<key>=<value>` and `-c ' <key>=<value>'` in a postinstall passed.
+const flagDeConfig = (chave, valor) =>
+  `${ANTES_DA_FLAG}(?:-c(?:${ENTRE_FLAG_E_VALOR})?|--config${ENTRE_FLAG_E_VALOR})[\\\\"'\`\\s]{0,4}` +
+  `(?:profiles\\.[^\\s="'\`.]+\\.)?${escapar(chave)}\\s*=\\s*[\\\\"'\`]{0,4}` +
+  `${escapar(valor)}[\\\\"'\`]{0,4}${DEPOIS_DO_VALOR}`
 
 export const FLAGS_FORTES = [
   ...CLIS.flatMap((cli) => [
@@ -402,11 +450,14 @@ export const FLAGS_AMBIGUAS = CLIS.flatMap((cli) =>
   ),
 )
 
-export const PARES_DE_FLAG = CLIS.flatMap((cli) =>
-  (cli.pares || []).map(([flag, valor, efeito]) =>
+export const PARES_DE_FLAG = CLIS.flatMap((cli) => [
+  ...(cli.pares || []).map(([flag, valor, efeito]) =>
     linha(noComando(cli, flagComValor(flag, valor, cli)), `${cli.id}: ${efeito}`),
   ),
-)
+  ...(cli.configs || []).map(([chave, valor, efeito]) =>
+    linha(noComando(cli, flagDeConfig(chave, valor)), `${cli.id}: ${efeito}`),
+  ),
+])
 
 export const BINARIOS_DE_AGENTE = CLIS.map((cli) => {
   const bin = `${binarioDe(cli)}${CAUDA_DO_BINARIO}`
@@ -1096,11 +1147,74 @@ const ehWorkflow = (caminho) => /^\.github\/workflows\/[^/]+\.ya?ml$/i.test(cami
 
 /**
  * gh-aw writes this line near the top of every lock file (measured: line 3 in
- * all 39 sampled). The header is spoofable, which is why it only lowers a
- * workflow to a warning and never to silence.
+ * all 39 sampled).
  */
 const CABECALHO_GH_AW = /automatically generated by gh-aw\b/i
-const ehLockDoGhAw = (texto) => texto.split('\n', 10).some((l) => CABECALHO_GH_AW.test(l))
+const ehMapaDoLock = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+let ultimoLock = { texto: null, caminho: null, r: null }
+
+/**
+ * A gh-aw lock file, judged by the structure the compiler writes and not by its
+ * comment: a `.lock.yml` name, the header in the first 10 lines, and parsed
+ * `activation` and `agent` jobs with the agent needing the activation. Measured
+ * over the 24 lock files of both corpora on 2026-09-13: all 24 have that shape.
+ * Measured before: two pasted comment lines turned a plain workflow with a
+ * whole-shell agent on `issues` and `write-all` into a "lock", which silenced
+ * ai-workflow-untrusted-input and lowered this rule to a warning.
+ * Returns null, or { papeis } with the GH_AW_REQUIRED_ROLES values of the step
+ * env of every job the agent job needs, directly or through other jobs (gh-aw's
+ * `pre_activation`), read from the parsed file and never from raw text.
+ */
+export function lockDoGhAw(texto, caminho) {
+  if (typeof caminho !== 'string' || !/\.lock\.yml$/i.test(caminho)) return null
+  if (
+    !String(texto)
+      .split('\n', 10)
+      .some((l) => CABECALHO_GH_AW.test(l))
+  ) {
+    return null
+  }
+  if (ultimoLock.texto === texto && ultimoLock.caminho === caminho) return ultimoLock.r
+  let r = null
+  const lido = lerYaml(texto, { ancoras: true })
+  const jobs = !lido.erro && ehMapaDoLock(lido.valor) ? lido.valor.jobs : null
+  const precisa = (id) => {
+    const n = ehMapaDoLock(jobs[id]) ? jobs[id].needs : undefined
+    return typeof n === 'string'
+      ? [n]
+      : Array.isArray(n)
+        ? n.filter((x) => typeof x === 'string')
+        : []
+  }
+  if (
+    ehMapaDoLock(jobs) &&
+    ehMapaDoLock(jobs.agent) &&
+    ehMapaDoLock(jobs.activation) &&
+    precisa('agent').includes('activation')
+  ) {
+    const papeis = []
+    const vistos = new Set()
+    const andar = (id) => {
+      if (vistos.has(id) || !ehMapaDoLock(jobs[id])) return
+      vistos.add(id)
+      const passos = Array.isArray(jobs[id].steps) ? jobs[id].steps : []
+      for (const p of passos) {
+        if (
+          ehMapaDoLock(p) &&
+          ehMapaDoLock(p.env) &&
+          typeof p.env.GH_AW_REQUIRED_ROLES === 'string'
+        )
+          papeis.push(p.env.GH_AW_REQUIRED_ROLES)
+      }
+      for (const n of precisa(id)) andar(n)
+    }
+    for (const n of precisa('agent')) andar(n)
+    r = { papeis }
+  }
+  ultimoLock = { texto, caminho, r }
+  return r
+}
+export const ehLockDoGhAw = (texto, caminho) => lockDoGhAw(texto, caminho) !== null
 
 const ehMarkdown = (caminho) => /\.(?:md|mdx|markdown)$/i.test(caminho)
 const ehJs = (caminho) => /\.[cm]?[jt]sx?$/i.test(caminho)
@@ -1189,7 +1303,7 @@ function dialetosDoWorkflow(texto) {
   const reserva = /windows|pwsh|powershell/i.test(texto) ? AMBOS_OS_SHELLS : ['posix']
   let lido
   try {
-    lido = lerYaml(texto)
+    lido = lerYaml(texto, { ancoras: true })
   } catch {
     // Choosing a quote model must never break the rule: a document the reader
     // cannot take gets the reserve reading, like one it refuses.
@@ -1420,6 +1534,370 @@ function palavrasDoShell(texto) {
   }
   fechar()
   return saida
+}
+
+// ──────────────────────────────────────── which agent a shell command starts
+//
+// ai-workflow-untrusted-input asks a narrower question than the tables: does
+// this `run:` step START an agent CLI at all, whatever its switches. A first-
+// word reading was measured against 74 real CLI steps and missed 13 of them in
+// 6 files, 5 of those failures: the agent sat inside a command substitution
+// (`result=$(<agent> -p ...)`, `if raw=$(timeout 1200s <agent> -p ...)`), or
+// behind `timeout --signal=TERM --kill-after=30s 20m env -u X`. So the text of
+// every substitution is a command too, and the launcher words are skipped with
+// their own options.
+
+/**
+ * The text inside each `$(...)` and each pair of backticks of `texto`, quotes
+ * read the POSIX way: a `)` or a backtick inside quotes closes nothing. An
+ * unclosed substitution runs to the end of the text, which a line cut at a
+ * shell operator inside the substitution needs.
+ */
+function substituicoes(texto) {
+  const saida = []
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i]
+    if (c === '\\') {
+      i++
+      continue
+    }
+    if (c === "'") {
+      const fim = texto.indexOf("'", i + 1)
+      if (fim !== -1) i = fim
+      continue
+    }
+    const crase = c === '`'
+    if (!crase && !(c === '$' && texto[i + 1] === '(')) continue
+    let j = crase ? i + 1 : i + 2
+    let profundidade = 1
+    let aspa = null
+    for (; j < texto.length; j++) {
+      const d = texto[j]
+      if (d === '\\') {
+        j++
+        continue
+      }
+      if (aspa) {
+        if (d === aspa) aspa = null
+        continue
+      }
+      if (d === '"' || d === "'") aspa = d
+      else if (crase && d === '`') break
+      else if (!crase && d === '(') profundidade++
+      else if (!crase && d === ')' && --profundidade === 0) break
+    }
+    const dentro = texto.slice(crase ? i + 1 : i + 2, j)
+    saida.push(dentro, ...substituicoes(dentro))
+    i = j
+  }
+  return saida
+}
+
+/**
+ * The here-documents a command line opens, in order, outside quotes: `<<WORD`,
+ * `<<-WORD` (leading tabs of the body and the terminator dropped) and a quoted
+ * or backslashed WORD, whose body the shell expands nowhere. A `<<` inside an
+ * arithmetic `((` and a here-string `<<<` open none, and the word has to start
+ * like a name, so `$((1<<2))` never swallows the script.
+ */
+function heredocsDe(linha) {
+  const saida = []
+  let aspa = null
+  for (let i = 0; i < linha.length; i++) {
+    const c = linha[i]
+    if (aspa) {
+      if (c === '\\' && aspa === '"') i++
+      else if (c === aspa) aspa = null
+      continue
+    }
+    if (c === '\\') {
+      i++
+      continue
+    }
+    if (c === "'" || c === '"') {
+      aspa = c
+      continue
+    }
+    if (c === '#' && (i === 0 || /\s/.test(linha[i - 1]))) break
+    if (c !== '<' || linha[i + 1] !== '<' || linha[i + 2] === '<' || linha[i - 1] === '<') continue
+    const antes = linha.slice(0, i)
+    if ((antes.match(/\(\(/g) || []).length > (antes.match(/\)\)/g) || []).length) {
+      i++
+      continue
+    }
+    const m = /^<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|(\\?)([A-Za-z_][\w.-]*))/.exec(
+      linha.slice(i),
+    )
+    if (!m) continue
+    saida.push({
+      palavra: m[2] ?? m[3] ?? m[5],
+      tabs: m[1] === '-',
+      citado: m[2] !== undefined || m[3] !== undefined || m[4] === '\\',
+    })
+    i += m[0].length - 1
+  }
+  return saida
+}
+
+/**
+ * The commands of a shell text as a shell splits them: logical lines (a
+ * backslash continuation joins lines), cut at `;`, `&&`, `||`, `|` and `&`
+ * outside quotes, plus the text of every command substitution, each as the
+ * words the program receives. `linha` is the 1-based physical line where the
+ * command's logical line starts.
+ *
+ * A here-document body is data, not commands, unless a shell reads it: measured
+ * before, a `cat > note.md <<'EOF'` whose text named an agent in backticks, and
+ * a `node <<'NODE'` script matching a line on an agent's name, were both taken
+ * for an agent launch (2 items in the adopter corpus, one of them a failure).
+ * The body is read as commands when the line feeds it to sh, bash, zsh or dash;
+ * with an unquoted word, the substitutions inside it still run, so those are
+ * commands too.
+ */
+export function comandosDoShell(texto, dialeto = 'posix', profundidade = 0) {
+  const saida = []
+  let corpoAte = -1
+  for (const logica of linhasLogicas(String(texto))) {
+    const ultima = logica.partes[logica.partes.length - 1].linha
+    if (ultima <= corpoAte) continue
+    const linha = logica.partes[0].linha + 1
+    const texto0 = logica.texto.replace(/\r$/, '')
+    const textos = [texto0]
+    if (/[$`]/.test(texto0)) textos.push(...substituicoes(texto0))
+    let alimentaShell = false
+    for (const t of textos) {
+      for (const comando of comandosDe(t, dialeto)) {
+        const palavras = palavrasDoShell(comando.texto)
+        if (!palavras.length) continue
+        saida.push({ linha, palavras })
+        if (comando.texto.includes('<<')) {
+          const i = indiceDoPrograma(palavras)
+          if (i !== -1 && SHELLS.has(nomeDoPrograma(palavras[i]))) alimentaShell = true
+        }
+      }
+    }
+    if (!texto0.includes('<<')) continue
+    const aberturas = heredocsDe(texto0)
+    if (!aberturas.length) continue
+    const fisicas = logica.fisicas
+    let n = ultima + 1
+    for (const aberta of aberturas) {
+      const inicio = n
+      const corpo = []
+      for (; n < fisicas.length; n++) {
+        const bruta = fisicas[n].replace(/\r$/, '')
+        const semTabs = aberta.tabs ? bruta.replace(/^\t+/, '') : bruta
+        if (semTabs === aberta.palavra) {
+          n++
+          break
+        }
+        corpo.push(semTabs)
+      }
+      if (profundidade >= 3) continue
+      const dentro = corpo.join('\n')
+      let internos = []
+      if (alimentaShell) internos = [dentro]
+      else if (!aberta.citado && /[$`]/.test(dentro)) internos = substituicoes(dentro)
+      for (const t of internos) {
+        for (const c of comandosDoShell(t, dialeto, profundidade + 1)) {
+          saida.push({ linha: inicio + (alimentaShell ? c.linha : 1), palavras: c.palavras })
+        }
+      }
+    }
+    corpoAte = n - 1
+  }
+  return saida
+}
+
+/** Shell words that open a compound command: the command proper comes after them. */
+const PALAVRAS_DE_CONTROLE = new Set([
+  'if',
+  'then',
+  'elif',
+  'else',
+  'while',
+  'until',
+  'do',
+  '!',
+  '{',
+  '(',
+])
+
+/**
+ * Launchers that start the next word as the program, with the options each one
+ * takes a value for. `timeout` also takes its duration before the program.
+ * `xargs` runs its program with the words it reads (GNU findutils xargs(1): the
+ * options listed take a separate value), `nice` and `setsid` run theirs as is.
+ */
+const LANCADORES = {
+  sudo: new Set(['-u', '-g', '-C', '-h', '-p', '-U', '-r', '-t', '-D', '-R', '-T']),
+  env: new Set(['-u', '-C', '-S', '--unset', '--chdir', '--split-string']),
+  nohup: new Set(),
+  time: new Set(),
+  exec: new Set(['-a']),
+  timeout: new Set(['-s', '-k', '--signal', '--kill-after']),
+  npx: new Set(['-p', '--package', '-c', '--call']),
+  bunx: new Set(['-p', '--package']),
+  pnpx: new Set(['-p', '--package']),
+  stdbuf: new Set(['-i', '-o', '-e']),
+  xargs: new Set([
+    '-a',
+    '-d',
+    '-E',
+    '-I',
+    '-L',
+    '-n',
+    '-P',
+    '-s',
+    '--arg-file',
+    '--delimiter',
+    '--max-args',
+    '--max-procs',
+    '--max-chars',
+    '--process-slot-var',
+  ]),
+  nice: new Set(['-n', '--adjustment']),
+  setsid: new Set(),
+}
+/** Two-word launchers: `pnpm dlx`, `yarn dlx`, `npm exec`, `npm x`. */
+const LANCADORES_DUPLOS = { pnpm: ['dlx'], yarn: ['dlx'], npm: ['exec', 'x'] }
+
+/** The binary names of every CLI, one word or two (`q chat`), to the CLI id. */
+const NOMES_DE_AGENTE = new Map(CLIS.flatMap((cli) => cli.nomes.map((nome) => [nome, cli.id])))
+
+/**
+ * Words after the bare Copilot name that start no agent session. The name is
+ * also the binary of AWS Copilot, whose top-level commands are app, env, job,
+ * svc, pipeline, run, task, deploy, init, docs, secret, storage, version and
+ * completion (aws.github.io/copilot-cli, read 2026-09-13); GitHub Copilot CLI's
+ * own commands app, completion, help, init, login, mcp, plugin(s), instruction,
+ * lsp, skill, update and version open no session either (GitHub Copilot CLI
+ * command reference). Measured before: `copilot svc deploy` on a merged pull
+ * request with an AWS key in the job env failed as an agent CLI. Only the word
+ * right after the name counts, so an option value never hides a session.
+ */
+const NOME_DO_COPILOT = j('copi', 'lot')
+const SEM_SESSAO_DO_COPILOT = new Set(
+  (
+    'app env job svc pipeline run task deploy init docs secret storage version completion ' +
+    'help login mcp plugin plugins instruction lsp skill update'
+  ).split(' '),
+)
+
+/** A program word with its Windows shim extension and npm version taken off. */
+function semVersao(palavra) {
+  const semExtensao = palavra.replace(/\.(?:exe|cmd)$/i, '')
+  // `@scope/pkg@1.2` keeps the first `@`; `pkg@latest` loses what follows the only one.
+  const arroba = semExtensao.indexOf('@', semExtensao.startsWith('@') ? 1 : 0)
+  return arroba > 0 ? semExtensao.slice(0, arroba) : semExtensao
+}
+
+const nomeDoPrograma = (palavra) =>
+  semVersao(posix.basename(palavra.replace(/^[({]+/, '').replace(/\\/g, '/')))
+
+/**
+ * The index of the program word of one command, or -1. It skips `NAME=value`
+ * assignments, the shell's compound-command words, and the launchers above with
+ * their options (`sudo`, `env -u X -i`, `nohup`, `time`, `exec`,
+ * `timeout --signal=TERM 20m`, `npx -y -p pkg`, `bunx`, `pnpx`, `pnpm dlx`,
+ * `yarn dlx`, `npm exec --`, `xargs -0 -n 1`, `nice -n 5`, `setsid`).
+ */
+function indiceDoPrograma(lista) {
+  let i = 0
+  while (i < lista.length) {
+    const w = lista[i].replace(/^[({]+/, '')
+    if (w === '') {
+      i++
+      continue
+    }
+    if (/^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\+?=/.test(w) || PALAVRAS_DE_CONTROLE.has(w)) {
+      i++
+      continue
+    }
+    const nome = posix.basename(w.replace(/\\/g, '/'))
+    const duplo = LANCADORES_DUPLOS[nome]
+    if (duplo && duplo.includes(lista[i + 1])) {
+      i += 2
+      while (lista[i] === '--' || /^-/.test(lista[i] || '')) i++
+      continue
+    }
+    const opcoesComValor = LANCADORES[nome]
+    if (opcoesComValor) {
+      i++
+      while (i < lista.length) {
+        const o = lista[i]
+        if (o === '--') {
+          i++
+          break
+        }
+        if (!/^-/.test(o)) break
+        i += !o.includes('=') && opcoesComValor.has(o) ? 2 : 1
+      }
+      if (nome === 'timeout' && i < lista.length) i++
+      continue
+    }
+    return i
+  }
+  return -1
+}
+
+/**
+ * The agent CLI one command starts, as { agente, palavras } with the words from
+ * the program on, or null. The program word is compared whole (a scoped
+ * package) and by its basename (a path to the binary). A shell's `-c` string
+ * and the words of `eval` are a command line of their own, read again up to
+ * three levels deep: measured before, `bash -c '<agent> -p "...${{ ... }}"'` and
+ * `eval "<agent> -p ..."` on an issue with contents write read as no agent step.
+ */
+export function invocacaoDoComando(palavras, profundidade = 0) {
+  const lista = Array.isArray(palavras) ? palavras.filter((p) => typeof p === 'string') : []
+  const i = indiceDoPrograma(lista)
+  if (i === -1) return null
+  const w = lista[i].replace(/^[({]+/, '')
+  const nome = nomeDoPrograma(w)
+  let interno = null
+  if (nome === 'eval') interno = lista.slice(i + 1).join(' ')
+  else if (SHELLS.has(nome)) {
+    for (let k = i + 1; k < lista.length; k++) {
+      const o = lista[k]
+      if (o === '--' || !/^[-+]/.test(o)) break
+      if (/^-[A-Za-z]*c[A-Za-z]*$/.test(o)) {
+        interno = lista.slice(k + 1).find((x) => !/^[-+]/.test(x)) ?? null
+        break
+      }
+      if (SHELL_COM_VALOR.includes(o)) k++
+    }
+  }
+  if (interno !== null) {
+    if (profundidade >= 3) return null
+    for (const c of comandosDoShell(interno, 'posix', profundidade + 1)) {
+      const r = invocacaoDoComando(c.palavras, profundidade + 1)
+      if (r) return r
+    }
+    return null
+  }
+  for (const candidato of [semVersao(w), nome]) {
+    let agente = NOMES_DE_AGENTE.get(candidato)
+    if (agente && candidato === NOME_DO_COPILOT && SEM_SESSAO_DO_COPILOT.has(lista[i + 1])) {
+      return null
+    }
+    if (!agente) agente = NOMES_DE_AGENTE.get(`${candidato} ${lista[i + 1] ?? ''}`)
+    if (agente) return { agente, palavras: lista.slice(i) }
+  }
+  return null
+}
+
+/** The id of the agent CLI that the words of one command start, or null (invocacaoDoComando). */
+export function agenteDoComando(palavras) {
+  const r = invocacaoDoComando(palavras)
+  return r ? r.agente : null
+}
+
+/** Every agent CLI a shell text starts, each as invocacaoDoComando reads its command. */
+export function invocacoesDeAgente(texto, dialeto = 'posix') {
+  return comandosDoShell(texto, dialeto)
+    .map((c) => invocacaoDoComando(c.palavras))
+    .filter(Boolean)
 }
 
 /**
@@ -1976,6 +2454,231 @@ function soCercas(texto) {
   return saida.join('\n')
 }
 
+// ─────────────────────────────────────── the official agent actions' inputs
+//
+// The vendor GitHub Actions start the same CLIs, and take the approval setting
+// as an INPUT instead of a switch on a `run:` line, so the rows above, which
+// need the binary and the switch in one command, never saw them. Measured on
+// 1,660 workflows of agent adopters: 22 files turn the Codex sandbox off
+// through the action's input and 1 turns the Claude permission prompts off
+// through its settings input. Each input is rebuilt here into the command the
+// action itself runs, and that command goes through the same rows.
+
+/**
+ * Validates ACOES_DE_AGENTE, the table of agent actions that
+ * ai-workflow-untrusted-input owns and this rule reads: rows of
+ * [RegExp, explicacao, dados]. Missing or malformed THROWS, which the executor
+ * reports as quebrou.
+ */
+export function validarAcoesDeAgente(tabela) {
+  if (!Array.isArray(tabela) || tabela.length === 0) {
+    throw new Error('table ACOES_DE_AGENTE is missing or empty')
+  }
+  tabela.forEach((row, i) => {
+    const dados = Array.isArray(row) ? row[2] : null
+    const lista = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string')
+    const ok =
+      Array.isArray(row) &&
+      row.length === 3 &&
+      row[0] instanceof RegExp &&
+      typeof row[1] === 'string' &&
+      dados !== null &&
+      typeof dados === 'object' &&
+      typeof dados.agente === 'string' &&
+      lista(dados.texto) &&
+      lista(dados.autenticacao) &&
+      lista(dados.saidas) &&
+      (dados.aprovacao === null || typeof dados.aprovacao === 'string') &&
+      (dados.portao === null ||
+        (dados.portao !== undefined &&
+          Array.isArray(dados.portao.abridores) &&
+          dados.portao.abridores.every(
+            (a) => Array.isArray(a) && typeof a[0] === 'string' && typeof a[1] === 'string',
+          )))
+    if (!ok) throw new Error(`ACOES_DE_AGENTE[${i}] is not [RegExp, explicacao, dados]`)
+  })
+  return tabela
+}
+
+/**
+ * The action path a `uses` names, the way the runner reads it: the part before
+ * `@`, split at `/` and `\` with empty parts dropped (actions/runner
+ * PipelineTemplateConverter, `Split(new[] { '/', '\\' }, RemoveEmptyEntries)`),
+ * then `.` parts dropped and `..` parts folded, as the file system does when it
+ * opens the joined path, lowercased. Measured before: `<owner>/<repo>//base-action`,
+ * `/./base-action` and the all-backslash spelling ran the ungated base action on
+ * the runner and read as the gated action or as no agent here. A `..` that
+ * would climb out of the repository is kept, so that path names no row.
+ */
+export function caminhoDoUses(uses) {
+  const bruto = String(uses).trim()
+  const arroba = bruto.indexOf('@')
+  const partes = (arroba === -1 ? bruto : bruto.slice(0, arroba)).split(/[/\\]+/).filter(Boolean)
+  const saida = partes.slice(0, 2)
+  for (const p of partes.slice(2)) {
+    if (p === '.') continue
+    if (p === '..' && saida.length > 2 && saida[saida.length - 1] !== '..') saida.pop()
+    else saida.push(p)
+  }
+  return saida.join('/').toLowerCase()
+}
+
+/**
+ * The ACOES_DE_AGENTE row a step's `uses` names, or null: the path caminhoDoUses
+ * reads, the first row that matches. A local action (`./` or `.\`) and a
+ * container (`docker://`) are never a vendor action.
+ */
+export function acaoDoUses(uses, ACOES_DE_AGENTE) {
+  if (typeof uses !== 'string') return null
+  const bruto = uses.trim()
+  if (bruto.startsWith('./') || bruto.startsWith('.\\') || /^docker:\/\//i.test(bruto)) return null
+  const alvo = caminhoDoUses(bruto)
+  for (const row of ACOES_DE_AGENTE) {
+    if (row[0].test(alvo)) return { explicacao: row[1], dados: row[2] }
+  }
+  return null
+}
+
+const ACAO_LOCAL = /(?:^|\/)action\.ya?ml$/i
+const ehMapa = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+
+/** A shell word as POSIX reads it back: bare when it is safe, single-quoted otherwise. */
+const citarPosix = (w) => (/^[\w@%+=:,./-]+$/.test(w) ? w : `'${w.replace(/'/g, "'\\''")}'`)
+
+/** The words `codex-args` holds: a JSON array of strings, else a shell-like string. */
+function argumentosDoCodex(valor) {
+  if (Array.isArray(valor)) return valor.filter((x) => typeof x === 'string')
+  if (typeof valor !== 'string' || !valor.trim()) return []
+  const lido = lerJsonc(valor.trim(), { estrito: true })
+  if (!lido.erro && Array.isArray(lido.valor) && lido.valor.every((x) => typeof x === 'string')) {
+    return lido.valor
+  }
+  return palavrasDeLancamento(valor)
+}
+
+/** The words an action's CLI-arguments input holds, split the way a shell splits them. */
+export function palavrasDosArgs(valor) {
+  if (typeof valor !== 'string' || !valor.trim()) return []
+  return comandosDoShell(`x ${valor.replace(/\r?\n/g, ' ')}`)
+    .flatMap((c) => c.palavras)
+    .slice(1)
+}
+
+/**
+ * The inline JSON objects the `--settings` option of Claude Code holds among
+ * `palavras` ("Path to a settings JSON file or an inline JSON string", CLI
+ * reference). A file path is not read. Measured before: claude_args carrying
+ * `--settings` with the bypass default mode passed both rules, while
+ * `--permission-mode` with the same value failed them.
+ */
+export function settingsDasPalavras(palavras) {
+  const saida = []
+  const OPCAO = /^--settings(?:=([\s\S]*))?$/
+  for (let i = 0; i < palavras.length; i++) {
+    const m = OPCAO.exec(palavras[i])
+    if (!m) continue
+    const valor = m[1] !== undefined ? m[1] : palavras[i + 1]
+    if (typeof valor !== 'string' || !valor.trim().startsWith('{')) continue
+    const lido = lerJsonc(valor.trim(), { estrito: true })
+    if (!lido.erro && ehMapa(lido.valor)) saida.push(lido.valor)
+  }
+  return saida
+}
+
+const SWITCH_SEM_APROVACAO = dupla('dangerously-', 'bypass-', 'approvals-', 'and-', 'sandbox')
+const SWITCH_SEM_FREIO = dupla(semFreio)
+
+/**
+ * The commands the approval inputs of the vendor agent steps of one workflow or
+ * action file stand for, as segments of achadosDoIndice. openai/codex-action
+ * (src/runCodexExec.ts on main, read 2026-09-13) runs `exec` with `--sandbox
+ * <sandbox>`, or `--config default_permissions=<profile>` when a permission
+ * profile is set; it passes `codex-args` along, and throws on the bypass switch
+ * or its short alias when a profile is set or the sandbox or safety strategy
+ * is read-only, so the switch counts only outside those. Its own `--sandbox` and
+ * config roots in `codex-args` are never counted: the action appends its own
+ * choice after them and rejects those roots under every strategy but unsafe.
+ * anthropics/claude-code-action and both base actions write `settings` into
+ * the user settings file (src/setup-settings.ts), where Claude Code honours its
+ * default permission mode.
+ */
+function segmentosDeEntradas(e, ACOES_DE_AGENTE) {
+  if (!/\buses\s*:/.test(e.texto)) return []
+  const lido = lerYaml(e.texto, { ancoras: true })
+  if (lido.erro || !ehMapa(lido.valor)) return []
+  const raiz = lido.valor
+  const passos = []
+  if (ehMapa(raiz.jobs)) {
+    for (const [id, job] of Object.entries(raiz.jobs)) {
+      if (!ehMapa(job) || !Array.isArray(job.steps)) continue
+      job.steps.forEach((p, i) => passos.push([`/jobs/${segmento(id)}/steps/${i}`, p]))
+    }
+  }
+  if (ehMapa(raiz.runs) && Array.isArray(raiz.runs.steps)) {
+    raiz.runs.steps.forEach((p, i) => passos.push([`/runs/steps/${i}`, p]))
+  }
+  const workflow = ehWorkflow(e.caminho)
+  const severidade = workflow && !ehLockDoGhAw(e.texto, e.caminho) ? 'reprova' : 'avisa'
+  const lugar = (ponteiro) => {
+    for (let p = ponteiro; ; p = p.slice(0, p.lastIndexOf('/'))) {
+      if (lido.posicoes.has(p)) return lido.posicoes.get(p)
+      if (!p) return { linha: 1, coluna: 1 }
+    }
+  }
+  const saida = []
+  for (const [ponteiro, passo] of passos) {
+    if (!ehMapa(passo)) continue
+    const acao = acaoDoUses(passo.uses, ACOES_DE_AGENTE)
+    if (!acao || !acao.dados.aprovacao) continue
+    const com = ehMapa(passo.with) ? passo.with : Object.create(null)
+    const valor = (k) => (typeof com[k] === 'string' ? com[k].trim() : '')
+    const empurrar = (entrada, palavras) =>
+      saida.push({
+        e,
+        texto: palavras.map(citarPosix).join(' '),
+        dialetos: ['posix'],
+        severidade,
+        rotulo: `${acao.dados.aprovacao} action input in ${escaparSaida(e.caminho, { limite: 80 })}`,
+        ...lugar(`${ponteiro}/with/${segmento(entrada)}`),
+      })
+    if (acao.dados.aprovacao === 'codex') {
+      const base = [j('cod', 'ex'), 'exec']
+      const perfil = valor('permission-profile')
+      const sandbox = valor('sandbox')
+      const estrategia = valor('safety-strategy')
+      const soLeitura = estrategia === 'read-only'
+      if (sandbox && !perfil && !soLeitura) {
+        empurrar('sandbox', [...base, dupla('sand', 'box'), sandbox])
+      }
+      if (perfil)
+        empurrar('permission-profile', [...base, '-c', `${j('default', '_permissions')}=${perfil}`])
+      if (!perfil && sandbox !== 'read-only' && !soLeitura) {
+        const args = argumentosDoCodex(com['codex-args'])
+        const proibidos = args.filter((w) => w === SWITCH_SEM_APROVACAO || w === SWITCH_SEM_FREIO)
+        if (proibidos.length) empurrar('codex-args', [...base, ...proibidos])
+      }
+    }
+    if (acao.dados.aprovacao === 'claude') {
+      const modoDe = (v) =>
+        ehMapa(v) && ehMapa(v.permissions) && typeof v.permissions.defaultMode === 'string'
+          ? v.permissions.defaultMode
+          : null
+      if (typeof com.settings === 'string') {
+        const lidas = lerJsonc(com.settings.trim(), { estrito: true })
+        const modo = lidas.erro ? null : modoDe(lidas.valor)
+        if (modo) empurrar('settings', [j('cla', 'ude'), dupla('permission-', 'mode'), modo])
+      }
+      // claude_args reaches the CLI, whose `--settings` takes inline JSON too.
+      const argumentos = j('cla', 'ude_args')
+      for (const v of settingsDasPalavras(palavrasDosArgs(com[argumentos]))) {
+        const modo = modoDe(v)
+        if (modo) empurrar(argumentos, [j('cla', 'ude'), dupla('permission-', 'mode'), modo])
+      }
+    }
+  }
+  return saida
+}
+
 const PESO = { reprova: 2, avisa: 1 }
 
 /** The entry whose bytes a link or a mounted path shows, for counting a finding once. */
@@ -1986,6 +2689,7 @@ function oidDoConteudo(e, porCaminho) {
 
 export function achadosDoIndice(indice, tabelas) {
   const t = prepararTabelas(tabelas)
+  const acoes = validarAcoesDeAgente(tabelas.ACOES_DE_AGENTE)
   const { entradas, porCaminho } = indice
   const achados = []
   let lidos = 0
@@ -2127,6 +2831,14 @@ export function achadosDoIndice(indice, tabelas) {
         chamarScripts(comando, base, lugar)
       }
     }
+  }
+
+  // The approval inputs of the vendor agent actions, in workflows and in the
+  // action files a workflow can call.
+  for (const e of entradas) {
+    if (e.texto === null || e.symlink || e.viaSymlink) continue
+    if (!ehWorkflow(e.caminho) && !ACAO_LOCAL.test(e.caminho)) continue
+    segmentos.push(...segmentosDeEntradas(e, acoes))
   }
 
   // package.json text that the script pass already judged, per text read: the
@@ -2312,7 +3024,7 @@ export function achadosDoIndice(indice, tabelas) {
       severidade = 'reprova'
       rotulo = 'agent file'
     } else if (ehWorkflow(e.caminho)) {
-      const lock = ehLockDoGhAw(e.texto)
+      const lock = ehLockDoGhAw(e.texto, e.caminho)
       severidade = lock ? 'avisa' : 'reprova'
       rotulo = lock ? 'gh-aw lock file' : 'workflow'
     }
@@ -2413,6 +3125,7 @@ const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
 
 export function checarBypass(r, tabelas) {
   prepararTabelas(tabelas)
+  validarAcoesDeAgente(tabelas.ACOES_DE_AGENTE)
   const indice = lerIndice(r.dir)
   const permitidas = lerAllowlist(r.dir)
   const { achados, lidos, ausentes, naoLidos } = achadosDoIndice(indice, tabelas)

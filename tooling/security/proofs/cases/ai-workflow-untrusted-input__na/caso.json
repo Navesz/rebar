@@ -1,0 +1,22 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "The not-applicable branches: a repository with no workflow, and a workflow with no known agent step, have nothing this rule judges, and silence by absence must not become passed (invariant I4). The pass side tracks a checkout-only workflow; the fail side tracks no workflow at all. Both must say na.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": ".github/workflows/ci.yml",
+        "base64": "bmFtZTogQ0kKb246IHB1c2gKam9iczoKICB0ZXN0OgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYWN0aW9ucy9jaGVja291dEB2NAo="
+      }
+    ]
+  },
+  "fail": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": "README.md",
+        "base64": "IyBwcm9vZgo="
+      }
+    ]
+  }
+}

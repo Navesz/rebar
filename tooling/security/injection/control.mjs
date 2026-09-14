@@ -112,10 +112,25 @@ const BARRA = '\\\\'
 
 /**
  * What makes a code file a candidate for mcp-ansi-escape: the calls, classes
- * and imports of the TypeScript and Python MCP server SDKs. Measured over the
- * tracked trees of rebar, rebar-site and bookkeep, the refined marker set of
+ * and imports of the TypeScript, Python and Go MCP server SDKs. Measured over
+ * the tracked trees of rebar, rebar-site and bookkeep, the refined marker set of
  * the phase-1 measurement matched exactly the three server files, and 97 files
  * in node_modules.
+ *
+ * The Go rows came from a measurement on 2026-09-13 over 200 server files of
+ * the official Go SDK and 200 of mark3labs/mcp-go found by code search: the
+ * TypeScript and Python markers matched 8 and 2 of them, the Go rows all 400.
+ * None of the 400 held a raw ESC or CSI, so Go files are read without a comment
+ * stripper. The official SDK's `mcp` package serves clients too, so its import
+ * counts only in a file that also holds server-side code (a server created, a
+ * tool, prompt or resource added, a server session, a tool call or prompt or
+ * resource read request, a tool literal), with any package alias. Measured on
+ * 2026-09-13: the bare import made 2 of 5 public Go client files that print
+ * colour fail with 28 findings, and the narrowed row selects none of the 5; of
+ * the 200 go-sdk files of the code search the marker set still selects 143, and
+ * the 57 it drops name no server-side identifier (clients, and wiring files that
+ * only pass the server along). None of the 400 Go files matches the three Go
+ * number rows below.
  *
  * The class names carry one letter as a one-letter class (`[S]`, `[M]`): same
  * matches, but mcp/generate.mjs indexes the word runs of each pattern source
@@ -135,6 +150,27 @@ export const MARCADORES_DE_SERVIDOR = [
     new RegExp('\\b(?:from|import)\\s+' + 'mcp' + '\\.server\\b'),
     'imports the Python server package',
   ],
+  [
+    new RegExp(
+      '["`]github\\.com\\/model' +
+        'contextprotocol\\/go-sdk\\/mcp["`]' +
+        '(?=[\\s\\S]*(?:\\b\\w+\\.(?:New' +
+        '[S]erver|Add' +
+        '(?:[T]ool|[P]rompt|[R]esource(?:Template)?))\\s*\\(|\\b(?:Server' +
+        '[S]ession|CallTool' +
+        '[R]equest|GetPrompt' +
+        '[R]equest|ReadResource' +
+        '[R]equest)\\b|&\\w+\\.T' +
+        '[o]ol\\s*\\{))',
+    ),
+    'imports the Go SDK in a file with server-side code',
+  ],
+  [
+    new RegExp('["`]github\\.com\\/mark3' + 'labs\\/mcp-go\\/server["`]'),
+    'imports the server package of a Go MCP library',
+  ],
+  [new RegExp('\\bmcp\\.New' + '[S]erver\\s*\\('), 'creates a server with the Go SDK'],
+  [new RegExp('\\bNew' + '[M]CPServer\\s*\\('), 'creates a server with a Go MCP library'],
 ]
 
 /**
@@ -167,6 +203,30 @@ export const ESCAPES_DE_CONTROLE = [
   ],
   [
     new RegExp('\\b' + 'chr' + '\\s*\\(\\s*(?:27|0x1[bB]|0o33|155|0x9[bB])\\s*\\)'),
+    'ESC or CSI built from its number',
+  ],
+  // Go builds a character from its number with a rune or byte conversion, a
+  // byte or rune slice literal, or a %c verb whose argument is the number.
+  // Measured before: each of the three passed in a go-sdk server file whose hex
+  // escape of the same character failed.
+  [
+    new RegExp(
+      '\\b(?:ru' + 'ne|by' + 'te)\\s*\\(\\s*(?:27|0x1[bB]|0o?33|155|0x9[bB]|0o?233)\\s*\\)',
+    ),
+    'ESC or CSI built from its number',
+  ],
+  [
+    new RegExp(
+      '\\[\\]\\s*(?:by' +
+        'te|ru' +
+        'ne)\\s*\\{[^}]*?(?<![\\w.])(?:27|0x1[bB]|0o?33|155|0x9[bB]|0o?233)(?![\\w.])',
+    ),
+    'ESC or CSI built from its number',
+  ],
+  [
+    new RegExp(
+      '"(?:[^"\\\\\\n]|\\\\.)*%c(?:[^"\\\\\\n]|\\\\.)*"\\s*,\\s*(?:27|0x1[bB]|0o?33|155|0x9[bB]|0o?233)\\b',
+    ),
     'ESC or CSI built from its number',
   ],
 ]

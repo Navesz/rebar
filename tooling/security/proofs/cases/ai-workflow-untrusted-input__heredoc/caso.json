@@ -1,0 +1,21 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A here-document body is data for the program it feeds, and commands only when a shell reads it. Both sides run on new issues with a bot token and no permissions block. The pass side, not applicable because it starts no agent, writes a welcome note through cat, and the note mentions an agent command in backticks; the review measured that shape taken for an agent launch in a real workflow. The fail side feeds the same kind of body to bash, whose line starts the agent CLI. Whoever reads every body line as a command fails the pass side; whoever skips every body passes the fail side.",
+  "pass": {
+    "estado": "na",
+    "gerados": [
+      {
+        "caminho": ".github/workflows/welcome.yml",
+        "base64": "bmFtZTogV2VsY29tZQpvbjoKICBpc3N1ZXM6CiAgICB0eXBlczogW29wZW5lZF0Kam9iczoKICB3ZWxjb21lOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gZW52OgogICAgICAgICAgR0hfVE9LRU46ICR7eyBzZWNyZXRzLkJPVF9UT0tFTiB9fQogICAgICAgIHJ1bjogfAogICAgICAgICAgY2F0ID4gIiRSVU5ORVJfVEVNUC9ub3RlLm1kIiA8PCdFT0YnCiAgICAgICAgICBUaGFua3MgZm9yIHRoZSByZXBvcnQuIGBjbGF1ZGUgLXBgIGlzIG5vdCB1c2VkIGluIHRoaXMgcmVwb3NpdG9yeS4KICAgICAgICAgIEVPRgogICAgICAgICAgZ2ggaXNzdWUgY29tbWVudCAiJHt7IGdpdGh1Yi5ldmVudC5pc3N1ZS5udW1iZXIgfX0iIC0tYm9keS1maWxlICIkUlVOTkVSX1RFTVAvbm90ZS5tZCIK"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/welcome.yml",
+        "base64": "bmFtZTogV2VsY29tZQpvbjoKICBpc3N1ZXM6CiAgICB0eXBlczogW29wZW5lZF0Kam9iczoKICB3ZWxjb21lOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gZW52OgogICAgICAgICAgR0hfVE9LRU46ICR7eyBzZWNyZXRzLkJPVF9UT0tFTiB9fQogICAgICAgIHJ1bjogfAogICAgICAgICAgYmFzaCA8PCdFT0YnCiAgICAgICAgICBjbGF1ZGUgLXAgIkxhYmVsIHRoaXMgaXNzdWUiCiAgICAgICAgICBFT0YK"
+      }
+    ]
+  }
+}

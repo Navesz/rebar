@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A job that needs a gate job runs as success() && (its if) unless its if calls a status function, in any letter case, and success() is false once the gate was skipped (actions/runner PipelineTemplateConverter). The pass side keeps an owner-only gate in front of a base action with a whole shell and calls success() itself, which still needs the gate. The fail side calls Always() in capitals, which runs the agent after the gate skipped for an outside comment; the review showed it read as closed. Whoever ignores the gate job fails the pass side; whoever matches status functions by lowercase text passes the fail side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlX2NvbW1lbnQ6CiAgICB0eXBlczogW2NyZWF0ZWRdCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgZ2F0ZToKICAgIGlmOiBnaXRodWIuZXZlbnQuY29tbWVudC5hdXRob3JfYXNzb2NpYXRpb24gPT0gJ09XTkVSJwogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gcnVuOiBlY2hvIG93bmVyCiAgYXNzaXN0YW50OgogICAgbmVlZHM6IGdhdGUKICAgIGlmOiBzdWNjZXNzKCkKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFudGhyb3BpY3MvY2xhdWRlLWNvZGUtYWN0aW9uL2Jhc2UtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIGFudGhyb3BpY19hcGlfa2V5OiAke3sgc2VjcmV0cy5BTlRIUk9QSUNfQVBJX0tFWSB9fQogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gKICAgICAgICAgIHByb21wdDogQW5zd2VyIHRoZSBjb21tZW50Lgo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlX2NvbW1lbnQ6CiAgICB0eXBlczogW2NyZWF0ZWRdCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgZ2F0ZToKICAgIGlmOiBnaXRodWIuZXZlbnQuY29tbWVudC5hdXRob3JfYXNzb2NpYXRpb24gPT0gJ09XTkVSJwogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gcnVuOiBlY2hvIG93bmVyCiAgYXNzaXN0YW50OgogICAgbmVlZHM6IGdhdGUKICAgIGlmOiBBbHdheXMoKQogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb24vYmFzZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBjbGF1ZGVfYXJnczogLS1hbGxvd2VkVG9vbHMgQmFzaAogICAgICAgICAgcHJvbXB0OiBBbnN3ZXIgdGhlIGNvbW1lbnQuCg=="
+      }
+    ]
+  }
+}

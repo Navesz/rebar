@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "An AI agent step on a trigger any account can fire is only as safe as what it can act with. Both sides run the Claude Code action on a new issue with contents write. The pass side keeps the action default, which runs only for accounts with write access, so outside text never steers it. The fail side opens that check to every account and grants the agent a whole shell: anyone who opens an issue can make it run commands with the job token (the Clinejection shape). Whoever ignores the actor check fails the pass side; whoever needs event text interpolated passes the fail side, since the action reads the issue by itself.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogd3JpdGUKam9iczoKICBhc3Npc3RhbnQ6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2NoZWNrb3V0QHY0CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogd3JpdGUKam9iczoKICBhc3Npc3RhbnQ6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2NoZWNrb3V0QHY0CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBnaXRodWJfdG9rZW46ICR7eyBzZWNyZXRzLkdJVEhVQl9UT0tFTiB9fQogICAgICAgICAgYWxsb3dlZF9ub25fd3JpdGVfdXNlcnM6ICIqIgogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gK"
+      }
+    ]
+  }
+}

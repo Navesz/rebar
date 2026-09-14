@@ -8,7 +8,7 @@
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
-[![Rules](https://img.shields.io/badge/rules-33-blue)](#what-it-checks)
+[![Rules](https://img.shields.io/badge/rules-34-blue)](#what-it-checks)
 [![Gate](https://img.shields.io/badge/gate-26%20steps-blue)](#the-gate)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](ESTADO.md)
 
@@ -191,7 +191,7 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->33<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->132<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->34<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->155<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 

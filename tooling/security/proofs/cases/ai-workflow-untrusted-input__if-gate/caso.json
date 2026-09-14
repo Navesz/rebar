@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A job condition that admits only owners and members closes an agent to outside comments, and the rule has to read it per trigger. The pass side runs a base action with a whole shell on issue comments behind that condition. The fail side adds the issues trigger and ORs the same condition with the event being issues, which lets any account in by opening an issue. Whoever ignores conditions fails the pass side; whoever reads a condition as passed when any operand passes misses the fail side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlX2NvbW1lbnQ6CiAgICB0eXBlczogW2NyZWF0ZWRdCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgYXNzaXN0YW50OgogICAgaWY6IChnaXRodWIuZXZlbnQuY29tbWVudC5hdXRob3JfYXNzb2NpYXRpb24gPT0gJ09XTkVSJyB8fCBnaXRodWIuZXZlbnQuY29tbWVudC5hdXRob3JfYXNzb2NpYXRpb24gPT0gJ01FTUJFUicpCiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhbnRocm9waWNzL2NsYXVkZS1jb2RlLWFjdGlvbi9iYXNlLWFjdGlvbkB2MQogICAgICAgIHdpdGg6CiAgICAgICAgICBhbnRocm9waWNfYXBpX2tleTogJHt7IHNlY3JldHMuQU5USFJPUElDX0FQSV9LRVkgfX0KICAgICAgICAgIGNsYXVkZV9hcmdzOiAtLWFsbG93ZWRUb29scyBCYXNoCiAgICAgICAgICBwcm9tcHQ6IEFuc3dlciB0aGUgY29tbWVudC4K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlczoKICBpc3N1ZV9jb21tZW50OgogICAgdHlwZXM6IFtjcmVhdGVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZApqb2JzOgogIGFzc2lzdGFudDoKICAgIGlmOiBnaXRodWIuZXZlbnRfbmFtZSA9PSAnaXNzdWVzJyB8fCAoZ2l0aHViLmV2ZW50LmNvbW1lbnQuYXV0aG9yX2Fzc29jaWF0aW9uID09ICdPV05FUicgfHwgZ2l0aHViLmV2ZW50LmNvbW1lbnQuYXV0aG9yX2Fzc29jaWF0aW9uID09ICdNRU1CRVInKQogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb24vYmFzZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBjbGF1ZGVfYXJnczogLS1hbGxvd2VkVG9vbHMgQmFzaAogICAgICAgICAgcHJvbXB0OiBBbnN3ZXIgdGhlIGNvbW1lbnQuCg=="
+      }
+    ]
+  }
+}

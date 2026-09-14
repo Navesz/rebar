@@ -1,0 +1,20 @@
+{
+  "rule": "mcp-ansi-escape",
+  "why": "The server markers knew only the TypeScript and Python SDKs, so a Go server built with the official Go SDK was never a candidate. The fail side is such a server whose tool description carries a hex escape of ESC before a colour code. The pass side is the same server with plain text. Whoever drops the Go markers turns the fail side not applicable; whoever fires on the markers alone fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "main.go",
+        "base64": "cGFja2FnZSBtYWluCgppbXBvcnQgKAoJImNvbnRleHQiCgoJImdpdGh1Yi5jb20vbW9kZWxjb250ZXh0cHJvdG9jb2wvZ28tc2RrL21jcCIKKQoKZnVuYyBtYWluKCkgewoJc2VydmVyIDo9IG1jcC5OZXdTZXJ2ZXIoJm1jcC5JbXBsZW1lbnRhdGlvbntOYW1lOiAid2VhdGhlciIsIFZlcnNpb246ICIxLjAuMCJ9LCBuaWwpCgltY3AuQWRkVG9vbChzZXJ2ZXIsICZtY3AuVG9vbHtOYW1lOiAiZm9yZWNhc3QiLCBEZXNjcmlwdGlvbjogIkZvcmVjYXN0IGZvciBhIGNpdHkuIn0sIG5pbCkKCV8gPSBzZXJ2ZXIuUnVuKGNvbnRleHQuQmFja2dyb3VuZCgpLCAmbWNwLlN0ZGlvVHJhbnNwb3J0e30pCn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "main.go",
+        "base64": "cGFja2FnZSBtYWluCgppbXBvcnQgKAoJImNvbnRleHQiCgoJImdpdGh1Yi5jb20vbW9kZWxjb250ZXh0cHJvdG9jb2wvZ28tc2RrL21jcCIKKQoKZnVuYyBtYWluKCkgewoJc2VydmVyIDo9IG1jcC5OZXdTZXJ2ZXIoJm1jcC5JbXBsZW1lbnRhdGlvbntOYW1lOiAid2VhdGhlciIsIFZlcnNpb246ICIxLjAuMCJ9LCBuaWwpCgltY3AuQWRkVG9vbChzZXJ2ZXIsICZtY3AuVG9vbHtOYW1lOiAiZm9yZWNhc3QiLCBEZXNjcmlwdGlvbjogIkZvcmVjYXN0IGZvciBhIGNpdHkuXHgxYls4bVx4MWJbMG0ifSwgbmlsKQoJXyA9IHNlcnZlci5SdW4oY29udGV4dC5CYWNrZ3JvdW5kKCksICZtY3AuU3RkaW9UcmFuc3BvcnR7fSkKfQo="
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "PromptPwnd (Aikido, December 2025) steered the Gemini CLI inside Google triage workflows with the title and body of a new issue: the action approves every tool call, and the tool list held a shell command scoped to editing issues. The fail side is that shape. The pass side gives the agent an empty core tool list and no MCP server, and passes its summary to the next step through env, so the step passes with a warning. Whoever treats a scoped shell tool as harmless passes the fail side; whoever fails every exposed agent fails the pass side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.yml",
+        "base64": "bmFtZTogVHJpYWdlCm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkLCByZW9wZW5lZF0KcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHJlYWQKICBpc3N1ZXM6IHdyaXRlCmpvYnM6CiAgdHJpYWdlOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gaWQ6IGdlbWluaQogICAgICAgIHVzZXM6IGdvb2dsZS1naXRodWItYWN0aW9ucy9ydW4tZ2VtaW5pLWNsaUB2MAogICAgICAgIGVudjoKICAgICAgICAgIElTU1VFX1RJVExFOiAke3sgZ2l0aHViLmV2ZW50Lmlzc3VlLnRpdGxlIH19CiAgICAgICAgICBJU1NVRV9CT0RZOiAke3sgZ2l0aHViLmV2ZW50Lmlzc3VlLmJvZHkgfX0KICAgICAgICB3aXRoOgogICAgICAgICAgZ2VtaW5pX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkdFTUlOSV9BUElfS0VZIH19CiAgICAgICAgICBzZXR0aW5nczogfAogICAgICAgICAgICB7InRvb2xzIjp7ImNvcmUiOltdfX0KICAgICAgICAgIHByb21wdDogTGFiZWwgdGhlIGlzc3VlIGluIElTU1VFX1RJVExFIGFuZCBJU1NVRV9CT0RZLgogICAgICAtIHJ1bjogZWNobyAiJFNVTU1BUlkiCiAgICAgICAgZW52OgogICAgICAgICAgU1VNTUFSWTogJHt7IHN0ZXBzLmdlbWluaS5vdXRwdXRzLnN1bW1hcnkgfX0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/triage.yml",
+        "base64": "bmFtZTogVHJpYWdlCm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkLCByZW9wZW5lZF0KcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHJlYWQKICBpc3N1ZXM6IHdyaXRlCmpvYnM6CiAgdHJpYWdlOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgc3RlcHM6CiAgICAgIC0gaWQ6IGdlbWluaQogICAgICAgIHVzZXM6IGdvb2dsZS1naXRodWItYWN0aW9ucy9ydW4tZ2VtaW5pLWNsaUB2MAogICAgICAgIGVudjoKICAgICAgICAgIElTU1VFX1RJVExFOiAke3sgZ2l0aHViLmV2ZW50Lmlzc3VlLnRpdGxlIH19CiAgICAgICAgICBJU1NVRV9CT0RZOiAke3sgZ2l0aHViLmV2ZW50Lmlzc3VlLmJvZHkgfX0KICAgICAgICB3aXRoOgogICAgICAgICAgZ2VtaW5pX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkdFTUlOSV9BUElfS0VZIH19CiAgICAgICAgICBzZXR0aW5nczogfAogICAgICAgICAgICB7InRvb2xzIjp7ImNvcmUiOlsicnVuX3NoZWxsX2NvbW1hbmQoZ2ggaXNzdWUgZWRpdCkiXX19CiAgICAgICAgICBwcm9tcHQ6IExhYmVsIHRoZSBpc3N1ZSBpbiBJU1NVRV9USVRMRSBhbmQgSVNTVUVfQk9EWS4KICAgICAgLSBydW46IGVjaG8gIiRTVU1NQVJZIgogICAgICAgIGVudjoKICAgICAgICAgIFNVTU1BUlk6ICR7eyBzdGVwcy5nZW1pbmkub3V0cHV0cy5zdW1tYXJ5IH19Cg=="
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "A team that accepts an exposed agent pins that exact workflow blob in .rebar-injection-allowlist. Both sides track the failing workflow of the base case; the pass side adds its file and blob id, and passes with a warning that no CODEOWNERS entry guards the list. Whoever ignores the allowlist fails the pass side; whoever matches by path alone would accept the next edit too.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogd3JpdGUKam9iczoKICBhc3Npc3RhbnQ6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2NoZWNrb3V0QHY0CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBnaXRodWJfdG9rZW46ICR7eyBzZWNyZXRzLkdJVEhVQl9UT0tFTiB9fQogICAgICAgICAgYWxsb3dlZF9ub25fd3JpdGVfdXNlcnM6ICIqIgogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gK"
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "eyJyZWdyYSI6ImFpLXdvcmtmbG93LXVudHJ1c3RlZC1pbnB1dCIsIm1vdGl2byI6ImFnZW50IHJldmlld2VkIGluIGEgcHJvb2YiLCJhcnF1aXZvIjoiLmdpdGh1Yi93b3JrZmxvd3MvYXNzaXN0YW50LnltbCIsIm9pZCI6IjNhMTA5OGI1YWFhMzllMmJlMDZhNGQzMmI1YjRmYjgxMTM0OWE5NTUifQo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/assistant.yml",
+        "base64": "bmFtZTogQXNzaXN0YW50Cm9uOgogIGlzc3VlczoKICAgIHR5cGVzOiBbb3BlbmVkXQpwZXJtaXNzaW9uczoKICBjb250ZW50czogd3JpdGUKam9iczoKICBhc3Npc3RhbnQ6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2NoZWNrb3V0QHY0CiAgICAgIC0gdXNlczogYW50aHJvcGljcy9jbGF1ZGUtY29kZS1hY3Rpb25AdjEKICAgICAgICB3aXRoOgogICAgICAgICAgYW50aHJvcGljX2FwaV9rZXk6ICR7eyBzZWNyZXRzLkFOVEhST1BJQ19BUElfS0VZIH19CiAgICAgICAgICBnaXRodWJfdG9rZW46ICR7eyBzZWNyZXRzLkdJVEhVQl9UT0tFTiB9fQogICAgICAgICAgYWxsb3dlZF9ub25fd3JpdGVfdXNlcnM6ICIqIgogICAgICAgICAgY2xhdWRlX2FyZ3M6IC0tYWxsb3dlZFRvb2xzIEJhc2gK"
+      }
+    ]
+  }
+}

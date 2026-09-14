@@ -486,13 +486,26 @@ describe('Codex profiles', { concurrency: true }, () => {
       { [CODEX_TOML]: k('[profiles.p]\n', CH.approvalPolicy, ' = "on-request"\n') },
       'passou',
     ],
+    [
+      'the no-sandbox default permission profile fails (the key that replaces sandbox_mode)',
+      { [CODEX_TOML]: k('default', '_permissions = ":', 'danger-', 'full-access"\n') },
+      'reprovou',
+    ],
+    [
+      'the workspace default permission profile passes',
+      { [CODEX_TOML]: k('default', '_permissions = ":workspace"\n') },
+      'passou',
+    ],
   ]
   for (const [nome, arquivos, estado] of casos) {
     test(nome, async () => {
       const saida = await avaliar(arquivos)
       espera(saida, estado, nome)
       if (estado === 'reprovou')
-        assert.match(textoDe(saida), /config\.toml:\d+:\d+ \/profiles\/\w+\//)
+        assert.match(
+          textoDe(saida),
+          /config\.toml:\d+:\d+ \/(?:profiles\/\w+\/|default_permissions)/,
+        )
     })
   }
 })
@@ -959,6 +972,27 @@ describe('the editors', { concurrency: true }, () => {
     })
     espera(saida, 'reprovou', 'workspace task')
     assert.match(textoDe(saida), /\/tasks\/tasks\/0\//)
+  })
+
+  test('a workspace file MCP server map and a dev container one folder down are read', async () => {
+    // settings.mcp.servers is where VS Code reads a workspace file's servers;
+    // before this view, a loader variable in one passed.
+    const servidores = { s: { command: 'node', env: { [VAR.ldPreload]: '/x.so' } } }
+    espera(
+      await avaliar({ 'app.code-workspace': J({ settings: { mcp: { servers: servidores } } }) }),
+      'reprovou',
+      'workspace MCP loader',
+    )
+    // `.devcontainer/<name>/devcontainer.json`, the several-configurations form.
+    espera(
+      await avaliar({
+        [k(DOT, 'devcontainer/py/devcontainer.json')]: J({
+          customizations: { vscode: { mcp: { servers: servidores } } },
+        }),
+      }),
+      'reprovou',
+      'devcontainer subfolder loader',
+    )
   })
 
   test('devcontainer: its MCP server env is read, and lifecycle commands warn by name', async () => {

@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "The Codex action checks write access unless an input opens it, and keeps the agent in a sandbox with sudo dropped. Both sides open it to every account on pull_request_target with contents write. The fail side also takes the sandbox away, so a fork author steers an agent that runs anything. The pass side keeps the read-only sandbox under the default strategy, and passes with a warning. Whoever fails every exposed Codex step fails the pass side; whoever ignores the sandbox input passes the fail side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/codex.yml",
+        "base64": "bmFtZTogQ29kZXgKb246IHB1bGxfcmVxdWVzdF90YXJnZXQKcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHdyaXRlCmpvYnM6CiAgY29kZXg6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBvcGVuYWkvY29kZXgtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIG9wZW5haS1hcGkta2V5OiAke3sgc2VjcmV0cy5PUEVOQUlfQVBJX0tFWSB9fQogICAgICAgICAgYWxsb3ctdXNlcnM6ICIqIgogICAgICAgICAgc2FuZGJveDogcmVhZC1vbmx5CiAgICAgICAgICBwcm9tcHQ6IFJldmlldyB0aGUgcHVsbCByZXF1ZXN0Lgo="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/codex.yml",
+        "base64": "bmFtZTogQ29kZXgKb246IHB1bGxfcmVxdWVzdF90YXJnZXQKcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHdyaXRlCmpvYnM6CiAgY29kZXg6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBvcGVuYWkvY29kZXgtYWN0aW9uQHYxCiAgICAgICAgd2l0aDoKICAgICAgICAgIG9wZW5haS1hcGkta2V5OiAke3sgc2VjcmV0cy5PUEVOQUlfQVBJX0tFWSB9fQogICAgICAgICAgYWxsb3ctdXNlcnM6ICIqIgogICAgICAgICAgc2FuZGJveDogZGFuZ2VyLWZ1bGwtYWNjZXNzCiAgICAgICAgICBwcm9tcHQ6IFJldmlldyB0aGUgcHVsbCByZXF1ZXN0Lgo="
+      }
+    ]
+  }
+}

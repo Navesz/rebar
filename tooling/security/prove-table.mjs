@@ -14,11 +14,11 @@
 // `\s` in the middle, so its source carried its own target; it is assembled in
 // pieces, the same idiom as the split token in tooling/secret/prove-scan.mjs.
 //
-// ─────────────────────────────── eleven tables now, and a reader with no mercy
+// ───────────────────────────── fourteen tables now, and a reader with no mercy
 //
 // Until the prompt-injection rules this file held one table, DESLIGAM, against
 // the comment-stripped text of the two files that could carry it. The injection
-// families brought ten more tables (engines and tables in `./injection/*.mjs`,
+// families brought thirteen more tables (engines and tables in `./injection/*.mjs`,
 // re-exported by name from index.mjs), and a stricter reader: those rules read
 // every tracked blob RAW, through the index, with no proof root, template root
 // or .rebarignore to hide anything. A table word spelled in a comment of a
@@ -37,28 +37,31 @@
 //                         ./injection/, the prove-*.mjs beside this file,
 //                         tooling/security/README.md, the three root READMEs,
 //                         and mcp/rules.generated.json read whole;
-//   the four key tables   (the config keys and variable names agent-config-exec
+//   the seven key tables  (the config keys and variable names agent-config-exec
 //                         matches, the runners and shell signs mcp-server-launch
-//                         matches) are whole-string matchers, anchored at both
-//                         ends with no multiline flag and no top-level
-//                         alternation, run over one parsed key or one launch
-//                         command at a time. Over a whole file such a row can only
-//                         match a file that is nothing but the key. Prose that
-//                         names a key is no finding of those rules. What is proved
-//                         for them is the shape that makes that true, so a row
-//                         loosened into a text search fails here and has to move
-//                         to the text group; and test (f) of prove-injection.mjs
-//                         runs both rules on rebar itself. The shape test once
-//                         only looked at the first and last character, so
-//                         `^a|b$` (a start-anchored a OR an end-anchored b, which
-//                         searches free text) and an escaped final dollar both
-//                         counted as whole: backlog 10. Measured when that was
-//                         fixed: 63 key rows, none with either shape. The raw test
-//                         runs over the key tables too. It costs nothing and holds
-//                         D18 (no rebar file is a sample of what a table hunts)
-//                         even if a row's shape check were ever wrong. A multiline
-//                         flag is no fix: measured, the shell signs then matched
-//                         25 of the 26 targets;
+//                         matches, and the action names, triggers and event
+//                         fields ai-workflow-untrusted-input matches) are
+//                         whole-string matchers, anchored at both ends with no
+//                         multiline flag and no top-level alternation, run over
+//                         one parsed key, one launch command, one action name,
+//                         one trigger name or one expression leaf at a time. Over
+//                         a whole file such a row can only match a file that is
+//                         nothing but the key. Prose that names a key is no
+//                         finding of those rules. What is proved for them is the
+//                         shape that makes that true, so a row loosened into a
+//                         text search fails here and has to move to the text
+//                         group; and test (f) of prove-injection.mjs runs both
+//                         rules on rebar itself. The shape test once only looked
+//                         at the first and last character, so `^a|b$` (a
+//                         start-anchored a OR an end-anchored b, which searches
+//                         free text) and an escaped final dollar both counted as
+//                         whole: backlog 10. Measured when that was fixed: 63 key
+//                         rows of the four tables of that time, none with either
+//                         shape. The raw test runs over the key tables too. It
+//                         costs nothing and holds D18 (no rebar file is a sample
+//                         of what a table hunts) even if a row's shape check were
+//                         ever wrong. A multiline flag is no fix: measured, the
+//                         shell signs then matched 25 of the 26 targets;
 //   DESLIGAM             the comment-stripped code of index.mjs and of this
 //                         file, which is all `disabled-defense` ever reads. It
 //                         reads no JSON and no Markdown, and a case `why` in the
@@ -97,8 +100,11 @@ const INJECAO = TABELAS.filter(([nome]) => nome !== 'DESLIGAM')
 
 /** The injection tables whose rows match one parsed key or one launch command, whole. */
 const CHAVE = [
+  'ACOES_DE_AGENTE',
+  'CAMPOS_DO_EVENTO',
   'CHAVES_QUE_EXECUTAM',
   'EXECUTORES_REMOTOS',
+  'GATILHOS_DE_FORA',
   'SINAIS_DE_SHELL',
   'VARIAVEIS_PERIGOSAS',
 ]
@@ -137,13 +143,16 @@ function inteira(padrao) {
 
 /** Every table name the rules consult today. A table that stops being exported is caught here. */
 const ESPERADAS = [
+  'ACOES_DE_AGENTE',
   'BINARIOS_DE_AGENTE',
+  'CAMPOS_DO_EVENTO',
   'CHAVES_QUE_EXECUTAM',
   'DESLIGAM',
   'ESCAPES_DE_CONTROLE',
   'EXECUTORES_REMOTOS',
   'FLAGS_AMBIGUAS',
   'FLAGS_FORTES',
+  'GATILHOS_DE_FORA',
   'MARCADORES_DE_SERVIDOR',
   'PARES_DE_FLAG',
   'SINAIS_DE_SHELL',
@@ -223,7 +232,7 @@ test('the whole-string test sees a top-level alternation and an escaped final do
 })
 
 test('EVERY ROW OF A KEY TABLE IS WHOLE-STRING, AND NO ROW OF A TEXT TABLE IS', () => {
-  // The raw test below cannot fail for a whole-string row, so for the four key
+  // The raw test below cannot fail for a whole-string row, so for the seven key
   // tables this shape is what is held: a row that starts searching free text
   // fails here and its table moves to the text group, where the raw test reads
   // it. A whole-string row in a text table would pass the raw test by vacuity.

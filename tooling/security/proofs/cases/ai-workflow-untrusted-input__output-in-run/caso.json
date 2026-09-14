@@ -1,0 +1,20 @@
+{
+  "rule": "ai-workflow-untrusted-input",
+  "why": "The old GitHub starter summary workflow put the model response inside a quoted shell string of the next step, so a response that closes the quote runs as shell with the job token: the agent writes the injection. The fail side is that shape. The pass side hands the same response over through env, as the current starter does, and passes with a warning. Whoever reads only the agent step passes the fail side.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/summary.yml",
+        "base64": "bmFtZTogU3VtbWFyeQpvbjoKICBpc3N1ZXM6CiAgICB0eXBlczogW29wZW5lZF0KcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHJlYWQKICBpc3N1ZXM6IHdyaXRlCiAgbW9kZWxzOiByZWFkCmpvYnM6CiAgc3VtbWFyeToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIGlkOiBpbmZlcmVuY2UKICAgICAgICB1c2VzOiBhY3Rpb25zL2FpLWluZmVyZW5jZUB2MQogICAgICAgIHdpdGg6CiAgICAgICAgICBwcm9tcHQ6IFN1bW1hcml6ZSB0aGUgaXNzdWUuCiAgICAgIC0gcnVuOiBnaCBpc3N1ZSBjb21tZW50ICIkTlVNQkVSIiAtLWJvZHkgIiRSRVNQT05TRSIKICAgICAgICBlbnY6CiAgICAgICAgICBOVU1CRVI6ICR7eyBnaXRodWIuZXZlbnQuaXNzdWUubnVtYmVyIH19CiAgICAgICAgICBSRVNQT05TRTogJHt7IHN0ZXBzLmluZmVyZW5jZS5vdXRwdXRzLnJlc3BvbnNlIH19Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".github/workflows/summary.yml",
+        "base64": "bmFtZTogU3VtbWFyeQpvbjoKICBpc3N1ZXM6CiAgICB0eXBlczogW29wZW5lZF0KcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHJlYWQKICBpc3N1ZXM6IHdyaXRlCiAgbW9kZWxzOiByZWFkCmpvYnM6CiAgc3VtbWFyeToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIGlkOiBpbmZlcmVuY2UKICAgICAgICB1c2VzOiBhY3Rpb25zL2FpLWluZmVyZW5jZUB2MQogICAgICAgIHdpdGg6CiAgICAgICAgICBwcm9tcHQ6IFN1bW1hcml6ZSB0aGUgaXNzdWUuCiAgICAgIC0gcnVuOiBnaCBpc3N1ZSBjb21tZW50ICR7eyBnaXRodWIuZXZlbnQuaXNzdWUubnVtYmVyIH19IC0tYm9keSAnJHt7IHN0ZXBzLmluZmVyZW5jZS5vdXRwdXRzLnJlc3BvbnNlIH19Jwo="
+      }
+    ]
+  }
+}
