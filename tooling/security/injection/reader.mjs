@@ -105,8 +105,15 @@
  * }
  *   `.rebar-injection-allowlist`, JSON Lines read from the INDEX blob; blank
  *   lines and lines starting with # are skipped. Each object is exactly
- *   {regra, motivo (1-200 code points)} plus one key shape. Not memoized: every
- *   call returns fresh use counters.
+ *   {regra, motivo (1-200 code points)} plus one key shape. A motivo that
+ *   contains MOTIVO_A_ESCREVER (whitespace collapsed, case ignored) is an error
+ *   line. Not memoized: every call returns fresh use counters.
+ *
+ * sugerirEntrada(r, regra, chave) -> void
+ *   Records `{ regra, chave }` in `r.sugestoesDaAllowlist` when the caller made
+ *   that an array (the `--sugerir-allowlist` option of index.mjs); a no-op
+ *   otherwise. An engine calls it where a reprova finding stands that `chave`,
+ *   passed to aceita(), would exempt.
  *
  * posicao(texto, indice) -> { linha, coluna }
  *   `indice` is a UTF-16 offset (what indexOf returns). 1-based; `linha` counts
@@ -119,7 +126,7 @@
  * Also exported: decodificarBlob(bytes) -> { texto, codificacao }, tipoDoCaminho(caminho) -> Tipo,
  * extensaoDe(caminho), EXT_TEXTO, NOMES_TEXTO, INSTRUCAO_NOME, INSTRUCAO_CAMINHO,
  * CODIGO, PROSA, LIMITE_DE_BLOB, NOME_DA_ALLOWLIST, REGRAS_DA_ALLOWLIST,
- * PROBLEMAS_DO_CAMINHO, EXTENSOES_COM_FRONTMATTER.
+ * FORMAS_DE_CHAVE, MOTIVO_A_ESCREVER, PROBLEMAS_DO_CAMINHO, EXTENSOES_COM_FRONTMATTER.
  */
 
 import { isUtf8 } from 'node:buffer'
@@ -180,6 +187,22 @@ function pareceCifrado(b) {
 
 export const NOME_DA_ALLOWLIST = '.rebar-injection-allowlist'
 
+/**
+ * The motivo `--sugerir-allowlist` prints on every line it suggests. The reader
+ * refuses any motivo that contains it: a line pasted as printed exempts
+ * nothing, because a fixed placeholder says why no person accepted anything.
+ * "Contains" and not "equals", so appending a word to it is refused too.
+ */
+export const MOTIVO_A_ESCREVER = 'TODO: write why a person accepted this finding'
+const normalizarMotivo = (s) => String(s).replace(/\s+/g, ' ').trim().toLowerCase()
+
+/** See the API block: records a suggested allowlist key when the caller asked for them. */
+export function sugerirEntrada(r, regra, chave) {
+  if (r && typeof r === 'object' && Array.isArray(r.sugestoesDaAllowlist)) {
+    r.sugestoesDaAllowlist.push({ regra, chave })
+  }
+}
+
 export const REGRAS_DA_ALLOWLIST = [
   'hidden-unicode',
   'control-bytes',
@@ -204,10 +227,13 @@ export const INSTRUCAO_NOME =
 /**
  * The same, by path. Case-insensitive ON PURPOSE: on Windows and macOS a
  * tracked `.Claude/Settings.json` is exactly what the client opens as
- * `.claude/settings.json` (measured with core.ignorecase=true).
+ * `.claude/settings.json` (measured with core.ignorecase=true). A Dev Container
+ * config sits at `.devcontainer/devcontainer.json` or one folder deeper, which
+ * the containers.dev spec allows ("a single level deep subfolder") and bypass.mjs
+ * already read; two folders deep is no config the tools look for.
  */
 export const INSTRUCAO_CAMINHO =
-  /(?:^|\/)(?:\.cursor\/(?:rules|mcp\.json|hooks\.json|cli\.json)|\.github\/(?:instructions|prompts|agents|chatmodes|skills|hooks)\/|\.github\/copilot-instructions\.md|\.claude\/|\.codex\/|\.gemini\/|\.roo\/|\.kiro\/|\.windsurf\/|\.devin\/|\.clinerules\/|\.amazonq\/|\.agents\/skills\/|\.vscode\/(?:mcp|settings|tasks)\.json|\.devcontainer\/devcontainer\.json|\.rebar\/)|\.mdc$/i
+  /(?:^|\/)(?:\.cursor\/(?:rules|mcp\.json|hooks\.json|cli\.json)|\.github\/(?:instructions|prompts|agents|chatmodes|skills|hooks)\/|\.github\/copilot-instructions\.md|\.claude\/|\.codex\/|\.gemini\/|\.roo\/|\.kiro\/|\.windsurf\/|\.devin\/|\.clinerules\/|\.amazonq\/|\.agents\/skills\/|\.vscode\/(?:mcp|settings|tasks)\.json|\.devcontainer\/(?:[^/]+\/)?devcontainer\.json|\.rebar\/)|\.mdc$/i
 
 /** A symlink at one of these paths stands where an agent directory lives. */
 const DIRETORIO_DE_AGENTE =
@@ -1175,7 +1201,7 @@ export function lerCommits(dir, { semMemoria = false } = {}) {
 
 // ───────────────────────────────────────────────────────────────── allowlist
 
-const FORMAS_DE_CHAVE = [
+export const FORMAS_DE_CHAVE = [
   ['arquivo', 'oid'],
   ['commit'],
   ['arquivo', 'ponteiro', 'sha256'],
@@ -1277,6 +1303,12 @@ export function lerAllowlist(dir) {
         const pontosDoMotivo = typeof v.motivo === 'string' ? [...v.motivo].length : 0
         if (typeof v.motivo !== 'string' || v.motivo.trim() === '' || pontosDoMotivo > 200) {
           erro('motivo must be a string of 1 to 200 characters that says why')
+          continue
+        }
+        if (normalizarMotivo(v.motivo).includes(normalizarMotivo(MOTIVO_A_ESCREVER))) {
+          erro(
+            'motivo is the placeholder --sugerir-allowlist prints: write why a person accepted it',
+          )
           continue
         }
         const chaves = Object.keys(v)

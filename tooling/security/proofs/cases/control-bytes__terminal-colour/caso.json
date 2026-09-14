@@ -1,0 +1,20 @@
+{
+  "rule": "control-bytes",
+  "why": "A CLI test snapshot records the colours the program printed, and SGR red, green, bold and dim leave every word visible. SGR 8 is Invisible in the xterm control sequences, and git pages diffs through less -R, which passes SGR raw, so a reviewer of the snapshot sees nothing where a model reads an instruction. The exemption reads the sequence, never the path. The pass side is src/__snapshots__/cli.test.js.snap with red, dim, bold and green sequences; the fail side is the same file where one sequence conceals a phrase. Without the exemption the pass side goes red; accepting every SGR parameter, or exempting the __snapshots__ folder, turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": "src/__snapshots__/cli.test.js.snap",
+        "base64": "ZXhwb3J0c1tgZSAxYF0gPSBgIhtbMzFtRXJyb3I6G1szOW0gG1sybWRpbRtbMjJtIBtbMW1ib2xkG1syMm0gG1szMm1vaxtbMzltImA7Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": "src/__snapshots__/cli.test.js.snap",
+        "base64": "ZXhwb3J0c1tgZSAxYF0gPSBgIhtbMzFtRXJyb3I6G1szOW0gG1sybWRpbRtbMjJtIBtbMW1ib2xkG1syMm0gG1szMm1vaxtbOG0gaGlkZGVuIBtbMjhtImA7Cg=="
+      }
+    ]
+  }
+}

@@ -86,6 +86,7 @@ import { lerJsonc, lerYaml } from './formats.mjs'
 import {
   NOME_DA_ALLOWLIST,
   lerAllowlist,
+  sugerirEntrada,
   lerIndice,
   onde,
   posicao,
@@ -1720,8 +1721,101 @@ function scriptsDe(r) {
   return lista.filter((s) => typeof s.valor === 'string')
 }
 
-const RE_CHAMA_SCRIPT =
-  /(?:^|[\s;&|(])(?:npm|pnpm|yarn|bun)(?:\s+-{1,2}[\w-]+(?:=\S+)?)*\s+(?:run(?:-script)?\s+)?([\w:.@/-]+)/g
+/**
+ * The package-script runners, with the options that change WHICH package.json
+ * a script name is looked up in. Each runner has its own table because the
+ * same letter means different things: `npm -w <name>` is a workspace, and
+ * `pnpm -w` is --workspace-root, a switch with no value (measured before one
+ * shared table: `pnpm -w run ai` in a hook took `run` as a package name and
+ * the script fell from a failure to a warning).
+ *   pasta   the value is a folder holding the package.json
+ *   pacote  the value is a workspace folder or a package name
+ *   raiz    no value: the workspace root (pnpm)
+ *   valor   the value is taken and says nothing about the package
+ */
+const EXECUTORES_DE_SCRIPT = (() => {
+  const valor = ['--userconfig', '--cache', '--registry', '--loglevel', '--reporter']
+  const tabela = (pasta, pacote, raiz = []) => ({
+    pasta: new Set(pasta),
+    pacote: new Set(pacote),
+    raiz: new Set(raiz),
+    valor: new Set(valor),
+  })
+  return new Map([
+    ['npm', tabela(['--prefix', '-C'], ['-w', '--workspace'])],
+    ['pnpm', tabela(['-C', '--dir'], ['-F', '--filter'], ['-w', '--workspace-root'])],
+    ['yarn', tabela(['--cwd'], [])],
+    ['bun', tabela(['--cwd'], ['-F', '--filter'])],
+  ])
+})()
+const ALIASES_DE_RUN = new Set(['run', 'run-script', 'rum', 'urn'])
+
+/**
+ * The package scripts a command calls by name, each with where its package is
+ * when an option says so: `{ nome, pasta, pacote, raiz }`. The words are the
+ * shell's (quotes removed, redirections dropped), so `npm run --silent ai`,
+ * `npm --prefix . run ai`, `/usr/local/bin/npm run ai`, `npm.cmd run ai`,
+ * `yarn workspace x run ai` and a runner behind another command (`npx --no --
+ * npm run ai`, `cross-env X=1 npm run ai`) all name `ai`. Measured before,
+ * with a regular expression over the raw line: the option forms and the full
+ * path passed a hook calling a script that starts an agent CLI with its
+ * approval switch off, with only a warning. An option this table does not know
+ * is read as a switch, so the word after it can be taken as the script name,
+ * which then names nothing: a missed call, never an invented one.
+ */
+function chamadasDeScript(comando) {
+  const saida = []
+  for (const linha of String(comando).split(/\r?\n/)) {
+    for (const { texto } of comandosDe(linha, 'posix')) {
+      const w = palavrasDoShell(texto)
+      for (let i = 0; i < w.length; i++) {
+        const programa = w[i]
+          .split(/[\\/]/)
+          .pop()
+          .toLowerCase()
+          .replace(/\.(?:cmd|exe)$/, '')
+        const opcoes = EXECUTORES_DE_SCRIPT.get(programa)
+        if (!opcoes) continue
+        let pasta = null
+        let pacote = null
+        let raiz = false
+        let passouRun = false
+        let k = i + 1
+        for (; k < w.length; k++) {
+          const p = w[k]
+          if (p === '--') break
+          if (p.length > 1 && p.startsWith('-')) {
+            const igual = p.indexOf('=')
+            const nome = igual > 0 ? p.slice(0, igual) : p
+            if (opcoes.raiz.has(nome)) {
+              raiz = true
+              continue
+            }
+            const comValor =
+              opcoes.pasta.has(nome) || opcoes.pacote.has(nome) || opcoes.valor.has(nome)
+            if (!comValor) continue
+            const v = igual > 0 ? p.slice(igual + 1) : w[++k]
+            if (v && opcoes.pasta.has(nome)) pasta = v
+            if (v && opcoes.pacote.has(nome)) pacote = v
+            continue
+          }
+          if (programa === 'yarn' && p === 'workspace' && !passouRun && pacote === null) {
+            pacote = w[++k] || null
+            continue
+          }
+          if (!passouRun && ALIASES_DE_RUN.has(p)) {
+            passouRun = true
+            continue
+          }
+          saida.push({ nome: p, pasta, pacote, raiz })
+          break
+        }
+        i = k
+      }
+    }
+  }
+  return saida
+}
 
 /**
  * Commands an editor, a devcontainer or an agent runs by itself, with their JSON
@@ -1913,13 +2007,49 @@ export function achadosDoIndice(indice, tabelas) {
       if (!d) return null
     }
   }
+  // Package names, for `npm -w @acme/x` and `pnpm --filter @acme/x`.
+  const nomesDePacote = new Map() // name -> package.json paths
+  for (const e of entradas) {
+    if (e.texto === null || e.symlink || e.viaSymlink) continue
+    if (posix.basename(e.caminho) !== 'package.json') continue
+    const lido = lerJsonc(e.texto, { estrito: true })
+    const nome =
+      !lido.erro && lido.valor && typeof lido.valor.name === 'string' ? lido.valor.name : null
+    if (!nome) continue
+    if (!nomesDePacote.has(nome)) nomesDePacote.set(nome, [])
+    nomesDePacote.get(nome).push(e.caminho)
+  }
+  /** The package.json paths a call made from `pasta` looks its script up in. */
+  const alvosDaChamada = (c, pasta) => {
+    const base = pasta === '.' ? '' : pasta
+    // A git hook runs at the root of the work tree, a task or a devcontainer
+    // command in the workspace folder: a folder option is tried from both.
+    const naPasta = (d) =>
+      [...new Set([posix.join('.', d, 'package.json'), posix.join(base || '.', d, 'package.json')])]
+        .map((p) => posix.normalize(p))
+        .filter((p) => porCaminho.has(p))
+    if (c.pasta) return [...new Set(naPasta(c.pasta))]
+    if (c.pacote)
+      return [...new Set([...naPasta(c.pacote), ...(nomesDePacote.get(c.pacote) || [])])]
+    if (c.raiz) {
+      // pnpm's workspace root: the folder of the nearest pnpm-workspace.yaml.
+      for (let d = base; ; d = posix.dirname(d) === '.' ? '' : posix.dirname(d)) {
+        if (porCaminho.has(d ? `${d}/pnpm-workspace.yaml` : 'pnpm-workspace.yaml')) {
+          const p = d ? `${d}/package.json` : 'package.json'
+          return porCaminho.has(p) ? [p] : []
+        }
+        if (!d) break
+      }
+      return porCaminho.has('package.json') ? ['package.json'] : []
+    }
+    const perto = pacoteMaisProximo(pasta)
+    return perto ? [perto] : []
+  }
   const chamarScripts = (comando, pasta, origem) => {
-    const alvo = pacoteMaisProximo(pasta)
-    if (!alvo) return
-    for (const linhaDoComando of String(comando).split(/\r?\n/)) {
-      for (const m of linhaDoComando.matchAll(RE_CHAMA_SCRIPT)) {
+    for (const c of chamadasDeScript(comando)) {
+      for (const alvo of alvosDaChamada(c, pasta)) {
         if (!chamadosDeFora.has(alvo)) chamadosDeFora.set(alvo, [])
-        chamadosDeFora.get(alvo).push({ nome: m[1], origem })
+        chamadosDeFora.get(alvo).push({ nome: c.nome, origem })
       }
     }
   }
@@ -2042,9 +2172,13 @@ export function achadosDoIndice(indice, tabelas) {
         doCiclo.set(s.nome, `lifecycle script ${escaparSaida(s.nome, { limite: 40 })}`)
       }
     }
+    // A hook-manager string or a script calls a script of THIS package: a call
+    // whose options point at another package is not followed from here.
+    const doProprio = (comando) =>
+      chamadasDeScript(comando).filter((c) => alvosDaChamada(c, base || '.').includes(e.caminho))
     const chamados = [...(chamadosDeFora.get(e.caminho) || [])]
     for (const { comando, origem } of ganchosDoPacote) {
-      for (const m of comando.matchAll(RE_CHAMA_SCRIPT)) chamados.push({ nome: m[1], origem })
+      for (const c of doProprio(comando)) chamados.push({ nome: c.nome, origem })
     }
     for (const { nome, origem } of chamados) {
       if (nomes.has(nome) && !doCiclo.has(nome)) doCiclo.set(nome, origem)
@@ -2054,9 +2188,9 @@ export function achadosDoIndice(indice, tabelas) {
       let cresceu = false
       for (const s of scripts) {
         if (!doCiclo.has(s.nome)) continue
-        for (const m of s.valor.matchAll(RE_CHAMA_SCRIPT)) {
-          if (nomes.has(m[1]) && !doCiclo.has(m[1])) {
-            doCiclo.set(m[1], doCiclo.get(s.nome))
+        for (const { nome } of doProprio(s.valor)) {
+          if (nomes.has(nome) && !doCiclo.has(nome)) {
+            doCiclo.set(nome, doCiclo.get(s.nome))
             cresceu = true
           }
         }
@@ -2280,6 +2414,11 @@ export function checarBypass(r, tabelas) {
   const item = (a) => `${onde(a.caminho, a.linha, a.coluna)} ${a.id} ${a.texto} (${a.rotulo})`
   const reprova = restantes.filter((a) => a.severidade === 'reprova')
   const avisa = restantes.filter((a) => a.severidade === 'avisa')
+  // A finding inside the allowlist is never exempt, so no key is suggested for it.
+  for (const a of reprova) {
+    if (a.caminho !== NOME_DA_ALLOWLIST)
+      sugerirEntrada(r, REGRA, { arquivo: a.caminho, oid: a.oid })
+  }
 
   const notas = []
   if (avisa.length) {

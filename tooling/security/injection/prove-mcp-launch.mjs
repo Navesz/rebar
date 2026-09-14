@@ -777,6 +777,66 @@ describe('findings no entry can exempt', () => {
     )
   })
 
+  test('.npmrc is read the way npm reads it: quoted keys, arrays, sections, comments, variables', () => {
+    // Backlog 16. Measured with npm 11.6.2 `npm config get` over a project
+    // .npmrc (ini@5.0.0 decode): every naoIsenta row below sets the registry
+    // npx resolves from, and on main each one PASSED with the launch
+    // allowlisted; every aceito row leaves the default, and on main the first
+    // three FAILED with no entry able to exempt them.
+    const pw = { command: 'npx', args: ['-y', '@playwright/mcp@0.0.40'] }
+    const semEscopo = { command: 'npx', args: ['-y', 'mcp-server-foo@1.2.3'] }
+    const comNpmrc = (npmrc, servidor = semEscopo) =>
+      checar(comEntrada('.mcp.json', { x: servidor }, { '.npmrc': npmrc }))
+    for (const npmrc of [
+      '"registry"=https://r.example.invalid/\n',
+      "'registry' = https://r.example.invalid/\n",
+      'registry[]=https://r.example.invalid/\n',
+      'registry=http://registry.npmjs.org/\n',
+      'registry=//registry.npmjs.org/\n',
+      // npm expands ${NAME?} to nothing when NAME is unset, in keys too.
+      '${REBAR_PROOF_UNSET?}registry=https://r.example.invalid/\n',
+      'regi${REBAR_PROOF_UNSET?}stry=https://r.example.invalid/\n',
+      // A variable left as written may hold any text, so the key may be registry.
+      '${REBAR_PROOF_UNSET}registry=https://r.example.invalid/\n',
+    ]) {
+      naoIsenta(comNpmrc(npmrc), /\.npmrc changes/)
+    }
+    for (const npmrc of [
+      '"@playwright:registry"=https://r.example.invalid/\n',
+      '@playwright${REBAR_PROOF_UNSET?}:registry=https://r.example.invalid/\n',
+    ]) {
+      naoIsenta(comNpmrc(npmrc, pw), /\.npmrc changes/)
+    }
+    naoIsenta(
+      checar(
+        comEntrada(
+          '.mcp.json',
+          { x: semEscopo },
+          { '.yarnrc.yml': 'npmRegistryServer: "http://registry.yarnpkg.com"\n' },
+        ),
+      ),
+      /\.yarnrc\.yml changes/,
+    )
+    const aceito = (npmrc) => {
+      const saida = comNpmrc(npmrc)
+      assert.equal(
+        typeof saida?.nota,
+        'string',
+        `${JSON.stringify(npmrc)}: ${JSON.stringify(saida)}`,
+      )
+    }
+    aceito('registry=https://registry.npmjs.org/ ; public\n')
+    aceito('registry=https://registry.npmjs.org/#x\n')
+    aceito('REGISTRY=https://r.example.invalid/\n')
+    aceito('[x]\nregistry=https://r.example.invalid/\n')
+    aceito('"registry" = "https://registry.npmjs.org/"\n')
+    // A variable whose literal ends can never spell a registry key, and one escaped.
+    aceito('//${NPM_HOST}/:_authToken=${NPM_TOKEN}\n')
+    aceito(
+      `${String.fromCharCode(92)}${'${REBAR_PROOF_UNSET?}'}registry=https://r.example.invalid/\n`,
+    )
+  })
+
   test('a global option before the runner subcommand still reaches the registry override', () => {
     // Measured: `pnpm --silent dlx` (pnpm 11.16) and `npm --loglevel=warn exec`
     // run the runner. Read as contiguous words they matched no runner row, so an

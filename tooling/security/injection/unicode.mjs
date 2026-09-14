@@ -30,15 +30,33 @@
 //     own docs carry 25 U+26A0 U+FE0F warning signs.
 //   - script joiners. ZWNJ is how Persian writes a word: 132 of them in zod's fa
 //     and kn locales would all be false positives without the JUNCAO rule.
+//   - a joiner right after a virama that sits on a letter of the same joining
+//     script (one nukta between them allowed), outside code: UTS #39 rev 32
+//     section 3.1.1.1 rules A2 and B, RFC 5892 A.1 and A.2 CONTEXTJ. The legacy
+//     Malayalam chillu (TUS 17 table 12-42) and the Bengali khanda ta written
+//     before Unicode 4.1 END a word this way, so the next character is a space
+//     or punctuation, which the JUNCAO rule never exempted: main failed both.
+//     Code keeps the old verdict, because ECMAScript allows ZWJ and ZWNJ in an
+//     identifier and a word-final joiner there makes a second binding that
+//     looks like the first (measured: two lets, one with the joiner, declared
+//     two distinct bindings).
 //   - right-to-left marks in a line that is already right-to-left (a line with a
 //     right-to-left letter; the mark itself never counts).
 //   - a single invisible as the whole of a quoted literal in code (a character
 //     table, a `trim` of one code point) warns instead of failing: 152
 //     occurrences in 21 dependency files were exactly that.
-// Agent files and names are STRICT: of those exemptions they keep only the two
-// that Persian and Arabic text cannot be written without, in their narrowest
-// shape: one ZWNJ or ZWJ with a letter of the same joining script on each side,
-// and one LRM, RLM or ALM on a line that already has a right-to-left letter.
+// Agent files and names are STRICT: of those exemptions they keep only the ones
+// that Persian, Arabic and the Indic scripts cannot be written without, in their
+// narrowest shape: one ZWNJ or ZWJ with a letter of the same joining script on
+// each side; one joiner after a letter and its virama when a letter follows, and
+// one ZWJ between a letter and a virama (the Bengali ya-phalaa after ra, TUS
+// section 12.2), all of ONE joining script, which is the Script Restriction UTS
+// #39 puts on A1, A2 and B; and one LRM, RLM or ALM on a line that already has a
+// right-to-left letter. Each joiner stands at a position the letters around it
+// fix, and there it can only be ZWJ, ZWNJ or absent: at most log2(3) bits per
+// visible virama, the same bound as the Persian exemption. A word-final legacy
+// chillu still fails there, and the atomic letters are the fix: U+0D7A..U+0D7E
+// for the five legacy chillus (preferred since Unicode 5.1), U+09CE for khanda ta.
 // Everything else (tags, overrides and isolates, runs of invisibles, ZWSP, the
 // variation and filler exemptions) fails there. With the exceptions, 169
 // dependency files with candidates came down to 36 that fail, all minified
@@ -65,6 +83,7 @@ import {
   posicao,
   problemasDeLeitura,
   resumir,
+  sugerirEntrada,
 } from './reader.mjs'
 import {
   ALFABETICO,
@@ -78,7 +97,9 @@ import {
   MARCAS_RTL,
   MONGOL,
   NAO_CARACTERES,
+  NUKTA,
   RTL_FORTE,
+  VIRAMA,
   WHITE_SPACE,
 } from './unicode-tabelas.mjs'
 
@@ -274,6 +295,36 @@ export function classificar(texto, tipo, { conteudo = false } = {}) {
     naFaixa(b, ALFABETICO) &&
     mesmaEscritaDeJuncao(a, b)
 
+  const tamanhoDe = (c) => (c > 0xffff ? 2 : 1)
+  // A letter above ASCII: a virama on a Latin letter is no Indic context.
+  const letraVisivel = (c) => c > 0x7f && naFaixa(c, ALFABETICO) && !ignoravel(c)
+  // The joiner at `pos` comes right after a virama that sits on a letter, one
+  // nukta between them allowed, all of one joining script (UTS #39 3.1.1.1 A2
+  // and B with their Script Restriction; RFC 5892 A.1 and A.2). Measured before
+  // the script test: a Latin e-acute or a Malayalam letter carrying a
+  // Devanagari virama passed as a context.
+  const aposVirama = (pos) => {
+    const v = antes(pos)
+    if (v < 0 || !naFaixa(v, VIRAMA)) return false
+    let p = pos - tamanhoDe(v)
+    let x = antes(p)
+    if (x >= 0 && naFaixa(x, NUKTA)) {
+      if (!mesmaEscritaDeJuncao(x, v)) return false
+      p -= tamanhoDe(x)
+      x = antes(p)
+    }
+    return letraVisivel(x) && mesmaEscritaDeJuncao(x, v)
+  }
+  // The virama right after `pos` belongs to the script of `a`, and a letter of
+  // that script follows it: a ZWJ between the letter and the virama (the
+  // Bengali ya-phalaa after ra, the Sinhala touching conjuncts).
+  const antesDeViramaEstrito = (a, pos) => {
+    const v = depois(pos)
+    if (v < 0 || !naFaixa(v, VIRAMA) || !mesmaEscritaDeJuncao(a, v)) return false
+    const l = depois(pos + tamanhoDe(v))
+    return letraVisivel(l) && mesmaEscritaDeJuncao(v, l)
+  }
+
   for (let k = 0; k < n;) {
     const u = t.charCodeAt(k)
     if (u < 0xad || !naFaixa(u, PREFILTRO)) {
@@ -381,18 +432,31 @@ export function classificar(texto, tipo, { conteudo = false } = {}) {
       else r('reprova', 'mongolian-selector')
       continue
     }
-    if (c === 0x200d) {
-      if (fimDeEmoji(inicio) && naFaixa(prox, EXT_PICT)) r('isento', 'emoji-zwj')
+    if (c === 0x200c || c === 0x200d) {
+      const zwj = c === 0x200d
+      // First match wins. The virama contexts come after the script joiner, so
+      // every shape main exempted keeps its motivo.
+      if (zwj && fimDeEmoji(inicio) && naFaixa(prox, EXT_PICT)) r('isento', 'emoji-zwj')
       else if (!estrito && !antD && !proxD && mesmaEscritaDeJuncao(ant, prox))
         r('isento', 'script-joiner')
       else if (estrito && juncaoEstrita(ant, prox)) r('isento', 'script-joiner')
-      else r('reprova', 'zero-width-joiner')
-      continue
-    }
-    if (c === 0x200c) {
-      if (estrito ? juncaoEstrita(ant, prox) : !antD && !proxD && mesmaEscritaDeJuncao(ant, prox))
-        r('isento', 'script-joiner')
-      else r('reprova', 'zero-width-non-joiner')
+      else if (
+        (tipo === 'prosa' || tipo === 'dados' || tipo === 'commit') &&
+        !proxD &&
+        aposVirama(inicio)
+      )
+        r('isento', 'virama-joiner')
+      else if (
+        estrito &&
+        !proxD &&
+        aposVirama(inicio) &&
+        letraVisivel(prox) &&
+        mesmaEscritaDeJuncao(ant, prox)
+      )
+        r('isento', 'virama-joiner')
+      else if (estrito && zwj && letraVisivel(ant) && antesDeViramaEstrito(ant, fim))
+        r('isento', 'virama-joiner')
+      else r('reprova', zwj ? 'zero-width-joiner' : 'zero-width-non-joiner')
       continue
     }
     if (c === 0x200e || c === 0x200f || c === 0x061c) {
@@ -586,6 +650,7 @@ export function checarHiddenUnicode(r) {
         falhas.push(item)
         pontosReprovados += quantos
         if (codigo) remediaveis.codigo = true
+        if (!grupo.inexemptavel && chave) sugerirEntrada(r, REGRA, chave)
         if (grupo.inexemptavel || !chave) remediaveis.nenhum = true
         else if (chave.commit) remediaveis.commit = true
         else remediaveis.arquivo = true

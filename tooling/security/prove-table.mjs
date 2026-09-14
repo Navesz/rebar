@@ -40,18 +40,25 @@
 //   the four key tables   (the config keys and variable names agent-config-exec
 //                         matches, the runners and shell signs mcp-server-launch
 //                         matches) are whole-string matchers, anchored at both
-//                         ends with no multiline flag, run over one parsed key or
-//                         one launch command at a time. Over a whole file such a
-//                         row can only match a file that is nothing but the key,
-//                         so the raw test proves nothing for them and passed by
-//                         vacuity: 63 rows did (measured). Prose that names a key
-//                         is no finding of those rules. What is proved instead is
-//                         the shape that makes that true, so a row loosened into
-//                         a text search fails here and has to move to the text
-//                         group; and test (f) of prove-injection.mjs runs both
-//                         rules on rebar itself. A multiline flag is no fix:
-//                         measured, the shell signs then matched 25 of the 26
-//                         targets;
+//                         ends with no multiline flag and no top-level
+//                         alternation, run over one parsed key or one launch
+//                         command at a time. Over a whole file such a row can only
+//                         match a file that is nothing but the key. Prose that
+//                         names a key is no finding of those rules. What is proved
+//                         for them is the shape that makes that true, so a row
+//                         loosened into a text search fails here and has to move
+//                         to the text group; and test (f) of prove-injection.mjs
+//                         runs both rules on rebar itself. The shape test once
+//                         only looked at the first and last character, so
+//                         `^a|b$` (a start-anchored a OR an end-anchored b, which
+//                         searches free text) and an escaped final dollar both
+//                         counted as whole: backlog 10. Measured when that was
+//                         fixed: 63 key rows, none with either shape. The raw test
+//                         runs over the key tables too. It costs nothing and holds
+//                         D18 (no rebar file is a sample of what a table hunts)
+//                         even if a row's shape check were ever wrong. A multiline
+//                         flag is no fix: measured, the shell signs then matched
+//                         25 of the 26 targets;
 //   DESLIGAM             the comment-stripped code of index.mjs and of this
 //                         file, which is all `disabled-defense` ever reads. It
 //                         reads no JSON and no Markdown, and a case `why` in the
@@ -97,8 +104,36 @@ const CHAVE = [
 ]
 const DE_CHAVE = INJECAO.filter(([nome]) => CHAVE.includes(nome))
 const DE_TEXTO = INJECAO.filter(([nome]) => !CHAVE.includes(nome))
-const inteira = (padrao) =>
-  padrao.source.startsWith('^') && padrao.source.endsWith('$') && !padrao.flags.includes('m')
+/**
+ * Whether a pattern can only match a whole string: `^` first, an unescaped `$`
+ * last, no multiline flag, and no `|` at group depth 0 outside a character
+ * class, since `^a|b$` is `(^a)|(b$)` and searches free text.
+ */
+function inteira(padrao) {
+  const s = padrao.source
+  if (padrao.flags.includes('m') || !s.startsWith('^') || !s.endsWith('$')) return false
+  let barras = 0
+  for (let k = s.length - 2; k >= 0 && s[k] === '\\'; k--) barras++
+  if (barras % 2 === 1) return false
+  let profundidade = 0
+  let classe = false
+  for (let k = 0; k < s.length; k++) {
+    const c = s[k]
+    if (c === '\\') {
+      k++
+      continue
+    }
+    if (classe) {
+      if (c === ']') classe = false
+      continue
+    }
+    if (c === '[') classe = true
+    else if (c === '(') profundidade++
+    else if (c === ')') profundidade--
+    else if (c === '|' && profundidade === 0) return false
+  }
+  return true
+}
 
 /** Every table name the rules consult today. A table that stops being exported is caught here. */
 const ESPERADAS = [
@@ -175,6 +210,18 @@ test('the injection tables split into a text group and a key group, none left ou
   assert.ok(DE_TEXTO.length >= 6, `${DE_TEXTO.length} text table(s)`)
 })
 
+test('the whole-string test sees a top-level alternation and an escaped final dollar', () => {
+  // Backlog 10: the old test read only the first and the last character.
+  assert.equal(inteira(/^a|b$/), false)
+  assert.equal(inteira(/^(?:a|b)$/), true)
+  assert.equal(inteira(/^a[|]b$/), true)
+  assert.equal(inteira(/^a\|b$/), true)
+  assert.equal(inteira(/^a\$/), false)
+  assert.equal(inteira(/^a\\$/), true)
+  assert.equal(inteira(/^a[(]|b$/), false)
+  assert.equal(inteira(/^a$/m), false)
+})
+
 test('EVERY ROW OF A KEY TABLE IS WHOLE-STRING, AND NO ROW OF A TEXT TABLE IS', () => {
   // The raw test below cannot fail for a whole-string row, so for the four key
   // tables this shape is what is held: a row that starts searching free text
@@ -198,14 +245,16 @@ test('EVERY ROW OF A KEY TABLE IS WHOLE-STRING, AND NO ROW OF A TEXT TABLE IS', 
   )
 })
 
-test('THE TEXT TABLES MATCH NOTHING REBAR TRACKS ABOUT THEM, READ RAW', () => {
+test('THE INJECTION TABLES MATCH NOTHING REBAR TRACKS ABOUT THEM, READ RAW', () => {
   // Raw and not comment-stripped: hidden-unicode and control-bytes read every
   // blob whole, the JSDoc of a rule is copied verbatim into the artifact, and
   // the injection rules honour no exclusion (no proof root, template root or
-  // .rebarignore). Stripping here would forgive what the rules will not.
+  // .rebarignore). Stripping here would forgive what the rules will not. The
+  // key tables are read too: their shape test above is what proves them, and
+  // this costs nothing if that test is ever wrong.
   const achados = []
   for (const [rotulo, texto] of alvosCrus()) {
-    for (const [nome, tabela] of DE_TEXTO) {
+    for (const [nome, tabela] of INJECAO) {
       for (const [padrao, explicacao] of tabela) {
         if (padrao.test(texto)) achados.push(`${nome} "${explicacao}" matches ${rotulo}`)
       }

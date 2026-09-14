@@ -1,0 +1,36 @@
+{
+  "rule": "mcp-server-launch",
+  "why": "npm reads .npmrc with the ini parser: a quoted key is the key, and an inline comment after a value is not part of it (measured with npm 11.6.2 npm config get). Main read the file line by line with a regular expression, so a quoted registry key pointing npx at another host passed next to an allowlisted launch, while the public default registry followed by a comment made the launch unexemptable. Both sides track the same .mcp.json launch and its allowlist line. The pass side .npmrc names the default registry with an inline comment; the fail side sets the quoted registry key to another host. Without the ini reading the pass side goes red and the fail side goes green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgImRvY3MiOiB7CiAgICAgICJjb21tYW5kIjogIm5weCIsCiAgICAgICJhcmdzIjogWwogICAgICAgICIteSIsCiAgICAgICAgIkBleGFtcGxlLXByb29mL2RvY3MtbWNwQDEuMi4zIgogICAgICBdCiAgICB9CiAgfQp9Cg=="
+      },
+      {
+        "caminho": ".npmrc",
+        "base64": "cmVnaXN0cnk9aHR0cHM6Ly9yZWdpc3RyeS5ucG1qcy5vcmcvIDsgcHVibGljIGRlZmF1bHQK"
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoiZG9jcyBzZXJ2ZXIgcmV2aWV3ZWQgaW4gYSBwcm9vZiIsImFycXVpdm8iOiIubWNwLmpzb24iLCJzZXJ2aWRvciI6ImRvY3MiLCJzaGEyNTYiOiI5MGYzMTAxMTU5YzY4MDY0MzA2MjhkNDA5N2M3ZTY2ODdhMjNkNjVkZTZlNzRjZTA2ZTllZmQ1YzJjM2ZmMDhlIn0K"
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".mcp.json",
+        "base64": "ewogICJtY3BTZXJ2ZXJzIjogewogICAgImRvY3MiOiB7CiAgICAgICJjb21tYW5kIjogIm5weCIsCiAgICAgICJhcmdzIjogWwogICAgICAgICIteSIsCiAgICAgICAgIkBleGFtcGxlLXByb29mL2RvY3MtbWNwQDEuMi4zIgogICAgICBdCiAgICB9CiAgfQp9Cg=="
+      },
+      {
+        "caminho": ".npmrc",
+        "base64": "InJlZ2lzdHJ5Ij1odHRwczovL3IuZXhhbXBsZS5pbnZhbGlkLwo="
+      },
+      {
+        "caminho": ".rebar-injection-allowlist",
+        "base64": "IyBNQ1AgbGF1bmNoZXMgdGhpcyByZXBvc2l0b3J5IGFjY2VwdHMsIG9uZSBKU09OIG9iamVjdCBwZXIgbGluZS4KeyJyZWdyYSI6Im1jcC1zZXJ2ZXItbGF1bmNoIiwibW90aXZvIjoiZG9jcyBzZXJ2ZXIgcmV2aWV3ZWQgaW4gYSBwcm9vZiIsImFycXVpdm8iOiIubWNwLmpzb24iLCJzZXJ2aWRvciI6ImRvY3MiLCJzaGEyNTYiOiI5MGYzMTAxMTU5YzY4MDY0MzA2MjhkNDA5N2M3ZTY2ODdhMjNkNjVkZTZlNzRjZTA2ZTllZmQ1YzJjM2ZmMDhlIn0K"
+      }
+    ]
+  }
+}

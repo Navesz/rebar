@@ -74,6 +74,7 @@ import {
   NOME_DA_ALLOWLIST,
   impressao,
   lerAllowlist,
+  sugerirEntrada,
   lerIndice,
   onde,
   posicao,
@@ -546,7 +547,16 @@ const ALVOS = [
     },
   ],
   [
-    rota('(?:^|/)\\.', 'devcontainer/', 'devcontainer\\.json$|(?:^|/)\\.', 'devcontainer\\.json$'),
+    // One folder deeper is a config too: the containers.dev spec lists
+    // `.devcontainer/<folder>/devcontainer.json` "where <folder> is a single level
+    // deep subfolder". Measured before: chat auto-approve in
+    // .devcontainer/py/devcontainer.json was not applicable.
+    rota(
+      '(?:^|/)\\.',
+      'devcontainer/(?:[^/]+/)?',
+      'devcontainer\\.json$|(?:^|/)\\.',
+      'devcontainer\\.json$',
+    ),
     {
       formato: 'jsonc',
       // The Dev Containers extension writes customizations.vscode.settings into
@@ -689,6 +699,9 @@ const INTERPRETADORES = new Set(
  * Interpreters whose first argument, when it is not an option, is the script
  * they run. pwsh, powershell, cmd and deno stay out: their second slot holds
  * an option or a subcommand (`deno run`, `cmd /c`) that decides what runs.
+ * comandoAmplo reads those two narrowly only in fixed shapes, for Claude and
+ * Gemini: `deno fmt`, `deno check`, `deno doc`, `deno info` and `deno task
+ * <name>`, and `pwsh -File <script>` after the switches that change no code.
  */
 const COM_PROGRAMA_FIXO = new Set(j('sh bash zsh node py', 'thon py', 'thon3 ruby perl').split(' '))
 const EXECUTORES = new Set(j('npx npm pnpm yarn bunx uvx cu', 'rl wget').split(' '))
@@ -753,6 +766,111 @@ const SWITCHES_DE_CODIGO = (() => {
 })()
 const SEM_CAIXA = new Set(j('pwsh power', 'shell cmd').split(' '))
 
+/**
+ * An option that makes the program print its version or help and exit,
+ * whatever follows. Measured on this machine with each option first and a
+ * payload after it (a script name, an exec, -c, -e, -r of an inert file, an
+ * output file): npm 11.6.2, pnpm 11.16.0, uvx 0.11.31, curl 8.21.0, node 24.13,
+ * Python 3.12.10 and bash 5.3 printed and ran nothing, and the controls without
+ * the option ran. `curl -v`, `uvx -v` and `bash -v` are verbose, not version,
+ * so they are not here. yarn, bunx, wget, deno, pwsh, sh, zsh, ruby and perl
+ * were not measured and keep the old reading. The option has to be the whole
+ * first word: Claude's `:*` is ` *` at a word boundary, and Gemini matches
+ * `command === rule || command.startsWith(rule + ' ')`, so `--versionX` cannot
+ * ride the rule.
+ */
+const OPCOES_INFORMATIVAS = (() => {
+  const npm = ['--version', '-v', '--help', '-h']
+  const maiusculo = ['--version', '-V', '--help', '-h']
+  return {
+    npm,
+    npx: npm,
+    pnpm: npm,
+    uvx: maiusculo,
+    [j('cu', 'rl')]: maiusculo,
+    node: npm,
+    [j('pyt', 'hon')]: maiusculo,
+    [j('pyt', 'hon3')]: maiusculo,
+    [j('ba', 'sh')]: ['--version', '--help'],
+  }
+})()
+
+/**
+ * deno subcommands that run no user code: the formatter has only built-in
+ * formatters, and check, doc and info read modules without executing them.
+ * `deno lint` stays broad, because `lint.plugins` loads code from the config
+ * and `--config` picks any file.
+ */
+const DENO_ESTREITOS = new Set(['fmt', 'check', 'doc', 'info'])
+
+/**
+ * The PowerShell switches that change nothing about what runs, which a scan
+ * for `-File` may step over, and the ones that take one value. Anything else
+ * ends the scan broad: PowerShell accepts any unambiguous prefix of a
+ * parameter name, and measured with Windows PowerShell 5.1,
+ * `-NoProfile -Comm -File t.ps1 ; Write-Output MARK` and `-co -File ...`
+ * printed MARK (the prefix of -Command took the rest), while `-File t.ps1 ;
+ * Write-Output MARK` handed everything after the script to the script, and so
+ * did `-File t.ps1 -Command ...` and `-File t.ps1 -EncodedCommand x`.
+ */
+const PS_SEM_VALOR = new Set(
+  j('-noprofile -nop -nologo -nol -noninteractive -noni ', '-noexit -noe -sta -mta').split(' '),
+)
+const PS_COM_VALOR = new Set(
+  j(
+    '-executionpolicy -ep -windowstyle -w -workingdirectory -wd ',
+    '-inputformat -if -outputformat -of -settingsfile',
+  ).split(' '),
+)
+const ARQUIVO_DO_PS = j('-fi', 'le')
+
+/**
+ * The narrow shapes of Claude and Gemini rules: true when the rule is narrow
+ * for a reason the generic branches below cannot see, else null. Cursor keeps
+ * the generic reading: its docs say the command base is the first token, with
+ * an optional command:args syntax, and that matching was not measured.
+ */
+function estreitoConhecido(programa, palavras, s, prefixo) {
+  const info = OPCOES_INFORMATIVAS[programa]
+  if (info && palavras.length && info.includes(palavras[0])) return true
+  if (programa === 'deno') {
+    // An exact Claude rule approves that one command, whatever it is.
+    if (!prefixo && !s.includes('*')) return true
+    const [sub = '', nome = ''] = palavras
+    if (DENO_ESTREITOS.has(sub)) return true
+    // deno's parser (cli_parser defs.rs, TASK_SUBCOMMAND) gives the words after
+    // the task name to the task (tests_full.rs, task_following_double_hyphen_arg:
+    // `deno task build --test` hands the task argv ["--test"]); only an option
+    // before the name, --eval among them, reaches deno.
+    if (sub === 'task') return nome !== '' && !nome.startsWith('-') && !nome.includes('*')
+    return false
+  }
+  if (programa === 'pwsh' || programa === j('power', 'shell')) {
+    for (let k = 0; k < palavras.length; k++) {
+      const w = palavras[k].toLowerCase()
+      if (w.includes('*')) return false
+      if (w === ARQUIVO_DO_PS) {
+        const alvo = palavras[k + 1] || ''
+        return alvo !== '' && !alvo.startsWith('-') && !alvo.includes('*')
+      }
+      if (PS_SEM_VALOR.has(w)) continue
+      if (PS_COM_VALOR.has(w) && k + 1 < palavras.length && !palavras[k + 1].includes('*')) {
+        k++
+        continue
+      }
+      return false
+    }
+    return false
+  }
+  // `node --run <name>` runs a package.json script, like `npm run`, which
+  // this rule already reads as narrow. Measured with node 24.13: `node --run
+  // marca -e x` and `--require ./x` after the name ran only the script.
+  if (programa === 'node' && (palavras[0] === '--run' || /^--run=[^*]+$/.test(palavras[0] || ''))) {
+    return true
+  }
+  return false
+}
+
 const ehSwitchDeCodigo = (programa, token) => {
   const lista = SWITCHES_DE_CODIGO[programa] || []
   const t = SEM_CAIXA.has(programa) ? token.toLowerCase() : token
@@ -775,12 +893,20 @@ function programaDe(token) {
  * `run_shell_command(git)` allows every git command, Cursor `Shell(npm)` every
  * npm command); Claude's rule is the exact command unless it has a wildcard.
  */
-function comandoAmplo(especificacao, prefixo) {
+function comandoAmplo(especificacao, prefixo, dialeto) {
   const s = especificacao.trim()
   if (s === '' || s === '*' || s === ':*' || s.startsWith('*')) return true
   const [primeiro] = s.split(/[\s:]+/)
   const programa = programaDe(primeiro)
   const resto = s.slice(primeiro.length).replace(/^[\s:]+/, '')
+  if (dialeto === 'claude' || dialeto === 'gemini') {
+    const palavrasDoResto = resto
+      .replace(/:\*\s*$/, ' *')
+      .split(/\s+/)
+      .filter(Boolean)
+    if (estreitoConhecido(programa, palavrasDoResto, s, prefixo)) return false
+    if (programa === 'deno') return true
+  }
   // Claude's `X:*` is the prefix X followed by anything, the same rule as
   // `X *`: `npm exec:*` has to read as the subcommand exec and a wildcard, or it
   // passed as narrow while `npm exec *` failed. Both branches below rewrite it.
@@ -846,7 +972,7 @@ export function ehRegraAmpla(dialeto, regra) {
   const m = new RegExp(`${d.ferramenta}\\s*(?:\\(([\\s\\S]*)\\))?\\s*$`).exec(regra)
   if (!m) return false
   if (m[2] === undefined) return true
-  return comandoAmplo(m[2], d.prefixo)
+  return comandoAmplo(m[2], d.prefixo, dialeto)
 }
 
 /** `Tool(spec)` tokens of a skill `allowed-tools`: a space- or comma-separated string, or a list. */
@@ -1718,6 +1844,14 @@ export function checarAgentConfig(r, tabelas = {}) {
     if (a.sombra) s += ' (in a definition a later duplicate hides)'
     if (uso.rotulo) s += ROTULOS[uso.rotulo]
     return s
+  }
+  // What --sugerir-allowlist prints: the exact key aceita() compares, for a
+  // finding the allowlist can release. A null pointer (a file-level finding)
+  // is no key any entry can carry.
+  for (const a of valem) {
+    if (a.veredito === 'reprova' && a.isentavel && typeof a.ponteiro === 'string') {
+      sugerirEntrada(r, ID, { arquivo: a.arquivo, ponteiro: a.ponteiro, sha256: a.hash })
+    }
   }
   const reprovas = valem.filter((a) => a.veredito === 'reprova').map(formatar)
   const avisos = valem.filter((a) => a.veredito === 'avisa').map(formatar)

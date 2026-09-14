@@ -1,0 +1,20 @@
+{
+  "rule": "agent-config-exec",
+  "why": "Claude Code rules for deno fmt, a named deno task, pwsh -File with a fixed script, node --run with a script name and npm --version reach no arbitrary command: fmt runs only built-in formatters, words after a task name go to the task (deno cli_parser tests), everything after the script goes to the script (measured with Windows PowerShell 5.1), node --run runs a package.json script like npm run, and --version prints and exits whatever follows (measured on npm 11.6.2). Main judged all five broad while the npm run and python script equivalents passed. The pass side allows exactly those five. The fail side allows every deno task, where --eval runs any text. Reading these shapes as broad turns the pass side red; reading deno task as narrow without its name turns the fail side green.",
+  "pass": {
+    "gerados": [
+      {
+        "caminho": ".claude/settings.json",
+        "base64": "ewogICJwZXJtaXNzaW9ucyI6IHsKICAgICJhbGxvdyI6IFsKICAgICAgIkJhc2goZGVubyBmbXQ6KikiLAogICAgICAiQmFzaChkZW5vIHRhc2sgYnVpbGQ6KikiLAogICAgICAiQmFzaChwd3NoIC1GaWxlIHNjcmlwdHMvYnVpbGQucHMxOiopIiwKICAgICAgIkJhc2gobm9kZSAtLXJ1biBidWlsZDoqKSIsCiAgICAgICJCYXNoKG5wbSAtLXZlcnNpb246KikiCiAgICBdCiAgfQp9Cg=="
+      }
+    ]
+  },
+  "fail": {
+    "gerados": [
+      {
+        "caminho": ".claude/settings.json",
+        "base64": "ewogICJwZXJtaXNzaW9ucyI6IHsKICAgICJhbGxvdyI6IFsKICAgICAgIkJhc2goZGVubyB0YXNrOiopIgogICAgXQogIH0KfQo="
+      }
+    ]
+  }
+}
