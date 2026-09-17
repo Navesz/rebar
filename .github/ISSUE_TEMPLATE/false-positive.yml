@@ -1,0 +1,48 @@
+name: False positive
+description: rebar accused something that is correct
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A false positive is worth more than a new rule. Thank you for reporting it.
+  - type: input
+    id: rule
+    attributes:
+      label: Rule
+      description: The id rebar printed, e.g. `ci-gates`, `env-example`, `hardcoded-secret`.
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Repository or reproduction
+      description: A public repository and commit, or "minimal reproduction below".
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: What rebar printed
+      description: The exact line, copied from the terminal.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is wrong
+      description: What the repository does that the rule missed. Link the file and line if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Optional. A few commands that create a repository where the rule prints the wrong thing.
+      render: bash
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, and how you ran it (`npx github:Navesz/rebar .` or a clone).
