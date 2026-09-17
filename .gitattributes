@@ -12,6 +12,13 @@
 # interpretador.
 pre-commit text eol=lf
 
+# A exceção que a regra acima pede: o caso `ci-gates__crlf` existe para provar
+# que o rebar-check lê um workflow em CRLF, que é o que um checkout no Windows
+# entrega. Com `eol=lf` valendo aqui, o git converteria o fixture no commit e a
+# prova passaria sobre uma árvore que já não reproduz o defeito. `-text` guarda
+# os bytes como foram escritos.
+tooling/rebar-check/proofs/cases/ci-gates__crlf/**/*.yml -text
+
 *.png     binary
 *.jpg     binary
 *.ico     binary

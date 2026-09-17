@@ -1,0 +1,4 @@
+{
+  "rule": "env-example",
+  "why": "Reported in issue #28: a Vite repository reading `import.meta.env.DEV`, `MODE` and `BASE_URL` was told they were not documented, and they cannot be — the bundler replaces them with literals at build time, and writing `DEV=` into `.env.example` would put something false into the document. Both sides have the SAME `.env.example` documenting `VITE_API_URL`, and the SAME file reading all five built-ins plus that variable. The ONLY difference is one read: `pass` takes `MODE` from `import.meta.env`, `fail` takes it from `process.env`, where it is an ordinary environment variable in a Node program and has to be documented. Whoever drops the exclusion turns `pass` red; whoever excludes the names regardless of namespace turns `fail` green."
+}
