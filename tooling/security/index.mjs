@@ -503,7 +503,7 @@ export const REGRAS = [
      * THE MEASUREMENT THAT OPENED THIS RULE. A repository was built with four
      * credentials of real shape — an AWS access key, a GitHub token, an LLM API
      * key, and the assignment of a literal to an `apiKey` constant, which is
-     * the exact shape of the live one sitting in the public `Navesz/Climatic`
+     * the exact shape of a live one found in a public repository
      * today. Both rulers were run against it:
      *
      *   rebar-security .   2 of 2, 1 not applicable, EXIT 0   — saw nothing

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // gerar.mjs — the MCP is not written by hand. This file is what writes it.
 //
-// WHY IT EXISTS. The defect the owner lived through in Herz and in BMB Compras
+// WHY IT EXISTS. The defect the owner lived through in prior-app and in another-app
 // was not "the MCP was missing": it was that the MCP KEPT SERVING THE OLD RULE
 // after the rule changed, and nobody noticed. Measured in this repository on
 // 01/09/2026, before this line existed: `mcp/` had 182 lines of server serving
@@ -532,7 +532,7 @@ async function lerPortao(rel) {
 // (d) of the contract: the artifact CANNOT be only the list of rules. An AI
 // that receives only the 22 rules does not know which stack to write in, nor
 // where the content lives, and will propose the env var the owner already
-// refused once in `Navesz/Galegos#1`.
+// refused once in `client-a#1`.
 //
 // Every decision here carries a PROOF extracted from a file — never a sentence
 // typed into this generator. And when the decision is already enforced by a

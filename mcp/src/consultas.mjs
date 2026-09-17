@@ -5,7 +5,7 @@
 // under `node -e` with no server up at all, which is how every output of this
 // file was checked before it became a tool answer.
 //
-// SIZE RULE, straight out of §7.2: NO LONG GUIDES. The Herz MCP serves 17 guides,
+// SIZE RULE, straight out of §7.2: NO LONG GUIDES. The prior-app MCP serves 17 guides,
 // 1,961 lines, 80 KB, and that repository itself admits "ferramenta MCP é
 // discricionária, o modelo decide se chama" [an MCP tool is discretionary, the
 // model decides whether to call it] — a fat guide is a token paid every session

@@ -1,7 +1,7 @@
 # The rebar gate. One command only, the same one that runs on the machine:
 #   node tooling/verify/verify.mjs
 #
-# THE MATRIX EXISTS FOR A MEASURED REASON. The alicerce config checks syntax with
+# THE MATRIX EXISTS FOR A MEASURED REASON. The prior-standard config checks syntax with
 # `find ferramental -name "*.mjs" -print0 | xargs -0 -n1 node --check`, which does
 # not run on Windows. The defect survived because its CI only runs Linux. Here the
 # same command has to pass on both systems or it passes on neither.

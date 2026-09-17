@@ -2,7 +2,7 @@
 
 Goal #5 of the repository: **keep the MCP alive — the rule changed, the MCP regenerates itself, and the gate fails if it is old.** The design is in [docs/PLANO.md §7.2](../docs/PLANO.md).
 
-The defect it exists so as not to repeat, in the owner's words: *"No Herz e no BMB Compras eu elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na memória e forçar a ser usadas"* [In Herz and in BMB Compras I built an MCP with all the project rules, so it would always stay in memory and force them to be used] — and *"o MCP não era reescrito quando as regras de projeto foram modificadas"* [the MCP was not rewritten when the project rules were modified].
+The defect it exists so as not to repeat, in the owner's words: *"No app anterior e em outro app eu elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na memória e forçar a ser usadas"* [In prior-app and in another-app I built an MCP with all the project rules, so it would always stay in memory and force them to be used] — and *"o MCP não era reescrito quando as regras de projeto foram modificadas"* [the MCP was not rewritten when the project rules were modified].
 
 ## The three pieces
 
@@ -124,7 +124,7 @@ them, a change that made every subject match every rule would pass as a fix.
 
 **The MCP is never the door.** The door is N0–N5: `npm run verify`, the hook and CI. Calling a tool here is a shortcut to not get it wrong; no answer of its own authorizes anything, and a green from `rebar_verificar` does not replace the gate — which still runs `format`, `links`, `secret`, `proofs` and this module's freshness.
 
-It also **does not serve prose**. The previous version of this server returned chunks of `docs/PLANO.md` by section; it was replaced because copied prose is the format Herz proved ignorable (17 guides, 1,961 lines, 80 KB, and the repository itself admitting that *"ferramenta MCP é discricionária, o modelo decide se chama"* [an MCP tool is discretionary, the model decides whether to call it]), and because the plan says what the project INTENDS while the artifact says what the gate FAILS today. When the two diverge, the one that fails commands. The prose is still reachable: the tools return `arquivo:linha` instead of copying the text.
+It also **does not serve prose**. The previous version of this server returned chunks of `docs/PLANO.md` by section; it was replaced because copied prose is the format prior-app proved ignorable (17 guides, 1,961 lines, 80 KB, and the repository itself admitting that *"ferramenta MCP é discricionária, o modelo decide se chama"* [an MCP tool is discretionary, the model decides whether to call it]), and because the plan says what the project INTENDS while the artifact says what the gate FAILS today. When the two diverge, the one that fails commands. The prose is still reachable: the tools return `arquivo:linha` instead of copying the text.
 
 <!-- `arquivo:linha` stays in Portuguese: those are the artifact's JSON field names (`fonte.arquivo`, `fonte.linha`), not prose. -->
 

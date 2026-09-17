@@ -84,7 +84,7 @@ const MARCADORES = [
     id: 'estado-de-erro',
     // Talks about a failure of the program. "Não deu para gerar o arquivo:" and
     // "Não deu para falar com o Banco Central agora" are the two shapes in
-    // ducado; "Um erro escapou de todos os tratamentos" is LinhaK's boundary.
+    // repo-d; "Um erro escapou de todos os tratamentos" is repo-l's boundary.
     re: /não deu para|não foi possível|\berros?\b|falhou|falha ao|tente novamente|deu errado/i,
   },
   {
@@ -120,7 +120,7 @@ const MARCADORES = [
     id: 'nome-do-programa',
     // The text calls the program by its name. A short lexicon on purpose: every
     // term here was checked against the 262, and the ones that accused business
-    // prose STAYED OUT — `servidor` matched "o servidor preenche" from LinhaK's
+    // prose STAYED OUT — `servidor` matched "o servidor preenche" from repo-l's
     // KWP2000 protocol, and `campos` matched "Este documento define os campos"
     // from DÉCIMA's certificate. A term that errs in a sample of 262 does not
     // get in. `programa` came in through the same test and passed: a single

@@ -269,7 +269,7 @@ function checarHooks({ raiz }) {
  * node_modules/ out of the count, respecting the repository's .gitignore.
  *
  * Iterating git's output in Node, and not `find | xargs`, is deliberate: the
- * alicerce config uses `find ferramental -name "*.mjs" -print0 | xargs -0 -n1
+ * prior-standard config uses `find ferramental -name "*.mjs" -print0 | xargs -0 -n1
  * node --check`, which does not exist on Windows. The defect survived there
  * because its CI only runs Linux.
  */
@@ -1019,9 +1019,9 @@ export default [
     // ── THE MCP FRESHNESS GATE ────────────────────────────────────────────
     //
     // Goal nº 5 of ESTADO.md, and the concrete defect the owner lived:
-    // "No Herz e no BMB Compras eu elaborei um MCP com todas as regras de
+    // "No app anterior e em outro app eu elaborei um MCP com todas as regras de
     // projeto (…) o MCP não era reescrito quando as regras de projeto foram
-    // modificadas" [In Herz and in BMB Compras I built an MCP with all the
+    // modificadas" [In prior-app and in another-app I built an MCP with all the
     // project rules (…) the MCP was not rewritten when the project rules were
     // modified]. The MCP served the old version and nobody noticed — decisão que
     // mora onde nenhuma máquina lê [a decision that lives where no machine
@@ -1156,7 +1156,7 @@ export default [
     // Called through the .cjs directly, and not through `npx prettier` nor the
     // .bin: on Windows `.bin/prettier` is a `.cmd` that CreateProcess does not
     // execute without a shell, which is exactly the bug that broke the
-    // `fronteiras` step of the alicerce.
+    // `fronteiras` step of the prior-standard.
     comando: node('node_modules/prettier/bin/prettier.cjs', '--check', '.'),
     exige: ['node_modules/prettier/bin/prettier.cjs'],
     dica: 'Formatting is not discussed, it is run: `npm run format`. If prettier is not there, `npm ci`.',

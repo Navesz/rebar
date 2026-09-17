@@ -92,7 +92,7 @@
 // (b) WHERE THE LINE RUNS BETWEEN A DERIVED FACT AND A HISTORICAL MEASUREMENT.
 //
 // Not every number in a document is a fact of this tree. "7 occurrences and zero
-// true positives in herz", "161 commits across six repositories", "8 of 9 real
+// true positives in prior-app", "161 commits across six repositories", "8 of 9 real
 // credentials passed" — that is the RECORD OF A PAST MEASUREMENT, made on another
 // machine, on another date, over a tree that is not this one. Deriving it would be
 // impossible; overwriting it would be ERASING HISTORY, and the history is what

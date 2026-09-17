@@ -70,7 +70,7 @@ const c = {
  * "Not applicable" is a THIRD state, and creating it was the most expensive fix
  * in this file. Before, a rule with no object to check returned `null` — the
  * same as "passed". Measured consequence: an EMPTY folder with an empty `.git/`
- * scored 8 of 14, tying with rebar itself and scoring DOUBLE the alicerce.
+ * scored 8 of 14, tying with rebar itself and scoring DOUBLE the prior-standard.
  * Nothing does not conform; nothing does not apply. N/A leaves the DENOMINATOR.
  */
 const na = (motivo) => ({ na: motivo })
@@ -175,7 +175,7 @@ const IGNORAR = /(^|\/)(node_modules|dist|build|\.next|out|coverage|vendor)\//
  * FILL IN, and nobody fills in NO_COLOR in an example file.
  *
  * Measured on 2026-08-30 across the 11 repositories: `NO_COLOR` was the ONLY
- * variable of the alicerce (which thereby became "reads 1 environment
+ * variable of the prior-standard (which thereby became "reads 1 environment
  * variable(s) and has no .env.example") and the ONLY one charged against prumo,
  * which has a .env.example with PRUMO_KEK and DATABASE_URL documented. Two of
  * six accusations were this. `CI` inflated openkartline from 4 to 5 — there the
@@ -194,7 +194,7 @@ const ENV_DO_AMBIENTE = new Set(['CI', 'NO_COLOR', 'FORCE_COLOR', 'NODE_ENV'])
  * not a test folder.
  *
  * The Portuguese enters here because the previous version was blind to it.
- * Measured in the alicerce: 43 tracked files with "prova" in the name, and the
+ * Measured in the prior-standard: 43 tracked files with "prova" in the name, and the
  * rule saw ZERO — a checker written in Portuguese that does not recognize a
  * test named in Portuguese. It was one of the two proven deterministic false
  * positives. DO NOT TRANSLATE the Portuguese entries below: they are folder and
@@ -204,7 +204,7 @@ const ENV_DO_AMBIENTE = new Set(['CI', 'NO_COLOR', 'FORCE_COLOR', 'NODE_ENV'])
  * `_test.` and `test_` enter for the SAME reason, one language down: the Python
  * and Go convention writes `vectra_kw82_test.py`, and the previous pattern only
  * knew the dot (`.test.`). Measured on 2026-08-30 across the 12 repositories:
- * VectraB-Lab was accused of "zero test files" while having THREE tracked
+ * repo-v was accused of "zero test files" while having THREE tracked
  * `*_test.py` scripts. Recognizing the convention adds exactly 3 files across 12
  * repositories and ZERO evaluable code files — no content rule loses text
  * because of this, and the arithmetic is in the report.
@@ -612,7 +612,7 @@ function fontes(dir, arquivos) {
 // depth and checked `components.json` only in `r.dir`; `formatter`, `typecheck`
 // and `shadcn-completo` read only the root package.json. Five of the twelve
 // measured repositories are monorepos, and the accusation landed on exactly
-// those. Measured: prumo, ducado and LinhaK accused of "components/ui/ imitating
+// those. Measured: prumo, repo-d and repo-l accused of "components/ui/ imitating
 // the convention, with no components.json in any directory above" while all
 // three had the file tracked (apps/web/, apps/web/, web/); openkartline accused
 // of "no prettier" with prettier declared in apps/web/package.json. Five
@@ -756,7 +756,7 @@ const RE_RUNNER =
  * single command. It was the second proven deterministic false positive.
  *
  * The second leg — following `node <file>` INTO the file — closes the same hole
- * one step further on, and it was measured: `ducado` was accused of "the CI
+ * one step further on, and it was measured: `repo-d` was accused of "the CI
  * does not reach: lint" with `.github/workflows/verificar.yml` running
  * `npm run verificar`, the `verificar` script being `node ci/verificar.mjs`, and
  * that file running `npm run --silent lint` on line 21. The real chain has three
@@ -853,7 +853,7 @@ function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
 // (Both values stay in Portuguese: they are the discriminator this file, the
 // MCP generator and the proofs all compare with `===`, not prose.)
 // The distinction is not cosmetic: the literal-color rule, when measured on
-// herz, gave SEVEN occurrences and ZERO true positives — five were comments
+// prior-app, gave SEVEN occurrences and ZERO true positives — five were comments
 // documenting the rule itself. A wrong automatic rule costs more than a missing
 // rule, and a heuristic that blocks teaches people to turn the whole output off.
 //
@@ -915,7 +915,7 @@ const AGENTES_ENUMERADOS =
  *
  * This exists because the list above ended in a loose `\[bot\]`, and that
  * wildcard asserted something false: that every GitHub App that signs a trailer
- * is an AI agent. Measured on 2026-08-30: `ducado` was accused of "1 of 25
+ * is an AI agent. Measured on 2026-08-30: `repo-d` was accused of "1 of 25
  * commits with AI co-authorship" and the ONLY trailer in the whole history is
  * `dependabot[bot]`. On `openkartline` the wildcard inflated the accusation
  * from 2 to 6 — 4 of the 6 were dependabot and only 2 were Claude, so the
@@ -1009,7 +1009,7 @@ function coautoresDoHistorico(r) {
  *
  * Demanding the literal name `typecheck` charged the repository for the
  * VOCABULARY, not the practice — the same mistake the `testes` rule made with
- * file names in Portuguese. Measured: prumo (`"tipos": "tsc -b"`) and ducado
+ * file names in Portuguese. Measured: prumo (`"tipos": "tsc -b"`) and repo-d
  * (`"tipos"` at the root and `"typecheck"` in three packages) were accused of
  * having no typecheck while both had the script. `tipos` stays in Portuguese
  * below for that reason: it is a script name written inside the Brazilian
@@ -1184,15 +1184,15 @@ const comandosEfetivosDoCi = (r) =>
 // How much this catches: measured on 2026-08-30 across the 11 repositories,
 // IGNORING the applicability gate, the definition finds 188 occurrences in 45
 // files of 7 repositories — 147 in decima-edicoes alone, in 15 of its 25 files,
-// then ducado 13, hug-brasil-propostas 12, vectra-painel 9, Galegos 3, prumo 3
-// and LinhaK 1. None of the 188 is false; I opened the list and they are all
+// then repo-d 13, client-b 12, repo-p 9, client-a 3, prumo 3
+// and repo-l 1. None of the 188 is false; I opened the list and they are all
 // content indeed, without a single className, import, aria-label or key string.
 // What the table proves is something else — that EVERY hand-written site
 // violates this assertion, and therefore the assertion cannot be charged to
 // someone who never promised to keep it.
 //
 // Worth recording the inversion the same table showed, because it is a limit of
-// the definition and not a compliment to it: Galegos, which §12.3 cites as the
+// the definition and not a compliment to it: client-a, which §12.3 cites as the
 // worst case with the 623 lines of `menu.ts`, gives 3 — and what catches it
 // there is the PRICE (`src/lib/menu.ts` line 590), not the sentence. A catalog
 // in a `.ts` object literal stays invisible, and stays so on purpose: the
@@ -1225,10 +1225,10 @@ const PALAVRA_ANTES_DE_REGEX =
  *
  * It lives outside the content rule because six places depend on it for the
  * same reason, and the reason has been recorded in this file since the first
- * measurement: of the SEVEN occurrences the literal-color rule gave on herz,
+ * measurement: of the SEVEN occurrences the literal-color rule gave on prior-app,
  * FIVE were comments documenting the rule itself. A comment that trips the rule
  * it explains is the cheapest way to burn the tool — and it almost happened
- * again here: writing the Galegos number out in full in the `telefone` note
+ * again here: writing the client-a number out in full in the `telefone` note
  * made rebar accuse its own index.mjs, and writing `process` `.env.X` in the
  * `url-producao` note made `env-example` charge a `.env.example` for a variable
  * that does not exist.
@@ -2033,7 +2033,7 @@ export const REGRAS = [
     // repository is born without a README by default.
     //
     // PRESENCE only, with no size floor. A line limit would fail
-    // `navesz.github.io` (25 lines) and `VectraB-Lab` (31), which are small
+    // `navesz.github.io` (25 lines) and `repo-v` (31), which are small
     // projects with a proportional README — and a wrong automatic rule costs
     // more than a missing rule.
     checar: (r) =>
@@ -2258,8 +2258,8 @@ export const REGRAS = [
       //     one e-mail with two names, is not "two people": it is an
       //     inconsistent identity, which is the name of the rule. It is the
       //     case measured in the forensics — the same person now as
-      //     `Leonardo Naves <…noreply>`, now as `leona
-      //     <leonardo@empresa.com.br>`, and `git shortlog` counting two.
+      //     `Ana Souza <…noreply>`, now as `ana
+      //     <ana@empresa.com.br>`, and `git shortlog` counting two.
       const nomesComVariosEmails = agrupar('nome', 'email')
       const emailsComVariosNomes = agrupar('email', 'nome')
       if (nomesComVariosEmails.length || emailsComVariosNomes.length) {
@@ -2279,13 +2279,13 @@ export const REGRAS = [
       }
 
       // 1b · THE GITHUB LOGIN SHOWING UP TWICE. This is the case collision does
-      //      not catch and the forensics measured: `Leonardo Naves
-      //      <12345+leona@users.noreply.github.com>` and `leona
-      //      <leonardo@empresa.com.br>` are the same person, and name and
+      //      not catch and the forensics measured: `Ana Souza
+      //      <12345+ana@users.noreply.github.com>` and `ana
+      //      <ana@empresa.com.br>` are the same person, and name and
       //      e-mail differ in both.
       //
       //      The link is written in the address. The format is
-      //      `<id>+<login>@users.noreply.github.com`, so the login is `leona` —
+      //      `<id>+<login>@users.noreply.github.com`, so the login is `ana` —
       //      a platform identifier, not an invented nickname. When it reappears
       //      as the NAME of another identity or as the local part of its
       //      e-mail, it is the same person with two identities, and the effect
@@ -2526,7 +2526,7 @@ export const REGRAS = [
     // is here.
     //
     // Measured on 2026-08-30 across the 11 repositories + rebar: 417 production
-    // code files swept, ONE accusation — `Galegos/src/lib/whatsapp.ts` line 7,
+    // code files swept, ONE accusation — `client-a/src/lib/whatsapp.ts` line 7,
     // a `const WHATSAPP_NUMBER` with the pizzeria's mobile in thirteen digits
     // —, and it is true. One true, zero false, in 417 files. (The number is not
     // transcribed here on purpose: see the `semComentario` note, which holds
@@ -2534,8 +2534,8 @@ export const REGRAS = [
     //
     // §12.3 of the plan settled the decision that gives this its teeth: phone,
     // CNPJ and address are validated CONTENT, not code and not an environment
-    // variable. And the cost of the mistake is documented in Galegos itself:
-    // `Navesz/Galegos#1` tried to move the number into an env var and the owner
+    // variable. And the cost of the mistake is documented in client-a itself:
+    // `client-a#1` tried to move the number into an env var and the owner
     // stopped the PR, because the build passes and the `wa.me` ships with no
     // recipient. Deterministic is what makes the decision hold.
     //
@@ -2545,7 +2545,7 @@ export const REGRAS = [
     // place: a product EAN-13 (`7891234599999`) matched. Acceptable in a
     // heuristic that only informs; unacceptable in a rule that fails merges.
     // Now only what carries a MARK of a Brazilian phone counts — a `wa.me`
-    // link, country code 55, or the DDD punctuation. The same Galegos is still
+    // link, country code 55, or the DDD punctuation. The same client-a is still
     // caught (`55` + `24` + `9` + eight digits) and the other 416 files stay
     // clean: the tightening did not cost a single true positive.
     classe: 'determinística',
@@ -2563,7 +2563,7 @@ export const REGRAS = [
       // `tel:` —, and that one lives in executed code, not in a footnote.
       // ELEVEN RAW DIGITS count ONLY when the file assembles a `wa.me` or a
       // `tel:`. It is the fix for a regression the tightening above caused and
-      // the audit caught: the SAME Galegos mobile written without the country
+      // the audit caught: the SAME client-a mobile written without the country
       // code, in the same file, assembling the same link, passed clean. Context
       // is what separates a phone from a barcode: an EAN-13 does not become a
       // WhatsApp link, and that is why the raw digits only count accompanied.
@@ -2591,8 +2591,8 @@ export const REGRAS = [
     checar: (r) => {
       // Same fix as `ui-falso` and `formatter`: `components.json` looked for at
       // any depth, the apparatus looked for in every manifest. Before, no
-      // monorepo ever got evaluated by this heuristic — prumo, ducado and
-      // LinhaK left through `na('does not use shadcn')` while all three had the
+      // monorepo ever got evaluated by this heuristic — prumo, repo-d and
+      // repo-l left through `na('does not use shadcn')` while all three had the
       // file tracked in a subfolder.
       if (!r.componentsJson.length) return na('does not use shadcn')
       // The read guard comes AFTER the N/A: whoever does not use shadcn should
@@ -2603,13 +2603,13 @@ export const REGRAS = [
       if (ilegivel) return ilegivel
       const d = dependenciasDeTodos(r)
       // WATCH OUT: @radix-ui alone fails the one repo that got it right.
-      // Galegos uses shadcn correctly in the base-nova style, with
+      // client-a uses shadcn correctly in the base-nova style, with
       // @base-ui/react and ZERO Radix.
       //
       // `radix-ui` without a slash is the unified package that replaced the
       // separate `@radix-ui/react-*`, and its absence here was a latent false
       // positive this step uncovered: once it started seeing
-      // `apps/web/components.json`, the heuristic accused ducado of
+      // `apps/web/components.json`, the heuristic accused repo-d of
       // "components.json with no primitive" with `"radix-ui": "^1.6.7"`
       // declared and `import { Select as SelectPrimitive } from 'radix-ui'` in
       // eight components. A defense looked for by its old name is the same
@@ -2668,7 +2668,7 @@ export const REGRAS = [
       // write: an environment variable with a sensible default. Measured:
       // `decima-edicoes/app/lib/site.ts:5` accused over
       // `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`,
-      // and `hug-brasil-propostas` accused TWICE over the same shape
+      // and `client-b` accused TWICE over the same shape
       // (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three
       // of the twelve accusations were the ruler hitting whoever got it right.
       //
@@ -2751,7 +2751,7 @@ export const REGRAS = [
       // WHICH color it is talking about. The rule was charging a file for the
       // note that documents this rule's own earlier finding. Not new either:
       // the `env-example__only-in-comment` case already writes the number down
-      // — of the seven occurrences the literal-color rule turned up in herz,
+      // — of the seven occurrences the literal-color rule turned up in prior-app,
       // FIVE were comments about the rule.
       //
       // The CSS side goes on being read RAW, and that is deliberate: a hex in a

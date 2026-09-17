@@ -161,7 +161,7 @@ describe('the `blocos` step', { concurrency: 7 }, () => {
 // Objective nº 5 of ESTADO.md: "manter o MCP vivo — regra mudou, MCP se
 // regenera, e o portão reprova se estiver velho" [keep the MCP alive — a rule
 // changed, the MCP regenerates itself, and the gate fails if it is stale]. The
-// defect it kills is the one the owner lived through at Herz and at BMB Compras:
+// defect it kills is the one the owner lived through at prior-app and at another-app:
 // the MCP held the project's rules, the rules changed, the MCP went on serving
 // the old version, and nobody noticed. A gate that only EXISTS has exactly that
 // defect — it was for lack of proof that `checarBlocos` could be born with 410
@@ -193,7 +193,7 @@ describe('the `blocos` step', { concurrency: 7 }, () => {
 //      the gate does not use.
 //
 // The case that matters is STALE ARTIFACT: the rule changed in `index.mjs` and
-// `rules.generated.json` fell behind. It is the Herz defect, staged.
+// `rules.generated.json` fell behind. It is the prior-app defect, staged.
 
 const GERADOR = 'mcp/generate.mjs'
 const FONTE = join('tooling', 'rebar-check', 'index.mjs')
@@ -316,7 +316,7 @@ describe('the `mcp` step', { concurrency: 4 }, () => {
       assert.notEqual(
         r.codigo,
         0,
-        'the rule changed and the artifact fell behind — it is the Herz defect, and ' +
+        'the rule changed and the artifact fell behind — it is the prior-app defect, and ' +
           `the freshness gate let it through:\n${r.saida}`,
       )
       assert.match(

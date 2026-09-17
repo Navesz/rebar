@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // prove.mjs — the rebar-check proofs.
 //
-// The mother rule of the alicerce says: every rule that rises to N1 is born with
+// The mother rule of the prior-standard says: every rule that rises to N1 is born with
 // two cases, one that passes and one that fails. rebar-check shipped with 19 rules
 // and ZERO cases, violating the rule the repository itself transcribes and bolds.
 // Two rules have already had a PROVEN false positive — `tests` was blind to a file
@@ -57,7 +57,7 @@
 //        with an instrument that is bent.
 //
 // It NEVER writes to the repository. Each side is assembled in a fresh directory
-// under os.tmpdir() and deleted in the finally. The alicerce's provar-portao.mjs
+// under os.tmpdir() and deleted in the finally. The prior-standard's provar-portao.mjs
 // did writeFileSync + git add INSIDE the live repo — a known defect this file
 // refuses to inherit.
 //
@@ -1000,7 +1000,7 @@ async function rodarRegra(id, dir) {
   // case.
   //
   // process.execPath + the script path: no `npx`, which without shell:true does
-  // not exist as an executable on Windows. It was the bug that broke the alicerce.
+  // not exist as an executable on Windows. It was the bug that broke the prior-standard.
   //
   // --json because the exit code does not tell "passou" from "na": both exit 0.
   // While the verdict came from the exit code, EVERY N/A branch of index.mjs was

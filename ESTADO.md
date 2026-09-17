@@ -111,17 +111,17 @@ where a claim came from a report and not from an execution it is marked as **not
 
 ## 1. The final objective
 
-`rebar` is **alicerce v2**. A new repository, not built on top of the current alicerce.
+`rebar` is **prior-standard v2**. A new repository, not built on top of the current prior-standard.
 
 The pain it exists to solve, in the owner's words:
 
-> _"Todos os sites que peço para usar o alicerce como referência, muita coisa é ignorada,
+> _"Todos os sites que peço para usar o padrão como referência, muita coisa é ignorada,
 > hardcoded, esquecendo alguma coisa da stack, colocando o claude como colaborador,
-> esquecendo do shadcn."_ [Every site I ask to use alicerce as a reference, a lot gets
+> esquecendo do shadcn."_ [Every site I ask to use the standard as a reference, a lot gets
 > ignored, hardcoded, forgetting something of the stack, putting claude as a collaborator,
 > forgetting shadcn.]
 
-The diagnosis was already written by alicerce itself: **"decisão que mora onde nenhuma
+The diagnosis was already written by prior-standard itself: **"decisão que mora onde nenhuma
 máquina lê"** [a decision that lives where no machine reads].
 
 ### The six objectives
@@ -179,10 +179,10 @@ and each `Assumptions` line becomes an assertion in the fitness test.
 | Nature           | Generates **and** keeps watching                                                              |
 | Target           | Presets `site` / `app` / `api`                                                                |
 | Hardness         | Blocks commit **and** CI                                                                      |
-| Database         | **Postgres.** SQL Server requires a license, and there is no migration — herz's backend never existed |
+| Database         | **Postgres.** SQL Server requires a license, and there is no migration — prior-app's backend never existed |
 | Contract         | **oRPC 1.15.0**, not ts-rest (prumo's ADR 0011 superseded it)                                 |
 | Components       | **shadcn on `@base-ui/react`**, style `base-nova`. **It is not Radix**                        |
-| Interface        | Reuse herz's — animation by `tw-animate-css` + data-attributes, no `@keyframes`               |
+| Interface        | Reuse prior-app's — animation by `tw-animate-css` + data-attributes, no `@keyframes`               |
 | Linter           | fast oxlint + small ESLint for its own rules                                                  |
 | Order            | **Consumer before generator** — check what exists before generating the next                  |
 | Checker posture  | **Reports only.** Never writes in any repository                                              |
@@ -324,7 +324,7 @@ promoted it written in the rule itself: 1 true and 0 false in 417 measured code 
 
 The separation is measured, and the reason is written in the header of the `as regras`
 section of `index.mjs` — `grep -n "SETE ocorrências"`: the naive literal-color rule gave 7
-occurrences and zero true positives in herz, measured on 30/08/2026, and five were
+occurrences and zero true positives in prior-app, measured on 30/08/2026, and five were
 comments documenting the rule itself.
 
 **rebar on its own ruler.** Measured on **02/09/2026**, already with `new/` tracked:
@@ -479,7 +479,7 @@ index without `skip-worktree`, hash of the gate's files against HEAD) and `hooks
 (`core.hooksPath` points at the right place and both hooks are there).
 
 **No step is optional** — the field does not exist, and `verify.mjs` refuses the key with exit
-2; `--passo=` prints PARCIAL and exits 3, never 0. The two unlocked doors of the alicerce
+2; `--passo=` prints PARCIAL and exits 3, never 0. The two unlocked doors of the prior-standard
 original were left out on purpose. Where there is loosening it is **inside** the step, and it
 is said so:
 
@@ -502,12 +502,12 @@ git ls-files tooling/hooks   # check-message.mjs · commit-msg · install.mjs ·
 ```
 
 `pre-commit` scans for a secret in the index and checks co-authorship. `commit-msg` is new and
-did not exist in alicerce: `rebar-check` reads `git log` and does not see the commit in flight,
+did not exist in prior-standard: `rebar-check` reads `git log` and does not see the commit in flight,
 so it stopped the trailer from **staying**, not from **entering**.
 
 This was, until this session, the "next step" of this document. It has been done.
 
-### 4.6 PROVEN · The three ports from alicerce
+### 4.6 PROVEN · The three ports from prior-standard
 
 | Port                         | Proof that it runs                                       |
 | ---------------------------- | -------------------------------------------------------- |
@@ -567,23 +567,23 @@ the `nota` field the tool itself emits, repo by repo, and the denominator is the
 | ---------------------------------- | -------- | ---------- | --- | ------ |
 | **rebar (itself)**                 | **100%** | 10/10      | 4   | 0      |
 | prumo                              | 85%      | 11/13      | 1   | 2      |
-| ducado                             | 73%      | 8/11       | 3   | 1      |
-| Xthird/tools/obsidian-second-brain | 67%      | 4/6        | 8   | 0      |
+| repo-d                             | 73%      | 8/11       | 3   | 1      |
+| repo-o | 67%      | 4/6        | 8   | 0      |
 | openkartline                       | 62%      | 8/13       | 1   | 2      |
-| vectra-painel                      | 50%      | 5/10       | 4   | 0      |
+| repo-p                      | 50%      | 5/10       | 4   | 0      |
 | decima-edicoes                     | 42%      | 5/12       | 2   | 2      |
-| LinhaK                             | 36%      | 4/11       | 3   | 0      |
-| openkartline-notes                 | 33%      | 2/6        | 8   | 0      |
-| VectraB-Lab                        | 33%      | 2/6        | 8   | 0      |
-| Xthird/sites/constellation         | 33%      | 4/12       | 2   | 1      |
-| Galegos                            | 27%      | 3/11       | 3   | 3      |
-| alicerce                           | 20%      | 2/10       | 4   | 0      |
+| repo-l                             | 36%      | 4/11       | 3   | 0      |
+| repo-k                 | 33%      | 2/6        | 8   | 0      |
+| repo-v                        | 33%      | 2/6        | 8   | 0      |
+| constellation         | 33%      | 4/12       | 2   | 1      |
+| client-a                            | 27%      | 3/11       | 3   | 3      |
+| prior-standard                           | 20%      | 2/10       | 4   | 0      |
 | navesz.github.io                   | 20%      | 2/10       | 4   | 2      |
-| hug-brasil-propostas (client's)     | 17%      | 2/12       | 2   | 2      |
-| Xthird/sites/navesz-profile        | 17%      | 1/6        | 8   | 0      |
+| client-b     | 17%      | 2/12       | 2   | 2      |
+| repo-n        | 17%      | 1/6        | 8   | 0      |
 | Readme                             | 13%      | 1/8        | 6   | 2      |
-| Xthird/sites/climatic              | **0%**   | 0/6        | 8   | 1      |
-| (client folder, no commits)        | **0%**   | 0/4        | 10  | 0      |
+| repo-c              | **0%**   | 0/6        | 8   | 1      |
+| (unversioned folder, no commits)        | **0%**   | 0/4        | 10  | 0      |
 
 **Aggregate: 74 of 177 applicable checks pass — 41,8%.** N/A summed: 89. Warnings
 summed: 18.
@@ -599,26 +599,26 @@ gave 56 and the text beside it said 55.
 **Ceiling: 100%, rebar, and it is the only one.** Outside the tool itself the ceiling is **85%
 in prumo** — not 69%, as this file published.
 
-**Floor: 0%, a tie between a client's folder and `Xthird/sites/climatic`.** Both were outside
-the old list, and that is why the published floor (17%, `hug-brasil-propostas`) was wrong.
+**Floor: 0%, a tie between an unversioned folder and `repo-c`.** Both were outside
+the old list, and that is why the published floor (17%, `client-b`) was wrong.
 Honest caveat: that folder has 0 commits, so its 0% measures a practically empty
-folder — it is the arithmetic floor. The truly worst repository is `climatic`, which has
+folder — it is the arithmetic floor. The truly worst repository is `repo-c`, which has
 5 commits and even so passes none of the 6 applicable checks.
 
 **CI that reaches the verification the repository itself declares: four.** `prumo`,
-`openkartline`, `decima-edicoes` and `Xthird/sites/constellation`. `constellation` was left
+`openkartline`, `decima-edicoes` and `constellation`. `constellation` was left
 out because only 12 repositories were being looked at.
 
 ```bash
 # from the same --json, `estado` field of the ci-gateia rule, repo by repo:
-# passou 4 · reprovou 1 (ducado, "o CI não alcança: lint") · na 14
+# passou 4 · reprovou 1 (repo-d, "o CI não alcança: lint") · na 14
 ```
 
-The 14 `na` split into two reasons: **eight have no CI at all** (`Galegos`, `LinhaK`,
-the client folder and the `hug-brasil-propostas` inside it, `VectraB-Lab`, `Xthird/sites/climatic`,
-`openkartline-notes`, `vectra-painel`) and **six have CI and have no lint, typecheck
-or test script for it to reach** (`rebar`, `Readme`, `alicerce`, `navesz.github.io`,
-`Xthird/sites/navesz-profile`, `Xthird/tools/obsidian-second-brain`). rebar itself is in
+The 14 `na` split into two reasons: **eight have no CI at all** (`client-a`, `repo-l`,
+the unversioned folder and the `client-b` inside it, `repo-v`, `repo-c`,
+`repo-k`, `repo-p`) and **six have CI and have no lint, typecheck
+or test script for it to reach** (`rebar`, `repo-r`, `prior-standard`, `navesz.github.io`,
+`repo-n`, `repo-o`). rebar itself is in
 the second group. 4 + 1 + 8 + 6 = 19.
 
 > ⚠️ **The ruler was recalibrated on 30/08 and an old number is not comparable with a new one.**
@@ -698,7 +698,7 @@ grep -nE '^#+ (2|3)(\.[0-9]+)*[ .]' docs/PLANO.md
 ```
 
 By the subject — the `site` preset being the worst served — the intended target was probably
-`§3.3 O ponto cego do alicerce é onde os projetos do dono vivem`. **I did not fix it: this
+`§3.3 O ponto cego do padrão anterior é onde os projetos do dono vivem`. **I did not fix it: this
 session's task is only ESTADO.md.** The other occurrences of `§N.N` that a raw grep turns up
 were checked and are not breakage: `§12.9` has already become self-documentation, the
 `§44/68/86` of REVISAO-AGENTES are pointers to a line and not to a section, and
@@ -781,15 +781,15 @@ repository itself. The generator **refuses to invent an author**: it warns, does
 and exits 1 even with the ruler green. `coautoria-ia` and `identidade-git` become N/A because
 there is no commit, and the score drops from 14 to 12 in the denominator — 12 of 12, not 12 of 14.
 
-#### Run 2 — `linhak-motos`, through the second identity source
+#### Run 2 — `demo-site`, through the second identity source
 
 ```bash
-GIT_AUTHOR_NAME="…" GIT_AUTHOR_EMAIL="…" npx -y "git+file:///$ESPELHO" novo linhak-motos linhak.com.br
+GIT_AUTHOR_NAME="…" GIT_AUTHOR_EMAIL="…" npx -y "git+file:///$ESPELHO" novo demo-site example.com.br
 ```
 
 ```
 ▸ 4/6  primeiro commit: feito
-▸ 5/6  rebar-check · linhak-motos
+▸ 5/6  rebar-check · demo-site
   ✓ editorconfig ✓ dependabot ✓ ci ✓ ci-gateia ✓ testes ✓ typecheck ✓ formatter
   – env-example  ✓ licenca ✓ readme ✓ notice ✓ coautoria-ia ✓ identidade-git
   ✓ ui-falso     – schema-orfao ✓ telefone
@@ -800,13 +800,13 @@ GIT_AUTHOR_NAME="…" GIT_AUTHOR_EMAIL="…" npx -y "git+file:///$ESPELHO" novo 
 Checked also with the checkout's checker, outside the generator:
 
 ```bash
-node tooling/rebar-check/index.mjs "$TMP/linhak-motos"    # 14 de 14 · exit 0
+node tooling/rebar-check/index.mjs "$TMP/demo-site"    # 14 de 14 · exit 0
 ```
 
 #### The generated project passes its own gate
 
 ```bash
-cd "$TMP/linhak-motos" && npm run verificar     # lint && typecheck && test && build
+cd "$TMP/demo-site" && npm run verificar     # lint && typecheck && test && build
 # ℹ tests 6 · pass 6 · fail 0
 # ✓ Compiled successfully in 12.3s · Finished TypeScript in 2.8s
 # ○  (Static)  prerendered as static content   — 5 rotas
@@ -846,7 +846,7 @@ environment variable. One mutation at a time in `conteudo/site.json`, `next buil
 | _restored_ | **0** | — |
 
 `5 of 5 mutations failed the build`. With an env var, each of those would have gone up silent —
-which is exactly what happened in PR `Navesz/Galegos#1`, and why it was parked.
+which is exactly what happened in PR `client-a#1`, and why it was parked.
 
 #### What the generator does NOT do, on purpose
 
@@ -859,9 +859,9 @@ _Measured on 01/09/2026. Before this date `mcp/` had 1.412 lines on disk and **h
 run**: the dependencies were never installed, no step of `verificar` touched it
 and no rule covered it. It served PROSE of the plan by section._
 
-The defect this module exists in order not to repeat, in the owner's words: _"no Herz e no
-BMB Compras eu elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na
-memória"_ [in Herz and in BMB Compras I put together an MCP with all the project rules, so it
+The defect this module exists in order not to repeat, in the owner's words: _"no app anterior e em
+outro app eu elaborei um MCP com todas as regras de projeto, pra ele sempre ficar na
+memória"_ [in prior-app and in another-app I put together an MCP with all the project rules, so it
 would always stay in memory] — and _"o MCP não era reescrito quando as regras de projeto foram
 modificadas"_ [the MCP was not rewritten when the project rules were modified].
 
@@ -934,7 +934,7 @@ false accusation.
 gate already went along into the generated project; the MCP now goes too, by pointer. The
 generated project does **not** get an MCP of its own, and the reason is §7.2: it has zero rules
 of its own, so a local MCP would serve a **copy** of rebar's <!--n rules.total-->23<!--/n--> rules — which
-is the Herz defect all over again.
+is the prior-app defect all over again.
 
 **What stays partial, and is said here instead of hidden:**
 
@@ -978,7 +978,7 @@ itself in 5 checks". It does not fail. On 02/09/2026, `npm run check` comes out 
 n/a · exit 0** (§4.2); on 30/08 it came out 11 of 11 · 6 n/a, which is the number this
 paragraph published.
 
-### 5.2 The seven items of §8.1 of the PLANO — what was supposed to come from alicerce
+### 5.2 The seven items of §8.1 of the PLANO — what was supposed to come from prior-standard
 
 State verified on disk on **02/09/2026**. The sizes in bytes are a convenience measurement
 and stay by hand, with this date (§0).
@@ -997,15 +997,15 @@ and stay by hand, with this date (§0).
 ls tooling    # hooks  links  numbers.mjs  rebar-check  secret  verify
 ```
 
-`numbers.mjs` came in on 02/09/2026 and is not an item of §8.1: it did not come from alicerce,
+`numbers.mjs` came in on 02/09/2026 and is not an item of §8.1: it did not come from prior-standard,
 it was born here, out of the defect of §0.
 
 **TWO of the seven are left**, not three nor four: `contexto/ai.mjs` and the boundary presets.
 `perfil.esquema.json`, which the previous ESTADO added in here, is not an item of §8.1 — it is
 blocking in §5.1 above. It does not exist indeed, but counting it twice inflated the hole.
 
-The source of the two absent ones exists: `alicerce/ferramental/contexto/ai.mjs` and
-`alicerce/ferramental/fronteiras/`.
+The source of the two absent ones exists: `prior-standard/ferramental/contexto/ai.mjs` and
+`prior-standard/ferramental/fronteiras/`.
 
 ### 5.3 The two 🔴 red decisions — CLOSED, and exercised
 
@@ -1021,7 +1021,7 @@ line of JS** — §4.11. The `app` preset (Vite + TanStack Router) is not in sco
 **2 · Origin of the content — closed on `conteudo/*.json` validated at build.** The business
 identity (phone, CNPJ, address) is **validated content**, not an environment variable.
 Exercised: 5 mutations in `conteudo/site.json`, 5 builds exit 1 — §4.11. The cost of getting
-this one wrong is known and has a number: in PR `Navesz/Galegos#1`, with an env var, the
+this one wrong is known and has a number: in PR `client-a#1`, with an env var, the
 `wa.me` went up without a recipient and the menu stopped delivering orders **in silence**.
 
 ### 5.4 Other open boundaries
@@ -1268,18 +1268,18 @@ It is the N4s of §9.3: the only level that does not live in a file the agent ed
 **The second repository is missing.** The criterion demands ≥2, and the scoreboard is **1 of 19**.
 
 The comparison that dismantles the vanity of D+7: **rebar measures 19 repositories and enforces
-in 1 — itself; alicerce measures 2 and enforces in both.** Measuring is reading; enforcing is
+in 1 — itself; prior-standard measures 2 and enforces in both.** Measuring is reading; enforcing is
 blocking. D+7 counts readings, and that is why it is easy.
 
 ```bash
 for r in <the 18>; do [ -d "$r/ferramental" ] && echo "$r"; done
-# alicerce · prumo
+# prior-standard · prumo
 ```
 
-In `prumo` alicerce's tooling **gates for real**:
+In `prumo` prior-standard's tooling **gates for real**:
 `prumo/.github/workflows/ci.yml:113` runs `npm run verificar`, and `prumo/ferramental/` has 8
 directories — `contexto`, `controle`, `elos`, `fronteiras`, `hooks`, `portao`, `segredo`,
-`verificar`. That is, the premise "alicerce never touched a real project" is **false**.
+`verificar`. That is, the premise "prior-standard never touched a real project" is **false**.
 It survived in the header of `tooling/rebar-check/index.mjs`, and **that was
 fixed**: the header today records the correction itself — _"a versão antiga deste
 comentário dizia que ele morreu porque a imposição nunca encostou num projeto, e isso foi
@@ -1287,7 +1287,7 @@ MEDIDO e é FALSO"_ [the old version of this comment said it died because the en
 touched a project, and that was MEASURED and is FALSE]. In `docs/PLANO.md` §9.1 it had been
 corrected since 30/08; this paragraph was billing the code comment, and the bill is paid
 (checked on 02/09/2026). It touched, and in the highest-scoring repository outside the tool
-(85%, measurement of 30/08). What alicerce did not do was **scale**: 2 of 19. That is the
+(85%, measurement of 30/08). What prior-standard did not do was **scale**: 2 of 19. That is the
 defensible diagnosis.
 
 ### D+60 — NOT MEASURABLE YET
@@ -1349,9 +1349,9 @@ the scoreboard.
 A whole class of false positive also died in this session: **"a defect looked for
 recursively, a defense looked for only at the root"**. It is documented in
 the comment in `index.mjs` that ends with "Cinco achados, cinco falsos" (`grep -n "Cinco achados"`):
-`prumo`, `ducado` and `LinhaK` accused of "components/ui/ sem components.json" while all three
+`prumo`, `repo-d` and `repo-l` accused of "components/ui/ sem components.json" while all three
 had the file tracked, `openkartline` accused of "sem prettier" with prettier declared in
-`apps/web/package.json`, and `LinhaK` accused in `typecheck` too. It is part of the reason the new scoreboard is not comparable with the old one.
+`apps/web/package.json`, and `repo-l` accused in `typecheck` too. It is part of the reason the new scoreboard is not comparable with the old one.
 **There is no comparable old scoreboard to subtract from** — the number in §4.8 is the new one, and that is that.
 
 ---

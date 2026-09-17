@@ -1,6 +1,6 @@
 {
   "rule": "env-example",
-  "why": "`.env.example` documents what the program READS AT RUN TIME, and a variable cited in a comment is read by nobody. This is not hypothetical: while writing the note for the `url-producao` fix in this repository, the example sentence with `process` `.env` made rebar itself fail on `env-example`, charging for two variables that exist nowhere. It is the same trap that already cost the ruler a rule — of the seven occurrences the literal-color rule turned up in herz, five were comments documenting the rule itself. Both sides have the SAME comment citing the SAME variable: on the `fail` side it is also genuinely read.",
+  "why": "`.env.example` documents what the program READS AT RUN TIME, and a variable cited in a comment is read by nobody. This is not hypothetical: while writing the note for the `url-producao` fix in this repository, the example sentence with `process` `.env` made rebar itself fail on `env-example`, charging for two variables that exist nowhere. It is the same trap that already cost the ruler a rule — of the seven occurrences the literal-color rule turned up in prior-app, five were comments documenting the rule itself. Both sides have the SAME comment citing the SAME variable: on the `fail` side it is also genuinely read.",
   "pass": {
     "estado": "na"
   }

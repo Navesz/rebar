@@ -550,7 +550,7 @@ Copyright ${ano} ${dono}.
 // different every session.
 //
 // And it is SHORT by measurement, not by taste: §7.2 of docs/PLANO.md records
-// that herz's MCP had 17 guides and 1,961 lines and is demonstrably ignorable.
+// that prior-app's MCP had 17 guides and 1,961 lines and is demonstrably ignorable.
 // The target here is under 60 lines. What does not fit becomes an MCP tool, not
 // a paragraph — which is exactly why §1 names the five tools instead of
 // explaining what each rule demands.

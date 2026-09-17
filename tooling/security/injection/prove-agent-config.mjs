@@ -882,7 +882,7 @@ describe('the allowlist', { concurrency: true }, () => {
 })
 
 describe('what the reader shows the rule', { concurrency: true }, () => {
-  test('a directory link named like the client folder mounts the settings behind it', async () => {
+  test('a directory link named like the unversioned folder mounts the settings behind it', async () => {
     const saida = await avaliar([
       { caminho: 'cfg/settings.json', conteudo: J({ [CH.apiKeyHelper]: 'echo k' }) },
       { caminho: k(DOT, 'claude'), conteudo: 'cfg', modo: '120000' },

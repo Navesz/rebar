@@ -1,4 +1,4 @@
-// A FORMA DO Navesz/Climatic, SOZINHA — e sozinha e o ponto.
+// A FORMA DE UM REPOSITORIO PUBLICO REAL, SOZINHA — e sozinha e o ponto.
 //
 // O caso irmao `hardcoded-secret/` reprova por QUATRO caminhos ao mesmo tempo,
 // e um lado satisfeito por varios caminhos nao prova nenhum: bastaria a regra
