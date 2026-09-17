@@ -3018,14 +3018,33 @@ export function nota(resultados) {
   }
 }
 
+/**
+ * The scoreboard as DATA: which lines the terminal prints, in which order, and
+ * the score line. `imprimir` writes it with colors; `tooling/scoreboard.mjs`
+ * draws the same data into `docs/assets/rebar-scoreboard.svg`.
+ *
+ * WHY IT IS ONE FUNCTION AND NOT TWO. The README image claimed to be "the real
+ * output, generated from the run" and was a hand-kept SVG: measured on
+ * 2026-09-16 it showed `14 of 14 · 4 not applicable` with `ci-gates` as N/A and
+ * the old `formatter` title, while the run printed `15 of 15 · 3 not
+ * applicable`. A second renderer that decides on its own which heuristics are
+ * visible is the same defect waiting to happen again — the first thing a
+ * reader compares with the image is what `npx` prints.
+ */
+export function placar(a) {
+  const det = a.resultados.filter((x) => x.classe === 'determinística')
+  const heu = a.resultados.filter((x) => x.classe === 'heurística')
+  const heuVisiveis = heu.filter((x) => x.estado === 'reprovou' || x.estado === 'quebrou')
+  return { det, heuVisiveis, nota: nota(a.resultados) }
+}
+
 function imprimir(a) {
   if (a.erro) {
     console.log(`\n${c.forte(a.nome)}\n  ${c.vermelho('✗')} ${a.erro}`)
     return
   }
 
-  const det = a.resultados.filter((x) => x.classe === 'determinística')
-  const heu = a.resultados.filter((x) => x.classe === 'heurística')
+  const { det, heuVisiveis, nota: n } = placar(a)
 
   console.log(`\n${c.forte('rebar-check')} · ${c.forte(a.nome)}`)
   for (const x of det) {
@@ -3033,7 +3052,6 @@ function imprimir(a) {
     const titulo = x.estado === 'na' ? c.fraco(x.titulo) : x.titulo
     console.log(`  ${MARCA[x.estado]()} ${x.id.padEnd(18)} ${titulo}${detalhe}`)
   }
-  const heuVisiveis = heu.filter((x) => x.estado === 'reprovou' || x.estado === 'quebrou')
   if (heuVisiveis.length) {
     console.log(c.fraco('  ── heuristics (they do not enter the score, they do not drop the CI)'))
     for (const x of heuVisiveis) {
@@ -3041,7 +3059,6 @@ function imprimir(a) {
     }
   }
 
-  const n = nota(a.resultados)
   if (n.total === 0) {
     console.log(`  ${c.fraco('nothing evaluable in this repository')}`)
   } else {

@@ -9,16 +9,17 @@
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licencia](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
 [![Reglas](https://img.shields.io/badge/reglas-40-blue)](#qué-verifica)
-[![Compuerta](https://img.shields.io/badge/compuerta-26%20pasos-blue)](#la-compuerta)
+[![Compuerta](https://img.shields.io/badge/compuerta-27%20pasos-blue)](#la-compuerta)
 [![Estado](https://img.shields.io/badge/estado-alfa-orange)](ESTADO.md)
 
 [Read in English](README.md) · [Leia em português](README.pt-BR.md) ·
 [Sitio](https://navesz.github.io/rebar-site/) · [Estado del proyecto](ESTADO.md) ·
 [Plan](docs/PLANO.md)
 
-![rebar-check corriendo sobre el propio repositorio de rebar: 14 de 14, 4 no aplican, 1 aviso](docs/assets/rebar-scoreboard.svg)
+![rebar-check corriendo sobre el propio repositorio de rebar](docs/assets/rebar-scoreboard.svg)
 
-Esa es la salida real, generada de la ejecución — no una captura dibujada a mano.
+Esa es la salida real, dibujada de la ejecución por `node tooling/scoreboard.mjs` — y el paso
+`scoreboard` de la compuerta falla cuando la imagen deja de coincidir con lo que imprime `npx`.
 Son tres estados, y el tercero es lo que impide que el marcador mienta: una regla que
 no aplica imprime `–` **con el motivo** y sale del denominador, en vez de contar como
 una aprobación que no se ganó.
@@ -163,9 +164,9 @@ El verificador es una de las capas, no la única.
 | **N4s** | ruleset con check obligatorio | **el servidor** |
 
 `npm run verify` **no es una capa nueva**: es la secuencia que ejecuta el N4 y que se ejecuta
-antes que él, hoy con <!--n verify.passos-->26<!--/n--> pasos.
+antes que él, hoy con <!--n verify.passos-->27<!--/n--> pasos.
 
-En orden: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
+En orden: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `scoreboard` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
 
 El N4s existe porque todo lo que está debajo vive en un archivo que el agente edita: el
 workflow lo borra, el `core.hooksPath` lo quita sin dejar diff. Solo el ruleset resiste — y
@@ -194,7 +195,7 @@ sea avisada antes de escribir, y no después.
 El artefacto es **derivado, nunca duplicado**: `npm run verify` lo regenera en memoria y falla
 si el disco diverge. Es imposible cambiar una regla y olvidar el MCP.
 
-Lleva <!--n mcp.artefato.regras-->40<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->26<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->190<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
+Lleva <!--n mcp.artefato.regras-->40<!--/n--> reglas de dos módulos, <!--n mcp.artefato.passos-->27<!--/n--> pasos de compuerta y <!--n mcp.artefato.provas-->190<!--/n--> pruebas, expuestos en <!--n mcp.ferramentas-->5<!--/n--> herramientas.
 
 ## Mapa del repositorio
 

@@ -5,7 +5,7 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "f4420db940b93ec48c47302bc37bc937cd2c0b2e3fd0c2b7535d2dda060e2eac",
+      "sha256": "0ff260e5938d68c51fdb57352aae63dfde4c71930333a711d2b8a4d8b365eaa5",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "b945c8ebfb5b5ea69385c951c7d079a2407af1a141cfa5092fa955564b06b3ae",
+      "sha256": "3123092dc3dbba2d94caa2822dbcfd89be22063874f5be8673b9e745699571fc",
       "daqui": "the gate steps, in order"
     },
     {
@@ -3335,6 +3335,17 @@
       },
       {
         "ordem": 9,
+        "nome": "scoreboard",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "tooling/scoreboard.mjs",
+          "--verificar"
+        ],
+        "dica": "The README image no longer matches what rebar-check prints on this repository — regenerate with `node tooling/scoreboard.mjs` and commit the SVG TOGETHER with the change that moved the score."
+      },
+      {
+        "ordem": 10,
         "nome": "format",
         "tipo": "comando",
         "comando": [
@@ -3346,7 +3357,7 @@
         "dica": "Formatting is not discussed, it is run: `npm run format`. If prettier is not there, `npm ci`."
       },
       {
-        "ordem": 10,
+        "ordem": 11,
         "nome": "links",
         "tipo": "comando",
         "comando": [
@@ -3356,7 +3367,7 @@
         "dica": "Broken link in the documentation: the AI follows the reference, does not find it, and rewrites from scratch."
       },
       {
-        "ordem": 11,
+        "ordem": 12,
         "nome": "secret",
         "tipo": "comando",
         "comando": [
@@ -3366,7 +3377,7 @@
         "dica": "A secret is not fixed with a new commit — the credential has to be rotated."
       },
       {
-        "ordem": 12,
+        "ordem": 13,
         "nome": "secret-proofs",
         "tipo": "comando",
         "comando": [
@@ -3377,7 +3388,7 @@
         "dica": "The secret scanner stopped finding what it used to find. If the complaint is about encoding, it is `decodificar()` -- the UTF-16 BOM goes back to being NUL and the token comes out one character per line. About an escape, it is ALCANCE_DA_MARCA and the marker loop in varrerLinha(); about a caso.json, raizesDeProvaValidas(); about an invisible code point, projetar()."
       },
       {
-        "ordem": 13,
+        "ordem": 14,
         "nome": "steps",
         "tipo": "comando",
         "comando": [
@@ -3388,7 +3399,7 @@
         "dica": "A step of the verify stopped catching what it should. The gate does not prove itself — this suite is what proves it."
       },
       {
-        "ordem": 14,
+        "ordem": 15,
         "nome": "strip",
         "tipo": "comando",
         "comando": [
@@ -3399,7 +3410,7 @@
         "dica": "The comment stripper changed behavior. If it started ERASING more, six rules went blind and will not complain -- a false negative does not show up. If it started erasing less, it shows up as a false positive in the rules."
       },
       {
-        "ordem": 15,
+        "ordem": 16,
         "nome": "proofs",
         "tipo": "comando",
         "comando": [
@@ -3409,7 +3420,7 @@
         "dica": "A rule of rebar-check stopped failing what it should, or started failing what is correct."
       },
       {
-        "ordem": 16,
+        "ordem": 17,
         "nome": "generator-map",
         "tipo": "comando",
         "comando": [
@@ -3420,7 +3431,7 @@
         "dica": "The file map of the generator stopped closing: either a template vanished, or a hook calls a file the generator does not write. `rebar new` breaks on the first project."
       },
       {
-        "ordem": 17,
+        "ordem": 18,
         "nome": "site-paths",
         "tipo": "comando",
         "comando": [
@@ -3431,7 +3442,7 @@
         "dica": "A path in the site blocks stopped going through `naPasta`, the favicon left the template, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green."
       },
       {
-        "ordem": 18,
+        "ordem": 19,
         "nome": "remote-gate",
         "tipo": "comando",
         "comando": [
@@ -3442,7 +3453,7 @@
         "dica": "The generated project stopped charging for the gate on the server. If it loosened, every project rebar makes is born with `main` open and the CI badge green — which is the state this level exists to make impossible."
       },
       {
-        "ordem": 19,
+        "ordem": 20,
         "nome": "chain",
         "tipo": "comando",
         "comando": [
@@ -3453,7 +3464,7 @@
         "dica": "A link left the `verificar` of the generated project, or its order changed. What the generated CI runs is exactly this chain — a link that leaves stops being checked everywhere at once."
       },
       {
-        "ordem": 20,
+        "ordem": 21,
         "nome": "generator-identity",
         "tipo": "comando",
         "comando": [
@@ -3464,7 +3475,7 @@
         "dica": "The identity of the first commit of the generated project stopped matching the one that goes into the NOTICE and the allowlist. The project is born with the list saying one person and the history having another, and that only shows up months later."
       },
       {
-        "ordem": 21,
+        "ordem": 22,
         "nome": "mcp-template",
         "tipo": "comando",
         "comando": [
@@ -3475,7 +3486,7 @@
         "dica": "The MCP the generator writes stopped answering, started lying about the state of the gate, or drifted from what rebar-security knows of it. A sanitizer difference means the block between the @texto-seguro markers no longer equals tooling/security/texto-seguro.mjs. A stale table means the template changed, or an entry is not a version in the history of HEAD (a hand edit, or a branch version a squash merge dropped): run `node new/gate/modelos-mcp.mjs --escrever`, then `npm run format`, and commit tooling/security/injection/modelos-mcp.json with it. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole exchange."
       },
       {
-        "ordem": 22,
+        "ordem": 23,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -3487,7 +3498,7 @@
         "dica": "A rule of rebar-security stopped failing what it should, or started accusing what is correct. The pass/ side of each case carries the named false positives: if it went red, the rule loosened too much."
       },
       {
-        "ordem": 23,
+        "ordem": 24,
         "nome": "security-table",
         "tipo": "comando",
         "comando": [
@@ -3498,7 +3509,7 @@
         "dica": "A pattern table of rebar-security matches text rebar itself tracks: an explanation repeats its literal, or a source, README or the MCP artifact spells what a table hunts. Assemble the word from pieces in code and describe it by effect in prose; excluding the file only ships the sample in every copy of rebar."
       },
       {
-        "ordem": 24,
+        "ordem": 25,
         "nome": "security-injection",
         "tipo": "comando",
         "comando": [
@@ -3526,7 +3537,7 @@
         "dica": "An injection rule changed behaviour, the index reader or a format decoder changed what it reads, what `rebar new` generates stopped passing the injection rules, a proof case started tracking an agent file, or rebar itself carries a signature. These rules read the git INDEX: a fix only in the working tree counts once it is staged."
       },
       {
-        "ordem": 25,
+        "ordem": 26,
         "nome": "security-self",
         "tipo": "comando",
         "comando": [
@@ -3537,7 +3548,7 @@
         "dica": "rebar failed its own security ruler. If the finding is a detection table finding itself, the fix is to take the literal out of the message or assemble it in pieces -- not to exclude the file, which only postpones it. The injection rules read the git index: stage a local fix before judging it."
       },
       {
-        "ordem": 26,
+        "ordem": 27,
         "nome": "self",
         "tipo": "comando",
         "comando": [
