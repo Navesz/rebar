@@ -1147,6 +1147,22 @@ export default [
     limite: 12,
   },
   {
+    // THE IMAGE IS A DOCUMENT TOO. The README opens with the scoreboard and
+    // says it is the real output; for weeks it was a hand-kept SVG, and on
+    // 2026-09-16 it showed `14 of 14 · 4 not applicable` while the run printed
+    // `15 of 15 · 3 not applicable` — the same drift `numbers` closes for the
+    // text, in the one place a reader checks first by running `npx`. It sits
+    // right after `numbers` because it is the same family: a copy of the source
+    // that has to be regenerated TOGETHER with the change that made it stale.
+    nome: 'scoreboard',
+    comando: node('tooling/scoreboard.mjs', '--verificar'),
+    exige: ['tooling/scoreboard.mjs'],
+    dica: 'The README image no longer matches what rebar-check prints on this repository — regenerate with `node tooling/scoreboard.mjs` and commit the SVG TOGETHER with the change that moved the score.',
+    extrair: /^scoreboard/i,
+    tempoLimite: 1 * MINUTO,
+    limite: 4,
+  },
+  {
     nome: 'format',
     // prettier is the ONLY dependency of the repository, and the boundary is
     // deliberate: `index.mjs` still imports only built-ins, so

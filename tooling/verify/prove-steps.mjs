@@ -940,6 +940,7 @@ const PASSOS_ESPERADOS = [
   'mcp-server',
   'mcp',
   'numbers',
+  'scoreboard',
   'format',
   'links',
   'secret',

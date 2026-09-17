@@ -9,16 +9,17 @@
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
 [![Rules](https://img.shields.io/badge/rules-40-blue)](#what-it-checks)
-[![Gate](https://img.shields.io/badge/gate-26%20steps-blue)](#the-gate)
+[![Gate](https://img.shields.io/badge/gate-27%20steps-blue)](#the-gate)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](ESTADO.md)
 
 [Leia em português](README.pt-BR.md) · [Léelo en español](README.es.md) ·
 [Website](https://navesz.github.io/rebar-site/) · [State of the project](ESTADO.md) ·
 [Plan](docs/PLANO.md)
 
-![rebar-check running on the rebar repository itself: 14 of 14, 4 not applicable, 1 warning](docs/assets/rebar-scoreboard.svg)
+![rebar-check running on the rebar repository itself](docs/assets/rebar-scoreboard.svg)
 
-That is the real output, generated from the run — not a screenshot drawn by hand.
+That is the real output, drawn from the run by `node tooling/scoreboard.mjs` — and the
+`scoreboard` step of the gate fails when the image stops matching what `npx` prints.
 Three states, and the third is what stops the score from lying: a rule that does not
 apply prints `–` **with the reason** and leaves the denominator, instead of counting
 as a pass it never earned.
@@ -159,9 +160,9 @@ The checker is one layer, not the only one.
 | **N4s** | ruleset with a required check | **the server** |
 
 `npm run verify` **is not a new layer**: it is the sequence CI runs and that you run before
-it, today with <!--n verify.passos-->26<!--/n--> steps.
+it, today with <!--n verify.passos-->27<!--/n--> steps.
 
-In order: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
+In order: <!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `scoreboard` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
 
 N4s exists because everything below it lives in a file the agent edits: it deletes the
 workflow, it removes `core.hooksPath` without leaving a diff. Only the ruleset resists — and
@@ -191,7 +192,7 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->40<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->190<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->40<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->27<!--/n--> gate steps and <!--n mcp.artefato.provas-->190<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 

@@ -289,7 +289,7 @@ names, printed verbatim):
 ### 4.2 PROVEN · `rebar-check` — <!--n rules.total-->23<!--/n--> checks, zero dependency
 
 _Remeasured on 31/08/2026 · numbers derived since 02/09/2026._
-`tooling/rebar-check/index.mjs`, <!--n lines.rebar-check-->3.325<!--/n--> lines.
+`tooling/rebar-check/index.mjs`, <!--n lines.rebar-check-->3.342<!--/n--> lines.
 Runs in any repository, **never writes**.
 
 There are <!--n rules.deterministicas-->18<!--/n--> deterministic and <!--n rules.heuristicas-->5<!--/n--> heuristic, and both lists come out of the `REGRAS`
@@ -444,20 +444,20 @@ same exit 0, so no "not applicable" branch could be locked. That is why cases wi
 `__nao-se-aplica` suffix exist. The same comment records that `quebrou` can never
 be expected — a crash is a defect of the instrument, not a result of it.
 
-### 4.4 PROVEN · `verificar` — <!--n verify.passos-->26<!--/n--> steps
+### 4.4 PROVEN · `verificar` — <!--n verify.passos-->27<!--/n--> steps
 
 _Remeasured on 02/09/2026. This file said "8 of 8" and the README said "the 8 steps"; there
-were 12 when the count was redone, and there are <!--n verify.passos-->26<!--/n--> now. The
+were 12 when the count was redone, and there are <!--n verify.passos-->27<!--/n--> now. The
 count is now derived from the `default export` of `verify.config.mjs`._
 
 In the order they run:
-<!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
+<!--n verify.lista-passos-->`hygiene` · `hooks` · `commit-msg` · `syntax` · `blocks` · `mcp-server` · `mcp` · `numbers` · `scoreboard` · `format` · `links` · `secret` · `secret-proofs` · `steps` · `strip` · `proofs` · `generator-map` · `site-paths` · `remote-gate` · `chain` · `generator-identity` · `mcp-template` · `security` · `security-table` · `security-injection` · `security-self` · `self`<!--/n-->
 
 ```bash
 npm run verify
 ```
 
-On 02/09/2026: **APROVADO <!--n verify.passos-->26<!--/n--> de <!--n verify.passos-->26<!--/n--> passos · 22,3 s · exit 0.** The duration varies with the
+On 02/09/2026: **APROVADO <!--n verify.passos-->27<!--/n--> de <!--n verify.passos-->27<!--/n--> passos · 22,3 s · exit 0.** The duration varies with the
 machine and the cache — on 31/08/2026, with 50 proof cases and 8 steps, two runs gave **13,5
 s** and **15,7 s**, against **51,9 s with 47 cases** on 30/08. The likely cause is the
 parallelization of the fixtures in the `provas` step, but **the isolated step was never
@@ -468,11 +468,11 @@ with the date — see §0.
 
 | Step | Position | What it blocks |
 | --- | --- | --- |
-| `blocos` | <!--n verify.posicao.blocks-->5 de 26<!--/n--> | syntax and `modelo.json` of the files the generator copies into every created project — a defect here is born replicated in all of them |
-| `mcp-servidor` | <!--n verify.posicao.mcp-server-->6 de 26<!--/n--> | the MCP server **comes up and answers the protocol**. Without `mcp/node_modules` the step BREAKS (127), it does not fail: missing tooling is not the repository erring |
-| `mcp` | <!--n verify.posicao.mcp-->7 de 26<!--/n--> | the MCP artifact diverging from the source — §4.12 |
-| `numeros` | <!--n verify.posicao.numbers-->8 de 26<!--/n--> | a number in this file or in the README diverging from the source — §0 |
-| `passos` | <!--n verify.posicao.steps-->13 de 26<!--/n--> | the steps that are the **function** of the gate, proven by mutation. `checarBlocos` came in with 410 lines and zero tests, and swapping the body for `return { codigo: 0 }` kept `verificar` APROVADO |
+| `blocos` | <!--n verify.posicao.blocks-->5 de 27<!--/n--> | syntax and `modelo.json` of the files the generator copies into every created project — a defect here is born replicated in all of them |
+| `mcp-servidor` | <!--n verify.posicao.mcp-server-->6 de 27<!--/n--> | the MCP server **comes up and answers the protocol**. Without `mcp/node_modules` the step BREAKS (127), it does not fail: missing tooling is not the repository erring |
+| `mcp` | <!--n verify.posicao.mcp-->7 de 27<!--/n--> | the MCP artifact diverging from the source — §4.12 |
+| `numeros` | <!--n verify.posicao.numbers-->8 de 27<!--/n--> | a number in this file or in the README diverging from the source — §0 |
+| `passos` | <!--n verify.posicao.steps-->14 de 27<!--/n--> | the steps that are the **function** of the gate, proven by mutation. `checarBlocos` came in with 410 lines and zero tests, and swapping the body for `return { codigo: 0 }` kept `verificar` APROVADO |
 
 The first two steps check the **gate**, not the content: `higiene` (clean tree,
 index without `skip-worktree`, hash of the gate's files against HEAD) and `hooks`
@@ -871,9 +871,9 @@ artifact is derived from the source, never a copy of it.
 
 | Piece                     | What it is                                                              |
 | ------------------------- | ----------------------------------------------------------------------- |
-| `tooling/rebar-check/index.mjs` | **The source.** <!--n lines.rebar-check-->3.325<!--/n--> lines, <!--n rules.total-->23<!--/n--> rules, with the measured why of each one |
+| `tooling/rebar-check/index.mjs` | **The source.** <!--n lines.rebar-check-->3.342<!--/n--> lines, <!--n rules.total-->23<!--/n--> rules, with the measured why of each one |
 | `mcp/generate.mjs`           | **The generator.** <!--n lines.mcp-gerador-->1.259<!--/n--> lines, **zero dependency** |
-| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->272 KB<!--/n--> · <!--n mcp.artefato.regras-->40<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->26<!--/n--> steps · <!--n mcp.artefato.provas-->190<!--/n--> proofs |
+| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->273 KB<!--/n--> · <!--n mcp.artefato.regras-->40<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->27<!--/n--> steps · <!--n mcp.artefato.provas-->190<!--/n--> proofs |
 | `mcp/src/`                | **The server.** <!--n lines.mcp-servidor-->1.649<!--/n--> lines, <!--n mcp.ferramentas-->5<!--/n--> tools. Reads the artifact, never the source |
 
 The artifact's five numbers are checked by **two** independent gates: the `mcp` step
@@ -901,7 +901,7 @@ to prove that the freshness warning sticks to every answer.
     + regras.readme.titulo = tem README na raiz do repositorio   (fonte, hoje)
 ```
 
-`node mcp/generate.mjs` — **one command** — and `verificar` goes back to PASSING the <!--n verify.passos-->26<!--/n--> steps.
+`node mcp/generate.mjs` — **one command** — and `verificar` goes back to PASSING the <!--n verify.passos-->27<!--/n--> steps.
 
 **Zero dependency, checked in the worst case.** The freshness gate runs in the root's
 `verificar` and cannot require `mcp/node_modules`. Proven in a clone in `tmpdir` with the
@@ -911,7 +911,7 @@ folder deleted: `--verificar` answered `em dia` (exit 0) and, with the rule muta
 
 **Measured cost of the step:** 175–213 ms in 5 runs (median 206 ms) on 01/09/2026, against
 prettier's 1,0 s and the seconds of `provas` and `auto` — timing is a machine measurement and
-stays by hand, with the date (§0). It is the <!--n verify.posicao.mcp-->7 de 26<!--/n--> of
+stays by hand, with the date (§0). It is the <!--n verify.posicao.mcp-->7 de 27<!--/n--> of
 the list, after `sintaxe` — with the file not compiling, "o artefato divergiu" would be a
 false accusation.
 
@@ -985,7 +985,7 @@ and stay by hand, with this date (§0).
 
 | Item of §8.1                                          | Real state                                                                     |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `verificar/verificar.mjs`                             | **PRESENT.** 34.566 bytes, tracked. Rewritten, not ported. Today with <!--n verify.passos-->26<!--/n--> steps |
+| `verificar/verificar.mjs`                             | **PRESENT.** 34.566 bytes, tracked. Rewritten, not ported. Today with <!--n verify.passos-->27<!--/n--> steps |
 | `segredo/varrer-segredo.mjs`                          | **PRESENT.** 35.855 bytes, tracked (34.483 on 30/08). Runs in `verificar` and in `pre-commit` |
 | `elos/verificar-elos.mjs`                             | **PRESENT.** 2.191 bytes, tracked. Clean execution                             |
 | `hooks/`                                              | **PRESENT, and installed.** 4 tracked files, `core.hooksPath` active           |
@@ -1048,7 +1048,7 @@ The commands below reflect the current paths; the original measurements are from
 GitHub shows the fence literally, so a `# 50 casos` copied along with the command hands the
 person a number that is no longer the one they will see on the screen. The fence shows the
 command; the number goes in the prose beside it, where the `numeros` step reaches. Today:
-<!--n verify.passos-->26<!--/n--> steps
+<!--n verify.passos-->27<!--/n--> steps
 in `verificar`, <!--n proofs.casos-->72<!--/n--> cases in `provar`, <!--n domain.privilegio.testes-->16<!--/n--> assertions in the privilege domain, and 56
 files swept by `elos` (this last one measured by hand, §0).
 
@@ -1362,7 +1362,7 @@ _Rewritten on 02/09/2026. The previous list had the push and the ruleset as item
 were done, and keeping them here would be the same stale-number defect, one floor up._
 
 Where the repository stands, on 02/09/2026: rebar passes on its own ruler with **13 of 13 · 4
-n/a** (§4.2), `verificar` closes <!--n verify.passos-->26<!--/n--> of <!--n verify.passos-->26<!--/n--> steps, the proofs are <!--n proofs.casos-->72<!--/n--> cases covering <!--n proofs.cobertura-->23 de 23<!--/n--> rules, the hooks are installed, twelve attacks
+n/a** (§4.2), `verificar` closes <!--n verify.passos-->27<!--/n--> of <!--n verify.passos-->27<!--/n--> steps, the proofs are <!--n proofs.casos-->72<!--/n--> cases covering <!--n proofs.cobertura-->23 de 23<!--/n--> rules, the hooks are installed, twelve attacks
 are closed, and the repository is pushed, with green CI on both systems and a ruleset
 without `bypass_actors` (§9, D+30).
 
