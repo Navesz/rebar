@@ -1,0 +1,7 @@
+{
+  "name": "crlf",
+  "private": true,
+  "scripts": {
+    "lint": "eslint ."
+  }
+}
