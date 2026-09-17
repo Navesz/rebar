@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // rebar MCP server — this repository's rules, served from the generated artifact.
 //
-// WHY IT EXISTS, in the owner's words: "No Herz e no BMB Compras eu não tive esse
+// WHY IT EXISTS, in the owner's words: "No app anterior e em outro app eu não tive esse
 // problema porque elaborei um MCP com todas as regras de projeto, pra ele sempre
-// ficar na memória e forçar a ser usadas." [On Herz and on BMB Compras I did not have
+// ficar na memória e forçar a ser usadas." [On prior-app and on another-app I did not have
 // this problem because I built an MCP with all the project rules, so it would always
 // stay in memory and force them to be used.] And the defect that was left over: "O
 // MCP não era reescrito quando as regras de projeto foram modificadas." [The MCP was
@@ -23,7 +23,7 @@
 //
 // WHAT CHANGED FROM THE PREVIOUS VERSION OF THIS FILE. It served PROSE: five tools
 // returning chunks of docs/PLANO.md by section. That contradicts §7.2 for two
-// measured reasons — prose is the format Herz proved ignorable (17 guides, 1,961
+// measured reasons — prose is the format prior-app proved ignorable (17 guides, 1,961
 // lines, 80 KB, "o modelo decide se chama" [the model decides whether to call it]),
 // and the plan is what the project INTENDS while the artifact is what the gate FAILS
 // today. When the two diverge, whoever fails you is in charge. The prose stays

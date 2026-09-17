@@ -132,7 +132,7 @@ function anunciarPendencias(pendentes) {
   eco('with a PLACEHOLDER, and the `npm run build` of THIS project FAILS until')
   eco('you swap them. It is on purpose, and it is why rebar exists: a phone')
   eco('that is plausible-yet-false ships, looks right and stops delivering')
-  eco('orders in SILENCE (§12.3 / Navesz/Galegos#1).')
+  eco('orders in SILENCE (§12.3 / client-a#1).')
   eco()
   for (const [caminho, valor] of pendentes) eco(`  ${caminho} = ${JSON.stringify(valor)}`)
   eco()

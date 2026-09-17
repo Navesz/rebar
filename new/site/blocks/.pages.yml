@@ -42,7 +42,7 @@ content:
           - { name: nome, label: Name, type: string, required: true }
           # All-or-nothing block: the four fields together, or the key out of
           # the file. An empty field here is the `wa.me` with no recipient from
-          # `Navesz/Galegos#1`, and the schema fails the build before that ships.
+          # `client-a#1`, and the schema fails the build before that ships.
           - name: whatsapp
             label: WhatsApp — the whole block is optional
             type: object

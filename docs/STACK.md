@@ -23,17 +23,17 @@
 | 0.4 | `pipeline` does not remove ordering; the problem is the absence of an acquisition barrier. Owning-layer principle |
 | 0.3 | `onConnect` in place of `pool.on('connect')`. Unified invariant idempotency + outbox |
 | 0.2 | TanStack Start is RC, not GA. Double linter. Three rule classes. `@expect-rule` |
-| 0.1 | Pivot from `herz/planejamento/Stack.md` v4.3, SQL Server → Postgres |
+| 0.1 | Pivot from `prior-app/planejamento/Stack.md` v4.3, SQL Server → Postgres |
 
-**Origin.** Pivoted from `herz/planejamento/Stack.md` (788 lines, v4.3), the best piece of architecture in the collection — written for **SQL Server on Windows Server**. Swapping the database reopened concurrency, migrations, types and async.
+**Origin.** Pivoted from `prior-app/planejamento/Stack.md` (788 lines, v4.3), the best piece of architecture in the collection — written for **SQL Server on Windows Server**. Swapping the database reopened concurrency, migrations, types and async.
 
-**Precedence.** The 13 ADRs of `prumo` (24/08) solve part of this, and better. Where there is an ADR, **the ADR wins** — it is applied, and herz never got as far as building the backend. Where the ADR fell behind `package.json`, **the code wins**.
+**Precedence.** The 13 ADRs of `prumo` (24/08) solve part of this, and better. Where there is an ADR, **the ADR wins** — it is applied, and prior-app never got as far as building the backend. Where the ADR fell behind `package.json`, **the code wins**.
 
 ---
 
 ## O critério único <!-- Portuguese on purpose: this heading is matched verbatim by mcp/generate.mjs (the `stack-postgres` reference anchor). Translate it and the generation finds nothing and exits 2. -->
 
-Inherited from herz, and it still holds:
+Inherited from prior-app, and it still holds:
 
 > **Qual opção faz com que código gerado errado *pareça* errado?** [Which option makes wrongly generated code *look* wrong?]
 
@@ -91,7 +91,7 @@ It exists because, across these six rounds, **the failure was never in the claim
 
 ## 1. What changes because of the database — the table you asked for
 
-| Topic | SQL Server (herz) | Postgres | Impact |
+| Topic | SQL Server (prior-app) | Postgres | Impact |
 |---|---|---|---|
 | **License** | Paid | Free | **The reason for the switch** |
 | Driver | `MssqlDialect` + `tedious` | `PostgresDialect` + `pg` **^8.23.0** | Direct swap — see §4.6 |
@@ -105,13 +105,13 @@ It exists because, across these six rounds, **the failure was never in the claim
 | Change notice | Polling only | **`LISTEN`/`NOTIFY`** | New — with a caveat in §5.2 |
 | Row security | RLS exists, little used | **RLS + restricted role** | **Real gain.** §4.6 |
 | Portuguese search | Heavy full-text | `unaccent` + `portuguese` dictionary | Gain |
-| Deploy | Windows Server, IIS, ARR, WinSW | Container | The most fragile half of herz disappears |
+| Deploy | Windows Server, IIS, ARR, WinSW | Container | The most fragile half of prior-app disappears |
 
-**What is lost:** nothing herz was using. The backend was never built — there is no migration, only free decision.
+**What is lost:** nothing prior-app was using. The backend was never built — there is no migration, only free decision.
 
 ---
 
-## 2. Frontend — inherited from herz, which is real and works
+## 2. Frontend — inherited from prior-app, which is real and works
 
 These numbers are what is **installed**, not what the document claims.
 
@@ -132,7 +132,7 @@ These numbers are what is **installed**, not what the document claims.
 | Theme | next-themes, `attribute="class"` | 0.4 |
 | Font | `@fontsource-variable/geist` — **self-host, never CDN** | 5.3 |
 
-> ⚠️ **It is not Radix.** The alicerce panel says "shadcn/ui + Radix"; herz uses Base UI and Radix only enters transitively through `cmdk`. Reality beats the document.
+> ⚠️ **It is not Radix.** The prior-standard panel says "shadcn/ui + Radix"; prior-app uses Base UI and Radix only enters transitively through `cmdk`. Reality beats the document.
 
 **The animation comes for free** — `tw-animate-css` + Base UI data-attributes (`data-open`, `data-closed`, `data-starting-style`, `data-swiping`). Zero `@keyframes`, zero framer-motion.
 
@@ -142,7 +142,7 @@ These numbers are what is **installed**, not what the document claims.
 
 ## 3. Contract — oRPC, not ts-rest
 
-> **A change relative to herz.** ADR 0011 of prumo, 24/08, supersedes the contract line.
+> **A change relative to prior-app.** ADR 0011 of prumo, 24/08, supersedes the contract line.
 
 `@orpc/contract` · `@orpc/server` · `@orpc/openapi` · `@orpc/client` · `@orpc/tanstack-query` — **1.15.0**.
 
@@ -154,7 +154,7 @@ It keeps everything ts-rest had been chosen for:
 - Official Fastify adapter and official TanStack Query integration.
 - `npm install` resolves with no peer conflict and no override.
 
-**Why abandon ts-rest:** in herz, `validateResponse: true` is **silently ignored** when a custom `api` is passed — the validation had to be redone by hand in `cliente.ts:16-30`. herz never felt the rest of the problem because the backend never existed.
+**Why abandon ts-rest:** in prior-app, `validateResponse: true` is **silently ignored** when a custom `api` is passed — the validation had to be redone by hand in `cliente.ts:16-30`. prior-app never felt the rest of the problem because the backend never existed.
 
 ### Shared primitives
 
@@ -430,7 +430,7 @@ UPDATE pedido
 RETURNING version;
 ```
 
-Zero rows affected = conflict = **`409`, never an automatic retry**. That part is inherited intact from herz and is still right.
+Zero rows affected = conflict = **`409`, never an automatic retry**. That part is inherited intact from prior-app and is still right.
 
 > ⚠️ **The increment cannot depend on memory.** The `SET version = version + 1` protects *that* UPDATE. An
 > agent writes `UPDATE pedido SET estado = 'cancelado' WHERE id = $1` and the whole protection dies **with no error**
@@ -444,7 +444,7 @@ Exposed in the contract as an **opaque, branded** value — the client returns w
 
 ### 4.2 What disappears
 
-`READ_COMMITTED_SNAPSHOT ON` was half the slowness symptom of herz's old system. **In Postgres MVCC is the default**: a reader never blocks a writer. One decision less, with no trade-off.
+`READ_COMMITTED_SNAPSHOT ON` was half the slowness symptom of prior-app's old system. **In Postgres MVCC is the default**: a reader never blocks a writer. One decision less, with no trade-off.
 
 ### 4.3 Time
 
@@ -456,7 +456,7 @@ Exposed in the contract as an **opaque, branded** value — the client returns w
 
 ### 4.4 Money — and the driver bug flips sides
 
-In herz there was a real trap: **`tedious` returns `decimal` as a JavaScript `number` by default**, and the precision SQL Server stored is lost at the driver boundary, silently.
+In prior-app there was a real trap: **`tedious` returns `decimal` as a JavaScript `number` by default**, and the precision SQL Server stored is lost at the driver boundary, silently.
 
 **`pg` does the opposite: it returns `numeric` as a string by default.** It is the safe behavior, and it is a net gain.
 
@@ -475,7 +475,7 @@ In herz there was a real trap: **`tedious` returns `decimal` as a JavaScript `nu
 
 **Rule:** no float at any point of the money path — not in the domain, not in a `jsonb` payload, not in a chart.
 
-> ⬜ **To decide:** storage unit. The alicerce panel says *"inteiro em centavos"* [integer in cents]; herz uses a *decimal string*; ADR 0003 of prumo chooses **integer in nano-USD**, because in API pricing there are US$ 0.0005 values that truncate to zero in cents. For a generic site or app, cents is enough. **The preset decides, and the decision becomes a profile field.**
+> ⬜ **To decide:** storage unit. The prior-standard panel says *"inteiro em centavos"* [integer in cents]; prior-app uses a *decimal string*; ADR 0003 of prumo chooses **integer in nano-USD**, because in API pricing there are US$ 0.0005 values that truncate to zero in cents. For a generic site or app, cents is enough. **The preset decides, and the decision becomes a profile field.**
 
 ### 4.5 Migrations
 
@@ -512,7 +512,7 @@ Migration B — CONTRACT
   removes the old structure
 ```
 
-- **Migration test with existing data** — the alicerce itself calls it *"a verificação mais esquecida do catálogo"* [the most forgotten check in the catalog].
+- **Migration test with existing data** — the prior-standard itself calls it *"a verificação mais esquecida do catálogo"* [the most forgotten check in the catalog].
 
 ### 4.6 Privilege — the gain SQL Server did not give for free
 
@@ -677,7 +677,7 @@ A test asserts `current_user`, `rolsuper`, `rolbypassrls` and `current_setting('
 
 - Discrete quantity: `integer`.
 - Invariant in the database: `CHECK`, `FK`, `UNIQUE` — *"código é uma porta; banco é a última"* [code is one door; the database is the last].
-- **Every FK indexed.** In herz's old system there was not a single index beyond the `UNIQUE` ones, and that is what made the dashboard quadratic.
+- **Every FK indexed.** In prior-app's old system there was not a single index beyond the `UNIQUE` ones, and that is what made the dashboard quadratic.
 - Partial and composite indexes as the model requires.
 
 ### 4.8 Portuguese — a decision the panel does not have
@@ -712,7 +712,7 @@ UPDATE outbox
 COMMIT;
 ```
 
-`FOR UPDATE SKIP LOCKED` is native, legible, and solves the atomic claim with no proprietary hint. **The most fragile part of herz's design becomes standard SQL.**
+`FOR UPDATE SKIP LOCKED` is native, legible, and solves the atomic claim with no proprietary hint. **The most fragile part of prior-app's design becomes standard SQL.**
 
 ### The three phases, and why the diagram is mandatory
 
@@ -773,7 +773,7 @@ New in Postgres, and tempting. But:
 
 Correct use: **wake the outbox poller** to cut latency. The poller keeps existing and keeps being the guarantee. Whoever swaps polling for `NOTIFY` loses an event on the first restart.
 
-SSE to the browser remains an **invalidation signal, not an event replay** — same as herz.
+SSE to the browser remains an **invalidation signal, not an event replay** — same as prior-app.
 
 ---
 
@@ -815,7 +815,7 @@ A single `verificar` command, with a **step count in the header** — `APROVADO 
 
 **Determinism:** fake clock, fixed seed, no network in unit tests, each test creates and destroys its own data, wait on a condition and never on a duration, time zone pinned.
 
-**CI in a Windows + Linux matrix.** The `npx` defect survived for months in alicerce because CI only ran Linux.
+**CI in a Windows + Linux matrix.** The `npx` defect survived for months in prior-standard because CI only ran Linux.
 
 ---
 
@@ -823,7 +823,7 @@ A single `verificar` command, with a **step count in the header** — `APROVADO 
 
 Container. Two services: the application and `postgres:17-alpine`, two volumes.
 
-**Gone from herz:** IIS, ARR, WinSW, and the proxy buffering that broke SSE — the most fragile and least portable part of the previous design.
+**Gone from prior-app:** IIS, ARR, WinSW, and the proxy buffering that broke SSE — the most fragile and least portable part of the previous design.
 
 ---
 

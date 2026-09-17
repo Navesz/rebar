@@ -9,7 +9,7 @@ import { linkWhatsapp, site, type Contato } from '@/conteudo/carregar'
  *
  * The WhatsApp link is the case that gives §12.3 its name: the link FORMAT is
  * code (it does not change from business to business), the RECIPIENT is
- * validated content. The `Navesz/Galegos#1` PR missed the cut by sending the
+ * validated content. The `client-a#1` PR missed the cut by sending the
  * recipient to an env var — the build passed and the link shipped with nobody
  * on the other side.
  *
@@ -29,7 +29,7 @@ import { linkWhatsapp, site, type Contato } from '@/conteudo/carregar'
  *     has no button, and the person thinks they published the contact. Deleting
  *     the entry here leaves the map incomplete before the `satisfies` below: IT
  *     DOES NOT COMPILE.
- *   · block RENDERED and empty — the Galegos disaster, a `wa.me` link with no
+ *   · block RENDERED and empty — the client-a disaster, a `wa.me` link with no
  *     recipient. The value is `T | null` and `linkWhatsapp` takes the block, not
  *     the site: without narrowing the `null`, IT DOES NOT COMPILE.
  *   · NEW block in the schema — an Instagram, a set of opening hours — with no

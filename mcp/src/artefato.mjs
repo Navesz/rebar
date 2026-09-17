@@ -144,7 +144,7 @@ export function carregar(caminho = CAMINHO_ARTEFATO) {
  *   · false positive — touching a comment in index.mjs changes the hash without
  *     changing a rule;
  *   · never a false negative — if the rule changed, the hash changed.
- * One warning too many costs a line; one silence too few is the Herz defect back.
+ * One warning too many costs a line; one silence too few is the prior-app defect back.
  *
  * Measured cost: 3 files, 205 KB together, ~2 ms per call. No cache — a cache is the
  * origin of drift, and this file exists because of drift.
@@ -207,7 +207,7 @@ export function frescor(artefato, raiz = RAIZ) {
  * The warning line that goes glued to EVERY answer when the source has changed.
  *
  * It goes on every answer, not in a status tool: a status tool is discretionary —
- * "o modelo decide se chama" [the model decides whether to call it], as the Herz
+ * "o modelo decide se chama" [the model decides whether to call it], as the prior-app
  * repository itself admits. A warning that only shows up when somebody asks is a
  * warning nobody reads.
  *

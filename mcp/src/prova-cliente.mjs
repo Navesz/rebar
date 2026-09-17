@@ -987,7 +987,7 @@ if (!fence) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 6 · the source changed, the artifact did not: EVERY answer has to carry the warning.
 //
-// It is the Herz defect reproduced on purpose — the rule changes and the MCP goes on
+// It is the prior-app defect reproduced on purpose — the rule changes and the MCP goes on
 // serving the old version. The authority on this is the gate (`gerar.mjs
 // --verificar`); the server only compares the sha256 the artifact recorded in
 // `fontes[]` with the file's hash today. A weak signal, but never a false negative:

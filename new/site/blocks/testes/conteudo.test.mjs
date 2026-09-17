@@ -109,7 +109,7 @@ const comEndereco = () => ({
   cep: '04101-300',
 })
 
-/** The Galegos site: everything declared, everything filled in. */
+/** The client-a site: everything declared, everything filled in. */
 const completo = () => {
   const site = minimo()
   site.identidade.whatsapp = comWhatsapp()
@@ -216,14 +216,14 @@ test('urlBase accepts the canonical forms — the side that stops the rule from 
 
 // ── (b) the demand follows the use ────────────────────────────────────────
 
-test('the Galegos site — all declared — is accepted and the link points at the number', () => {
+test('the client-a site — all declared — is accepted and the link points at the number', () => {
   const site = esquemaSite(completo(), 'site')
   assert.equal(site.identidade.whatsapp.e164, E164)
   assert.ok(linkWhatsapp(site.identidade.whatsapp).startsWith(`https://wa.me/${E164}?text=`))
   assert.equal(site.identidade.endereco.uf, 'SP')
 })
 
-test('DECLARES the button and leaves the number empty: FAILS — it is Navesz/Galegos#1', () => {
+test('DECLARES the button and leaves the number empty: FAILS — it is client-a#1', () => {
   for (const numero of ['', '   ', undefined]) {
     const site = minimo()
     site.identidade.whatsapp = { ...comWhatsapp(), e164: numero }
@@ -333,6 +333,6 @@ test('every declarable block has a renderer on the home, and every renderer has 
     blocosDaHome(),
     blocosDoEsquema(),
     'schema and home have drifted: a block the owner fills in and the page never shows is a ' +
-      'contact he thinks he published and did not — the inverse of Galegos, and just as mute.',
+      'contact he thinks he published and did not — the inverse of client-a, and just as mute.',
   )
 })

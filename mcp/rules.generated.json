@@ -5,27 +5,27 @@
   "fontes": [
     {
       "arquivo": "tooling/rebar-check/index.mjs",
-      "sha256": "b42238a97ec7f35bb637d5f2dd731c7a89d1fd21fb5bfbb170aec65ed9f3d078",
+      "sha256": "bdc6636cb9d43c325d69950aeb65a8b0b31f9555bf5a90ec317f42b1e69534bb",
       "daqui": "the format rules, the why of each one and the exit codes"
     },
     {
       "arquivo": "tooling/security/index.mjs",
-      "sha256": "f7bd61a9c40322c360f997ad9cd0dee450c262cb0e1d6d2e61d8f519560d1af8",
+      "sha256": "b79c4072eec65a78a2550c1169f0e2f61d2d8c741b393e02e6826dfb44dc7499",
       "daqui": "the security rules and the why of each one"
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "8a8c196cfde0d4868ddf51673306103ea8e9eeba096ce4feb57f05bd729eca08",
+      "sha256": "b945c8ebfb5b5ea69385c951c7d079a2407af1a141cfa5092fa955564b06b3ae",
       "daqui": "the gate steps, in order"
     },
     {
       "arquivo": "docs/PLANO.md",
-      "sha256": "1b7997de4039111f6be46b0b64156fd01ab5547cf6104f4b3e6a033ad63deb82",
+      "sha256": "18cdf7aef9c70e88a07b49addabe735757c4bcb3d083b8512413a18855b17d55",
       "daqui": "the N0–N7 taxonomy and the prose pointers"
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "f084b04fbe80d144078d1a8bedbad7f37623866db336757f653314b64b223345",
+      "sha256": "6fb3c5bd26f34c438ffeb84865986c72ea645a6aa8acbb2446508d36ddd793bb",
       "daqui": "the why of each of the 187 proof cases"
     },
     {
@@ -45,7 +45,7 @@
     },
     {
       "arquivo": "docs/STACK.md",
-      "sha256": "eac0ed9a724bedf69774dbb720d49a12789a5173d5db8629ab5464317ea9179e",
+      "sha256": "5b771dafb535965123f0f98caaa721154251c5abef6577468b6672d571fa6031",
       "daqui": "the prose pointers of the stack"
     }
   ],
@@ -313,7 +313,7 @@
           "caso": "ci-gates",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "This proof locks the false positive already measured in alicerce: the previous version looked for the literal words lint/typecheck/test in the YAML and failed every repository that aggregates verification into a single command. The pass side has a workflow that contains NONE of the three words — it calls only `npm run verificar`, which chains `estatica` (lint + typecheck) and `test`, exercising two levels of the expansion — and it has to PASS. The two package.json are byte for byte identical: the only variable is the workflow's `run:` line, so the fail side can only fail because the CI really does not reach the verification the repository has."
+          "porque": "This proof locks the false positive already measured in prior-standard: the previous version looked for the literal words lint/typecheck/test in the YAML and failed every repository that aggregates verification into a single command. The pass side has a workflow that contains NONE of the three words — it calls only `npm run verificar`, which chains `estatica` (lint + typecheck) and `test`, exercising two levels of the expansion — and it has to PASS. The two package.json are byte for byte identical: the only variable is the workflow's `run:` line, so the fail side can only fail because the CI really does not reach the verification the repository has."
         },
         {
           "caso": "ci-gates__comment-is-not-execution",
@@ -337,7 +337,7 @@
           "caso": "ci-gates__runner-in-file",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "The expansion followed `npm run x` into the BODY of the script and stopped at `node <file>`. Measured on 2026-08-30: `ducado` was accused of \"the CI does not reach: lint\" with `.github/workflows/verificar.yml` running `npm run verificar`, the `verificar` script being `node ci/verificar.mjs`, and that file running `npm run --silent lint` on line 21. The real chain has three links and the expansion walked two — stopping at the `node` was declaring that the CI does not reach the lint it reaches on every run. Both sides have the SAME workflow, the SAME package.json and the SAME runner: only the list of steps INSIDE the runner changes."
+          "porque": "The expansion followed `npm run x` into the BODY of the script and stopped at `node <file>`. Measured on 2026-08-30: `repo-d` was accused of \"the CI does not reach: lint\" with `.github/workflows/verificar.yml` running `npm run verificar`, the `verificar` script being `node ci/verificar.mjs`, and that file running `npm run --silent lint` on line 21. The real chain has three links and the expansion walked two — stopping at the `node` was declaring that the CI does not reach the lint it reaches on every run. Both sides have the SAME workflow, the SAME package.json and the SAME runner: only the list of steps INSIDE the runner changes."
         }
       ]
     },
@@ -357,7 +357,7 @@
           "caso": "tests",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "Locks one of the two deterministic false positives already measured: the rule was blind to a test named in Portuguese — 43 tracked files with `prova` in the name in the alicerce and the rule saw ZERO, in a checker written in Portuguese. This variant isolates the PATH SEGMENT branch: the only test file on the pass side is `provas/soma.mjs`, and no file name would match on its own. If the `provas` segment leaves the recognizer, the pass side exits 1. The Portuguese folder name stays: it is PASTA_TESTE vocabulary, what the recognizer searches for inside third-party repositories."
+          "porque": "Locks one of the two deterministic false positives already measured: the rule was blind to a test named in Portuguese — 43 tracked files with `prova` in the name in the prior-standard and the rule saw ZERO, in a checker written in Portuguese. This variant isolates the PATH SEGMENT branch: the only test file on the pass side is `provas/soma.mjs`, and no file name would match on its own. If the `provas` segment leaves the recognizer, the pass side exits 1. The Portuguese folder name stays: it is PASTA_TESTE vocabulary, what the recognizer searches for inside third-party repositories."
         },
         {
           "caso": "tests__document-is-not-test",
@@ -375,7 +375,7 @@
           "caso": "tests__python-name",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "The name pattern knew only the dot (`.test.`), and the Python and Go convention writes the separator with an underscore. Measured on 2026-08-30: `VectraB-Lab` was accused of \"zero test files\" while having three tracked `*_test.py` scripts, among them `02-obd-kline/vectra_kw82_test.py`. It is the same vocabulary blindness that already cost this rule a false positive in Portuguese — 43 files with \"prova\" in the name and zero seen. Both sides have the SAME module; only the test file beside it changes. `TESTE-1-cabo-KKL.md` from the same repository still does NOT count, and that is why the accepted separator is `_` and not `-`."
+          "porque": "The name pattern knew only the dot (`.test.`), and the Python and Go convention writes the separator with an underscore. Measured on 2026-08-30: `repo-v` was accused of \"zero test files\" while having three tracked `*_test.py` scripts, among them `02-obd-kline/vectra_kw82_test.py`. It is the same vocabulary blindness that already cost this rule a false positive in Portuguese — 43 files with \"prova\" in the name and zero seen. Both sides have the SAME module; only the test file beside it changes. `TESTE-1-cabo-KKL.md` from the same repository still does NOT count, and that is why the accepted separator is `_` and not `-`."
         }
       ]
     },
@@ -413,7 +413,7 @@
           "caso": "typecheck__portuguese-name",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "Demanding a script named exactly `typecheck` charged the repository for the VOCABULARY and not for the practice — the same mistake the `tests` rule made with Portuguese file names, in a checker written in Portuguese. Measured: prumo (`\"tipos\": \"tsc -b\"`) and ducado (`\"tipos\"` at the root and `\"typecheck\"` in three packages) were accused of having no typecheck while both had the script. This variant isolates the NAME branch: the `pass` side has `tipos` and nothing else. The accepted list is still a list of script NAMES, and the `fail` side shows why — it runs `tsc -b` INSIDE `empacotar`, which is exactly the failure the base case describes (the only contact with the compiler is the build) and it keeps failing. That is what preserved the true accusation against navesz.github.io, whose `build` is `npm run data && tsc --noEmit && vite build`. `tipos` and `empacotar` stay Portuguese: they are the script names the rule has to accept in a Brazilian repository, and the whole point of this case."
+          "porque": "Demanding a script named exactly `typecheck` charged the repository for the VOCABULARY and not for the practice — the same mistake the `tests` rule made with Portuguese file names, in a checker written in Portuguese. Measured: prumo (`\"tipos\": \"tsc -b\"`) and repo-d (`\"tipos\"` at the root and `\"typecheck\"` in three packages) were accused of having no typecheck while both had the script. This variant isolates the NAME branch: the `pass` side has `tipos` and nothing else. The accepted list is still a list of script NAMES, and the `fail` side shows why — it runs `tsc -b` INSIDE `empacotar`, which is exactly the failure the base case describes (the only contact with the compiler is the build) and it keeps failing. That is what preserved the true accusation against navesz.github.io, whose `build` is `npm run data && tsc --noEmit && vite build`. `tipos` and `empacotar` stay Portuguese: they are the script names the rule has to accept in a Brazilian repository, and the whole point of this case."
         },
         {
           "caso": "typecheck__template-outside-root",
@@ -542,13 +542,13 @@
           "caso": "env-example__environment-variable",
           "aprovar": "na",
           "reprovar": "reprovou",
-          "porque": "`.env.example` documents what a person has to FILL IN, and nobody fills in `NO_COLOR` in an example file: what defines it is the terminal, and what defines `CI` is the runner. Measured on 2026-08-30, two of the six accused were only this — `alicerce` became \"reads 1 environment variable(s) and has no .env.example\" with `NO_COLOR` as the repository's only variable, and `prumo` was charged for `NO_COLOR` while having a `.env.example` with `PRUMO_KEK` and `DATABASE_URL` documented. The `pass` side reads ONLY environment variables and has to come out N/A; the `fail` side reads the same ones PLUS a project variable and keeps failing, so that the sieve does not become an escape hatch for the whole rule."
+          "porque": "`.env.example` documents what a person has to FILL IN, and nobody fills in `NO_COLOR` in an example file: what defines it is the terminal, and what defines `CI` is the runner. Measured on 2026-08-30, two of the six accused were only this — `prior-standard` became \"reads 1 environment variable(s) and has no .env.example\" with `NO_COLOR` as the repository's only variable, and `prumo` was charged for `NO_COLOR` while having a `.env.example` with `PRUMO_KEK` and `DATABASE_URL` documented. The `pass` side reads ONLY environment variables and has to come out N/A; the `fail` side reads the same ones PLUS a project variable and keeps failing, so that the sieve does not become an escape hatch for the whole rule."
         },
         {
           "caso": "env-example__only-in-comment",
           "aprovar": "na",
           "reprovar": "reprovou",
-          "porque": "`.env.example` documents what the program READS AT RUN TIME, and a variable cited in a comment is read by nobody. This is not hypothetical: while writing the note for the `url-producao` fix in this repository, the example sentence with `process` `.env` made rebar itself fail on `env-example`, charging for two variables that exist nowhere. It is the same trap that already cost the ruler a rule — of the seven occurrences the literal-color rule turned up in herz, five were comments documenting the rule itself. Both sides have the SAME comment citing the SAME variable: on the `fail` side it is also genuinely read."
+          "porque": "`.env.example` documents what the program READS AT RUN TIME, and a variable cited in a comment is read by nobody. This is not hypothetical: while writing the note for the `url-producao` fix in this repository, the example sentence with `process` `.env` made rebar itself fail on `env-example`, charging for two variables that exist nowhere. It is the same trap that already cost the ruler a rule — of the seven occurrences the literal-color rule turned up in prior-app, five were comments documenting the rule itself. Both sides have the SAME comment citing the SAME variable: on the `fail` side it is also genuinely read."
         }
       ]
     },
@@ -601,7 +601,7 @@
         {
           "onde": "cabecalho",
           "linha": 2035,
-          "texto": "PRESENCE only, with no size floor. A line limit would fail `navesz.github.io` (25 lines) and `VectraB-Lab` (31), which are small projects with a proportional README — and a wrong automatic rule costs more than a missing rule."
+          "texto": "PRESENCE only, with no size floor. A line limit would fail `navesz.github.io` (25 lines) and `repo-v` (31), which are small projects with a proportional README — and a wrong automatic rule costs more than a missing rule."
         }
       ],
       "provas": [
@@ -750,7 +750,7 @@
           "caso": "ai-coauthorship__dependency-bot",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "The agent list ended in a loose `\\[bot\\]`, and that wildcard asserted something false: that every GitHub App signing a trailer is an AI agent. Measured on 2026-08-30: `ducado` was accused of \"1 of 25 commits with AI co-authorship\" and the ONLY trailer in the whole history is `dependabot[bot]`; in `openkartline` the wildcard inflated the accusation from 2 to 6, because 4 of the 6 were dependabot. A dependency bumper does not write code from a prompt — it is the same judgment the `identidade-git` rule already makes with `EH_BOT`. Both sides have the SAME dependabot commit; the `fail` side adds ONE commit with AI-agent co-authorship, and that is the only difference. Whoever gives the wildcard back turns the `pass` side red; whoever removes the whole enumeration turns `fail` green."
+          "porque": "The agent list ended in a loose `\\[bot\\]`, and that wildcard asserted something false: that every GitHub App signing a trailer is an AI agent. Measured on 2026-08-30: `repo-d` was accused of \"1 of 25 commits with AI co-authorship\" and the ONLY trailer in the whole history is `dependabot[bot]`; in `openkartline` the wildcard inflated the accusation from 2 to 6, because 4 of the 6 were dependabot. A dependency bumper does not write code from a prompt — it is the same judgment the `identidade-git` rule already makes with `EH_BOT`. Both sides have the SAME dependabot commit; the `fail` side adds ONE commit with AI-agent co-authorship, and that is the only difference. Whoever gives the wildcard back turns the `pass` side red; whoever removes the whole enumeration turns `fail` green."
         },
         {
           "caso": "ai-coauthorship__enumeration",
@@ -805,12 +805,12 @@
         {
           "onde": "implementacao",
           "linha": 2247,
-          "texto": "What it does NOT clear: the same address with two names that are not its login, which stays a failure. And it can never clear a personal address, because only the noreply form carries a login at all. 1 · COLLISION — the deterministic core. One name with two e-mails, or one e-mail with two names, is not \"two people\": it is an inconsistent identity, which is the name of the rule. It is the case measured in the forensics — the same person now as `Leonardo Naves <…noreply>`, now as `leona <leonardo@empresa.com.br>`, and `git shortlog` counting two. 1b · THE GITHUB LOGIN SHOWING UP TWICE. This is the case collision does not catch and the forensics measured: `Leonardo Naves <12345+leona@users.noreply.github.com>` and `leona <leonardo@empresa.com.br>` are the same person, and name and e-mail differ in both."
+          "texto": "What it does NOT clear: the same address with two names that are not its login, which stays a failure. And it can never clear a personal address, because only the noreply form carries a login at all. 1 · COLLISION — the deterministic core. One name with two e-mails, or one e-mail with two names, is not \"two people\": it is an inconsistent identity, which is the name of the rule. It is the case measured in the forensics — the same person now as `Ana Souza <…noreply>`, now as `ana <ana@empresa.com.br>`, and `git shortlog` counting two. 1b · THE GITHUB LOGIN SHOWING UP TWICE. This is the case collision does not catch and the forensics measured: `Ana Souza <12345+ana@users.noreply.github.com>` and `ana <ana@empresa.com.br>` are the same person, and name and e-mail differ in both."
         },
         {
           "onde": "implementacao",
           "linha": 2287,
-          "texto": "The link is written in the address. The format is `<id>+<login>@users.noreply.github.com`, so the login is `leona` — a platform identifier, not an invented nickname. When it reappears as the NAME of another identity or as the local part of its e-mail, it is the same person with two identities, and the effect is what the rule exists to prevent: the personal e-mail enters the public history and `git shortlog` counts two people where there is one. THE HARM IS THE SECOND ADDRESS, NOT THE SECOND NAME. What this branch exists to catch is one person appearing under two ADDRESSES, one of them personal, so the private e-mail lands in the public history and `git shortlog` counts two people. When both identities carry the SAME noreply address, none of that happened: nothing leaked, and the login showing up as a display name is what GitHub's squash button writes. Failing it here would be the same false positive the collision branch above just stopped producing, arriving one branch later — and the message would assert a personal e-mail that is demonstrably not there. 2 · NO COLLISION, BUT THE REPOSITORY ALREADY DECLARED WHO IS HUMAN. The list is the SAME one the co-authorship rule uses, on purpose: the question is the same — \"who is human on this project?\" — and two lists diverge. Its header already says that whoever answers for the commit is the owner of the e-mail. 3 · NO COLLISION AND NO LIST. The ruler has no way of knowing whether these are N people or one person with N identities, and inventing an answer is what it used to do. `na` leaves the denominator with the reason in plain sight: a declared non-measurement is worth more than a guess, and the reason points at the fix."
+          "texto": "The link is written in the address. The format is `<id>+<login>@users.noreply.github.com`, so the login is `ana` — a platform identifier, not an invented nickname. When it reappears as the NAME of another identity or as the local part of its e-mail, it is the same person with two identities, and the effect is what the rule exists to prevent: the personal e-mail enters the public history and `git shortlog` counts two people where there is one. THE HARM IS THE SECOND ADDRESS, NOT THE SECOND NAME. What this branch exists to catch is one person appearing under two ADDRESSES, one of them personal, so the private e-mail lands in the public history and `git shortlog` counts two people. When both identities carry the SAME noreply address, none of that happened: nothing leaked, and the login showing up as a display name is what GitHub's squash button writes. Failing it here would be the same false positive the collision branch above just stopped producing, arriving one branch later — and the message would assert a personal e-mail that is demonstrably not there. 2 · NO COLLISION, BUT THE REPOSITORY ALREADY DECLARED WHO IS HUMAN. The list is the SAME one the co-authorship rule uses, on purpose: the question is the same — \"who is human on this project?\" — and two lists diverge. Its header already says that whoever answers for the commit is the owner of the e-mail. 3 · NO COLLISION AND NO LIST. The ruler has no way of knowing whether these are N people or one person with N identities, and inventing an answer is what it used to do. `na` leaves the denominator with the reason in plain sight: a declared non-measurement is worth more than a guess, and the reason points at the fix."
         }
       ],
       "provas": [
@@ -818,7 +818,7 @@
           "caso": "git-identity",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "The real failure is the same person committing now as `Leonardo Naves <...@users.noreply.github.com>`, now as `leona <leonardo@empresa.com.br>`: the public history starts carrying the personal e-mail and `git shortlog` counts two people where there is one. The pass side has TWO commits with the identical identity, so a rule that counted commits instead of distinct name/e-mail combinations would fail there and the proof would accuse."
+          "porque": "The real failure is the same person committing now as `Ana Souza <...@users.noreply.github.com>`, now as `ana <ana@empresa.com.br>`: the public history starts carrying the personal e-mail and `git shortlog` counts two people where there is one. The pass side has TWO commits with the identical identity, so a rule that counted commits instead of distinct name/e-mail combinations would fail there and the proof would accuse."
         },
         {
           "caso": "git-identity__login-as-name",
@@ -868,7 +868,7 @@
           "caso": "fake-ui__monorepo",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "The false-positive class \"defect searched recursively, defense searched only at the root\". The rule swept `components/ui/` at any depth and checked `components.json` only in `r.dir`: measured, prumo, ducado and LinhaK were the three accused of imitating the convention while all three had the file tracked in a subfolder (apps/web/, apps/web/, web/). Five of the twelve audited repositories are monorepos, and the accusation landed precisely on them. The two trees are identical except for `apps/web/components.json`. The `apps/loja/components.json` is on BOTH sides on purpose: it makes the proof immune to the lazy fix — swapping \"only at the root\" for \"exists anywhere\" would make the `fail` side exit 0, because a sibling package's `components.json` would start defending `apps/web/`. Only proximity matching, walking up the tree from the UI folder, makes both sides come out right."
+          "porque": "The false-positive class \"defect searched recursively, defense searched only at the root\". The rule swept `components/ui/` at any depth and checked `components.json` only in `r.dir`: measured, prumo, repo-d and repo-l were the three accused of imitating the convention while all three had the file tracked in a subfolder (apps/web/, apps/web/, web/). Five of the twelve audited repositories are monorepos, and the accusation landed precisely on them. The two trees are identical except for `apps/web/components.json`. The `apps/loja/components.json` is on BOTH sides on purpose: it makes the proof immune to the lazy fix — swapping \"only at the root\" for \"exists anywhere\" would make the `fail` side exit 0, because a sibling package's `components.json` would start defending `apps/web/`. Only proximity matching, walking up the tree from the UI folder, makes both sides come out right."
         },
         {
           "caso": "fake-ui__no-ui-folder",
@@ -978,7 +978,7 @@
           "caso": "content-outside-code",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "§12.3 of the plan settled that the content of the `site` preset lives in `conteudo/*.json`, and the plan itself records that settling it in the text settles nothing. This case charges HALF of the pair §12.3 asks for — the SENTENCE. The price is the other case, `conteudo-fora-do-codigo__preco`, and the split is the fix of a measured defect, not tidying.\n\nWHY SPLIT: until 31/08 the `fail/` planted BOTH literals in the SAME `.tsx` — a sentence in a `<p>` and a price in a `<span>`. A single finding already turns the state into \"reprovou\", so the sentence carried the side alone and the price detection was never exercised: mutating `if (preco) achados.push(...)` into `if (false && preco) achados.push(...)` — the ENTIRE price detection erased — left the 51 proofs green. A proof that confuses two causes locks neither. Now the `fail/` of this case is the `pass/` with ONE literal planted, the catalog sentence in the `<p>`, and the printed reason has a single finding: `app/pagina.tsx: sentence \"Mesa de jantar em madeira macica, feita sob encomenda.\"`. Switching the sentence detection off (`if (false && frases.length)`) makes THIS side diverge.\n\nThe `pass/` locks the guards that decide what IS a sentence, and each one has a specimen that goes red if the guard is loosened:\n\n· `<p>Forma de pagamento</p>` — a THREE-word field label, measured in Galegos with those same words. Lowering `MIN_PALAVRAS` from 4 makes this side fail. It is the threshold that replaced the 25-character minimum, removed for costing 13 true accusations across the 11 repositories and buying none.\n\n· `<p>lote 7 · lote 9 · lote 12 · sem foto</p>` — 88% letters, below `MIN_LETRAS`. It is a table row rendered as a paragraph, not prose. Switching `sinalDeCodigo` off makes this side fail.\n\n· `<button type=\"button\">Ver o catalogo completo</button>` and `<div>Nenhuma peca nesta colecao por enquanto.</div>` — four and six words, both would clear any length threshold. What excludes them is the OWNER: `<button>` is a control and `<div>` says nothing about what it carries, and neither is in `PROSA`. Putting `button` or `div` into `PROSA` makes this side fail. It is the discriminator that took \"Imprimir ou salvar em PDF\" out of the accusation — it lives in a `<button>` at `decima-edicoes/app/components/print-button.tsx:8`. (The specimens above stay in Portuguese: they are the literal text of the fixture files, and the word counts the argument rests on are counts of THOSE words.)\n\nThe DIGIT guard in the price pattern left here together with the price: the `R$ {formatarPreco(...)}` specimen that locks it lives in the `pass/` of `conteudo-fora-do-codigo__preco`. Each case locks the guards of the cause it isolates, and no guard stays locked in two places.\n\nBoth sides have the same `conteudo/inicio.json` and the same component: the only difference is where the `<p>`'s text comes from, which is exactly the assertion of §12.3."
+          "porque": "§12.3 of the plan settled that the content of the `site` preset lives in `conteudo/*.json`, and the plan itself records that settling it in the text settles nothing. This case charges HALF of the pair §12.3 asks for — the SENTENCE. The price is the other case, `conteudo-fora-do-codigo__preco`, and the split is the fix of a measured defect, not tidying.\n\nWHY SPLIT: until 31/08 the `fail/` planted BOTH literals in the SAME `.tsx` — a sentence in a `<p>` and a price in a `<span>`. A single finding already turns the state into \"reprovou\", so the sentence carried the side alone and the price detection was never exercised: mutating `if (preco) achados.push(...)` into `if (false && preco) achados.push(...)` — the ENTIRE price detection erased — left the 51 proofs green. A proof that confuses two causes locks neither. Now the `fail/` of this case is the `pass/` with ONE literal planted, the catalog sentence in the `<p>`, and the printed reason has a single finding: `app/pagina.tsx: sentence \"Mesa de jantar em madeira macica, feita sob encomenda.\"`. Switching the sentence detection off (`if (false && frases.length)`) makes THIS side diverge.\n\nThe `pass/` locks the guards that decide what IS a sentence, and each one has a specimen that goes red if the guard is loosened:\n\n· `<p>Forma de pagamento</p>` — a THREE-word field label, measured in client-a with those same words. Lowering `MIN_PALAVRAS` from 4 makes this side fail. It is the threshold that replaced the 25-character minimum, removed for costing 13 true accusations across the 11 repositories and buying none.\n\n· `<p>lote 7 · lote 9 · lote 12 · sem foto</p>` — 88% letters, below `MIN_LETRAS`. It is a table row rendered as a paragraph, not prose. Switching `sinalDeCodigo` off makes this side fail.\n\n· `<button type=\"button\">Ver o catalogo completo</button>` and `<div>Nenhuma peca nesta colecao por enquanto.</div>` — four and six words, both would clear any length threshold. What excludes them is the OWNER: `<button>` is a control and `<div>` says nothing about what it carries, and neither is in `PROSA`. Putting `button` or `div` into `PROSA` makes this side fail. It is the discriminator that took \"Imprimir ou salvar em PDF\" out of the accusation — it lives in a `<button>` at `decima-edicoes/app/components/print-button.tsx:8`. (The specimens above stay in Portuguese: they are the literal text of the fixture files, and the word counts the argument rests on are counts of THOSE words.)\n\nThe DIGIT guard in the price pattern left here together with the price: the `R$ {formatarPreco(...)}` specimen that locks it lives in the `pass/` of `conteudo-fora-do-codigo__preco`. Each case locks the guards of the cause it isolates, and no guard stays locked in two places.\n\nBoth sides have the same `conteudo/inicio.json` and the same component: the only difference is where the `<p>`'s text comes from, which is exactly the assertion of §12.3."
         },
         {
           "caso": "content-outside-code__not-adopted",
@@ -1019,22 +1019,22 @@
         {
           "onde": "cabecalho",
           "linha": 2528,
-          "texto": "Measured on 2026-08-30 across the 11 repositories + rebar: 417 production code files swept, ONE accusation — `Galegos/src/lib/whatsapp.ts` line 7, a `const WHATSAPP_NUMBER` with the pizzeria's mobile in thirteen digits —, and it is true. One true, zero false, in 417 files. (The number is not transcribed here on purpose: see the `semComentario` note, which holds what happens when it is.)"
+          "texto": "Measured on 2026-08-30 across the 11 repositories + rebar: 417 production code files swept, ONE accusation — `client-a/src/lib/whatsapp.ts` line 7, a `const WHATSAPP_NUMBER` with the pizzeria's mobile in thirteen digits —, and it is true. One true, zero false, in 417 files. (The number is not transcribed here on purpose: see the `semComentario` note, which holds what happens when it is.)"
         },
         {
           "onde": "cabecalho",
           "linha": 2535,
-          "texto": "§12.3 of the plan settled the decision that gives this its teeth: phone, CNPJ and address are validated CONTENT, not code and not an environment variable. And the cost of the mistake is documented in Galegos itself: `Navesz/Galegos#1` tried to move the number into an env var and the owner stopped the PR, because the build passes and the `wa.me` ships with no recipient. Deterministic is what makes the decision hold."
+          "texto": "§12.3 of the plan settled the decision that gives this its teeth: phone, CNPJ and address are validated CONTENT, not code and not an environment variable. And the cost of the mistake is documented in client-a itself: `client-a#1` tried to move the number into an env var and the owner stopped the PR, because the build passes and the `wa.me` ships with no recipient. Deterministic is what makes the decision hold."
         },
         {
           "onde": "cabecalho",
           "linha": 2542,
-          "texto": "The pattern was TIGHTENED along with the promotion, and that is the expensive half. The old `\\(?\\d{2}\\)?\\s?9\\d{4}-?\\d{4}` accepted ELEVEN DIGITS IN A ROW with no punctuation at all, with a `9` in the third place: a product EAN-13 (`7891234599999`) matched. Acceptable in a heuristic that only informs; unacceptable in a rule that fails merges. Now only what carries a MARK of a Brazilian phone counts — a `wa.me` link, country code 55, or the DDD punctuation. The same Galegos is still caught (`55` + `24` + `9` + eight digits) and the other 416 files stay clean: the tightening did not cost a single true positive."
+          "texto": "The pattern was TIGHTENED along with the promotion, and that is the expensive half. The old `\\(?\\d{2}\\)?\\s?9\\d{4}-?\\d{4}` accepted ELEVEN DIGITS IN A ROW with no punctuation at all, with a `9` in the third place: a product EAN-13 (`7891234599999`) matched. Acceptable in a heuristic that only informs; unacceptable in a rule that fails merges. Now only what carries a MARK of a Brazilian phone counts — a `wa.me` link, country code 55, or the DDD punctuation. The same client-a is still caught (`55` + `24` + `9` + eight digits) and the other 416 files stay clean: the tightening did not cost a single true positive."
         },
         {
           "onde": "implementacao",
           "linha": 2555,
-          "texto": "The patterns below describe the shape of a BRAZILIAN phone number — the `wa.me` link, the 55 country code, the DDD in parentheses. They are the subject of the rule, not prose, and there is nothing in them to translate. Comments out: see the `semComentario` note. What §12.3 forbids is the number the program USES — the one that ships in the `wa.me` and in the `tel:` —, and that one lives in executed code, not in a footnote. ELEVEN RAW DIGITS count ONLY when the file assembles a `wa.me` or a `tel:`. It is the fix for a regression the tightening above caused and the audit caught: the SAME Galegos mobile written without the country code, in the same file, assembling the same link, passed clean. Context is what separates a phone from a barcode: an EAN-13 does not become a WhatsApp link, and that is why the raw digits only count accompanied."
+          "texto": "The patterns below describe the shape of a BRAZILIAN phone number — the `wa.me` link, the 55 country code, the DDD in parentheses. They are the subject of the rule, not prose, and there is nothing in them to translate. Comments out: see the `semComentario` note. What §12.3 forbids is the number the program USES — the one that ships in the `wa.me` and in the `tel:` —, and that one lives in executed code, not in a footnote. ELEVEN RAW DIGITS count ONLY when the file assembles a `wa.me` or a `tel:`. It is the fix for a regression the tightening above caused and the audit caught: the SAME client-a mobile written without the country code, in the same file, assembling the same link, passed clean. Context is what separates a phone from a barcode: an EAN-13 does not become a WhatsApp link, and that is why the raw digits only count accompanied."
         }
       ],
       "provas": [
@@ -1042,7 +1042,7 @@
           "caso": "phone",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "§12.3 of the plan settled that a phone number is validated CONTENT, not code and not an environment variable, and the cost of getting it wrong is documented in Galegos itself: PR `Navesz/Galegos#1` tried to move the number into an env var and the owner stopped the PR, because the build passes, the deploy goes up and `wa.me` generates a link with no recipient. The rule became deterministic with one true and zero false positives across 417 measured code files. Both sides have the SAME number written the SAME way: on the `pass` side it is in a COMMENT and on `fail` in a constant the program uses. A comment does not go up in `wa.me`, and a ruler that accused comments would accuse the very note that explains it — which is what happened in this repository while this rule was being written."
+          "porque": "§12.3 of the plan settled that a phone number is validated CONTENT, not code and not an environment variable, and the cost of getting it wrong is documented in client-a itself: PR `client-a#1` tried to move the number into an env var and the owner stopped the PR, because the build passes, the deploy goes up and `wa.me` generates a link with no recipient. The rule became deterministic with one true and zero false positives across 417 measured code files. Both sides have the SAME number written the SAME way: on the `pass` side it is in a COMMENT and on `fail` in a constant the program uses. A comment does not go up in `wa.me`, and a ruler that accused comments would accuse the very note that explains it — which is what happened in this repository while this rule was being written."
         },
         {
           "caso": "phone__accented-filename",
@@ -1072,12 +1072,12 @@
         {
           "onde": "implementacao",
           "linha": 2592,
-          "texto": "Same fix as `ui-falso` and `formatter`: `components.json` looked for at any depth, the apparatus looked for in every manifest. Before, no monorepo ever got evaluated by this heuristic — prumo, ducado and LinhaK left through `na('does not use shadcn')` while all three had the file tracked in a subfolder. The read guard comes AFTER the N/A: whoever does not use shadcn should not earn a warning because of a broken package.json. Here that is safe because a heuristic does not enter the denominator — there is no N/A to launder. WATCH OUT: @radix-ui alone fails the one repo that got it right. Galegos uses shadcn correctly in the base-nova style, with @base-ui/react and ZERO Radix."
+          "texto": "Same fix as `ui-falso` and `formatter`: `components.json` looked for at any depth, the apparatus looked for in every manifest. Before, no monorepo ever got evaluated by this heuristic — prumo, repo-d and repo-l left through `na('does not use shadcn')` while all three had the file tracked in a subfolder. The read guard comes AFTER the N/A: whoever does not use shadcn should not earn a warning because of a broken package.json. Here that is safe because a heuristic does not enter the denominator — there is no N/A to launder. WATCH OUT: @radix-ui alone fails the one repo that got it right. client-a uses shadcn correctly in the base-nova style, with @base-ui/react and ZERO Radix."
         },
         {
           "onde": "implementacao",
           "linha": 2609,
-          "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused ducado of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root. O MISTURADOR DE CLASSES, e nao uma implementacao dele."
+          "texto": "`radix-ui` without a slash is the unified package that replaced the separate `@radix-ui/react-*`, and its absence here was a latent false positive this step uncovered: once it started seeing `apps/web/components.json`, the heuristic accused repo-d of \"components.json with no primitive\" with `\"radix-ui\": \"^1.6.7\"` declared and `import { Select as SelectPrimitive } from 'radix-ui'` in eight components. A defense looked for by its old name is the same class of error as a defense looked for only at the root. O MISTURADOR DE CLASSES, e nao uma implementacao dele."
         },
         {
           "onde": "implementacao",
@@ -1134,7 +1134,7 @@
         {
           "onde": "implementacao",
           "linha": 2667,
-          "texto": "`process.env.X ?? 'https://…'` is exactly what you want a person to write: an environment variable with a sensible default. Measured: `decima-edicoes/app/lib/site.ts:5` accused over `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, and `hug-brasil-propostas` accused TWICE over the same shape (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three of the twelve accusations were the ruler hitting whoever got it right."
+          "texto": "`process.env.X ?? 'https://…'` is exactly what you want a person to write: an environment variable with a sensible default. Measured: `decima-edicoes/app/lib/site.ts:5` accused over `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'`, and `client-b` accused TWICE over the same shape (`scripts/check-access.js:3` and `src/lib/accessControl.ts:6`). Three of the twelve accusations were the ruler hitting whoever got it right."
         },
         {
           "onde": "implementacao",
@@ -1152,7 +1152,7 @@
           "caso": "production-url__env-fallback",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "Locks the false positive that opened this step, and it was measured: `decima-edicoes/app/lib/site.ts` line 5 writes `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'` — an environment variable with a sensible default, which is EXACTLY what you want the person to write — and the rule accused it. The same pattern caught `hug-brasil-propostas` twice, in `scripts/check-access.js` and in `src/lib/accessControl.ts`. Three of the twelve accusations were the ruler hitting whoever got it right, and a rule that punishes correct behavior teaches people to switch the whole output off. Both sides have the SAME address in the SAME constant: only the fallback changes. Whoever deletes the defense makes the `pass` side go red."
+          "porque": "Locks the false positive that opened this step, and it was measured: `decima-edicoes/app/lib/site.ts` line 5 writes `process.env.NEXT_PUBLIC_SITE_URL ?? 'https://navesz.github.io/decima-edicoes'` — an environment variable with a sensible default, which is EXACTLY what you want the person to write — and the rule accused it. The same pattern caught `client-b` twice, in `scripts/check-access.js` and in `src/lib/accessControl.ts`. Three of the twelve accusations were the ruler hitting whoever got it right, and a rule that punishes correct behavior teaches people to switch the whole output off. Both sides have the SAME address in the SAME constant: only the fallback changes. Whoever deletes the defense makes the `pass` side go red."
         },
         {
           "caso": "production-url__link-is-not-address",
@@ -1186,7 +1186,7 @@
         {
           "onde": "implementacao",
           "linha": 2754,
-          "texto": "— of the seven occurrences the literal-color rule turned up in herz, FIVE were comments about the rule."
+          "texto": "— of the seven occurrences the literal-color rule turned up in prior-app, FIVE were comments about the rule."
         },
         {
           "onde": "implementacao",
@@ -1445,7 +1445,7 @@
         {
           "onde": "cabecalho",
           "linha": 503,
-          "texto": "THE MEASUREMENT THAT OPENED THIS RULE. A repository was built with four credentials of real shape — an AWS access key, a GitHub token, an LLM API key, and the assignment of a literal to an `apiKey` constant, which is the exact shape of the live one sitting in the public `Navesz/Climatic` today. Both rulers were run against it:"
+          "texto": "THE MEASUREMENT THAT OPENED THIS RULE. A repository was built with four credentials of real shape — an AWS access key, a GitHub token, an LLM API key, and the assignment of a literal to an `apiKey` constant, which is the exact shape of a live one found in a public repository today. Both rulers were run against it:"
         },
         {
           "onde": "cabecalho",
@@ -1499,7 +1499,7 @@
           "caso": "hardcoded-secret__const-apikey",
           "aprovar": "passou",
           "reprovar": "reprovou",
-          "porque": "The variant isolates ONE path, because a side satisfied by several paths at once proves none of them: the sibling case fails through four shapes together, and a rule narrowed to vendor-prefix findings only (`AKIA`, `ghp_`, `sk-`) would keep it red with this shape already invisible. This shape has no vendor prefix at all -- what denounces it is the identifier NAME plus the shape of the value -- and it is the exact one living in the main branch of the public Navesz/Climatic today. The pass side is the same file with the same identifier in the same URL, fixed by reading `process.env`: a rule that decided by the name alone would fail the fix too, and failing the fix is worse than having no rule, because it teaches people to switch checking off."
+          "porque": "The variant isolates ONE path, because a side satisfied by several paths at once proves none of them: the sibling case fails through four shapes together, and a rule narrowed to vendor-prefix findings only (`AKIA`, `ghp_`, `sk-`) would keep it red with this shape already invisible. This shape has no vendor prefix at all -- what denounces it is the identifier NAME plus the shape of the value -- and it is the exact one living in the main branch of a public repository today. The pass side is the same file with the same identifier in the same URL, fixed by reading `process.env`: a rule that decided by the name alone would fail the fix too, and failing the fix is worse than having no rule, because it teaches people to switch checking off."
         },
         {
           "caso": "hardcoded-secret__marker-outside-root",

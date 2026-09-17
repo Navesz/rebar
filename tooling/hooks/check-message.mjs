@@ -8,7 +8,7 @@
 // runs before the commit exists was missing. This is it.
 //
 // Once in history, the trailer only comes out by rewriting history. Measured: the
-// alicerce has 11 of 11 commits with co-authorship and there is no cleaning it
+// prior-standard has 11 of 11 commits with co-authorship and there is no cleaning it
 // without a force push.
 //
 // ── POLICY INVERSION (2026-08-30) ──────────────────────────────────────────

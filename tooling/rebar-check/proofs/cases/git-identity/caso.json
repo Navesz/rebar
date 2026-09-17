@@ -1,15 +1,15 @@
 {
   "rule": "git-identity",
-  "why": "The real failure is the same person committing now as `Leonardo Naves <...@users.noreply.github.com>`, now as `leona <leonardo@empresa.com.br>`: the public history starts carrying the personal e-mail and `git shortlog` counts two people where there is one. The pass side has TWO commits with the identical identity, so a rule that counted commits instead of distinct name/e-mail combinations would fail there and the proof would accuse.",
+  "why": "The real failure is the same person committing now as `Ana Souza <...@users.noreply.github.com>`, now as `ana <ana@empresa.com.br>`: the public history starts carrying the personal e-mail and `git shortlog` counts two people where there is one. The pass side has TWO commits with the identical identity, so a rule that counted commits instead of distinct name/e-mail combinations would fail there and the proof would accuse.",
   "pass": {
     "commits": [
       {
         "mensagem": "cria o leiame",
-        "autor": "Leonardo Naves <12345+leona@users.noreply.github.com>"
+        "autor": "Ana Souza <12345+ana@users.noreply.github.com>"
       },
       {
         "mensagem": "descreve o propósito do repositório",
-        "autor": "Leonardo Naves <12345+leona@users.noreply.github.com>"
+        "autor": "Ana Souza <12345+ana@users.noreply.github.com>"
       }
     ]
   },
@@ -17,11 +17,11 @@
     "commits": [
       {
         "mensagem": "cria o leiame",
-        "autor": "Leonardo Naves <12345+leona@users.noreply.github.com>"
+        "autor": "Ana Souza <12345+ana@users.noreply.github.com>"
       },
       {
         "mensagem": "descreve o propósito do repositório",
-        "autor": "leona <leonardo@empresa.com.br>"
+        "autor": "ana <ana@empresa.com.br>"
       }
     ]
   }

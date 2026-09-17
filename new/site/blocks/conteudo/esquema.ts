@@ -11,7 +11,7 @@
  *
  * What §12.3 of the plan settled and this file is the tooth of: the identity of
  * the business — phone, address, name — is VALIDATED CONTENT, not an environment
- * variable. The proof is in PR `Navesz/Galegos#1`, which the owner parked on
+ * variable. The proof is in PR `client-a#1`, which the owner parked on
  * purpose: moving the number to an env var made the build pass, the deploy ship
  * and `wa.me` be born with no recipient, with the menu stopping delivering
  * orders IN SILENCE. Here a missing field is not silence: it is a red build.
@@ -23,7 +23,7 @@
  * pattern `/^[1-9]\d{9,14}$/` matches, `next build` exited 0, and the published
  * HTML carried `https://wa.me/5500000000000` in TWO places — button and footer.
  * A link that ships, looks right and delivers no order at all: exactly
- * `Galegos#1`, committed by the generator itself. The cause is not a loose
+ * `client-a#1`, committed by the generator itself. The cause is not a loose
  * regex; it is the PLACEHOLDER BEING PLAUSIBLE. Empty, the schema caught it.
  * Plausible, it approved it.
  *
@@ -73,11 +73,11 @@
  *
  * WHY THE PRESENCE, and not a `home.blocos: [...]` list saying what the home
  * renders: a list is a SECOND source of the same truth, and two sources of the
- * same truth diverge. That is the Galegos defect in other clothes — its
+ * same truth diverge. That is the client-a defect in other clothes — its
  * `src/lib/whatsapp.ts` had the same number in two formats, kept by hand,
  * diverging. With presence as the declaration there is ONE source.
  *
- * And the Galegos disaster — button on screen, empty field — stops being a
+ * And the client-a disaster — button on screen, empty field — stops being a
  * matter of validation and becomes a TYPE ERROR: the optional field is
  * `T | null`, and `linkWhatsapp` takes the block, not the site. Rendering the
  * button without narrowing the `null` DOES NOT COMPILE. `next build` fails
@@ -207,7 +207,7 @@ export function acharSentinelas(bruto: unknown): Pendencia[] {
 const PORQUE_REPROVA =
   'WHY THE BUILD STOPS HERE INSTEAD OF PUBLISHING: a plausible placeholder — "5500000000000",\n' +
   '"contato@exemplo.com.br" — ships, looks right and delivers no order at all. It is the same\n' +
-  'defect as PR Navesz/Galegos#1 (§12.3), parked precisely because the link went up with no\n' +
+  'defect as PR client-a#1 (§12.3), parked precisely because the link went up with no\n' +
   'recipient and the menu stopped delivering IN SILENCE. A placeholder here is inert and loud:\n' +
   'impossible to mistake for a real value, and it fails until it is replaced.'
 
@@ -597,7 +597,7 @@ export const telefoneE164: Validador<string> = (valor, caminho) => {
 }
 
 /**
- * The number as the visitor READS it. Separate from `e164` on purpose — Galegos
+ * The number as the visitor READS it. Separate from `e164` on purpose — client-a
  * had the same number in two formats inside `src/lib/whatsapp.ts` and the cause
  * was that there was no field per use. With two fields, the new risk shows up:
  * the two diverging. `conferirCoerencia` is what charges the equality.
@@ -797,7 +797,7 @@ type FormaDoSite = Inferir<typeof formaDoSite>
 /**
  * The number the visitor READS has to be the number the link GOES to.
  *
- * This is the Galegos defect in its original form: two formats of the same
+ * This is the client-a defect in its original form: two formats of the same
  * phone, kept by hand, diverging. When they diverge, the footer shows one number
  * and the button opens another — and nobody notices, because both things "work".
  */
@@ -853,14 +853,14 @@ export type Whatsapp = NonNullable<Contato['whatsapp']>
 
 /**
  * The WhatsApp link is BUILT in code out of the number that is content. That
- * split is the fix for `Navesz/Galegos#1` done on the right side: the shape of
+ * split is the fix for `client-a#1` done on the right side: the shape of
  * the link is code (it does not change per business), the recipient is validated
  * content (it changes, and its absence fails the build instead of vanishing in
  * production).
  *
  * THE PARAMETER IS THE BLOCK, NOT THE SITE, and that swap is the tooth of 02/09.
  * With `site` in the signature, a site without WhatsApp still COMPILED the call
- * and `wa.me` was born with no recipient at run time — Galegos, again. With
+ * and `wa.me` was born with no recipient at run time — client-a, again. With
  * `Whatsapp` in the signature, `linkWhatsapp(site.identidade.whatsapp)` is a type
  * error until somebody narrows the `null`: the disaster stops depending on
  * validation and starts depending on compiling.

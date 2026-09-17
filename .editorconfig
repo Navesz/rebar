@@ -1,6 +1,6 @@
 # O rebar cobra .editorconfig de todo repositório auditado (regra `editorconfig`,
 # N1). Cobrar sem aplicar em si mesmo é exatamente o defeito que matou o
-# alicerce: imposição que nunca encostou num projeto.
+# padrão anterior: imposição que nunca encostou num projeto.
 root = true
 
 [*]

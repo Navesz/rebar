@@ -157,7 +157,7 @@ function gitSilencioso(argumentos, cwd) {
   }
 }
 
-// On Windows the tmpdir usually comes as an 8.3 name (C:\Users\LEONA~1\...)
+// On Windows the tmpdir usually comes as an 8.3 name (C:\Users\USERNA~1\...)
 // while git returns the long name. Comparing the two forms gives "outside the
 // root" for a path that is inside. realpathSync normalizes both ends; if the
 // path no longer exists, the raw resolve is enough.
