@@ -120,9 +120,33 @@ function git(dir, args) {
  * existing, so ENOENT there is "exists and I could not read it", not "does not
  * exist".
  */
+/**
+ * CRLF becomes LF at the READ, once, for every rule.
+ *
+ * Measured on 2026-09-16: `expressjs/cors`, cloned on Windows with
+ * `core.autocrlf=true` (the Git for Windows default), was accused of "the CI
+ * does not reach: lint, test" while its `.github/workflows/ci.yml` runs
+ * `npm run lint` and `npm run test-ci`. The checkout writes CRLF, and
+ * `comandosDoCi` matches each line with `(.*)$`: in JavaScript `.` does not
+ * match `\r`, so not one `run:` line matched and the extractor returned NOTHING.
+ * The same repository cloned with LF passes, and `ci-gates` was the only one of
+ * its 18 rules whose verdict changed.
+ *
+ * Why at the read and not in that regex: every line pattern anchored at `$` in
+ * this file has the same hole, and fixing the one that got caught leaves the
+ * others waiting for the next checkout. rebar never saw it on itself because
+ * its own `.gitattributes` forces `eol=lf` — the Windows leg of the CI matrix
+ * was green over a tree that could not reproduce the defect. The proof case
+ * `ci-gates__crlf` keeps its workflow as `-text` for the same reason.
+ *
+ * Only `\r\n`: a lone `\r` is not a line ending anyone writes today, and
+ * rewriting it would be deciding for the target what its bytes mean.
+ */
+const semCr = (texto) => texto.replace(/\r\n/g, '\n')
+
 function lerArquivo(dir, rel, rastreado = false) {
   try {
-    return { estado: 'ok', texto: readFileSync(join(dir, rel), 'utf8') }
+    return { estado: 'ok', texto: semCr(readFileSync(join(dir, rel), 'utf8')) }
   } catch (e) {
     const some = e.code === 'ENOENT' || e.code === 'ENOTDIR'
     if (some && !rastreado) return { estado: 'ausente' }
@@ -152,7 +176,7 @@ function lerJsonRastreado(dir, rel) {
 
 function ler(dir, rel) {
   try {
-    return readFileSync(join(dir, rel), 'utf8')
+    return semCr(readFileSync(join(dir, rel), 'utf8'))
   } catch {
     return null
   }
@@ -187,6 +211,27 @@ const IGNORAR = /(^|\/)(node_modules|dist|build|\.next|out|coverage|vendor)\//
  * they appeared in none of the 11 — a list larger than the measurement is guesswork.
  */
 const ENV_DO_AMBIENTE = new Set(['CI', 'NO_COLOR', 'FORCE_COLOR', 'NODE_ENV'])
+
+/**
+ * Constants the BUNDLER writes, not variables the environment gives — and only
+ * on the `import.meta.env` side.
+ *
+ * Reported in issue #28 with three measured cases: a Vite + TypeScript
+ * repository reading `import.meta.env.DEV`, `MODE` and `BASE_URL` was told
+ * "not documented: DEV, MODE, BASE_URL". They cannot be documented: Vite
+ * replaces `import.meta.env.DEV` with a literal at build time, and writing
+ * `DEV=` into `.env.example` to satisfy the rule would put something false into
+ * the one document the rule exists to keep true.
+ *
+ * The exclusion is per NAMESPACE, not per name. `process.env.MODE` is an
+ * ordinary read from the environment in a Node program and keeps being charged
+ * — the proof case `env-example__bundler-builtins` fails exactly there. The
+ * stricter reading (on `import.meta.env`, count only `VITE_`/`PUBLIC_`/
+ * `NEXT_PUBLIC_`) would also close the report, but it would go blind to a
+ * bundler with another prefix; a short list of what is known to be injected is
+ * the side that cannot hide a real variable.
+ */
+const BUILTIN_DO_BUNDLER = new Set(['DEV', 'PROD', 'MODE', 'SSR', 'BASE_URL'])
 
 /**
  * A file is a test if a SEGMENT of the path is a test folder, or if the NAME is
@@ -597,7 +642,7 @@ function fontes(dir, arquivos) {
     if (!ehCodigoAvaliavel(a)) continue
     try {
       if (statSync(join(dir, a)).size > 512 * 1024) continue
-      ;(ehTeste(a) ? teste : producao).push([a, readFileSync(join(dir, a), 'utf8')])
+      ;(ehTeste(a) ? teste : producao).push([a, semCr(readFileSync(join(dir, a), 'utf8'))])
     } catch {
       /* the file vanished between the ls-files and the read */
     }
@@ -1943,7 +1988,20 @@ export const REGRAS = [
       const ilegivel = manifestoIlegivel(r)
       if (ilegivel) return ilegivel
       if (!r.manifestos.length) return na('not an npm project')
-      if (!r.arquivos.some((a) => /\.(ts|tsx)$/i.test(a))) return na('no TypeScript')
+      const typescript = r.arquivos.filter((a) => /\.(ts|tsx)$/i.test(a))
+      if (!typescript.length) return na('no TypeScript')
+      // A DECLARATION IS NOT SOURCE. Measured on 2026-09-16: `sindresorhus/slugify`
+      // 3.0.2 ships `index.js` with a hand-written `index.d.ts`, runs
+      // `xo && ava`, and was accused of "no tracked package.json has script
+      // typecheck". There is no TypeScript there to compile — the only `.ts`
+      // file is the contract a JavaScript package publishes for its consumers.
+      // What can go wrong with it, the declaration drifting from `index.js`, is
+      // caught by a type TEST (`tsd`, `expect-type`), which is a decision of
+      // another level; demanding a `typecheck` script charges the repository for
+      // a practice it has no code for. One `.ts` or `.tsx` that is not a
+      // declaration and the rule applies again.
+      if (typescript.every((a) => /\.d\.ts$/i.test(a)))
+        return na('only declaration files (.d.ts), no TypeScript source to check')
       const nomes = nomesDeScripts(r)
       return NOMES_TYPECHECK.some((n) => nomes.has(n))
         ? null
@@ -2872,10 +2930,12 @@ export function lerRepo(dir) {
   // fail `env-example` over two variables that do not exist.
   const varsEnv = new Set()
   for (const [, t] of fs_) {
-    for (const m of semComentario(t).matchAll(
-      /(?:process|import\.meta)\.env\.([A-Z][A-Z0-9_]*)/g,
+    for (const [, espaco, nome] of semComentario(t).matchAll(
+      /(process|import\.meta)\.env\.([A-Z][A-Z0-9_]*)/g,
     )) {
-      if (!ENV_DO_AMBIENTE.has(m[1])) varsEnv.add(m[1])
+      if (ENV_DO_AMBIENTE.has(nome)) continue
+      if (espaco === 'import.meta' && BUILTIN_DO_BUNDLER.has(nome)) continue
+      varsEnv.add(nome)
     }
   }
 

@@ -111,7 +111,7 @@ output off.
 
 ### Every rule is born with two cases
 
-There are <!--n proofs.casos-->69<!--/n--> cases, one pair per rule, and all <!--n rules.total-->23<!--/n--> rules are covered:
+There are <!--n proofs.casos-->72<!--/n--> cases, one pair per rule, and all <!--n rules.total-->23<!--/n--> rules are covered:
 
 ```bash
 npm run prove
@@ -191,13 +191,13 @@ it is told before it writes, not after.
 The artifact is **derived, never duplicated**: `npm run verify` regenerates it in memory and
 fails if the disk diverges. It is impossible to change a rule and forget the MCP.
 
-It carries <!--n mcp.artefato.regras-->40<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->187<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
+It carries <!--n mcp.artefato.regras-->40<!--/n--> rules from two modules, <!--n mcp.artefato.passos-->26<!--/n--> gate steps and <!--n mcp.artefato.provas-->190<!--/n--> proofs, exposed through <!--n mcp.ferramentas-->5<!--/n--> tools.
 
 ## Repository map
 
 | Path | What |
 |---|---|
-| `tooling/rebar-check/` | the format ruler and its <!--n proofs.casos-->69<!--/n--> proof cases |
+| `tooling/rebar-check/` | the format ruler and its <!--n proofs.casos-->72<!--/n--> proof cases |
 | `tooling/security/` | the security ruler |
 | `tooling/verify/` | the gate runner and the mutation proofs of its steps |
 | `tooling/secret/` | the secret scanner, and the <!--n secret.provas-->31<!--/n--> detection proofs |

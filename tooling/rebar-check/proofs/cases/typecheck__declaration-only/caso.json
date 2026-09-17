@@ -1,0 +1,7 @@
+{
+  "rule": "typecheck",
+  "why": "A JavaScript package that publishes a hand-written declaration has no TypeScript to compile. Measured on `sindresorhus/slugify` 3.0.2: `index.js` plus `index.d.ts`, `xo && ava`, and the rule accused it of having no typecheck script. Both sides have the SAME package.json with no typecheck script, the SAME `index.js` and the SAME `index.d.ts`; the `fail` side adds ONE real TypeScript source file, `src/normalizar.ts`. The `pass` side has to come out N/A and the `fail` side keeps failing: whoever removes the declaration branch turns `pass` into a failure, and whoever widens it to any repository that HAS a `.d.ts` turns `fail` into N/A, which would hide every TypeScript project that also ships declarations.",
+  "pass": {
+    "estado": "na"
+  }
+}

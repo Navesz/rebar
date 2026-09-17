@@ -1,0 +1,4 @@
+{
+  "rule": "ci-gates",
+  "why": "A Windows checkout writes CRLF (`core.autocrlf=true` is the Git for Windows default), and the extractor matched each line with `(.*)$`, where `.` does not match `\r`: not one `run:` line matched, the extracted text was EMPTY, and a CI that runs the lint was accused of not reaching it. Measured on `expressjs/cors`, whose only changed verdict between a CRLF and an LF clone was this one. Both workflows here are CRLF on purpose, and `.gitattributes` marks them `-text` so the repository's own `eol=lf` cannot turn them back into LF — without that the case would pass on a tree that no longer reproduces the defect. The `pass` side runs `npm run lint`; the `fail` side runs `npm run build` under a step NAMED `lint`. Whoever removes the normalization turns `pass` red; whoever answers an empty extraction by falling back to the raw YAML turns `fail` green, because the word is still there in `name:`."
+}
