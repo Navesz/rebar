@@ -3,8 +3,9 @@
 ![rebar — checker, compuerta, generador](docs/assets/rebar-banner.svg)
 
 > **Hace que el código incorrecto no pase.** Un verificador que se ejecuta contra cualquier
-> repositorio, una compuerta que bloquea el commit cuando se ignora una regla, y un generador
-> que construye el próximo proyecto ya del lado correcto de la regla.
+> repositorio, un escáner de firmas conocidas de prompt injection en los archivos que versiona,
+> una compuerta que bloquea el commit cuando se ignora una regla, y un generador que construye
+> el próximo proyecto ya del lado correcto de la regla.
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![Licencia](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
@@ -25,12 +26,17 @@ no aplica imprime `–` **con el motivo** y sale del denominador, en vez de cont
 una aprobación que no se ganó.
 
 ```bash
-npx github:Navesz/rebar .                    # auditar lo que ya existe
-npx github:Navesz/rebar new padaria-do-ze   # empezar del lado correcto
+npx github:Navesz/rebar .                     # auditar lo que ya existe
+npx -p github:Navesz/rebar rebar-security .   # firmas conocidas de prompt injection
+npx github:Navesz/rebar new padaria-do-ze     # empezar del lado correcto
 ```
 
-Cero dependencias en tiempo de ejecución. El verificador nunca escribe en el repositorio que
-audita.
+Cero dependencias en tiempo de ejecución, Node 22 o más nuevo. El verificador nunca escribe en
+el repositorio que audita. Para fijar exactamente lo que ejecutas, nombra un commit:
+`npx github:Navesz/rebar#<commit> .`
+
+**Alfa, un solo mantenedor.** La contribución más útil es un falso positivo —
+[reporta uno](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml) con la salida exacta.
 
 ---
 
@@ -97,7 +103,9 @@ El `127` domina al `1`: no se acusa a un repositorio con una regla que se rompi�
 
 ## Qué verifica
 
-Son <!--n rules.total-->23<!--/n--> reglas en dos clases.
+Son <!--n rules.total-->23<!--/n--> reglas en dos clases. La regla de seguridad suma
+<!--n rules.security-->17<!--/n--> más ([las tres reglas](#las-tres-reglas)), y por eso la insignia dice
+<!--n rules.all-->40<!--/n-->.
 
 **<!--n rules.deterministicas-->18<!--/n--> determinísticas** derriban el código de salida:
 
@@ -225,7 +233,7 @@ Declarar el límite vale más que declarar la capacidad, así que:
 ## Apoyo
 
 No hay destino de donación, y no lo habrá hasta que el dueño del repositorio active y verifique
-uno. La contribución útil hoy es ejecutar la regla contra un repositorio tuyo y abrir un issue
+uno. La contribución útil hoy es ejecutar la regla contra un repositorio tuyo y [abrir un issue](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml)
 con la salida — un falso positivo reportado vale más que una regla agregada.
 
 ## Licencia

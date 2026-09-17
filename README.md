@@ -2,9 +2,10 @@
 
 ![rebar — checker, gate, generator](docs/assets/rebar-banner.svg)
 
-> **Makes wrong code fail.** A checker that runs against any repository, a gate that blocks
-> the commit when a rule is ignored, and a generator that builds the next project already on
-> the right side of the ruler.
+> **Makes wrong code fail.** A checker that runs against any repository, a scanner for known
+> prompt-injection signatures in the files it versions, a gate that blocks the commit when a
+> rule is ignored, and a generator that builds the next project already on the right side of
+> the ruler.
 
 [![verificar](https://github.com/Navesz/rebar/actions/workflows/verificar.yml/badge.svg)](https://github.com/Navesz/rebar/actions/workflows/verificar.yml)
 [![License](https://img.shields.io/github/license/Navesz/rebar)](LICENSE)
@@ -25,11 +26,16 @@ apply prints `–` **with the reason** and leaves the denominator, instead of co
 as a pass it never earned.
 
 ```bash
-npx github:Navesz/rebar .                    # audit what already exists
-npx github:Navesz/rebar new padaria-do-ze   # start on the right side
+npx github:Navesz/rebar .                     # audit what already exists
+npx -p github:Navesz/rebar rebar-security .   # known prompt-injection signatures
+npx github:Navesz/rebar new padaria-do-ze     # start on the right side
 ```
 
-Zero runtime dependencies. The checker never writes to the repository it audits.
+Zero runtime dependencies, Node 22 or newer. The checker never writes to the repository it
+audits. To pin exactly what you run, name a commit: `npx github:Navesz/rebar#<commit> .`
+
+**Alpha, one maintainer.** The most useful contribution is a false positive —
+[report one](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml) with the exact output.
 
 ---
 
@@ -95,7 +101,9 @@ repository on the machine. Nothing does not comply; nothing does not apply.
 
 ## What it checks
 
-There are <!--n rules.total-->23<!--/n--> rules in two classes.
+There are <!--n rules.total-->23<!--/n--> rules in two classes. The security ruler adds
+<!--n rules.security-->17<!--/n--> more ([the three rulers](#the-three-rulers)), which is why the badge says
+<!--n rules.all-->40<!--/n-->.
 
 **<!--n rules.deterministicas-->18<!--/n--> deterministic** drive the exit code:
 
@@ -223,7 +231,7 @@ Stating the limit is worth more than stating the capability, so:
 
 There is no donation destination, and none will be published until the repository owner
 activates and verifies one. The useful contribution today is running the ruler against a
-repository of yours and opening an issue with the output — a false positive reported is worth
+repository of yours and [opening an issue](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml) with the output — a false positive reported is worth
 more than a rule added.
 
 ## License
