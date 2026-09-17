@@ -54,6 +54,7 @@ together with the change that made them stale:
 |---|---|
 | `mcp/rules.generated.json` | `node mcp/generate.mjs` |
 | numbers in the READMEs and in `ESTADO.md` | `node tooling/numbers.mjs` |
+| `docs/assets/rebar-scoreboard.svg` (the scoreboard image in the READMEs) | `node tooling/scoreboard.mjs` |
 
 The gate names the right command when one of them is out of date.
 
