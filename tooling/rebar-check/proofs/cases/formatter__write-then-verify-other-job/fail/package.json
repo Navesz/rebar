@@ -1,0 +1,11 @@
+{
+  "name": "prova-escreve-e-confere-por-job",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
+}
