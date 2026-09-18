@@ -278,6 +278,29 @@ const PLACEHOLDER = new RegExp(
     //    machine. Anchored to the userinfo `@` — it exempts the host, never the
     //    line.
     /@(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\.docker\.internal)(?![\w.-])/,
+
+    // 4. HOLE 13, third shape — THE VALUE IS THE WORD THE KEY NAMES. Measured on
+    //    2026-09-17 on `motdotla/dotenv`: `tests/test-parse.js:88` and
+    //    `tests/test-parse-multiline.js:62` are
+    //    `{ SERVER: 'localhost', PASSWORD: 'password', DB: 'tests' }`, the
+    //    expected payload of a parser test. `password` is the word the key
+    //    already says; as a value it announces itself as a stand-in, the same
+    //    way `changeme` and `your-…` already do in PLACEHOLDER_FORTE.
+    //
+    //    IT IS NOT "any line in a test file", and that boundary is the point: a
+    //    credential of real shape in a fixture is still a credential, and this
+    //    alternative cannot reach one — it is anchored to the END of the span,
+    //    so it only ever fires when the value IS the word and nothing else. The
+    //    same key with a value of real shape stays a finding in the same file,
+    //    and the `hardcoded-secret__value-is-the-word` case is the pair that
+    //    proves it. The counter-example is NOT written out here on purpose: a
+    //    comment that carries a password-shaped literal is one more credential
+    //    in the tree for every OTHER scanner reading this repository, and this
+    //    one was measured — GitGuardian opened an incident on this very line.
+    //
+    //    The Portuguese words are vocabulary the scanner LOOKS FOR inside the
+    //    Brazilian repositories it audits, not prose.
+    /[=:(,[{\s'"`](?:senha|password|passwd|pass|pwd|passphrase|secret|segredo|credential|credencial|token|apikey|api[_-]key|minhasenha|mypassword)["'`]?\s*$/,
   ]
     .map((r) => r.source)
     .join('|'),
@@ -304,6 +327,115 @@ const PLACEHOLDER = new RegExp(
  */
 const PLACEHOLDER_FORTE =
   /\bexample\b|\bexemplo\b|\bplaceholder\b|\bdummy\b|\bfake\b|\bchange[_-]?me\b|\bxxx+\b|\bseu[_-]|\bsua[_-]|\byour[_-]|\.{4,}|\*{4,}/i
+
+/**
+ * HOLE 13 — THE VENDOR'S OWN DOCUMENTATION EXAMPLE.
+ *
+ * Measured on 2026-09-17 on `motdotla/dotenv`: `10 credential(s) in tracked
+ * files … what is in history has to be ROTATED`, and two of the ten are
+ * `AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE` in `scripts/parse-perf.js:20` and in
+ * `tests/test-parse-perf.js:20`. That string is AWS's OWN canonical example,
+ * published in AWS's documentation for exactly this purpose, alongside the
+ * secret key that goes with it. Telling that repository to rotate it is telling
+ * it to rotate a credential of nobody's, and a rule that does that teaches
+ * people to switch the whole output off.
+ *
+ * `PLACEHOLDER_FORTE` cannot reach it, and the reason is written in its own
+ * header: the disabler has to appear between WORD BOUNDARIES inside the span,
+ * and in `AKIAIOSFODNN7EXAMPLE` the `EXAMPLE` is glued to a `7` on the left. The
+ * header says which formats stay exposed — the ones without an internal
+ * separator — and this is one.
+ *
+ * EXACT LITERALS, compared against the WHOLE span, and that is what makes this
+ * safe to give to an `alta` rule: an exact set cannot release anything but the
+ * strings inside it, and no realistic-looking key is in it. Widening this into a
+ * pattern — "ends in EXAMPLE", "contains EXAMPLE" — is exactly the kind of
+ * loosening that reopened HOLE 2, and it is not what these two strings need.
+ */
+const EXEMPLOS_PUBLICADOS = new Set([
+  // AWS, "Example access keys" — the pair, in the two prefixes AWS documents.
+  'AKIAIOSFODNN7EXAMPLE',
+  'ASIAIOSFODNN7EXAMPLE',
+  'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+])
+
+/**
+ * THE VALUE AT THE END OF THE SPAN, so that the exemption is not undone one rule
+ * further down.
+ *
+ * A finding that a placeholder releases does NOT keep its interval — only the
+ * written escape does, as the comment in `registrar` says — so an exempted
+ * `AKIAIOSFODNN7EXAMPLE` frees its span and the next rule down,
+ * `credencial-atribuida`, matches the WIDER one, `accessKeyId:
+ * 'AKIAIOSFODNN7EXAMPLE'`, and reports the same line again under another name.
+ * Measured on 2026-09-17 on `mastra-ai/mastra`: the first version of this fix
+ * removed 45 findings and ADDED 6, all of them exactly that — the vendor's
+ * example coming back one rule lower. The exemption has to read the value the
+ * key is assigned, not only the value on its own.
+ *
+ * Still the same exact set, and only the value: the key is left outside on
+ * purpose, so this can never turn into "the span mentions an example".
+ */
+const RE_VALOR_DO_VAO = /(?:^|[=:(,[{\s'"`])([A-Za-z0-9+/_.-]+)["'`]?\s*$/
+
+function valorDoVao(trecho) {
+  const m = RE_VALOR_DO_VAO.exec(trecho)
+  return m ? m[1] : null
+}
+
+/**
+ * HOLE 13, second shape — A PEM WHOSE BODY IS AN ELLIPSIS.
+ *
+ * The other two of dotenv's ten are `README.md:122` and `:132`, and both are the
+ * same documented example:
+ *
+ *   PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+ *   ...
+ *   Kh9NV...
+ *   ...
+ *   -----END RSA PRIVATE KEY-----"
+ *
+ * There is no key there. The `chave-privada` rule matches the HEADER and only
+ * the header — which is right, a header is public and is what makes the finding
+ * cheap to spot — but it means the span it hands `ehPlaceholder` is
+ * `-----BEGIN RSA PRIVATE KEY-----`, a string that is never a placeholder. The   // rebar-segredo-ok: the header quoted by the comment that documents this very rule
+ * evidence is in the BODY, which is on other lines, and that is why
+ * `ehPlaceholder` now takes the file's lines: what decides is what sits between
+ * the header and the END marker.
+ *
+ * The test is about SHAPE and not about vocabulary: key material is base64 in
+ * long runs, and an elision is short runs plus an ellipsis. Both have to hold.
+ * A real key with `...` glued on somewhere still carries its 64-character lines
+ * and stays a finding; `Kh9NV...` gives a longest run of five.
+ *
+ * Without an END marker within reach nothing is decided and the finding stands:
+ * an unterminated PEM is not proof of elision.
+ */
+const LINHAS_DO_PEM = 60
+const MINIMO_DE_BASE64_DE_PEM = 40
+const RE_FIM_DE_PEM = /-----END (?:[A-Z]+ )?PRIVATE KEY-----/
+const RE_ELISAO = /\.{3}|…|\bx{3,}\b/i
+
+function corpoDePem(linhas, indice, linha, fim) {
+  const pedacos = [linha.slice(fim)]
+  if (linhas) {
+    const ate = Math.min(linhas.length, indice + 1 + LINHAS_DO_PEM)
+    for (let k = indice + 1; k < ate; k++) pedacos.push(linhas[k])
+  }
+  const texto = pedacos.join('\n')
+  const fimDoPem = texto.search(RE_FIM_DE_PEM)
+  return fimDoPem === -1 ? null : texto.slice(0, fimDoPem)
+}
+
+function pemElidido(corpo) {
+  if (corpo === null) return false
+  if (!RE_ELISAO.test(corpo)) return false
+  // `\n` written as an escape is a line break of the key, and everything that is
+  // not base64 breaks the run — which is what an ellipsis, a quote or a comment
+  // opener does to key material.
+  const corridas = corpo.replace(/\\[nrt]/g, '\n').replace(/[^A-Za-z0-9+/=]/g, '\n')
+  return !corridas.split('\n').some((c) => c.length >= MINIMO_DE_BASE64_DE_PEM)
+}
 
 // ── Words that make an identifier a credential key ───────────────────────────
 // Fix for HOLE 4. The old version tried to solve camelCase with a lookbehind and
@@ -758,9 +890,22 @@ function lerDoDisco(caminho) {
 
 // ── Scan ─────────────────────────────────────────────────────────────────────
 
-function ehPlaceholder(regra, linha, inicio, fim) {
+/**
+ * `contexto` is `{ linhas, indice }` — the file's lines and which one this is —
+ * and only the PEM rule reads it. It exists because the evidence that a PEM is
+ * an example is NOT in the span: the span is the header, and the body is on the
+ * lines below. Everything else here decides on the span alone, which is the fix
+ * for HOLE 2 and does not change.
+ */
+function ehPlaceholder(regra, linha, inicio, fim, contexto) {
   const trecho = linha.slice(inicio, fim)
+  // Exact literals, ahead of everything, and the only disabler an `alta` rule
+  // accepts besides PLACEHOLDER_FORTE. See EXEMPLOS_PUBLICADOS.
+  if (EXEMPLOS_PUBLICADOS.has(trecho) || EXEMPLOS_PUBLICADOS.has(valorDoVao(trecho))) return true
   if (PLACEHOLDER_FORTE.test(trecho)) return true
+  if (regra.nome === 'chave-privada') {
+    return pemElidido(corpoDePem(contexto?.linhas, contexto?.indice ?? -1, linha, fim))
+  }
   // From here down it is only for the heuristics. A vendor rule is not turned
   // off by `<…>` or `${…}` around it: the disabler has to sit inside the token,
   // otherwise wrapping the credential in signs would be enough to hide it.
@@ -788,7 +933,7 @@ function redigir(texto, sensivel) {
  * overlap, escape and position is the caller's job, because only the caller
  * knows which coordinates are the original ones.
  */
-function casarRegras(texto, apenasAlta, aoAchar) {
+function casarRegras(texto, apenasAlta, aoAchar, contexto) {
   // A long line is no longer discarded (HOLE 3): it is sliced into overlapping
   // windows, because none of the rules needs to see more than that.
   const inicios = []
@@ -848,7 +993,7 @@ function casarRegras(texto, apenasAlta, aoAchar) {
         }
         const fim = inicio + casamento[0].length
         if (regra.filtrar && !regra.filtrar(casamento, texto, inicio, fim)) continue
-        if (ehPlaceholder(regra, texto, inicio, fim)) continue
+        if (ehPlaceholder(regra, texto, inicio, fim, contexto)) continue
         aoAchar(regra, casamento[0], inicio, fim)
       }
     }
@@ -928,7 +1073,7 @@ function rotulosEntre(removidos, inicio, fim) {
   return rotulos
 }
 
-function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
+function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio, contexto) {
   // Only a line that holds an invisible pays for the projection. Measured on
   // 25 repositories: 89 ms of projection in total.
   const projetada = RE_IGNORAVEL.test(linha) ? projetar(linha) : null
@@ -969,38 +1114,43 @@ function varrerLinha(caminho, numero, linha, apenasAlta, achados, relatorio) {
     daLinha.push({ achado, inicio, fim, regra: regra.nome })
   }
 
-  casarRegras(linha, apenasAlta, registrar)
+  casarRegras(linha, apenasAlta, registrar, contexto)
 
   if (projetada) {
     const { projecao, original, removidos } = projetada
-    casarRegras(projecao, apenasAlta, (regra, casado, inicioP, fimP) => {
-      const inicio = original(inicioP)
-      const fim = original(fimP - 1) + 1
-      // A projected match counts only if something was removed from INSIDE its
-      // span. Anything else was already seen by the normal pass, or exists only
-      // because a removal OUTSIDE the value changed its context — a soft hyphen
-      // in the word `se-cret` is not a hidden credential.
-      const k = primeiroRemovidoDesde(removidos, inicio)
-      if (k === removidos.length || removidos[k][0] >= fim) return
-      // THE SAME TOKEN, CUT SHORT BY THE NORMAL PASS. `gh[pousr]_…{30,}` needs
-      // only 30 body characters and its lookahead accepts U+200B, so with the
-      // code point after the 30th the normal pass already matched the part
-      // BEFORE it. That shorter finding held the interval, nothing removed sat
-      // inside it, and the review measured 12 of 1,200 fuzzed lines printing
-      // `‹38 chars›` for a 40-character token with no `<U+XXXX>` at all. When
-      // every finding this match overlaps is the SAME rule and lies INSIDE its
-      // span, it is a piece of this token: the projected match replaces it. A
-      // different rule keeps its interval, which is how `$Token = "…"` stays
-      // `credencial-atribuida` and still carries the label.
-      const sobrepostos = daLinha.filter((d) => inicio < d.fim && d.inicio < fim)
-      if (
-        sobrepostos.length > 0 &&
-        sobrepostos.every((d) => d.regra === regra.nome && d.inicio >= inicio && d.fim <= fim)
-      ) {
-        for (const d of sobrepostos) daLinha.splice(daLinha.indexOf(d), 1)
-      }
-      registrar(regra, casado, inicio, fim)
-    })
+    casarRegras(
+      projecao,
+      apenasAlta,
+      (regra, casado, inicioP, fimP) => {
+        const inicio = original(inicioP)
+        const fim = original(fimP - 1) + 1
+        // A projected match counts only if something was removed from INSIDE its
+        // span. Anything else was already seen by the normal pass, or exists only
+        // because a removal OUTSIDE the value changed its context — a soft hyphen
+        // in the word `se-cret` is not a hidden credential.
+        const k = primeiroRemovidoDesde(removidos, inicio)
+        if (k === removidos.length || removidos[k][0] >= fim) return
+        // THE SAME TOKEN, CUT SHORT BY THE NORMAL PASS. `gh[pousr]_…{30,}` needs
+        // only 30 body characters and its lookahead accepts U+200B, so with the
+        // code point after the 30th the normal pass already matched the part
+        // BEFORE it. That shorter finding held the interval, nothing removed sat
+        // inside it, and the review measured 12 of 1,200 fuzzed lines printing
+        // `‹38 chars›` for a 40-character token with no `<U+XXXX>` at all. When
+        // every finding this match overlaps is the SAME rule and lies INSIDE its
+        // span, it is a piece of this token: the projected match replaces it. A
+        // different rule keeps its interval, which is how `$Token = "…"` stays
+        // `credencial-atribuida` and still carries the label.
+        const sobrepostos = daLinha.filter((d) => inicio < d.fim && d.inicio < fim)
+        if (
+          sobrepostos.length > 0 &&
+          sobrepostos.every((d) => d.regra === regra.nome && d.inicio >= inicio && d.fim <= fim)
+        ) {
+          for (const d of sobrepostos) daLinha.splice(daLinha.indexOf(d), 1)
+        }
+        registrar(regra, casado, inicio, fim)
+      },
+      contexto,
+    )
   }
 
   if (daLinha.length === 0) return
@@ -1090,7 +1240,7 @@ function varrerConteudo(caminho, dados, relatorio) {
   const achados = []
   const linhas = texto.split(/\r?\n/)
   for (let i = 0; i < linhas.length; i++) {
-    varrerLinha(caminho, i + 1, linhas[i], binario, achados, relatorio)
+    varrerLinha(caminho, i + 1, linhas[i], binario, achados, relatorio, { linhas, indice: i })
   }
   return achados
 }

@@ -25,8 +25,8 @@
     },
     {
       "arquivo": "tooling/rebar-check/proofs/cases · tooling/security/proofs/cases/",
-      "sha256": "d22c83f6c2c255f3f45f1dddda321ee4fdcf587ec5a6565d2d06f5a0f4c338f8",
-      "daqui": "the why of each of the 200 proof cases"
+      "sha256": "cf16de77ef636b21e8e64f899d937712588c2a9fd47541292bd6ff7b6da9c1c5",
+      "daqui": "the why of each of the 203 proof cases"
     },
     {
       "arquivo": "new/index.mjs",
@@ -1602,10 +1602,28 @@
           "porque": "The variant isolates ONE path, because a side satisfied by several paths at once proves none of them: the sibling case fails through four shapes together, and a rule narrowed to vendor-prefix findings only (`AKIA`, `ghp_`, `sk-`) would keep it red with this shape already invisible. This shape has no vendor prefix at all -- what denounces it is the identifier NAME plus the shape of the value -- and it is the exact one living in the main branch of a public repository today. The pass side is the same file with the same identifier in the same URL, fixed by reading `process.env`: a rule that decided by the name alone would fail the fix too, and failing the fix is worse than having no rule, because it teaches people to switch checking off."
         },
         {
+          "caso": "hardcoded-secret__elided-pem",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Two more of dotenv's ten findings are `README.md:122` and `:132`, and both are the same documented example: a `PRIVATE_KEY=` whose value opens with the BEGIN RSA PRIVATE KEY line, closes with the END one, and whose body between them is literally elided with `...`. There is no key there. The `chave-privada` rule matches the OPENING LINE and only it -- which is right, that line is public and is what makes the finding cheap to spot -- but it means the span handed to the placeholder is that line, which is never a placeholder, and the evidence is in the BODY, on other lines. That is why the placeholder now takes the file's lines. THE TEST IS ABOUT SHAPE, NOT ABOUT VOCABULARY, and both halves have to hold: key material is base64 in long runs, an elision is short runs plus an ellipsis. The fail side is the same document, the same two fences and the same two spellings -- and it carries an ellipsis TOO, in the middle of a body of real shape, which is what a person does when they paste a real key into documentation and cut the middle out. Those 64-character lines are still key material and the finding stands. Whoever keeps only the ellipsis test and drops the run test turns that fail side green; whoever drops the whole mechanism turns the pass side red."
+        },
+        {
           "caso": "hardcoded-secret__marker-outside-root",
           "aprovar": "passou",
           "reprovar": "reprovou",
           "porque": "Until 2026-09-13 the secret scanner exempted every file below ANY caso.json on disk, in any ancestor folder, even under --staged: an empty, untracked caso.json hidden by .git/info/exclude, or a directory named caso.json, took every finding below it out of the scan in both modes, and hardcoded-secret passed with it. The fail side is a schema-valid src/caso.json OUTSIDE the two literal proof roots, beside one vendor-shaped value (the same synthetic literal the sibling case already commits): a scanner that goes back to 'any ancestor caso.json' turns it green. The pass side is the same marker beside a value read from process.env, so a rule that failed any tree holding a caso.json goes red. Every file here is tracked on disk and none comes from gerados: tracked mode reads the disk, so an index-only fixture would not be read at all and the fail side would come out passed with a coverage note, the wrong verdict."
+        },
+        {
+          "caso": "hardcoded-secret__value-is-the-word",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "The last two of dotenv's ten findings are `tests/test-parse.js:88` and `tests/test-parse-multiline.js:62`, and both are `{ SERVER: 'localhost', PASSWORD: 'password', DB: 'tests' }` -- the expected payload of a parser test. `password` is the word the key already says; as a VALUE it announces itself as a stand-in, the same way `changeme` and `your-...` already do in PLACEHOLDER_FORTE. THIS IS NOT \"any line in a test file\", and that boundary is the whole point of the case: the fail side is the same fixture, the same key and the same test, with a value that announces NOTHING -- and a credential inside a fixture is still a credential, so the rule has to go on catching it. A word passphrase and not a high-entropy body, on purpose: what decides the exemption is the value BEING the word the key says, never its entropy, and a fixture does not need to look leaked to every other scanner that reads this repository. The alternative is anchored to the END of the span, so it only ever fires when the value IS the word and nothing else. Whoever exempts on the word appearing ANYWHERE in the span exempts the key too, and every `password: '...'` in the repository with it."
+        },
+        {
+          "caso": "hardcoded-secret__vendor-example",
+          "aprovar": "passou",
+          "reprovar": "reprovou",
+          "porque": "Measured on 2026-09-17 on `motdotla/dotenv`: \"10 credential(s) in tracked files ... what is in history has to be ROTATED\", and two of the ten are `AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE`, in `scripts/parse-perf.js:20` and in `tests/test-parse-perf.js:20`. That string is AWS's OWN canonical example, published in AWS's documentation for exactly this purpose, together with the secret key that goes with it. Telling that repository to rotate it is telling it to rotate a credential of nobody's, and a rule that does that teaches people to switch the whole output off. `PLACEHOLDER_FORTE` cannot reach it, for the reason written in its own header: the disabler has to appear between WORD BOUNDARIES inside the span, and in `AKIAIOSFODNN7EXAMPLE` the `EXAMPLE` is glued to a `7` on the left. The exemption is a set of EXACT LITERALS, and that is what makes it safe to hand to an `alta` rule -- an exact set cannot release anything but the strings inside it. BOTH SPELLINGS ARE HERE ON PURPOSE, bare as in a .env and assigned to a key as in a client: a finding a placeholder releases does not keep its interval, so an exempted vendor span frees it and `credencial-atribuida` matches the WIDER one, `accessKeyId: '...'`, reporting the same line again under another name. Measured on `mastra-ai/mastra`: the first version of this fix removed 45 findings and ADDED 6, all of them exactly that. The fail side is the same file, the same two shapes, the same four lines and even the same secret key -- which goes on being the one AWS publishes. What changes is ONE string, the access key ID, which is nobody's published example: it has the prefix and the length the rule reads, and a credential of real shape inside a fixture is still a credential. Whoever widens this into \"ends in EXAMPLE\" or \"contains EXAMPLE\" turns the fail side green and reopens HOLE 2 by another door."
         }
       ]
     },
