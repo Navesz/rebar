@@ -1,0 +1,10 @@
+{
+  "name": "prova-atalho-npm",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "ci": "npm run lint",
+    "lint": "node ferramenta/lint.mjs",
+    "test": "npm run lint && node teste.mjs"
+  }
+}
