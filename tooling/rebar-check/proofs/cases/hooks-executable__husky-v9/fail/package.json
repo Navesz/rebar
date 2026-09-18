@@ -1,0 +1,6 @@
+{
+  "name": "exemplo",
+  "private": true,
+  "scripts": { "prepare": "husky install" },
+  "devDependencies": { "husky": "^8.0.3" }
+}

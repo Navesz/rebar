@@ -1,0 +1,10 @@
+{
+  "rule": "hooks-executable",
+  "why": "The exemption SUBTRACTS the husky-managed hooks, it does not turn the rule off. Both sides declare husky 9 and both carry a `.husky/pre-commit` at 100644, which is right there and is not accused; what changes is `tooling/hooks/pre-push`, a hook with a shebang, in a committed directory, of the kind `core.hooksPath` points at and git runs DIRECTLY — 100755 on the pass side, 100644 on the fail side. It is rebar's own layout, and rebar is the true positive this rule must keep catching. Whoever reads `.husky/` plus husky in the manifest as `na` FOR THE WHOLE REPOSITORY makes the fail side green and buys silence about a real mute gate with the presence of an unrelated dependency.",
+  "pass": {
+    "modos": { ".husky/pre-commit": "100644", "tooling/hooks/pre-push": "100755" }
+  },
+  "fail": {
+    "modos": { ".husky/pre-commit": "100644", "tooling/hooks/pre-push": "100644" }
+  }
+}

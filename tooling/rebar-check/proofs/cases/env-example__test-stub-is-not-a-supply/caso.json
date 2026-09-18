@@ -1,0 +1,6 @@
+{
+  "rule": "env-example",
+  "why": "A WRITE IN A TEST IS A STUB, NOT A SUPPLY, and this cost a measurement to learn. The first version of the write exemption read the test files too, and on `browserbase/stagehand` it silently dropped `HERMES_SESSION_PLATFORM` and `OPENCLAW_SHELL` from the accusation, because `packages/cli/tests/agent.test.ts` does `process.env.HERMES_SESSION_PLATFORM = \"telegram\"` to stage the case. In production those two come from OUTSIDE — from the agent whose presence they detect — and they are exactly what a `.env.example` exists to announce. A test stating what it wants the environment to look like is the opposite of the repository supplying the value. The two trees here have the same source, the same test and the same stub of both variables; only one line of the `.env.example` changes. Whoever lets the scan read the tests makes the fail side green, and buys the exemption with a line in a test — the same hole the secret scanner refuses under the name \"any line in a test file\".",
+  "pass": {},
+  "fail": {}
+}

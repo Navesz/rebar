@@ -1,0 +1,19 @@
+name: ci
+
+on: [push]
+
+jobs:
+  formato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm ci
+      - run: npm run format
+
+  testar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm ci
+      - run: npm test
+      - run: git diff --exit-code

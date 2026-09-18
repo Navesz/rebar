@@ -1,0 +1,6 @@
+{
+  "rule": "ci-gates",
+  "why": "Measured on 2026-09-17 on `motdotla/dotenv`: `the CI does not reach: lint`, with `.github/workflows/ci.yml` running `npm test` and the `test` script being `npm run build && npm run lint && npm run dts-check && tap run …`. The lint runs on every push. The expansion did not follow it because `npm test` is npm's LIFECYCLE SHORTHAND — there is no `run` in it — and the invocation expression demanded the literal word. The two trees here run the same `npm ci` and the same `npm test`; only the body of `test` changes, and with it whether the chain reaches the lint. TWO LOCKS IN ONE CASE, because `npm ci` is on both sides and there is a script CALLED `ci` on both sides, chaining the lint: whoever reads any bare token after a package manager as a script name makes the fail side green, and buys `npm ci` — the most common line there is in a CI — as proof that a repository runs whatever a script of that name chains. `npm ci` is the clean install, not that script.",
+  "pass": {},
+  "fail": {}
+}

@@ -1,0 +1,22 @@
+name: ci
+
+on: [push]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm ci
+      - name: gerar o esquema
+        run: npm run gerar-esquema
+      - name: o esquema gerado é o que está versionado
+        run: git diff --exit-code -- esquema.json
+      - name: formatar
+        run: npm run format
+      - name: a árvore não pode ter mudado
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git diff
+            exit 1
+          fi
