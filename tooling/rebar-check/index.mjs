@@ -1204,6 +1204,60 @@ const comandosEfetivosDoCi = (r) =>
     .map((w) => comandosDoCi(ler(r.dir, w) || '').replace(/(^|\s)#[^\n]*/g, '$1'))
     .join('\n')
 
+// ──────────────── a hook git does not run is a hook that needs no execute bit
+//
+// MEASURED ON 2026-09-17, on `mastra-ai/mastra` (husky `^9.1.7`): rebar printed
+// `hooks-executable ✗ … .husky/pre-commit — fix with: git update-index --chmod=+x`
+// about a hook that runs on every commit there. The advice was wrong, and
+// following it would have changed nothing.
+//
+// What husky 9 does, read from the published `husky@9.1.7` tarball and not from
+// its documentation:
+//
+//   · `index.js` runs `git config core.hooksPath .husky/_`, so the directory git
+//     executes is `.husky/_`, NOT the committed `.husky/`;
+//   · it writes `.husky/_/<hook>` itself, with `mode: 0o755`, and copies its own
+//     `husky` script to `.husky/_/h`;
+//   · `.husky/_/.gitignore` is `*`, so none of that is committed — it is
+//     rebuilt by `prepare` on every install;
+//   · `.husky/_/h` ends with `sh -e "$s" "$@"`, where `$s` is the committed
+//     `.husky/<hook>`. It is SOURCED THROUGH AN EXPLICIT INTERPRETER, so the
+//     execute bit on the committed file decides nothing, and husky 9 hooks carry
+//     no shebang by design.
+//
+// THE VERSION IS THE WHOLE OF THE DIFFERENCE, and this is why the exemption is
+// not "the path starts with .husky/". husky 8 (`lib/index.js` of `husky@8.0.3`,
+// read the same way) runs `git config core.hooksPath <dir>` with `<dir>` being
+// `.husky` ITSELF — the committed directory. There git executes the committed
+// file DIRECTLY, and a 100644 `.husky/pre-commit` is ignored on Linux exactly as
+// this rule says. Accusing husky 8 is right; accusing husky 9 is not.
+//
+// Everything else stays accused, and rebar itself is the case the rule must keep
+// catching: `tooling/hooks/pre-commit` has a shebang, `core.hooksPath` points at
+// that COMMITTED directory, and git runs it directly.
+const RE_HOOK_HUSKY = /^\.husky\/[^/]+$/
+
+const PORQUE_HUSKY =
+  '.husky/_/h sources them with `sh -e`, so git never executes the committed file'
+
+/**
+ * The declared husky major, when it is 9 or above, as it was written. Null when
+ * husky is not declared, when the range does not name a major, or when that
+ * major is 8 or below — in all of those the hook may be what git runs directly,
+ * and a rule about a gate errs towards accusing, not towards the exemption.
+ *
+ * The version is read from the DECLARATION and not from `node_modules`, for the
+ * same reason every other rule here reads git and not the disk: it is the
+ * declaration that travels in the clone.
+ */
+function huskyV9(r) {
+  const faixa = dependenciasDeTodos(r).husky
+  if (typeof faixa !== 'string') return null
+  const m = /(\d+)\s*\./.exec(faixa) || /(\d+)\s*$/.exec(faixa)
+  if (!m) return null
+  return Number(m[1]) >= 9 ? m[1] : null
+}
+
 // ───────────────────────────────── what is, and what is NOT, a content literal
 //
 // §12.3 of the plan settled that the content of the `site` preset lives in
@@ -2126,11 +2180,20 @@ export const REGRAS = [
     //
     // The mode read is the INDEX's, not the disk's: a local `chmod` does not
     // travel in the clone, and it is the clone that lands on the user's machine.
+    //
+    // WHAT THE RULE ASKS IS NOT "be executable", IT IS "git can run you". The
+    // two were the same thing until husky 9, and taking them for the same thing
+    // accused `mastra-ai/mastra` — measured on 2026-09-17 — of a hook that runs
+    // on every commit there. See `huskyV9` for the mechanism and for the
+    // version, which is the whole of the difference.
     checar: (r) => {
       const nomes =
         /(^|\/)(pre-commit|commit-msg|pre-push|prepare-commit-msg|post-checkout|pre-rebase)$/
-      const hooks = r.arquivos.filter((a) => nomes.test(a))
-      if (!hooks.length) return na('no file with a git hook name')
+      const todos = r.arquivos.filter((a) => nomes.test(a))
+      if (!todos.length) return na('no file with a git hook name')
+      const husky = huskyV9(r)
+      const hooks = husky ? todos.filter((h) => !RE_HOOK_HUSKY.test(h)) : todos
+      if (!hooks.length) return na(`hooks managed by husky ${husky} — ${PORQUE_HUSKY}`)
       const modos = modosDoIndice(r.dir)
       const mudos = hooks.filter((h) => modos.get(h) !== '100755')
       return mudos.length
