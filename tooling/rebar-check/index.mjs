@@ -1476,6 +1476,149 @@ const comandosEfetivosDoCi = (r) =>
     .map((w) => comandosDoCi(ler(r.dir, w) || '').replace(/(^|\s)#[^\n]*/g, '$1'))
     .join('\n')
 
+// ───────────────────── where a .env.example lives, and who it has to document
+//
+// MEASURED ON 2026-09-17, on `Skyvern-AI/skyvern`: `not documented:
+// VITE_MOCK_ANALYTICS, VITE_API_BASE_URL, VITE_ENABLE_LOG_ARTIFACTS,
+// VITE_WSS_BASE_URL`. Three of the four are in `skyvern-frontend/.env.example`,
+// which is WHERE THEY BELONG — Vite reads the env from the package directory,
+// not from the repository root, and a `VITE_` variable written into a root file
+// would not reach the build. The rule read `<root>/.env.example` and nothing
+// else, so the monorepo that documented it in the right place was accused of not
+// documenting it. It is the "defect looked for recursively, defense looked for
+// only at the root" family, for the fourth time in this file.
+//
+// The climb is the same one `ui-falso` makes, and for the same reason: a file
+// ABOVE the reader documents it, a file BESIDE it does not. `web/.env.example`
+// does not answer for a variable read at the root, and `outro/.env.example` does
+// not answer for one read in `web/`.
+
+/** The tracked `.env.example` family, each with the folder it answers for. */
+const RE_EXEMPLO_DE_ENV = /(^|\/)\.env\.(example|sample|template)$/i
+
+function exemplosDeEnv(dir, arquivos) {
+  const saida = []
+  for (const rel of arquivos) {
+    if (!RE_EXEMPLO_DE_ENV.test(rel) || IGNORAR.test(rel)) continue
+    const texto = ler(dir, rel)
+    if (texto !== null) saida.push({ pasta: pastaDe(rel), texto })
+  }
+  // The root file read from DISK, when it is not tracked. It is the only read of
+  // this kind left here and it is deliberate: the rule already behaved this way,
+  // and turning an untracked `.env.example` into an accusation is a change of
+  // verdict that has nothing to do with the monorepo defect being fixed.
+  if (!saida.some((e) => e.pasta === '')) {
+    const raiz = ler(dir, '.env.example')
+    if (raiz !== null) saida.push({ pasta: '', texto: raiz })
+  }
+  return saida
+}
+
+const documentaEm = (exemplo, nome) => new RegExp(`^${nome}\\s*=`, 'm').test(exemplo.texto)
+
+/**
+ * Documented for EVERY place that reads it: each reading folder needs an
+ * `.env.example` at or above it that names the variable.
+ *
+ * Every and not any, and it costs nothing against what the rule did before: the
+ * root is an ancestor of every folder, so whatever the root file documented goes
+ * on documented. What changes is only that a nested file now answers for what is
+ * below it.
+ */
+const documentadaPara = (r, nome, pastas) =>
+  [...pastas].every((pasta) => {
+    const acima = new Set(ancestrais(pasta))
+    return r.envExemplos.some((e) => acima.has(e.pasta) && documentaEm(e, nome))
+  })
+
+// ───────────────────────── a variable the repository WRITES is not the user's
+//
+// MEASURED ON 2026-09-17, on `oraios/serena`: `not documented:
+// SERENA_SOLIDITY_STATE_DIR`. The accusation is INVERTED. That variable is not
+// read from the user's environment — serena WRITES it, in
+// `src/solidlsp/language_servers/solidity_language_server.py`
+// (`launch_env["SERENA_SOLIDITY_STATE_DIR"] = state_dir`), into the environment
+// of a child process it launches itself, and the only thing that reads it is
+// `solidity_homedir_preload.cjs`, the preload of that child. It is an internal
+// channel between two processes of the same repository. Asking the person who
+// clones it to fill that in in a `.env.example` is asking them to configure
+// something that is not theirs, and it is worse than a missing rule: it is a
+// wrong instruction.
+//
+// THE WRITE IS IN ANOTHER LANGUAGE, and that is the whole difficulty. The rule
+// DISCOVERS variables in JavaScript only, because `process.env.X` is a
+// JavaScript shape; the write can be anywhere. So the exculpation reads, beyond
+// the sources already in memory, the tracked Python, Ruby and shell — the
+// languages where the `<something>env["X"] = …` shape lives, and the ones
+// measured here. It reads them only when there is already something to accuse,
+// and it stops as soon as every accused name is accounted for.
+//
+// WRITTEN, not "written and never read": in serena the value IS read back, by
+// the child. What decides is who SUPPLIES it, and the repository supplying it is
+// what takes the variable out of the user's hands. Erring here is an accusation
+// not made, which is the cheap error and the one this ruler chooses.
+//
+// A WRITE IN A TEST IS A STUB, NOT A SUPPLY, and this cost a measurement to
+// learn. The first version of this scan read the test files too, and on
+// `browserbase/stagehand` it silently dropped `HERMES_SESSION_PLATFORM` and
+// `OPENCLAW_SHELL` from the accusation, because `packages/cli/tests/agent.test.ts`
+// does `process.env.HERMES_SESSION_PLATFORM = "telegram"` to stage the case. In
+// production those two come from OUTSIDE — from the agent whose presence they
+// detect — and they are exactly what a `.env.example` exists to announce. A test
+// stating what it wants the environment to look like is the opposite of the
+// repository supplying it, and buying the exemption with a line in a test is the
+// same hole the secret scanner refuses under the name "any line in a test file".
+const EXT_ESCRITA_DE_ENV = /\.(py|pyi|rb|sh|bash|zsh|mjs|cjs|jsx?|tsx?)$/i
+
+/**
+ * `<something>env<something>` followed by the assignment of a NAME:
+ * `process.env.X = `, `launch_env["X"] = `, `os.environ['X'] = `, `ENV["X"] = `.
+ *
+ * ONE expression that captures the name, and not one expression per name, and
+ * that is a measurement and not a style: the first version built a RegExp per
+ * accused variable and tested each against each source. On `mastra-ai/mastra`,
+ * 561 accused variables against ~10,000 sources, the rule went from 7.4 s to
+ * 3 min 47 s. Anchored on the literal `env`, with no `.*` before it, the scan is
+ * one linear pass per file and a Set lookup per hit — and the leading `.*` is
+ * also what could have made a minified line quadratic.
+ *
+ * `=(?![=>])` is the whole of the direction: `launch_env["X"] == y` is a
+ * comparison and `… = launch_env["X"]` is a read. Neither is a supply.
+ */
+const RE_ESCRITA_DE_ENV =
+  /[eE][nN][vV][A-Za-z0-9_]*(?:\.([A-Z][A-Z0-9_]*)|\[\s*["'`]([A-Z][A-Z0-9_]*)["'`]\s*\])\s*=(?![=>])/g
+
+function escritasDeEnv(r, nomes) {
+  const achadas = new Set()
+  if (!nomes.length) return achadas
+  const pendentes = new Set(nomes)
+
+  const varrer = (texto) => {
+    RE_ESCRITA_DE_ENV.lastIndex = 0
+    for (const m of texto.matchAll(RE_ESCRITA_DE_ENV)) {
+      const nome = m[1] || m[2]
+      if (pendentes.has(nome)) achadas.add(nome)
+    }
+    return achadas.size === pendentes.size
+  }
+
+  // `r.fontes` is production only — `fontes()` already sent the tests to
+  // `fontesTeste`, and they stay out here for the reason in the header.
+  for (const [, texto] of r.fontes) if (varrer(texto)) return achadas
+  for (const rel of r.arquivos) {
+    if (!EXT_ESCRITA_DE_ENV.test(rel) || IGNORAR.test(rel) || CODIGO.test(rel)) continue
+    if (ehTeste(rel)) continue
+    try {
+      if (statSync(join(r.dir, rel)).size > 512 * 1024) continue
+    } catch {
+      continue
+    }
+    const texto = ler(r.dir, rel)
+    if (texto !== null && varrer(texto)) return achadas
+  }
+  return achadas
+}
+
 // ──────────────── a hook git does not run is a hook that needs no execute bit
 //
 // MEASURED ON 2026-09-17, on `mastra-ai/mastra` (husky `^9.1.7`): rebar printed
@@ -2384,12 +2527,22 @@ export const REGRAS = [
     titulo: 'reads env and documents it in .env.example',
     checar: (r) => {
       if (!r.varsEnv.size) return na('does not read environment variables')
-      if (!r.envExample)
-        return `reads ${r.varsEnv.size} environment variable(s) and has no .env.example`
-      const faltando = [...r.varsEnv].filter(
-        (v) => !new RegExp(`^${v}\\s*=`, 'm').test(r.envExample),
-      )
-      return faltando.length ? `not documented: ${faltando.slice(0, 4).join(', ')}` : null
+      const lidas = [...r.varsEnv.keys()]
+      const semDoc = r.envExemplos.length
+        ? lidas.filter((v) => !documentadaPara(r, v, r.varsEnv.get(v)))
+        : lidas
+      if (!semDoc.length) return null
+      // Asked LAST, and only about what is about to be accused: the write scan
+      // costs a read of the tracked Python, Ruby and shell, and nobody pays for
+      // it on the green path. A variable the repository writes into an
+      // environment itself is not documentation anyone owes — see
+      // `escritasDeEnv` for the measurement on `oraios/serena`.
+      const escritas = escritasDeEnv(r, semDoc)
+      const faltando = semDoc.filter((v) => !escritas.has(v))
+      if (!faltando.length) return null
+      if (!r.envExemplos.length)
+        return `reads ${faltando.length} environment variable(s) and has no .env.example`
+      return `not documented: ${faltando.slice(0, 4).join(', ')}`
     },
   },
 
@@ -3269,14 +3422,20 @@ export function lerRepo(dir) {
   // READS AT RUNTIME, and a variable quoted in a comment is read by nobody.
   // Without this, a note explaining the env-fallback pattern made rebar itself
   // fail `env-example` over two variables that do not exist.
-  const varsEnv = new Set()
-  for (const [, t] of fs_) {
+  //
+  // A MAP AND NOT A SET, and the value is WHERE it is read: a variable read in
+  // `web/` is documented by `web/.env.example`, and one read at the root is not.
+  // Losing the reader's folder is what made the rule read only the root file in
+  // a monorepo — see `documentadaPara`.
+  const varsEnv = new Map()
+  for (const [caminho, t] of fs_) {
     for (const [, espaco, nome] of semComentario(t).matchAll(
       /(process|import\.meta)\.env\.([A-Z][A-Z0-9_]*)/g,
     )) {
       if (ENV_DO_AMBIENTE.has(nome)) continue
       if (espaco === 'import.meta' && BUILTIN_DO_BUNDLER.has(nome)) continue
-      varsEnv.add(nome)
+      if (!varsEnv.has(nome)) varsEnv.set(nome, new Set())
+      varsEnv.get(nome).add(pastaDe(caminho))
     }
   }
 
@@ -3312,7 +3471,7 @@ export function lerRepo(dir) {
     varsEnv,
     commits,
     autores,
-    envExample: ler(dir, '.env.example'),
+    envExemplos: exemplosDeEnv(dir, arquivos),
     workflows: arquivos.filter((a) => /^\.github\/workflows\/.+\.ya?ml$/.test(a)),
   }
 }

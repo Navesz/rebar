@@ -1,0 +1,6 @@
+{
+  "rule": "env-example",
+  "why": "Measured on 2026-09-17 on `Skyvern-AI/skyvern`: `not documented: VITE_API_BASE_URL, VITE_WSS_BASE_URL, VITE_ENABLE_LOG_ARTIFACTS` — all three are in `skyvern-frontend/.env.example`, which is WHERE THEY BELONG, because Vite reads the env from the package directory and a `VITE_` written into a root file would not reach the build. The rule read `<root>/.env.example` and nothing else, so the monorepo that documented it in the right place was accused of not documenting it: 12 variables accused, of which 7 were documented. It is the \"defect looked for recursively, defense looked for only at the root\" family, for the fourth time in this ruler. The climb is the same one `ui-falso` makes, and this case is what keeps it from becoming \"anywhere\": the two trees hold the same `web/src/configuracao.ts`, the same root `.env.example` and the same file documenting the two variables — only the FOLDER it sits in changes, from `web/`, which is above the reader, to `outro/`, which is a sibling and reaches nothing. Whoever accepts any `.env.example` in the repository turns the fail side green and buys an unrelated package's file as documentation.",
+  "pass": {},
+  "fail": {}
+}
