@@ -201,7 +201,7 @@ avisada antes de escrever, e não depois.
 O artefato é **derivado, nunca duplicado**: o `npm run verify` o regenera em memória e reprova
 se o disco divergir. É impossível mudar uma regra e esquecer o MCP.
 
-Ele carrega <!--n mcp.artefato.regras-->40<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->27<!--/n--> passos de portão e <!--n mcp.artefato.provas-->200<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
+Ele carrega <!--n mcp.artefato.regras-->40<!--/n--> regras de dois módulos, <!--n mcp.artefato.passos-->27<!--/n--> passos de portão e <!--n mcp.artefato.provas-->203<!--/n--> provas, expostos em <!--n mcp.ferramentas-->5<!--/n--> ferramentas.
 
 ## Mapa do repositório
 
