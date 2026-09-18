@@ -858,19 +858,143 @@ function comandosDoCi(yml) {
   return saida.join('\n')
 }
 
+/**
+ * Package-manager subcommands that are NOT a script by that name.
+ *
+ * `pnpm x` runs the script `x`, and that is the shorthand this list exists to
+ * keep honest: a repository with a script called `ci` would have `npm ci` — the
+ * clean install — read as running it, and the expansion would swear the CI
+ * reaches whatever that script chains. Erring here is a FALSE NEGATIVE, which is
+ * the cheap error, and it is the direction a gate rule chooses.
+ */
+const SUBCOMANDOS_DE_GESTOR = new Set([
+  'install',
+  'i',
+  'ci',
+  'add',
+  'remove',
+  'rm',
+  'uninstall',
+  'update',
+  'up',
+  'upgrade',
+  'exec',
+  'dlx',
+  'x',
+  'create',
+  'init',
+  'link',
+  'unlink',
+  'publish',
+  'pack',
+  'audit',
+  'outdated',
+  'list',
+  'ls',
+  'why',
+  'dedupe',
+  'prune',
+  'rebuild',
+  'config',
+  'store',
+  'licenses',
+  'patch',
+  'deploy',
+  'fetch',
+  'import',
+  'root',
+  'bin',
+  'env',
+  'node',
+  'version',
+  'login',
+  'logout',
+  'whoami',
+  'cache',
+  'setup',
+  'workspace',
+  'workspaces',
+])
+
+/**
+ * A package manager invoking a script: the manager, any flags, an optional
+ * `run`/`run-script`, and the name.
+ *
+ * THE WHITESPACE IS WHY THIS WAS REWRITTEN. The previous expression was
+ * `(?:npm\s+run|pnpm\s+(?:run\s+)?|yarn\s+(?:run\s+)?|run-[sp])\s+<name>`: the
+ * alternatives already ate the space after the manager, and the `\s+` outside
+ * the group demanded ANOTHER one. Measured, on 2026-09-17:
+ *
+ *   `npm run lint`   → expanded      `pnpm check`     → DID NOT expand
+ *   `run-s lint`     → expanded      `yarn lint`      → DID NOT expand
+ *   `pnpm  check`    → expanded      `yarn run lint`  → DID NOT expand
+ *   (two spaces)                     `npm test`       → DID NOT expand
+ *
+ * `pnpm run x` only worked by accident, through the `npm\s+run` alternative
+ * matching the substring inside `pnpm run`. That is: of the four spellings the
+ * expression names, only the npm ones ever worked, and every `pnpm`/`yarn`
+ * script chain in every audited repository went unexpanded.
+ */
+const RE_GESTOR_DE_PACOTE =
+  /(?:^|[\s;&|(])(npm|pnpm|yarn|bun)\s+(?:--?[\w-]+(?:=\S+)?\s+)*(run\s+|run-script\s+)?([\w@][\w:.\-/]*)/g
+
+/**
+ * npm's lifecycle shorthands: `npm test` IS `npm run test`, with no `run`.
+ * It is the whole of what the CI of `motdotla/dotenv` executes — `npm test`,
+ * whose body chains `npm run lint` — and the reason it was accused of "the CI
+ * does not reach: lint" while the lint runs on every push.
+ */
+const ATALHOS_NPM = new Set(['test', 't', 'tst', 'start', 'stop', 'restart'])
+
+/**
+ * A task runner that takes a LIST of names: `turbo run fmt:check lint typecheck`,
+ * `nx run-many -t lint test`, `run-s a b`, `npm-run-all a b`.
+ *
+ * It is what `browserbase/stagehand` runs — `pnpm check`, and `check` is
+ * `turbo run fmt:check lint typecheck` — and the tail is taken up to the first
+ * shell separator, because everything after it is another command.
+ */
+const RE_ORQUESTRADOR =
+  /(?:^|[\s;&|(])(?:turbo\s+run|nx\s+run-many|nx\s+run|run-[sp]|npm-run-all)\s+([^\n;&|]*)/g
+
+/**
+ * Every script name a shell text invokes, in any of the spellings above.
+ *
+ * A name is only ever LOOKED UP here; whether it exists is the caller's
+ * question, so a wrong guess costs nothing but a lookup that misses. That is
+ * what lets the orchestrator branch offer both the whole token and its part
+ * after the last colon: `fmt:check` is the script's own name under turbo, and
+ * `projeto:build` under nx names the target `build`.
+ */
+function nomesInvocados(texto) {
+  const nomes = new Set()
+  for (const [, gestor, explicito, nome] of texto.matchAll(RE_GESTOR_DE_PACOTE)) {
+    if (explicito) nomes.add(nome)
+    else if (gestor === 'npm') {
+      if (ATALHOS_NPM.has(nome)) nomes.add(nome)
+    } else if (!SUBCOMANDOS_DE_GESTOR.has(nome)) nomes.add(nome)
+  }
+  for (const m of texto.matchAll(RE_ORQUESTRADOR)) {
+    for (const bruto of m[1].split(/[\s,]+/)) {
+      if (!bruto || bruto.startsWith('-')) continue
+      nomes.add(bruto)
+      const dois = bruto.lastIndexOf(':')
+      if (dois > 0) nomes.add(bruto.slice(dois + 1))
+    }
+  }
+  return nomes
+}
+
 function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
   let texto = comandosDoCi(yml)
   const vistos = new Set()
   const lidos = new Set()
   for (let i = 0; i < profundidade; i++) {
     let cresceu = false
+    const invocados = nomesInvocados(texto)
     for (const [nome, corpo] of Object.entries(scripts)) {
       if (vistos.has(nome)) continue
-      // `npm run x`, `pnpm x`, `yarn x`, `run-s x`, `run-p x`
-      const invocado = new RegExp(
-        `(?:npm\\s+run|pnpm\\s+(?:run\\s+)?|yarn\\s+(?:run\\s+)?|run-[sp])\\s+${nome}\\b`,
-      )
-      if (invocado.test(texto)) {
+      if (invocados.has(nome)) {
         texto += '\n' + semComentario(corpo)
         vistos.add(nome)
         cresceu = true
