@@ -1,0 +1,6 @@
+{
+  "rule": "formatter",
+  "why": "The vocabulary was four families — prettier, biome, dprint and eslint with a layout plugin — and a repository whose formatter belongs to another language was told it has none. Measured on 2026-09-17 on `biomejs/biome`, which is an npm project and therefore inside this rule: `.github/workflows/main.yml` runs `cargo fmt --all --verbose -- --check`, which is a check outright, and `autofix.yml` runs `cargo fmt --all` followed by `autofix-ci/action`, which is the write-then-verify shape. It gates its formatting TWICE and the accusation was `script lint, lint only rewrites`. Rejecting a repository for enforcing formatting, because the enforcement is written in another language's tool, is the same mistake this rule already paid for with `tailwind-merge` and with `@radix-ui`. The two sides here differ in the flag rustfmt reads: `-- --check` fails on a badly formatted file, and the bare form REWRITES it in silence — the same writer-is-not-a-checker line that opened this rule. Both sides declare prettier and a `format` that only rewrites, so what decides the verdict is the cargo line and nothing else.",
+  "pass": {},
+  "fail": {}
+}

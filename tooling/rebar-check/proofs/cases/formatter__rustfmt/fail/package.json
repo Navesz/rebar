@@ -1,0 +1,10 @@
+{
+  "name": "prova-rustfmt",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
+}

@@ -834,28 +834,89 @@ const RE_RUNNER =
  * fails a CI that does verify — a false positive, and the repository chooses
  * the false positive over the false negative when the subject is a gate.
  */
-function comandosDoCi(yml) {
+/**
+ * The steps, IN ORDER, with the `uses:` beside the `run:`.
+ *
+ * `comandosDoCi` is this same walk with the order and the `uses:` thrown away,
+ * and it stayed the shape every word-presence check wants. What needs the steps
+ * apart and in order is `escreveEConfere`: "the formatter ran and after it
+ * something failed on the dirty tree" is a claim about SEQUENCE, and a text
+ * where every command is glued together cannot carry it.
+ */
+function passosDoCi(yml) {
   const linhas = yml.split('\n')
   const saida = []
   for (let i = 0; i < linhas.length; i++) {
     const m = linhas[i].match(/^(\s*)-?\s*run\s*:\s*(.*)$/)
-    if (!m) continue
-    const [, recuo, resto] = m
-    // Block scalar: `run: |` or `run: >`, and the command comes indented below.
-    if (/^[|>][-+]?\s*$/.test(resto)) {
-      const base = recuo.length
-      for (let j = i + 1; j < linhas.length; j++) {
-        if (linhas[j].trim() === '') continue
-        const r = linhas[j].match(/^(\s*)/)[1].length
-        if (r <= base) break
-        saida.push(linhas[j])
-        i = j
+    if (m) {
+      const [, recuo, resto] = m
+      // Block scalar: `run: |` or `run: >`, and the command comes indented below.
+      if (/^[|>][-+]?\s*$/.test(resto)) {
+        const base = recuo.length
+        const corpo = []
+        for (let j = i + 1; j < linhas.length; j++) {
+          if (linhas[j].trim() === '') continue
+          const r = linhas[j].match(/^(\s*)/)[1].length
+          if (r <= base) break
+          corpo.push(linhas[j])
+          i = j
+        }
+        if (corpo.length) saida.push({ tipo: 'run', texto: corpo.join('\n') })
+      } else if (resto) {
+        saida.push({ tipo: 'run', texto: resto })
       }
-    } else if (resto) {
-      saida.push(resto)
+      continue
     }
+    const u = linhas[i].match(/^\s*-?\s*uses\s*:\s*['"]?([^\s'"]+)/)
+    if (u) saida.push({ tipo: 'uses', texto: u[1] })
   }
-  return saida.join('\n')
+  return saida
+}
+
+function comandosDoCi(yml) {
+  return passosDoCi(yml)
+    .filter((p) => p.tipo === 'run')
+    .map((p) => p.texto)
+    .join('\n')
+}
+
+/**
+ * The workflow cut into its jobs, as raw YAML slices.
+ *
+ * Job-scoped and not file-scoped, because the claim `escreveEConfere` makes is
+ * about one RUN: a `prettier --write` in the release job and a
+ * `git diff --exit-code` in an unrelated job never meet, and reading the whole
+ * file as one text would let two strangers vouch for each other.
+ *
+ * The cut is by the indentation of the FIRST child key of `jobs:`, and not by a
+ * fixed two spaces: two is the convention, not the grammar. A file with no
+ * `jobs:` comes back whole — being wrong about the shape must not silently
+ * delete the content.
+ */
+function blocosDeJob(yml) {
+  const linhas = yml.split('\n')
+  const iJobs = linhas.findIndex((l) => /^jobs\s*:/.test(l))
+  if (iJobs === -1) return [yml]
+  const blocos = []
+  let recuo = null
+  let atual = null
+  for (let i = iJobs + 1; i < linhas.length; i++) {
+    const l = linhas[i]
+    if (!l.trim() || /^\s*#/.test(l)) {
+      if (atual) atual.push(l)
+      continue
+    }
+    const r = l.match(/^(\s*)/)[1].length
+    // Back to column zero: another top-level key, `jobs:` is over.
+    if (r === 0) break
+    if (recuo === null) recuo = r
+    if (r === recuo && /^\s*[\w.-]+\s*:/.test(l)) {
+      atual = []
+      blocos.push(atual)
+    }
+    if (atual) atual.push(l)
+  }
+  return blocos.length ? blocos.map((b) => b.join('\n')) : [yml]
 }
 
 /**
@@ -1300,6 +1361,7 @@ function confereFormato(texto, dependencias) {
       return temSubcomando(cmd, 'ci', 'check', 'format')
     }
     if (invocaCli(cmd, 'dprint')) return temSubcomando(cmd, 'check')
+    if (invocaRustfmt(cmd)) return temFlag(cmd, '--check')
     if (invocaCli(cmd, 'eslint')) {
       if (temFlag(cmd, '--fix')) return false
       return temEstiloNoEslint(dependencias)
@@ -1308,11 +1370,97 @@ function confereFormato(texto, dependencias) {
   })
 }
 
+/**
+ * The fifth family, and it entered because of a measurement, like the other
+ * four: `biomejs/biome` — an npm project, so the rule applies to it — gates its
+ * formatting TWICE and rebar saw neither, because both are Rust. `main.yml`
+ * runs `cargo fmt --all --verbose -- --check`, which is a check outright, and
+ * `autofix.yml` runs `cargo fmt --all` followed by `autofix-ci/action`, which is
+ * the write-then-verify shape below. Rejecting a repository for formatting it
+ * enforces, because the enforcement is written in another language's tool, is
+ * the vocabulary mistake this section already names twice.
+ *
+ * The check spelling is `--check` in both spellings of the invocation
+ * (`cargo fmt -- --check` passes it through to rustfmt); the bare form REWRITES.
+ * `fmt` is not matched through `invocaCli`, which would take `go fmt` and
+ * `deno fmt` along with it — tools whose two modes are spelled differently and
+ * which nobody measured here.
+ */
+const invocaRustfmt = (cmd) => /(^|[\s"'/\\])(cargo\s+fmt|rustfmt)([\s"']|$)/.test(cmd)
+
 /** Whether a command calls a dedicated formatter at all, checking or not. */
 const invocaFormatador = (texto) =>
-  partirComandos(texto).some((cmd) =>
-    ['prettier', 'biome', 'dprint'].some((n) => invocaCli(cmd, n)),
+  partirComandos(texto).some(
+    (cmd) => ['prettier', 'biome', 'dprint'].some((n) => invocaCli(cmd, n)) || invocaRustfmt(cmd),
   )
+
+/**
+ * A step that FAILS when the tree came out dirty: `git diff --exit-code`,
+ * `git diff --quiet`, a `git status --porcelain` read as a condition, or the
+ * `autofix-ci/action` step, which fails the run when it had something to fix.
+ *
+ * `--porcelain` on its own is not a gate — it is a report, and it exits 0 with
+ * the whole diff on stdout. It only counts beside what turns it into a verdict:
+ * an `exit 1`, a `test -z`, or a `[ -z` / `[[ -n` around it.
+ */
+const RE_DIFF_QUE_FALHA = /git\s+diff\b[^\n]*--(?:exit-code|quiet)\b/
+const RE_PORCELANA = /git\s+status\b[^\n]*--porcelain\b/
+const RE_VIRA_VEREDITO = /\bexit\s+1\b|\btest\s+-z\b|\[\[?\s*-[zn]\b/
+const ACAO_AUTOFIX = /^autofix-ci\/action(@|$)/
+
+const ehPortaoDeArvore = (cmd) =>
+  RE_DIFF_QUE_FALHA.test(cmd) || (RE_PORCELANA.test(cmd) && RE_VIRA_VEREDITO.test(cmd))
+
+/**
+ * WRITE, THEN VERIFY — the third shape of enforcing formatting, and the one
+ * that was missing.
+ *
+ * Measured on 2026-09-17. `e2b-dev/e2b` was told `script format, format, format
+ * only rewrites — nothing fails when a file is out of format`, and its
+ * `.github/workflows/lint.yml` runs `pnpm run format` and then, in the same job,
+ * a step that does `if [[ -n $(git status --porcelain) ]]; then … exit 1`. The
+ * formatting IS enforced there: a badly formatted file turns the run red. What
+ * the rule read was the script — a writer — and the enforcement is not in the
+ * script, it is in the pair.
+ *
+ * Three locks, and each one is a way this could have become a bypass:
+ *
+ *   · BY JOB. Not by workflow and not by repository: the two steps have to be
+ *     able to meet in the same run.
+ *   · IN ORDER. A gate BEFORE the formatter proves nothing — that is the very
+ *     common `git diff --exit-code` over generated code, which has nothing to do
+ *     with formatting.
+ *   · THE FORMATTER, resolved through the SCRIPT. `pnpm run format` is not a
+ *     formatter invocation to read literally, and demanding the literal CLI in
+ *     the YAML would miss every monorepo that aggregates it — which is e2b's
+ *     case, where the four `format` scripts that call `prettier --write` live in
+ *     the packages and the workflow only calls the root one.
+ */
+function escreveEConfere(r) {
+  const formatadores = new Set(
+    scriptsDeTodos(r)
+      .filter(([, corpo]) => invocaFormatador(corpo))
+      .map(([nome]) => nome),
+  )
+  const formata = (cmd) =>
+    invocaFormatador(cmd) || [...nomesInvocados(cmd)].some((n) => formatadores.has(n))
+
+  for (const w of r.workflows) {
+    for (const bloco of blocosDeJob(ler(r.dir, w) || '')) {
+      let escreveu = false
+      for (const passo of passosDoCi(bloco)) {
+        if (passo.tipo === 'uses') {
+          if (escreveu && ACAO_AUTOFIX.test(passo.texto)) return true
+          continue
+        }
+        const cmd = passo.texto.replace(/(^|\s)#[^\n]*/g, '$1')
+        if (formata(cmd)) escreveu = true
+        if (escreveu && ehPortaoDeArvore(cmd)) return true
+      }
+    }
+  }
+  return false
+}
 
 /**
  * The commands of the CI, with the shell comments taken out.
@@ -2208,6 +2356,12 @@ export const REGRAS = [
       // right — the "defense looked for where the defect was found" family.
       const fontes = [...scripts.map(([, corpo]) => corpo), comandosEfetivosDoCi(r)]
       if (fontes.some((t) => confereFormato(t, d))) return null
+
+      // WRITE, THEN VERIFY: the formatter ran and, after it and in the same job,
+      // a step fails on the dirty tree. It is the third shape of enforcing the
+      // formatting, and reading only the command was calling it a writer. See
+      // `escreveEConfere` for the measurement and for the three locks.
+      if (escreveEConfere(r)) return null
 
       // The dependency is checked ONLY on the failing path, and this order is
       // the point: the check is what the rule wants, the declaration is only
