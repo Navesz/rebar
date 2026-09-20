@@ -873,7 +873,7 @@ artifact is derived from the source, never a copy of it.
 | ------------------------- | ----------------------------------------------------------------------- |
 | `tooling/rebar-check/index.mjs` | **The source.** <!--n lines.rebar-check-->3.842<!--/n--> lines, <!--n rules.total-->23<!--/n--> rules, with the measured why of each one |
 | `mcp/generate.mjs`           | **The generator.** <!--n lines.mcp-gerador-->1.259<!--/n--> lines, **zero dependency** |
-| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->286 KB<!--/n--> · <!--n mcp.artefato.regras-->40<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->27<!--/n--> steps · <!--n mcp.artefato.provas-->200<!--/n--> proofs |
+| `mcp/rules.generated.json`  | **The artifact.** <!--n mcp.artefato.tamanho-->291 KB<!--/n--> · <!--n mcp.artefato.regras-->40<!--/n--> rules · <!--n mcp.artefato.niveis-->8<!--/n--> levels · <!--n mcp.artefato.passos-->27<!--/n--> steps · <!--n mcp.artefato.provas-->203<!--/n--> proofs |
 | `mcp/src/`                | **The server.** <!--n lines.mcp-servidor-->1.649<!--/n--> lines, <!--n mcp.ferramentas-->5<!--/n--> tools. Reads the artifact, never the source |
 
 The artifact's five numbers are checked by **two** independent gates: the `mcp` step
