@@ -834,28 +834,216 @@ const RE_RUNNER =
  * fails a CI that does verify — a false positive, and the repository chooses
  * the false positive over the false negative when the subject is a gate.
  */
-function comandosDoCi(yml) {
+/**
+ * The steps, IN ORDER, with the `uses:` beside the `run:`.
+ *
+ * `comandosDoCi` is this same walk with the order and the `uses:` thrown away,
+ * and it stayed the shape every word-presence check wants. What needs the steps
+ * apart and in order is `escreveEConfere`: "the formatter ran and after it
+ * something failed on the dirty tree" is a claim about SEQUENCE, and a text
+ * where every command is glued together cannot carry it.
+ */
+function passosDoCi(yml) {
   const linhas = yml.split('\n')
   const saida = []
   for (let i = 0; i < linhas.length; i++) {
     const m = linhas[i].match(/^(\s*)-?\s*run\s*:\s*(.*)$/)
-    if (!m) continue
-    const [, recuo, resto] = m
-    // Block scalar: `run: |` or `run: >`, and the command comes indented below.
-    if (/^[|>][-+]?\s*$/.test(resto)) {
-      const base = recuo.length
-      for (let j = i + 1; j < linhas.length; j++) {
-        if (linhas[j].trim() === '') continue
-        const r = linhas[j].match(/^(\s*)/)[1].length
-        if (r <= base) break
-        saida.push(linhas[j])
-        i = j
+    if (m) {
+      const [, recuo, resto] = m
+      // Block scalar: `run: |` or `run: >`, and the command comes indented below.
+      if (/^[|>][-+]?\s*$/.test(resto)) {
+        const base = recuo.length
+        const corpo = []
+        for (let j = i + 1; j < linhas.length; j++) {
+          if (linhas[j].trim() === '') continue
+          const r = linhas[j].match(/^(\s*)/)[1].length
+          if (r <= base) break
+          corpo.push(linhas[j])
+          i = j
+        }
+        if (corpo.length) saida.push({ tipo: 'run', texto: corpo.join('\n') })
+      } else if (resto) {
+        saida.push({ tipo: 'run', texto: resto })
       }
-    } else if (resto) {
-      saida.push(resto)
+      continue
+    }
+    const u = linhas[i].match(/^\s*-?\s*uses\s*:\s*['"]?([^\s'"]+)/)
+    if (u) saida.push({ tipo: 'uses', texto: u[1] })
+  }
+  return saida
+}
+
+function comandosDoCi(yml) {
+  return passosDoCi(yml)
+    .filter((p) => p.tipo === 'run')
+    .map((p) => p.texto)
+    .join('\n')
+}
+
+/**
+ * The workflow cut into its jobs, as raw YAML slices.
+ *
+ * Job-scoped and not file-scoped, because the claim `escreveEConfere` makes is
+ * about one RUN: a `prettier --write` in the release job and a
+ * `git diff --exit-code` in an unrelated job never meet, and reading the whole
+ * file as one text would let two strangers vouch for each other.
+ *
+ * The cut is by the indentation of the FIRST child key of `jobs:`, and not by a
+ * fixed two spaces: two is the convention, not the grammar. A file with no
+ * `jobs:` comes back whole — being wrong about the shape must not silently
+ * delete the content.
+ */
+function blocosDeJob(yml) {
+  const linhas = yml.split('\n')
+  const iJobs = linhas.findIndex((l) => /^jobs\s*:/.test(l))
+  if (iJobs === -1) return [yml]
+  const blocos = []
+  let recuo = null
+  let atual = null
+  for (let i = iJobs + 1; i < linhas.length; i++) {
+    const l = linhas[i]
+    if (!l.trim() || /^\s*#/.test(l)) {
+      if (atual) atual.push(l)
+      continue
+    }
+    const r = l.match(/^(\s*)/)[1].length
+    // Back to column zero: another top-level key, `jobs:` is over.
+    if (r === 0) break
+    if (recuo === null) recuo = r
+    if (r === recuo && /^\s*[\w.-]+\s*:/.test(l)) {
+      atual = []
+      blocos.push(atual)
+    }
+    if (atual) atual.push(l)
+  }
+  return blocos.length ? blocos.map((b) => b.join('\n')) : [yml]
+}
+
+/**
+ * Package-manager subcommands that are NOT a script by that name.
+ *
+ * `pnpm x` runs the script `x`, and that is the shorthand this list exists to
+ * keep honest: a repository with a script called `ci` would have `npm ci` — the
+ * clean install — read as running it, and the expansion would swear the CI
+ * reaches whatever that script chains. Erring here is a FALSE NEGATIVE, which is
+ * the cheap error, and it is the direction a gate rule chooses.
+ */
+const SUBCOMANDOS_DE_GESTOR = new Set([
+  'install',
+  'i',
+  'ci',
+  'add',
+  'remove',
+  'rm',
+  'uninstall',
+  'update',
+  'up',
+  'upgrade',
+  'exec',
+  'dlx',
+  'x',
+  'create',
+  'init',
+  'link',
+  'unlink',
+  'publish',
+  'pack',
+  'audit',
+  'outdated',
+  'list',
+  'ls',
+  'why',
+  'dedupe',
+  'prune',
+  'rebuild',
+  'config',
+  'store',
+  'licenses',
+  'patch',
+  'deploy',
+  'fetch',
+  'import',
+  'root',
+  'bin',
+  'env',
+  'node',
+  'version',
+  'login',
+  'logout',
+  'whoami',
+  'cache',
+  'setup',
+  'workspace',
+  'workspaces',
+])
+
+/**
+ * A package manager invoking a script: the manager, any flags, an optional
+ * `run`/`run-script`, and the name.
+ *
+ * THE WHITESPACE IS WHY THIS WAS REWRITTEN. The previous expression was
+ * `(?:npm\s+run|pnpm\s+(?:run\s+)?|yarn\s+(?:run\s+)?|run-[sp])\s+<name>`: the
+ * alternatives already ate the space after the manager, and the `\s+` outside
+ * the group demanded ANOTHER one. Measured, on 2026-09-17:
+ *
+ *   `npm run lint`   → expanded      `pnpm check`     → DID NOT expand
+ *   `run-s lint`     → expanded      `yarn lint`      → DID NOT expand
+ *   `pnpm  check`    → expanded      `yarn run lint`  → DID NOT expand
+ *   (two spaces)                     `npm test`       → DID NOT expand
+ *
+ * `pnpm run x` only worked by accident, through the `npm\s+run` alternative
+ * matching the substring inside `pnpm run`. That is: of the four spellings the
+ * expression names, only the npm ones ever worked, and every `pnpm`/`yarn`
+ * script chain in every audited repository went unexpanded.
+ */
+const RE_GESTOR_DE_PACOTE =
+  /(?:^|[\s;&|(])(npm|pnpm|yarn|bun)\s+(?:--?[\w-]+(?:=\S+)?\s+)*(run\s+|run-script\s+)?([\w@][\w:.\-/]*)/g
+
+/**
+ * npm's lifecycle shorthands: `npm test` IS `npm run test`, with no `run`.
+ * It is the whole of what the CI of `motdotla/dotenv` executes — `npm test`,
+ * whose body chains `npm run lint` — and the reason it was accused of "the CI
+ * does not reach: lint" while the lint runs on every push.
+ */
+const ATALHOS_NPM = new Set(['test', 't', 'tst', 'start', 'stop', 'restart'])
+
+/**
+ * A task runner that takes a LIST of names: `turbo run fmt:check lint typecheck`,
+ * `nx run-many -t lint test`, `run-s a b`, `npm-run-all a b`.
+ *
+ * It is what `browserbase/stagehand` runs — `pnpm check`, and `check` is
+ * `turbo run fmt:check lint typecheck` — and the tail is taken up to the first
+ * shell separator, because everything after it is another command.
+ */
+const RE_ORQUESTRADOR =
+  /(?:^|[\s;&|(])(?:turbo\s+run|nx\s+run-many|nx\s+run|run-[sp]|npm-run-all)\s+([^\n;&|]*)/g
+
+/**
+ * Every script name a shell text invokes, in any of the spellings above.
+ *
+ * A name is only ever LOOKED UP here; whether it exists is the caller's
+ * question, so a wrong guess costs nothing but a lookup that misses. That is
+ * what lets the orchestrator branch offer both the whole token and its part
+ * after the last colon: `fmt:check` is the script's own name under turbo, and
+ * `projeto:build` under nx names the target `build`.
+ */
+function nomesInvocados(texto) {
+  const nomes = new Set()
+  for (const [, gestor, explicito, nome] of texto.matchAll(RE_GESTOR_DE_PACOTE)) {
+    if (explicito) nomes.add(nome)
+    else if (gestor === 'npm') {
+      if (ATALHOS_NPM.has(nome)) nomes.add(nome)
+    } else if (!SUBCOMANDOS_DE_GESTOR.has(nome)) nomes.add(nome)
+  }
+  for (const m of texto.matchAll(RE_ORQUESTRADOR)) {
+    for (const bruto of m[1].split(/[\s,]+/)) {
+      if (!bruto || bruto.startsWith('-')) continue
+      nomes.add(bruto)
+      const dois = bruto.lastIndexOf(':')
+      if (dois > 0) nomes.add(bruto.slice(dois + 1))
     }
   }
-  return saida.join('\n')
+  return nomes
 }
 
 function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
@@ -864,13 +1052,10 @@ function textoEfetivoDoCi(yml, scripts, r, profundidade = 3) {
   const lidos = new Set()
   for (let i = 0; i < profundidade; i++) {
     let cresceu = false
+    const invocados = nomesInvocados(texto)
     for (const [nome, corpo] of Object.entries(scripts)) {
       if (vistos.has(nome)) continue
-      // `npm run x`, `pnpm x`, `yarn x`, `run-s x`, `run-p x`
-      const invocado = new RegExp(
-        `(?:npm\\s+run|pnpm\\s+(?:run\\s+)?|yarn\\s+(?:run\\s+)?|run-[sp])\\s+${nome}\\b`,
-      )
-      if (invocado.test(texto)) {
+      if (invocados.has(nome)) {
         texto += '\n' + semComentario(corpo)
         vistos.add(nome)
         cresceu = true
@@ -1176,6 +1361,7 @@ function confereFormato(texto, dependencias) {
       return temSubcomando(cmd, 'ci', 'check', 'format')
     }
     if (invocaCli(cmd, 'dprint')) return temSubcomando(cmd, 'check')
+    if (invocaRustfmt(cmd)) return temFlag(cmd, '--check')
     if (invocaCli(cmd, 'eslint')) {
       if (temFlag(cmd, '--fix')) return false
       return temEstiloNoEslint(dependencias)
@@ -1184,11 +1370,97 @@ function confereFormato(texto, dependencias) {
   })
 }
 
+/**
+ * The fifth family, and it entered because of a measurement, like the other
+ * four: `biomejs/biome` — an npm project, so the rule applies to it — gates its
+ * formatting TWICE and rebar saw neither, because both are Rust. `main.yml`
+ * runs `cargo fmt --all --verbose -- --check`, which is a check outright, and
+ * `autofix.yml` runs `cargo fmt --all` followed by `autofix-ci/action`, which is
+ * the write-then-verify shape below. Rejecting a repository for formatting it
+ * enforces, because the enforcement is written in another language's tool, is
+ * the vocabulary mistake this section already names twice.
+ *
+ * The check spelling is `--check` in both spellings of the invocation
+ * (`cargo fmt -- --check` passes it through to rustfmt); the bare form REWRITES.
+ * `fmt` is not matched through `invocaCli`, which would take `go fmt` and
+ * `deno fmt` along with it — tools whose two modes are spelled differently and
+ * which nobody measured here.
+ */
+const invocaRustfmt = (cmd) => /(^|[\s"'/\\])(cargo\s+fmt|rustfmt)([\s"']|$)/.test(cmd)
+
 /** Whether a command calls a dedicated formatter at all, checking or not. */
 const invocaFormatador = (texto) =>
-  partirComandos(texto).some((cmd) =>
-    ['prettier', 'biome', 'dprint'].some((n) => invocaCli(cmd, n)),
+  partirComandos(texto).some(
+    (cmd) => ['prettier', 'biome', 'dprint'].some((n) => invocaCli(cmd, n)) || invocaRustfmt(cmd),
   )
+
+/**
+ * A step that FAILS when the tree came out dirty: `git diff --exit-code`,
+ * `git diff --quiet`, a `git status --porcelain` read as a condition, or the
+ * `autofix-ci/action` step, which fails the run when it had something to fix.
+ *
+ * `--porcelain` on its own is not a gate — it is a report, and it exits 0 with
+ * the whole diff on stdout. It only counts beside what turns it into a verdict:
+ * an `exit 1`, a `test -z`, or a `[ -z` / `[[ -n` around it.
+ */
+const RE_DIFF_QUE_FALHA = /git\s+diff\b[^\n]*--(?:exit-code|quiet)\b/
+const RE_PORCELANA = /git\s+status\b[^\n]*--porcelain\b/
+const RE_VIRA_VEREDITO = /\bexit\s+1\b|\btest\s+-z\b|\[\[?\s*-[zn]\b/
+const ACAO_AUTOFIX = /^autofix-ci\/action(@|$)/
+
+const ehPortaoDeArvore = (cmd) =>
+  RE_DIFF_QUE_FALHA.test(cmd) || (RE_PORCELANA.test(cmd) && RE_VIRA_VEREDITO.test(cmd))
+
+/**
+ * WRITE, THEN VERIFY — the third shape of enforcing formatting, and the one
+ * that was missing.
+ *
+ * Measured on 2026-09-17. `e2b-dev/e2b` was told `script format, format, format
+ * only rewrites — nothing fails when a file is out of format`, and its
+ * `.github/workflows/lint.yml` runs `pnpm run format` and then, in the same job,
+ * a step that does `if [[ -n $(git status --porcelain) ]]; then … exit 1`. The
+ * formatting IS enforced there: a badly formatted file turns the run red. What
+ * the rule read was the script — a writer — and the enforcement is not in the
+ * script, it is in the pair.
+ *
+ * Three locks, and each one is a way this could have become a bypass:
+ *
+ *   · BY JOB. Not by workflow and not by repository: the two steps have to be
+ *     able to meet in the same run.
+ *   · IN ORDER. A gate BEFORE the formatter proves nothing — that is the very
+ *     common `git diff --exit-code` over generated code, which has nothing to do
+ *     with formatting.
+ *   · THE FORMATTER, resolved through the SCRIPT. `pnpm run format` is not a
+ *     formatter invocation to read literally, and demanding the literal CLI in
+ *     the YAML would miss every monorepo that aggregates it — which is e2b's
+ *     case, where the four `format` scripts that call `prettier --write` live in
+ *     the packages and the workflow only calls the root one.
+ */
+function escreveEConfere(r) {
+  const formatadores = new Set(
+    scriptsDeTodos(r)
+      .filter(([, corpo]) => invocaFormatador(corpo))
+      .map(([nome]) => nome),
+  )
+  const formata = (cmd) =>
+    invocaFormatador(cmd) || [...nomesInvocados(cmd)].some((n) => formatadores.has(n))
+
+  for (const w of r.workflows) {
+    for (const bloco of blocosDeJob(ler(r.dir, w) || '')) {
+      let escreveu = false
+      for (const passo of passosDoCi(bloco)) {
+        if (passo.tipo === 'uses') {
+          if (escreveu && ACAO_AUTOFIX.test(passo.texto)) return true
+          continue
+        }
+        const cmd = passo.texto.replace(/(^|\s)#[^\n]*/g, '$1')
+        if (formata(cmd)) escreveu = true
+        if (escreveu && ehPortaoDeArvore(cmd)) return true
+      }
+    }
+  }
+  return false
+}
 
 /**
  * The commands of the CI, with the shell comments taken out.
@@ -1203,6 +1475,203 @@ const comandosEfetivosDoCi = (r) =>
   r.workflows
     .map((w) => comandosDoCi(ler(r.dir, w) || '').replace(/(^|\s)#[^\n]*/g, '$1'))
     .join('\n')
+
+// ───────────────────── where a .env.example lives, and who it has to document
+//
+// MEASURED ON 2026-09-17, on `Skyvern-AI/skyvern`: `not documented:
+// VITE_MOCK_ANALYTICS, VITE_API_BASE_URL, VITE_ENABLE_LOG_ARTIFACTS,
+// VITE_WSS_BASE_URL`. Three of the four are in `skyvern-frontend/.env.example`,
+// which is WHERE THEY BELONG — Vite reads the env from the package directory,
+// not from the repository root, and a `VITE_` variable written into a root file
+// would not reach the build. The rule read `<root>/.env.example` and nothing
+// else, so the monorepo that documented it in the right place was accused of not
+// documenting it. It is the "defect looked for recursively, defense looked for
+// only at the root" family, for the fourth time in this file.
+//
+// The climb is the same one `ui-falso` makes, and for the same reason: a file
+// ABOVE the reader documents it, a file BESIDE it does not. `web/.env.example`
+// does not answer for a variable read at the root, and `outro/.env.example` does
+// not answer for one read in `web/`.
+
+/** The tracked `.env.example` family, each with the folder it answers for. */
+const RE_EXEMPLO_DE_ENV = /(^|\/)\.env\.(example|sample|template)$/i
+
+function exemplosDeEnv(dir, arquivos) {
+  const saida = []
+  for (const rel of arquivos) {
+    if (!RE_EXEMPLO_DE_ENV.test(rel) || IGNORAR.test(rel)) continue
+    const texto = ler(dir, rel)
+    if (texto !== null) saida.push({ pasta: pastaDe(rel), texto })
+  }
+  // The root file read from DISK, when it is not tracked. It is the only read of
+  // this kind left here and it is deliberate: the rule already behaved this way,
+  // and turning an untracked `.env.example` into an accusation is a change of
+  // verdict that has nothing to do with the monorepo defect being fixed.
+  if (!saida.some((e) => e.pasta === '')) {
+    const raiz = ler(dir, '.env.example')
+    if (raiz !== null) saida.push({ pasta: '', texto: raiz })
+  }
+  return saida
+}
+
+const documentaEm = (exemplo, nome) => new RegExp(`^${nome}\\s*=`, 'm').test(exemplo.texto)
+
+/**
+ * Documented for EVERY place that reads it: each reading folder needs an
+ * `.env.example` at or above it that names the variable.
+ *
+ * Every and not any, and it costs nothing against what the rule did before: the
+ * root is an ancestor of every folder, so whatever the root file documented goes
+ * on documented. What changes is only that a nested file now answers for what is
+ * below it.
+ */
+const documentadaPara = (r, nome, pastas) =>
+  [...pastas].every((pasta) => {
+    const acima = new Set(ancestrais(pasta))
+    return r.envExemplos.some((e) => acima.has(e.pasta) && documentaEm(e, nome))
+  })
+
+// ───────────────────────── a variable the repository WRITES is not the user's
+//
+// MEASURED ON 2026-09-17, on `oraios/serena`: `not documented:
+// SERENA_SOLIDITY_STATE_DIR`. The accusation is INVERTED. That variable is not
+// read from the user's environment — serena WRITES it, in
+// `src/solidlsp/language_servers/solidity_language_server.py`
+// (`launch_env["SERENA_SOLIDITY_STATE_DIR"] = state_dir`), into the environment
+// of a child process it launches itself, and the only thing that reads it is
+// `solidity_homedir_preload.cjs`, the preload of that child. It is an internal
+// channel between two processes of the same repository. Asking the person who
+// clones it to fill that in in a `.env.example` is asking them to configure
+// something that is not theirs, and it is worse than a missing rule: it is a
+// wrong instruction.
+//
+// THE WRITE IS IN ANOTHER LANGUAGE, and that is the whole difficulty. The rule
+// DISCOVERS variables in JavaScript only, because `process.env.X` is a
+// JavaScript shape; the write can be anywhere. So the exculpation reads, beyond
+// the sources already in memory, the tracked Python, Ruby and shell — the
+// languages where the `<something>env["X"] = …` shape lives, and the ones
+// measured here. It reads them only when there is already something to accuse,
+// and it stops as soon as every accused name is accounted for.
+//
+// WRITTEN, not "written and never read": in serena the value IS read back, by
+// the child. What decides is who SUPPLIES it, and the repository supplying it is
+// what takes the variable out of the user's hands. Erring here is an accusation
+// not made, which is the cheap error and the one this ruler chooses.
+//
+// A WRITE IN A TEST IS A STUB, NOT A SUPPLY, and this cost a measurement to
+// learn. The first version of this scan read the test files too, and on
+// `browserbase/stagehand` it silently dropped `HERMES_SESSION_PLATFORM` and
+// `OPENCLAW_SHELL` from the accusation, because `packages/cli/tests/agent.test.ts`
+// does `process.env.HERMES_SESSION_PLATFORM = "telegram"` to stage the case. In
+// production those two come from OUTSIDE — from the agent whose presence they
+// detect — and they are exactly what a `.env.example` exists to announce. A test
+// stating what it wants the environment to look like is the opposite of the
+// repository supplying it, and buying the exemption with a line in a test is the
+// same hole the secret scanner refuses under the name "any line in a test file".
+const EXT_ESCRITA_DE_ENV = /\.(py|pyi|rb|sh|bash|zsh|mjs|cjs|jsx?|tsx?)$/i
+
+/**
+ * `<something>env<something>` followed by the assignment of a NAME:
+ * `process.env.X = `, `launch_env["X"] = `, `os.environ['X'] = `, `ENV["X"] = `.
+ *
+ * ONE expression that captures the name, and not one expression per name, and
+ * that is a measurement and not a style: the first version built a RegExp per
+ * accused variable and tested each against each source. On `mastra-ai/mastra`,
+ * 561 accused variables against ~10,000 sources, the rule went from 7.4 s to
+ * 3 min 47 s. Anchored on the literal `env`, with no `.*` before it, the scan is
+ * one linear pass per file and a Set lookup per hit — and the leading `.*` is
+ * also what could have made a minified line quadratic.
+ *
+ * `=(?![=>])` is the whole of the direction: `launch_env["X"] == y` is a
+ * comparison and `… = launch_env["X"]` is a read. Neither is a supply.
+ */
+const RE_ESCRITA_DE_ENV =
+  /[eE][nN][vV][A-Za-z0-9_]*(?:\.([A-Z][A-Z0-9_]*)|\[\s*["'`]([A-Z][A-Z0-9_]*)["'`]\s*\])\s*=(?![=>])/g
+
+function escritasDeEnv(r, nomes) {
+  const achadas = new Set()
+  if (!nomes.length) return achadas
+  const pendentes = new Set(nomes)
+
+  const varrer = (texto) => {
+    RE_ESCRITA_DE_ENV.lastIndex = 0
+    for (const m of texto.matchAll(RE_ESCRITA_DE_ENV)) {
+      const nome = m[1] || m[2]
+      if (pendentes.has(nome)) achadas.add(nome)
+    }
+    return achadas.size === pendentes.size
+  }
+
+  // `r.fontes` is production only — `fontes()` already sent the tests to
+  // `fontesTeste`, and they stay out here for the reason in the header.
+  for (const [, texto] of r.fontes) if (varrer(texto)) return achadas
+  for (const rel of r.arquivos) {
+    if (!EXT_ESCRITA_DE_ENV.test(rel) || IGNORAR.test(rel) || CODIGO.test(rel)) continue
+    if (ehTeste(rel)) continue
+    try {
+      if (statSync(join(r.dir, rel)).size > 512 * 1024) continue
+    } catch {
+      continue
+    }
+    const texto = ler(r.dir, rel)
+    if (texto !== null && varrer(texto)) return achadas
+  }
+  return achadas
+}
+
+// ──────────────── a hook git does not run is a hook that needs no execute bit
+//
+// MEASURED ON 2026-09-17, on `mastra-ai/mastra` (husky `^9.1.7`): rebar printed
+// `hooks-executable ✗ … .husky/pre-commit — fix with: git update-index --chmod=+x`
+// about a hook that runs on every commit there. The advice was wrong, and
+// following it would have changed nothing.
+//
+// What husky 9 does, read from the published `husky@9.1.7` tarball and not from
+// its documentation:
+//
+//   · `index.js` runs `git config core.hooksPath .husky/_`, so the directory git
+//     executes is `.husky/_`, NOT the committed `.husky/`;
+//   · it writes `.husky/_/<hook>` itself, with `mode: 0o755`, and copies its own
+//     `husky` script to `.husky/_/h`;
+//   · `.husky/_/.gitignore` is `*`, so none of that is committed — it is
+//     rebuilt by `prepare` on every install;
+//   · `.husky/_/h` ends with `sh -e "$s" "$@"`, where `$s` is the committed
+//     `.husky/<hook>`. It is SOURCED THROUGH AN EXPLICIT INTERPRETER, so the
+//     execute bit on the committed file decides nothing, and husky 9 hooks carry
+//     no shebang by design.
+//
+// THE VERSION IS THE WHOLE OF THE DIFFERENCE, and this is why the exemption is
+// not "the path starts with .husky/". husky 8 (`lib/index.js` of `husky@8.0.3`,
+// read the same way) runs `git config core.hooksPath <dir>` with `<dir>` being
+// `.husky` ITSELF — the committed directory. There git executes the committed
+// file DIRECTLY, and a 100644 `.husky/pre-commit` is ignored on Linux exactly as
+// this rule says. Accusing husky 8 is right; accusing husky 9 is not.
+//
+// Everything else stays accused, and rebar itself is the case the rule must keep
+// catching: `tooling/hooks/pre-commit` has a shebang, `core.hooksPath` points at
+// that COMMITTED directory, and git runs it directly.
+const RE_HOOK_HUSKY = /^\.husky\/[^/]+$/
+
+const PORQUE_HUSKY =
+  '.husky/_/h sources them with `sh -e`, so git never executes the committed file'
+
+/**
+ * The declared husky major, when it is 9 or above, as it was written. Null when
+ * husky is not declared, when the range does not name a major, or when that
+ * major is 8 or below — in all of those the hook may be what git runs directly,
+ * and a rule about a gate errs towards accusing, not towards the exemption.
+ *
+ * The version is read from the DECLARATION and not from `node_modules`, for the
+ * same reason every other rule here reads git and not the disk: it is the
+ * declaration that travels in the clone.
+ */
+function huskyV9(r) {
+  const faixa = dependenciasDeTodos(r).husky
+  if (typeof faixa !== 'string') return null
+  const m = /(\d+)\s*\./.exec(faixa) || /(\d+)\s*$/.exec(faixa)
+  if (!m) return null
+  return Number(m[1]) >= 9 ? m[1] : null
+}
 
 // ───────────────────────────────── what is, and what is NOT, a content literal
 //
@@ -2031,6 +2500,12 @@ export const REGRAS = [
       const fontes = [...scripts.map(([, corpo]) => corpo), comandosEfetivosDoCi(r)]
       if (fontes.some((t) => confereFormato(t, d))) return null
 
+      // WRITE, THEN VERIFY: the formatter ran and, after it and in the same job,
+      // a step fails on the dirty tree. It is the third shape of enforcing the
+      // formatting, and reading only the command was calling it a writer. See
+      // `escreveEConfere` for the measurement and for the three locks.
+      if (escreveEConfere(r)) return null
+
       // The dependency is checked ONLY on the failing path, and this order is
       // the point: the check is what the rule wants, the declaration is only
       // how it tells the two accusations apart. A repository that checks
@@ -2052,12 +2527,22 @@ export const REGRAS = [
     titulo: 'reads env and documents it in .env.example',
     checar: (r) => {
       if (!r.varsEnv.size) return na('does not read environment variables')
-      if (!r.envExample)
-        return `reads ${r.varsEnv.size} environment variable(s) and has no .env.example`
-      const faltando = [...r.varsEnv].filter(
-        (v) => !new RegExp(`^${v}\\s*=`, 'm').test(r.envExample),
-      )
-      return faltando.length ? `not documented: ${faltando.slice(0, 4).join(', ')}` : null
+      const lidas = [...r.varsEnv.keys()]
+      const semDoc = r.envExemplos.length
+        ? lidas.filter((v) => !documentadaPara(r, v, r.varsEnv.get(v)))
+        : lidas
+      if (!semDoc.length) return null
+      // Asked LAST, and only about what is about to be accused: the write scan
+      // costs a read of the tracked Python, Ruby and shell, and nobody pays for
+      // it on the green path. A variable the repository writes into an
+      // environment itself is not documentation anyone owes — see
+      // `escritasDeEnv` for the measurement on `oraios/serena`.
+      const escritas = escritasDeEnv(r, semDoc)
+      const faltando = semDoc.filter((v) => !escritas.has(v))
+      if (!faltando.length) return null
+      if (!r.envExemplos.length)
+        return `reads ${faltando.length} environment variable(s) and has no .env.example`
+      return `not documented: ${faltando.slice(0, 4).join(', ')}`
     },
   },
 
@@ -2126,11 +2611,20 @@ export const REGRAS = [
     //
     // The mode read is the INDEX's, not the disk's: a local `chmod` does not
     // travel in the clone, and it is the clone that lands on the user's machine.
+    //
+    // WHAT THE RULE ASKS IS NOT "be executable", IT IS "git can run you". The
+    // two were the same thing until husky 9, and taking them for the same thing
+    // accused `mastra-ai/mastra` — measured on 2026-09-17 — of a hook that runs
+    // on every commit there. See `huskyV9` for the mechanism and for the
+    // version, which is the whole of the difference.
     checar: (r) => {
       const nomes =
         /(^|\/)(pre-commit|commit-msg|pre-push|prepare-commit-msg|post-checkout|pre-rebase)$/
-      const hooks = r.arquivos.filter((a) => nomes.test(a))
-      if (!hooks.length) return na('no file with a git hook name')
+      const todos = r.arquivos.filter((a) => nomes.test(a))
+      if (!todos.length) return na('no file with a git hook name')
+      const husky = huskyV9(r)
+      const hooks = husky ? todos.filter((h) => !RE_HOOK_HUSKY.test(h)) : todos
+      if (!hooks.length) return na(`hooks managed by husky ${husky} — ${PORQUE_HUSKY}`)
       const modos = modosDoIndice(r.dir)
       const mudos = hooks.filter((h) => modos.get(h) !== '100755')
       return mudos.length
@@ -2928,14 +3422,20 @@ export function lerRepo(dir) {
   // READS AT RUNTIME, and a variable quoted in a comment is read by nobody.
   // Without this, a note explaining the env-fallback pattern made rebar itself
   // fail `env-example` over two variables that do not exist.
-  const varsEnv = new Set()
-  for (const [, t] of fs_) {
+  //
+  // A MAP AND NOT A SET, and the value is WHERE it is read: a variable read in
+  // `web/` is documented by `web/.env.example`, and one read at the root is not.
+  // Losing the reader's folder is what made the rule read only the root file in
+  // a monorepo — see `documentadaPara`.
+  const varsEnv = new Map()
+  for (const [caminho, t] of fs_) {
     for (const [, espaco, nome] of semComentario(t).matchAll(
       /(process|import\.meta)\.env\.([A-Z][A-Z0-9_]*)/g,
     )) {
       if (ENV_DO_AMBIENTE.has(nome)) continue
       if (espaco === 'import.meta' && BUILTIN_DO_BUNDLER.has(nome)) continue
-      varsEnv.add(nome)
+      if (!varsEnv.has(nome)) varsEnv.set(nome, new Set())
+      varsEnv.get(nome).add(pastaDe(caminho))
     }
   }
 
@@ -2971,7 +3471,7 @@ export function lerRepo(dir) {
     varsEnv,
     commits,
     autores,
-    envExample: ler(dir, '.env.example'),
+    envExemplos: exemplosDeEnv(dir, arquivos),
     workflows: arquivos.filter((a) => /^\.github\/workflows\/.+\.ya?ml$/.test(a)),
   }
 }

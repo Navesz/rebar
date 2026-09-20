@@ -1,0 +1,6 @@
+{
+  "rule": "ci-gates",
+  "why": "Measured on 2026-09-17 on `browserbase/stagehand`: `the CI does not reach: lint, typecheck`, with `.github/workflows/ci.yml` running `pnpm check` and `check` being `turbo run fmt:check lint typecheck`. TWO LINKS WERE MISSING, and the deliberate exclusion of the names `check` and `validate` is NOT one of them: that exclusion governs what the rule DEMANDS (`alvos`), never what it expands, and the expansion resolves any declared script by name. What was missing was (1) `pnpm <name>`, which the invocation expression never matched — its alternatives already ate the space after the manager and the `\\s+` outside the group demanded another one, so of the four spellings it named only the npm ones ever worked — and (2) a task runner's `run`, which hands a LIST of names to the tasks of the same manifest. The two trees run the same `pnpm install` and the same `pnpm check`; only the task `check` names changes, from the one that chains lint and typecheck to the one that builds. Whoever restores the old expression, or drops the `turbo run`/`nx run-many` branch, turns the pass side red.",
+  "pass": {},
+  "fail": {}
+}

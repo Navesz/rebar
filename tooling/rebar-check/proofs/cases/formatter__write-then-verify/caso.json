@@ -1,0 +1,6 @@
+{
+  "rule": "formatter",
+  "why": "WRITE, THEN VERIFY is a third shape of enforcing the formatting, and reading only the command called it a writer. Measured on 2026-09-17 on `e2b-dev/e2b`: `script format, format, format only rewrites — nothing fails when a file is out of format`, with `.github/workflows/lint.yml` running `pnpm run format` and then, in the same job, `if [[ -n $(git status --porcelain) ]]; then … exit 1`. A badly formatted file turns the run red there; the enforcement is not in the script, it is in the PAIR. The formatter is resolved THROUGH the script, because `pnpm run format` is not a literal CLI invocation and demanding the literal one would miss every monorepo that aggregates it — e2b's case, where the four `format` scripts calling `prettier --write` live in the packages and the workflow calls only the root one. The two sides here differ in one step, the last one. The `git diff --exit-code -- esquema.json` over generated code is on BOTH sides and is the ORDER lock: a gate BEFORE the formatter proves nothing about formatting, and whoever asks only \"is there a formatter and is there a tree gate in this job\" makes the fail side green with a step that has nothing to do with format.",
+  "pass": {},
+  "fail": {}
+}

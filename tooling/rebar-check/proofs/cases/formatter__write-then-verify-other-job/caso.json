@@ -1,0 +1,6 @@
+{
+  "rule": "formatter",
+  "why": "The claim write-then-verify makes is about ONE RUN, so the pair has to meet inside the same job. Both sides here have the same two jobs, the same `npm run format` and the same `git diff --exit-code`; what changes is which job the gate lives in. On the fail side the formatter runs in `formato` and dies with the runner, and the `git diff --exit-code` of `testar` runs on a clean checkout that no formatter ever touched — it can never come out dirty, and it enforces nothing about formatting. Whoever reads the workflow, or the repository, as one text lets two strangers vouch for each other and turns the whole mechanism into a bypass: any repository with a formatter somewhere and a `git diff --exit-code` over generated code anywhere would pass.",
+  "pass": {},
+  "fail": {}
+}

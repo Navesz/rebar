@@ -1,0 +1,6 @@
+{
+  "rule": "env-example",
+  "why": "Measured on 2026-09-17 on `oraios/serena`: `not documented: SERENA_SOLIDITY_STATE_DIR`, and the accusation is INVERTED. That variable is not read from the user's environment — serena WRITES it, in `src/solidlsp/language_servers/solidity_language_server.py` (`launch_env[\"SERENA_SOLIDITY_STATE_DIR\"] = state_dir`), into the environment of a child process it launches itself, and the only thing that reads it is `solidity_homedir_preload.cjs`, the preload of that child. It is an internal channel between two processes of the same repository, and telling the person who clones it to fill that in in a `.env.example` is worse than a missing rule: it is a wrong instruction. THE WRITE IS IN ANOTHER LANGUAGE, which is the whole difficulty — the rule discovers variables in JavaScript, because `process.env.X` is a JavaScript shape, and the write can be anywhere. The two trees here are identical down to the `.env.example`, the `.cjs` that reads and the Python file's name; what changes is the DIRECTION of one line, from `launch_env[\"APP_STATE_DIR\"] = …` to `… = launch_env[\"APP_STATE_DIR\"]`. Whoever exempts on the mere MENTION of the name, instead of on the assignment, makes the fail side green — and there the value does have to come from outside.",
+  "pass": {},
+  "fail": {}
+}
