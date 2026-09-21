@@ -17,9 +17,8 @@
 # fails others for — but the shape is the same one, and a ruler that accuses that
 # shape should not ship it.
 name: rebar — repository ruler and merge gate
-description: >-
-  Audits a repository for shape and for known prompt-injection signatures in the
-  files it versions, and fails the job when a deterministic rule fails.
+# O Marketplace recusa descrição com 125 caracteres ou mais — esta tem 117.
+description: Checks repository shape and known prompt-injection signatures in versioned files, and fails the job on a broken rule.
 author: Navesz
 
 branding:
