@@ -35,6 +35,14 @@ Zero dependência em tempo de execução, Node 22 ou mais novo. O checker nunca 
 repositório que audita. Para fixar exatamente o que roda, nomeie um commit:
 `npx github:Navesz/rebar#<commit> .`
 
+No CI é um passo só, e o job cai pelo mesmo exit code que o terminal imprime:
+
+```yaml
+- uses: Navesz/rebar@<commit>   # a regra `unpinned-remote-exec` aqui embaixo reprova quem não fixa
+  with:
+    ruler: both                 # check · security · both
+```
+
 **Alfa, um mantenedor.** A contribuição mais útil é um falso positivo —
 [relate um](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml) com a saída exata.
 

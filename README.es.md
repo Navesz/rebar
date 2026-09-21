@@ -35,6 +35,14 @@ Cero dependencias en tiempo de ejecución, Node 22 o más nuevo. El verificador 
 el repositorio que audita. Para fijar exactamente lo que ejecutas, nombra un commit:
 `npx github:Navesz/rebar#<commit> .`
 
+En CI es un solo paso, y el job cae por el mismo código de salida que imprime la terminal:
+
+```yaml
+- uses: Navesz/rebar@<commit>   # la regla `unpinned-remote-exec` de abajo reprueba al que no fija
+  with:
+    ruler: both                 # check · security · both
+```
+
 **Alfa, un solo mantenedor.** La contribución más útil es un falso positivo —
 [reporta uno](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml) con la salida exacta.
 
