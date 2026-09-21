@@ -34,6 +34,14 @@ npx github:Navesz/rebar new padaria-do-ze     # start on the right side
 Zero runtime dependencies, Node 22 or newer. The checker never writes to the repository it
 audits. To pin exactly what you run, name a commit: `npx github:Navesz/rebar#<commit> .`
 
+In CI it is one step, and the job fails on the same exit code the terminal prints:
+
+```yaml
+- uses: Navesz/rebar@<commit>   # the `unpinned-remote-exec` rule below fails an unpinned one
+  with:
+    ruler: both                 # check · security · both
+```
+
 **Alpha, one maintainer.** The most useful contribution is a false positive —
 [report one](https://github.com/Navesz/rebar/issues/new?template=false-positive.yml) with the exact output.
 
@@ -210,6 +218,7 @@ It carries <!--n mcp.artefato.regras-->40<!--/n--> rules from two modules, <!--n
 | `tooling/security/` | the security ruler |
 | `tooling/verify/` | the gate runner and the mutation proofs of its steps |
 | `tooling/secret/` | the secret scanner, and the <!--n secret.provas-->31<!--/n--> detection proofs |
+| `action.yml` | the rulers as a GitHub Action step |
 | `new/` | the generator: templates, gate, and the file-map proofs |
 | `mcp/` | the generated artifact and the server that serves it |
 | `docs/PLANO.md` | the single manuscript: taxonomy, decisions, and the adversarial review |

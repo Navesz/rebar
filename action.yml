@@ -1,0 +1,107 @@
+# The ruler as a step, for a repository that does not want to write the invocation.
+#
+# WHY IT EXISTS. The thesis of this project is that a rule only holds where it
+# blocks, and on GitHub that place is a required check. A repository that has to
+# write its own `npx` line first is a repository that writes it once, wrong, and
+# never looks again. `uses:` is one line and it is reviewable in the diff.
+#
+# WHY COMPOSITE AND NOT A DOCKER ACTION. The rulers are Node with zero runtime
+# dependencies: there is nothing to build, nothing to pull, and a container would
+# add a minute to every run for no isolation this needs — the rulers never write
+# to the repository they audit.
+#
+# WHY THE INPUTS TRAVEL AS `env:` AND NOT INSIDE THE SCRIPT. An `${{ }}` pasted
+# into a `run:` body is expanded before bash sees it, so the value becomes part of
+# the script. Here the values are the workflow author's, not an outsider's, so
+# this is not the injection this project's own `ai-workflow-untrusted-input` rule
+# fails others for — but the shape is the same one, and a ruler that accuses that
+# shape should not ship it.
+name: rebar
+description: >-
+  Audits a repository for shape and for known prompt-injection signatures in the
+  files it versions, and fails the job when a deterministic rule fails.
+author: Navesz
+
+branding:
+  icon: check-square
+  color: orange
+
+inputs:
+  path:
+    description: Directory to audit. Defaults to the checked-out repository.
+    required: false
+    default: .
+  ruler:
+    description: >-
+      Which ruler runs: `check` (repository shape), `security` (known
+      prompt-injection signatures) or `both`.
+    required: false
+    default: check
+  heuristics:
+    description: >-
+      When `true`, heuristics drop the exit code too. They only inform by
+      default, because a wrong automatic rule costs more than a missing one.
+    required: false
+    default: 'false'
+  json:
+    description: When `true`, prints the structured report instead of the scoreboard.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Check the Node version
+      shell: bash
+      run: |
+        have="$(node -p 'process.versions.node.split(".")[0]')"
+        if [ "$have" -lt 22 ]; then
+          echo "::error::rebar needs Node 22 or newer; this runner has $(node -v). Add actions/setup-node with node-version 22 or later before this step."
+          exit 1
+        fi
+
+    - name: rebar
+      shell: bash
+      env:
+        REBAR_ACTION_PATH: ${{ github.action_path }}
+        REBAR_PATH: ${{ inputs.path }}
+        REBAR_RULER: ${{ inputs.ruler }}
+        REBAR_HEURISTICS: ${{ inputs.heuristics }}
+        REBAR_JSON: ${{ inputs.json }}
+      run: |
+        case "$REBAR_RULER" in
+          check|security|both) ;;
+          *)
+            echo "::error::ruler must be check, security or both — got '$REBAR_RULER'."
+            exit 1
+            ;;
+        esac
+
+        # The step runs under `bash -e`, so a bare `[ ... ] && ...` that tests
+        # false returns 1 and kills the step. Every condition here is an `if`
+        # for that reason, and the rulers run through `|| code=$?` so their
+        # exit code is read instead of aborting the script.
+        flags=()
+        if [ "$REBAR_HEURISTICS" = "true" ]; then flags+=(--heuristics); fi
+        if [ "$REBAR_JSON" = "true" ]; then flags+=(--json); fi
+
+        # 127 means a rule threw, and it dominates 1: a repository is never
+        # accused by a ruler that broke. Keeping that rule when both rulers run
+        # means 127 wins outright, and otherwise the highest code wins.
+        worst=0
+        run_ruler() {
+          local code=0
+          node "$REBAR_ACTION_PATH/$1" "${flags[@]}" "$REBAR_PATH" || code=$?
+          if [ "$worst" -ne 127 ] && { [ "$code" -eq 127 ] || [ "$code" -gt "$worst" ]; }; then
+            worst=$code
+          fi
+        }
+
+        if [ "$REBAR_RULER" = "check" ] || [ "$REBAR_RULER" = "both" ]; then
+          run_ruler tooling/rebar-check/index.mjs
+        fi
+        if [ "$REBAR_RULER" = "security" ] || [ "$REBAR_RULER" = "both" ]; then
+          run_ruler tooling/security/index.mjs
+        fi
+
+        exit "$worst"
