@@ -15,7 +15,7 @@
     },
     {
       "arquivo": "verify.config.mjs",
-      "sha256": "3123092dc3dbba2d94caa2822dbcfd89be22063874f5be8673b9e745699571fc",
+      "sha256": "4b1debc8da6979e6356f50a7329f950aef778bc158de94047ea56068b94b2fc6",
       "daqui": "the gate steps, in order"
     },
     {
@@ -40,7 +40,7 @@
     },
     {
       "arquivo": "package.json",
-      "sha256": "85e8839f89810271f47658256eecdace369af682dc184730afec865487cc6d87",
+      "sha256": "9311cc6eb0a59b5e506242841e6392e6df53eb2a2ab3830d8d1b150c2cf84173",
       "daqui": "the zero-dependency-at-the-root decision"
     },
     {
@@ -3457,6 +3457,16 @@
       },
       {
         "ordem": 12,
+        "nome": "version",
+        "tipo": "comando",
+        "comando": [
+          "node",
+          "tooling/version/check-version.mjs"
+        ],
+        "dica": "The manifest, the changelog and the tag a release would cut stopped agreeing. PLANO asks for versioning at N4 where there is an external consumer, and a workflow pinned to `uses: Navesz/rebar@v0` is one."
+      },
+      {
+        "ordem": 13,
         "nome": "secret",
         "tipo": "comando",
         "comando": [
@@ -3466,7 +3476,7 @@
         "dica": "A secret is not fixed with a new commit — the credential has to be rotated."
       },
       {
-        "ordem": 13,
+        "ordem": 14,
         "nome": "secret-proofs",
         "tipo": "comando",
         "comando": [
@@ -3477,7 +3487,7 @@
         "dica": "The secret scanner stopped finding what it used to find. If the complaint is about encoding, it is `decodificar()` -- the UTF-16 BOM goes back to being NUL and the token comes out one character per line. About an escape, it is ALCANCE_DA_MARCA and the marker loop in varrerLinha(); about a caso.json, raizesDeProvaValidas(); about an invisible code point, projetar()."
       },
       {
-        "ordem": 14,
+        "ordem": 15,
         "nome": "steps",
         "tipo": "comando",
         "comando": [
@@ -3488,7 +3498,7 @@
         "dica": "A step of the verify stopped catching what it should. The gate does not prove itself — this suite is what proves it."
       },
       {
-        "ordem": 15,
+        "ordem": 16,
         "nome": "strip",
         "tipo": "comando",
         "comando": [
@@ -3499,7 +3509,7 @@
         "dica": "The comment stripper changed behavior. If it started ERASING more, six rules went blind and will not complain -- a false negative does not show up. If it started erasing less, it shows up as a false positive in the rules."
       },
       {
-        "ordem": 16,
+        "ordem": 17,
         "nome": "proofs",
         "tipo": "comando",
         "comando": [
@@ -3509,7 +3519,7 @@
         "dica": "A rule of rebar-check stopped failing what it should, or started failing what is correct."
       },
       {
-        "ordem": 17,
+        "ordem": 18,
         "nome": "generator-map",
         "tipo": "comando",
         "comando": [
@@ -3520,7 +3530,7 @@
         "dica": "The file map of the generator stopped closing: either a template vanished, or a hook calls a file the generator does not write. `rebar new` breaks on the first project."
       },
       {
-        "ordem": 18,
+        "ordem": 19,
         "nome": "site-paths",
         "tipo": "comando",
         "comando": [
@@ -3531,7 +3541,7 @@
         "dica": "A path in the site blocks stopped going through `naPasta`, the favicon left the template, or the published-paths gate left the chain. What comes out is a 404 on every generated project, with the build green."
       },
       {
-        "ordem": 19,
+        "ordem": 20,
         "nome": "remote-gate",
         "tipo": "comando",
         "comando": [
@@ -3542,7 +3552,7 @@
         "dica": "The generated project stopped charging for the gate on the server. If it loosened, every project rebar makes is born with `main` open and the CI badge green — which is the state this level exists to make impossible."
       },
       {
-        "ordem": 20,
+        "ordem": 21,
         "nome": "chain",
         "tipo": "comando",
         "comando": [
@@ -3553,7 +3563,7 @@
         "dica": "A link left the `verificar` of the generated project, or its order changed. What the generated CI runs is exactly this chain — a link that leaves stops being checked everywhere at once."
       },
       {
-        "ordem": 21,
+        "ordem": 22,
         "nome": "generator-identity",
         "tipo": "comando",
         "comando": [
@@ -3564,7 +3574,7 @@
         "dica": "The identity of the first commit of the generated project stopped matching the one that goes into the NOTICE and the allowlist. The project is born with the list saying one person and the history having another, and that only shows up months later."
       },
       {
-        "ordem": 22,
+        "ordem": 23,
         "nome": "mcp-template",
         "tipo": "comando",
         "comando": [
@@ -3575,7 +3585,7 @@
         "dica": "The MCP the generator writes stopped answering, started lying about the state of the gate, or drifted from what rebar-security knows of it. A sanitizer difference means the block between the @texto-seguro markers no longer equals tooling/security/texto-seguro.mjs. A stale table means the template changed, or an entry is not a version in the history of HEAD (a hand edit, or a branch version a squash merge dropped): run `node new/gate/modelos-mcp.mjs --escrever`, then `npm run format`, and commit tooling/security/injection/modelos-mcp.json with it. Run `node new/gate/prove-mcp-template.mjs` without --curto to see the whole exchange."
       },
       {
-        "ordem": 23,
+        "ordem": 24,
         "nome": "security",
         "tipo": "comando",
         "comando": [
@@ -3587,7 +3597,7 @@
         "dica": "A rule of rebar-security stopped failing what it should, or started accusing what is correct. The pass/ side of each case carries the named false positives: if it went red, the rule loosened too much."
       },
       {
-        "ordem": 24,
+        "ordem": 25,
         "nome": "security-table",
         "tipo": "comando",
         "comando": [
@@ -3598,7 +3608,7 @@
         "dica": "A pattern table of rebar-security matches text rebar itself tracks: an explanation repeats its literal, or a source, README or the MCP artifact spells what a table hunts. Assemble the word from pieces in code and describe it by effect in prose; excluding the file only ships the sample in every copy of rebar."
       },
       {
-        "ordem": 25,
+        "ordem": 26,
         "nome": "security-injection",
         "tipo": "comando",
         "comando": [
@@ -3626,7 +3636,7 @@
         "dica": "An injection rule changed behaviour, the index reader or a format decoder changed what it reads, what `rebar new` generates stopped passing the injection rules, a proof case started tracking an agent file, or rebar itself carries a signature. These rules read the git INDEX: a fix only in the working tree counts once it is staged."
       },
       {
-        "ordem": 26,
+        "ordem": 27,
         "nome": "security-self",
         "tipo": "comando",
         "comando": [
@@ -3637,7 +3647,7 @@
         "dica": "rebar failed its own security ruler. If the finding is a detection table finding itself, the fix is to take the literal out of the message or assemble it in pieces -- not to exclude the file, which only postpones it. The injection rules read the git index: stage a local fix before judging it."
       },
       {
-        "ordem": 27,
+        "ordem": 28,
         "nome": "self",
         "tipo": "comando",
         "comando": [
@@ -3707,7 +3717,7 @@
       "decisao": "The root has no production dependency, and what checks does not depend on what is checked. It is what makes `npx github:Navesz/rebar` run without installing anything.",
       "prova": {
         "arquivo": "package.json",
-        "linha": 23,
+        "linha": 24,
         "trecho": "dependencies: 0 · devDependencies: prettier"
       },
       "porque": null,

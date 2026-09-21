@@ -943,6 +943,7 @@ const PASSOS_ESPERADOS = [
   'scoreboard',
   'format',
   'links',
+  'version',
   'secret',
   'secret-proofs',
   'steps',

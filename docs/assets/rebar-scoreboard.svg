@@ -32,7 +32,7 @@
   <text y="436"><tspan x="26" fill="#6f757e">–</tspan><tspan x="52" fill="#c9ced6">orphan-schema</tspan><tspan x="256" fill="#6f757e">no orphan JSON Schema</tspan><tspan fill="#5c626b" dx="12">no .schema.json in the repository</tspan></text>
   <text y="458"><tspan x="26" fill="#53be70">✓</tspan><tspan x="52" fill="#c9ced6">phone</tspan><tspan x="256" fill="#8b9199">no Brazilian phone number in the code</tspan></text>
   <text x="26" y="480" fill="#6f757e" font-style="italic">── heuristics (they do not enter the score, they do not drop the CI)</text>
-  <text y="502"><tspan x="26" fill="#ff6367">✗</tspan><tspan x="52" fill="#c9ced6">single-language</tspan><tspan x="256" fill="#8b9199">comments in pt (4) and en (45) in the same repository</tspan></text>
+  <text y="502"><tspan x="26" fill="#ff6367">✗</tspan><tspan x="52" fill="#c9ced6">single-language</tspan><tspan x="256" fill="#8b9199">comments in pt (4) and en (46) in the same repository</tspan></text>
   <text x="26" y="530" font-weight="600"><tspan fill="#53be70">15 of 15</tspan><tspan fill="#f0f3f6">  ·  3 not applicable  ·  1 warning(s)</tspan></text>
   </g>
 </svg>

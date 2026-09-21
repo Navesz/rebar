@@ -1189,6 +1189,14 @@ export default [
     tempoLimite: 1 * MINUTO,
   },
   {
+    nome: 'version',
+    comando: node('tooling/version/check-version.mjs'),
+    exige: ['tooling/version/check-version.mjs', 'CHANGELOG.md'],
+    dica: 'The manifest, the changelog and the tag a release would cut stopped agreeing. PLANO asks for versioning at N4 where there is an external consumer, and a workflow pinned to `uses: Navesz/rebar@v0` is one.',
+    extrair: /^\s*✗/,
+    tempoLimite: 1 * MINUTO,
+  },
+  {
     nome: 'secret',
     comando: node('tooling/secret/scan-secret.mjs'),
     exige: ['tooling/secret/scan-secret.mjs'],
