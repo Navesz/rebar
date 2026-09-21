@@ -71,7 +71,7 @@ After editing `.mcp.json`, restart Claude Code and check with `/mcp`.
 | `rebar_regras` | "what is going to fail me here?" | before writing code |
 | `rebar_porque` | "why is this a rule?" — with the measured number and the proofs | when the gate fails you and you feel like working around it |
 | `rebar_decidir` | "has the project already decided about X?" | before proposing a stack, library, format or process |
-| `rebar_portao` | the gate's <!--n mcp.artefato.passos-->27<!--/n--> steps, the command for each one, the exit codes | when the gate fails and the message is not enough |
+| `rebar_portao` | the gate's <!--n mcp.artefato.passos-->28<!--/n--> steps, the command for each one, the exit codes | when the gate fails and the message is not enough |
 | `rebar_verificar` | runs the rulers (`rebar-check` and `rebar-security`) over a path and returns the scoreboard | after touching things, before saying you are done |
 
 ### Which ruler `rebar_verificar` runs

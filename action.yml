@@ -16,7 +16,7 @@
 # this is not the injection this project's own `ai-workflow-untrusted-input` rule
 # fails others for — but the shape is the same one, and a ruler that accuses that
 # shape should not ship it.
-name: rebar
+name: rebar — repository ruler and merge gate
 description: >-
   Audits a repository for shape and for known prompt-injection signatures in the
   files it versions, and fails the job when a deterministic rule fails.

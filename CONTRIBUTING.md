@@ -58,6 +58,27 @@ together with the change that made them stale:
 
 The gate names the right command when one of them is out of date.
 
+## Versioning
+
+SemVer does not answer the question this repository has to answer, so the bump is read
+from the CONSUMER side rather than from the size of the diff. A new rule changes no API
+and still turns a repository that passed yesterday red.
+
+| Change | Bump | Why |
+|---|---|---|
+| A rule added, or an existing one tightened | minor while 0.x, major after 1.0 | it can turn green into red |
+| A false positive fixed | patch | it can only turn red into green |
+| Output, docs, internals with no verdict moved | patch | nobody downstream sees a different result |
+
+Every version gets an entry in [`CHANGELOG.md`](CHANGELOG.md), newest first, and the entry
+names the rule ids whose verdict can move. The `version` step of the gate fails when the
+manifest and the newest entry disagree — a release cut from a tree in that state would tag
+one number and ship another.
+
+Consumers who pin `uses: Navesz/rebar@v0` follow the moving tag and get those minors.
+Pinning the commit is the stricter form, and it is the one the README documents, because
+`unpinned-remote-exec` is a rule this project fails others for.
+
 ## Co-authorship
 
 The `commit-msg` hook only accepts `Co-authored-by` trailers from the humans listed in
