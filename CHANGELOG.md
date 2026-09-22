@@ -29,7 +29,9 @@ that it can be referenced.
 - **`action.yml`**: the rulers as a GitHub Action step, so adopting them in CI is
   a line in the workflow rather than an invocation to get right by hand. It reports
   `outputs.exit-code`, because a failed job does not say whether the repository
-  violated a rule (1) or a rule broke (127), and those call for opposite reactions.
+  violated a rule (1) or a rule broke (127), and those call for opposite reactions. A `rule` input runs one rule
+  alone, and an input the rulers cannot act on exits 2, the code the rulers already
+  use for a bad invocation.
 
 Known limits, unchanged and stated in the README: alpha, one maintainer, it
 gates one repository for real — its own. It decides on a repository at rest: it

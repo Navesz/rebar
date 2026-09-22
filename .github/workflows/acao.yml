@@ -1,15 +1,25 @@
-# The Action run for real, on a runner, in the three directions that matter.
+# The Action run for real, on a runner, in every direction that matters.
 #
-# WHY IT EXISTS. `action.yml` was tested by extracting its script and running it
-# under `bash -e` locally. That proves the logic, not the Action: `uses:` resolves
-# `github.action_path`, wires inputs through `env:` and reads outputs through
-# `$GITHUB_OUTPUT`, and none of that ran. A step nobody has watched fail for the
-# right reason is not evidence — this is the same rule the gate applies to itself.
+# WHY IT EXISTS. `action.yml` was first tested by extracting its script and running
+# it under `bash -e` locally. That proves the logic, not the Action: `uses:`
+# resolves `github.action_path`, wires inputs through `env:` and reads outputs
+# through `$GITHUB_OUTPUT`, and none of that ran. A step nobody has watched fail
+# for the right reason is not evidence — the rule the gate applies to itself.
 #
-# WHY IT ASSERTS THE EXIT CODE AND NOT THE OUTCOME. A failed job does not say why.
-# If the "fails" job only checked `outcome == 'failure'`, it would stay green with
-# the Action broken (127) or pointed at a missing path (2). So each job asserts
-# the exact number the Action reports in `outputs.exit-code`.
+# WHY EACH JOB ASSERTS THE EXIT CODE, NOT THE OUTCOME. A failed job does not say
+# why. A job that only checked `outcome == 'failure'` would stay green with the
+# Action broken (127) or pointed at a missing path (2).
+#
+# WHY THE FORMATTER JOBS USE `rule:` AND COME IN A PAIR. The first version of
+# this file failed a fixture that violated six rules at once, so it would have
+# stayed green with `formatter` dead: five other rules still made it exit 1. Now
+# one rule runs alone, against two fixtures that differ in one word of one
+# script — `--write` fails, `--check` passes. That is the rule proven in both
+# directions through the Action, not the Action proven to fail somehow.
+#
+# WHY THE ACTIONS ARE PINNED BY SHA. A tag can be moved by whoever controls the
+# repository it lives in; a commit cannot. The comment names the release the SHA
+# was resolved from, so a bump is a reviewable diff.
 name: acao
 
 on:
@@ -25,12 +35,12 @@ jobs:
     name: acao · passes on this repository (0)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # ai-coauthorship and git-identity read `git log`; a depth-1 clone would
           # show them one commit and they would pass any history.
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
       - id: regua
@@ -43,52 +53,77 @@ jobs:
         run: |
           [ "$CODIGO" = "0" ] || { echo "::error::expected exit-code 0, got '$CODIGO'"; exit 1; }
 
-  reprova:
-    name: acao · fails a repository that violates a rule (1)
+  formatter:
+    name: acao · formatter alone, ${{ matrix.caso }} (${{ matrix.espera }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - caso: script only rewrites
+            script: prettier --write .
+            espera: '1'
+          - caso: script checks
+            script: prettier --check .
+            espera: '0'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
-      # A repository with a formatter that only rewrites: `formatter` is
-      # deterministic, so this must fail with 1 — not break with 127.
-      - name: Build a repository that violates `formatter`
+      - name: Build the fixture
+        env:
+          SCRIPT: ${{ matrix.script }}
         run: |
-          alvo="$RUNNER_TEMP/viola"
+          alvo="$RUNNER_TEMP/alvo"
           mkdir -p "$alvo"
           cd "$alvo"
           git init -q
-          printf '{\n  "name": "viola",\n  "scripts": { "format": "prettier --write ." },\n  "devDependencies": { "prettier": "^3" }\n}\n' > package.json
-          printf '# viola\n' > README.md
+          printf '{\n  "name": "alvo",\n  "scripts": { "format": "%s" },\n  "devDependencies": { "prettier": "^3" }\n}\n' "$SCRIPT" > package.json
+          printf '# alvo\n' > README.md
           git add -A
           git -c user.name=acao -c user.email=acao@example.invalid commit -q -m "fixture"
       - id: regua
         uses: ./
         continue-on-error: true
         with:
-          path: ${{ runner.temp }}/viola
-      - name: The Action reported 1
+          path: ${{ runner.temp }}/alvo
+          ruler: check
+          rule: formatter
+      - name: The Action reported ${{ matrix.espera }}
         env:
           CODIGO: ${{ steps.regua.outputs.exit-code }}
-          RESULTADO: ${{ steps.regua.outcome }}
+          ESPERA: ${{ matrix.espera }}
         run: |
-          [ "$RESULTADO" = "failure" ] || { echo "::error::expected the step to fail, it was '$RESULTADO'"; exit 1; }
-          [ "$CODIGO" = "1" ] || { echo "::error::expected exit-code 1, got '$CODIGO'"; exit 1; }
+          [ "$CODIGO" = "$ESPERA" ] || { echo "::error::expected exit-code $ESPERA, got '$CODIGO'"; exit 1; }
 
-  alvo-invalido:
-    name: acao · rejects a missing path (2)
+  invocacao-invalida:
+    name: acao · refuses a bad invocation, ${{ matrix.caso }} (2)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - caso: missing path
+            path: ./does-not-exist
+            ruler: check
+            rule: ''
+          - caso: rule with both rulers
+            path: .
+            ruler: both
+            rule: formatter
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
       - id: regua
         uses: ./
         continue-on-error: true
         with:
-          path: ./does-not-exist
+          path: ${{ matrix.path }}
+          ruler: ${{ matrix.ruler }}
+          rule: ${{ matrix.rule }}
       - name: The Action reported 2
         env:
           CODIGO: ${{ steps.regua.outputs.exit-code }}

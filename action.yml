@@ -46,12 +46,18 @@ inputs:
     description: When `true`, prints the structured report instead of the scoreboard.
     required: false
     default: 'false'
+  rule:
+    description: >-
+      Run one rule only, by id. Needs `ruler` set to the ruler that owns it: a
+      ruler that does not know the id exits 2, so `both` is refused.
+    required: false
+    default: ''
 
 outputs:
   exit-code:
     description: >-
-      0 passed · 1 a real violation · 2 invalid target · 127 a rule threw. A failed
-      job alone does not say which, and 1 and 127 call for opposite reactions.
+      0 passed · 1 a real violation · 2 invalid target or invocation · 127 a rule
+      threw. Empty when the job failed before the rulers ran (Node older than 22).
     value: ${{ steps.rebar.outputs.exit-code }}
 
 runs:
@@ -75,14 +81,23 @@ runs:
         REBAR_RULER: ${{ inputs.ruler }}
         REBAR_HEURISTICS: ${{ inputs.heuristics }}
         REBAR_JSON: ${{ inputs.json }}
+        REBAR_RULE: ${{ inputs.rule }}
       run: |
+        # An input the rulers cannot act on is a bad invocation, and the rulers
+        # already say what that is: 2. It used to be 1 here, which is the code
+        # for a real violation — the one mix-up a consumer must never face.
+        recusar() {
+          echo "::error::$1"
+          echo "exit-code=2" >> "$GITHUB_OUTPUT"
+          exit 2
+        }
         case "$REBAR_RULER" in
           check|security|both) ;;
-          *)
-            echo "::error::ruler must be check, security or both — got '$REBAR_RULER'."
-            exit 1
-            ;;
+          *) recusar "ruler must be check, security or both — got '$REBAR_RULER'." ;;
         esac
+        if [ -n "$REBAR_RULE" ] && [ "$REBAR_RULER" = "both" ]; then
+          recusar "rule '$REBAR_RULE' needs ruler check or security: the ruler that does not know it would exit 2 and hide the other's verdict."
+        fi
 
         # The step runs under `bash -e`, so a bare `[ ... ] && ...` that tests
         # false returns 1 and kills the step. Every condition here is an `if`
@@ -91,6 +106,7 @@ runs:
         flags=()
         if [ "$REBAR_HEURISTICS" = "true" ]; then flags+=(--heuristics); fi
         if [ "$REBAR_JSON" = "true" ]; then flags+=(--json); fi
+        if [ -n "$REBAR_RULE" ]; then flags+=("--rule=$REBAR_RULE"); fi
 
         # 127 means a rule threw, and it dominates 1: a repository is never
         # accused by a ruler that broke. Keeping that rule when both rulers run
