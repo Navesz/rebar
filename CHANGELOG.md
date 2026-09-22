@@ -27,7 +27,9 @@ that it can be referenced.
 - **`rebar new`**, the generator: a project that is born with the gate inside and
   an MCP server that serves the rules to the agent before it writes code.
 - **`action.yml`**: the rulers as a GitHub Action step, so adopting them in CI is
-  a line in the workflow rather than an invocation to get right by hand.
+  a line in the workflow rather than an invocation to get right by hand. It reports
+  `outputs.exit-code`, because a failed job does not say whether the repository
+  violated a rule (1) or a rule broke (127), and those call for opposite reactions.
 
 Known limits, unchanged and stated in the README: alpha, one maintainer, it
 gates one repository for real — its own. It decides on a repository at rest: it

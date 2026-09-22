@@ -47,6 +47,13 @@ inputs:
     required: false
     default: 'false'
 
+outputs:
+  exit-code:
+    description: >-
+      0 passed · 1 a real violation · 2 invalid target · 127 a rule threw. A failed
+      job alone does not say which, and 1 and 127 call for opposite reactions.
+    value: ${{ steps.rebar.outputs.exit-code }}
+
 runs:
   using: composite
   steps:
@@ -60,6 +67,7 @@ runs:
         fi
 
     - name: rebar
+      id: rebar
       shell: bash
       env:
         REBAR_ACTION_PATH: ${{ github.action_path }}
@@ -103,4 +111,7 @@ runs:
           run_ruler tooling/security/index.mjs
         fi
 
+        # Written before the exit so a failing step still reports which failure
+        # it was; `.github/workflows/acao.yml` asserts on this number.
+        echo "exit-code=$worst" >> "$GITHUB_OUTPUT"
         exit "$worst"

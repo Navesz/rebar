@@ -1,0 +1,96 @@
+# The Action run for real, on a runner, in the three directions that matter.
+#
+# WHY IT EXISTS. `action.yml` was tested by extracting its script and running it
+# under `bash -e` locally. That proves the logic, not the Action: `uses:` resolves
+# `github.action_path`, wires inputs through `env:` and reads outputs through
+# `$GITHUB_OUTPUT`, and none of that ran. A step nobody has watched fail for the
+# right reason is not evidence — this is the same rule the gate applies to itself.
+#
+# WHY IT ASSERTS THE EXIT CODE AND NOT THE OUTCOME. A failed job does not say why.
+# If the "fails" job only checked `outcome == 'failure'`, it would stay green with
+# the Action broken (127) or pointed at a missing path (2). So each job asserts
+# the exact number the Action reports in `outputs.exit-code`.
+name: acao
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  passa:
+    name: acao · passes on this repository (0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # ai-coauthorship and git-identity read `git log`; a depth-1 clone would
+          # show them one commit and they would pass any history.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - id: regua
+        uses: ./
+        with:
+          ruler: both
+      - name: The Action reported 0
+        env:
+          CODIGO: ${{ steps.regua.outputs.exit-code }}
+        run: |
+          [ "$CODIGO" = "0" ] || { echo "::error::expected exit-code 0, got '$CODIGO'"; exit 1; }
+
+  reprova:
+    name: acao · fails a repository that violates a rule (1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # A repository with a formatter that only rewrites: `formatter` is
+      # deterministic, so this must fail with 1 — not break with 127.
+      - name: Build a repository that violates `formatter`
+        run: |
+          alvo="$RUNNER_TEMP/viola"
+          mkdir -p "$alvo"
+          cd "$alvo"
+          git init -q
+          printf '{\n  "name": "viola",\n  "scripts": { "format": "prettier --write ." },\n  "devDependencies": { "prettier": "^3" }\n}\n' > package.json
+          printf '# viola\n' > README.md
+          git add -A
+          git -c user.name=acao -c user.email=acao@example.invalid commit -q -m "fixture"
+      - id: regua
+        uses: ./
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/viola
+      - name: The Action reported 1
+        env:
+          CODIGO: ${{ steps.regua.outputs.exit-code }}
+          RESULTADO: ${{ steps.regua.outcome }}
+        run: |
+          [ "$RESULTADO" = "failure" ] || { echo "::error::expected the step to fail, it was '$RESULTADO'"; exit 1; }
+          [ "$CODIGO" = "1" ] || { echo "::error::expected exit-code 1, got '$CODIGO'"; exit 1; }
+
+  alvo-invalido:
+    name: acao · rejects a missing path (2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - id: regua
+        uses: ./
+        continue-on-error: true
+        with:
+          path: ./does-not-exist
+      - name: The Action reported 2
+        env:
+          CODIGO: ${{ steps.regua.outputs.exit-code }}
+        run: |
+          [ "$CODIGO" = "2" ] || { echo "::error::expected exit-code 2, got '$CODIGO'"; exit 1; }
